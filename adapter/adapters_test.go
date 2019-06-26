@@ -30,9 +30,9 @@ const (
 )
 
 func TestCreateAdapters(t *testing.T) {
-	store := storage.NewMemoryStorage("dam-static", "config")
+	store := storage.NewMemoryStorage("dam-static", "test/config")
 	warehouse := clouds.NewMockTokenCreator(false)
-	secretStore := storage.NewMemoryStorage("dam", "config")
+	secretStore := storage.NewMemoryStorage("dam", "test/config")
 	secrets := &pb.DamSecrets{}
 	if err := secretStore.Read("secrets", storage.DefaultRealm, "main", storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
@@ -81,9 +81,9 @@ func TestCreateAdapters(t *testing.T) {
 }
 
 func TestGetItemVariables(t *testing.T) {
-	store := storage.NewMemoryStorage("dam-static", "config")
+	store := storage.NewMemoryStorage("dam-static", "test/config")
 	warehouse := clouds.NewMockTokenCreator(false)
-	secretStore := storage.NewMemoryStorage("dam", "config")
+	secretStore := storage.NewMemoryStorage("dam", "test/config")
 	secrets := &pb.DamSecrets{}
 	if err := secretStore.Read("secrets", storage.DefaultRealm, "main", storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
