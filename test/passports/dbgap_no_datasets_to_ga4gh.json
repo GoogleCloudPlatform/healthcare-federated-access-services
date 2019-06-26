@@ -3,17 +3,31 @@
     "AffiliationAndRole": [
       {
         "value": "member@GOOGLE-INC.orgs.nih.gov",
-        "source": "https://dbgap.nlm.nih.gov/aa",
+        "source": "https://orgs.nih.gov/orgs/060909998",
         "expires": 1565184000,
         "asserted": 1560000000,
         "by": "self"
+      },
+      {
+        "value": "member@GOOGLE-INC.orgs.nih.gov",
+        "source": "https://dbgap.nlm.nih.gov/aa",
+        "expires": 1565184000,
+        "asserted": 1560000000,
+        "by": "system"
+      },
+      {
+        "value": "researcher@ACME-INC.orgs.nih.gov",
+        "source": "https://orgs.nih.gov/orgs/060909999",
+        "expires": 1565184000,
+        "asserted": 1560000000,
+        "by": "so"
       },
       {
         "value": "researcher@ACME-INC.orgs.nih.gov",
         "source": "https://dbgap.nlm.nih.gov/aa",
         "expires": 1565184000,
         "asserted": 1560000000,
-        "by": "so"
+        "by": "system"
       }
     ]
   },

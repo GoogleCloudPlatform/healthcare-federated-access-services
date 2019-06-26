@@ -33,6 +33,7 @@ import (
 const (
 	// TODO: Update the issuer address once NCBI stands up their own OIDC endpoint.
 	dbGapIssuer = "https://dbgap.nlm.nih.gov/aa"
+	dbGapOrgURL = "https://orgs.nih.gov/orgs/"
 )
 
 // DbGapTranslator is a ga4gh.Translator that converts dbGap identities into GA4GH identities.
@@ -53,6 +54,7 @@ type dbGapAccess struct {
 type dbGapPassport struct {
 	Access []dbGapAccess `json:"access"`
 	Org    *string       `json:"org"`
+	OrgID  *string       `json:"org_DUNS"`
 	Role   *string       `json:"role"`
 	SO     *string       `json:"so"`
 }
@@ -131,7 +133,11 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		GA4GH:   make(map[string][]ga4gh.Claim),
 	}
 	accessions := make(map[string]dbGapAccess)
-	affiliations := make(map[string]string)
+	type source struct {
+		orgID string
+		by    string
+	}
+	affiliations := make(map[string]source)
 	for _, p := range claims.DbGapPassport {
 		for _, a := range p.Access {
 			if a.Study.Accession == nil {
@@ -163,11 +169,16 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		o := removePunctuation.ReplaceAllString(*p.Org, "")
 		o = strings.ReplaceAll(o, " ", "-")
 		v := r + "@" + o + ".orgs.nih.gov"
-		if by, ok := affiliations[v]; !ok || by == "self" {
+		// Does not deal with complex cases where multiple org_DUNS attest to the same
+		// "value" (v) for AffiliationAndRole.
+		if src, ok := affiliations[v]; !ok || src.by == "self" {
+			by := "so"
 			if p.SO == nil || *p.SO == "" {
-				affiliations[v] = "self"
-			} else {
-				affiliations[v] = "so"
+				by = "self"
+			}
+			affiliations[v] = source{
+				orgID: *p.OrgID,
+				by:    by,
 			}
 		}
 	}
@@ -188,15 +199,23 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 			affiliationAsserted = val.Issued
 		}
 	}
-	for a, by := range affiliations {
+	for a, src := range affiliations {
 		id.GA4GH[ga4gh.ClaimAffiliationAndRole] = append(id.GA4GH[ga4gh.ClaimAffiliationAndRole],
+			ga4gh.Claim{
+				Value:    a,
+				Source:   dbGapOrgURL + src.orgID,
+				Asserted: affiliationAsserted,
+				Expires:  float64(currUnixTime + validSec),
+				By:       src.by,
+			},
 			ga4gh.Claim{
 				Value:    a,
 				Source:   dbGapIssuer,
 				Asserted: affiliationAsserted,
 				Expires:  float64(currUnixTime + validSec),
-				By:       by,
-			})
+				By:       "system",
+			},
+		)
 	}
 	return &id, nil
 }
