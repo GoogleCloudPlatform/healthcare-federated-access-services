@@ -19,7 +19,7 @@ syntax = "proto3";
 // 'real' versions of these messages from their protocol buffer counterparts.
 package builder;
 
-option go_package = "github.com/googlegenomics/ga4gh-identity/builder";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/builder";
 
 message Validator {
   message And {

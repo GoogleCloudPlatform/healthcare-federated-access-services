@@ -18,7 +18,7 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package dam.v1;
 
-option go_package = "github.com/googlegenomics/ga4gh-identity/dam/api/v1";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/dam/api/v1";
 
 message DamConfig {
   string version = 1;

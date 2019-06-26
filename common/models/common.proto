@@ -17,7 +17,7 @@ syntax = "proto3";
 // Package models defines models share between IC and DAM server.
 package common.models;
 
-option go_package = "github.com/googlegenomics/ga4gh-identity/common/models";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/common/models";
 
 message Permissions {
   message PermissionUser {

@@ -20,7 +20,7 @@ package ic.v1;
 
 import "common/models/common.proto";
 
-option go_package = "github.com/googlegenomics/ga4gh-identity/ic/api/v1";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/ic/api/v1";
 
 ///////////////////////////////////////////////////
 // oidc
