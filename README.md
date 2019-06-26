@@ -1,4 +1,4 @@
-# `healthcare-federated-access-tools`
+# `healthcare-federated-access-services`
 
 This repository contains an implementation of the
 [GA4GH](https://www.ga4gh.org/) Researcher Identity and
@@ -88,7 +88,9 @@ Add `Service Account Token Creator` role to `App Engine default service account`
     ACCOUNT_DOMAIN: "${account-project-domain}"
     CONFIG_PATH: "config"
     PROJECT: "${ic-hosting-project}"
-    PERSONA_DAM: "https://dam-dot-${dam-hosting-project}.appspot.com"
+    PERSONA_DAM_URL: "https://dam-dot-${dam-hosting-project}.appspot.com"
+    PERSONA_DAM_CLIENT_ID: "${dam-client-id}"
+    PERSONA_DAM_CLIENT_SECRET: "${dam-client-secret}"
     STORAGE: "datastore"
   ```
 
