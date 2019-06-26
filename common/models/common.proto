@@ -1,0 +1,45 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Package models defines models share between IC and DAM server.
+package common.models;
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/common/models";
+
+message Permissions {
+  message PermissionUser {
+    map<string, int64> roles = 1;
+    repeated string tags = 2;
+  }
+  string version = 1;
+  int64 revision = 2;
+  double commit_time = 3;
+  map<string, PermissionUser> users = 4;
+}
+
+message AccountTag {
+  string category = 1;
+  map<string, string> ui = 3;
+}
+
+// LoginState records states for login and login callback.
+message LoginState {
+  string idp_name = 1;
+  string realm = 2;
+  string client_id = 3;
+  string scope = 4;
+  string redirect = 5;
+}

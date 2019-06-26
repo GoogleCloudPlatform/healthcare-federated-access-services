@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<!--
+ Copyright 2019 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Identity Concentrator: Sign In</title>
+
+  <link rel="icon" href="/identity/static/favicon.png" type="image/png"/>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css">
+  <!-- <link rel="stylesheet" href="/identity/static/login.css"> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"></script>
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      font-size: 16px;
+      color: #2B2B2B;
+    }
+
+    p {
+      font-size: 16px;
+    }
+
+    h2 {
+      font-size: 3rem;
+      font-weight: 300;
+    }
+
+    h4 {
+      font-size: 2rem;
+      font-weight: 300;
+      margin-bottom: 1rem;
+    }
+
+    h4:not(:first-child) {
+      margin-top: 4rem;
+    }
+
+    h4:first-of-type {
+      --margin: 0 0 1rem 0;
+    }
+
+    a:not(:last-of-type) {
+      margin-bottom: 0.35rem;
+    }
+
+    a:not(:first-of-type) {
+      margin-top: 0.35rem;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .flex--column {
+      flex-direction: column;
+    }
+
+    .vertical-center {
+      align-items: center;
+    }
+
+    .horizontal-center {
+      justify-content: center;
+    }
+
+    .stretch {
+      flex-grow: 1;
+    }
+
+    .hide {
+      display: none;
+    }
+
+    button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
+    .mdl-button--primary.mdl-button--primary.mdl-button--fab {
+      background-color: #77777a;
+      color: #ffffff;
+    }
+
+    .mdl-button--primary.mdl-button--primary.mdl-button--raised,
+    .mdl-button--primary.mdl-button--primary.mdl-button--fab {
+      background-color: #00bdd4;
+      padding-left: 4rem;
+      padding-right: 4rem;
+    }
+
+    .mdl-button--primary.mdl-button--primary.mdl-button--google {
+      background-color: #ff3b30;
+    }
+
+    .mdl-button {
+      overflow: initial;
+    }
+
+    #providers-container {
+      padding: 0 4rem;
+      justify-content: center;
+      background-color: #ffffff;
+      margin-bottom: 2rem;
+    }
+
+    #providers-container .mdl-card {
+      min-height: 0;
+      font-weight: 500;
+    }
+
+    #providers-container img {
+      width: 4rem;
+      height: 4rem;
+      margin-right: 0.75rem;
+    }
+
+    #main-container {
+        background: url(/identity/static/background.png) center center / cover no-repeat;
+    }
+
+    #main-container .mdl-card {
+      padding: 2rem;
+      width: 65%;
+      max-width: 60rem;
+    }
+
+    #main-container h2.mdl-card__title-text {
+      font-size: 3rem;
+      font-weight: bold;
+    }
+
+    #main-container .mdl-card__supporting-text {
+      font-size: 1.2rem;
+    }
+  </style>
+  <script>
+
+      var providers = ${PROVIDER_LIST};
+
+      function onInit() {
+          if (!providers) return;
+          providers.idps && populateProviderHtml("idps", providers.idps);
+          providers.personas && populateProviderHtml("personas", providers.personas);
+      }
+
+      function populateProviderHtml(id, items) {
+          var html = "";
+
+          html += getProviderHeaderHtml(id, html);
+          html += getProviderActionsHtml(items, html);
+
+          $('#providers-container').append(html);
+      }
+
+      function getProviderHeaderHtml(id) {
+          if (id === 'idps') {
+              return '<h4>Log in</h4><p>Verify your identity to discover and access data.</p>';
+          } else if (id === 'personas') {
+              return '<h4>Testing personas</h4><p>Log in using one of these existing testing personas.</p>';
+          }
+      }
+
+      function getProviderActionsHtml(items) {
+          var names = Object.keys(items);
+          names.sort();
+          var html = "";
+          for (var i = 0; i < names.length; i++) {
+              var name = names[i];
+              var item = items[name];
+              var label = (item.ui && item.ui.label) || name;
+              var iconUrl = (item.ui && item.ui.iconUrl) || null;
+              html += getProviderCardHtml(item.url, name, label, iconUrl);
+          }
+          return html;
+      }
+
+      function getProviderCardHtml(url, name, label, iconUrl) {
+          var cardClass = 'mdl-card mdl-shadow--2dp';
+          // TODO(cdvoisin): escape url and label to be safe strings.
+          if (iconUrl) {
+              return `<a class="${cardClass}" onclick="onClickProvider(event);" href="${url}">` +
+                  `<div class="mdl-card__title flex vertical-center"><img src="${iconUrl}" alt="Icon"/>${label}</div>` +
+                  '</a>';
+          }
+          return `<a class="${cardClass} no-image" onclick="onClickProvider(event);"  href="${url}">` +
+              `<div class="mdl-card__title flex vertical-center">${label}</div>` +
+              '</a>';
+      }
+
+      function onClickProvider(event) {
+        // var app = "${APPLICATION_NAME}";
+        // var message = `By clicking OK, you agree to release your Researcher Claims to ${app}`;
+        // var ans = window.confirm(message);
+        // if (!ans) {
+        //   event.preventDefault();
+        // }
+      }
+  </script>
+</head>
+<body class="flex"
+      onload="onInit()">
+  <main class="flex stretch">
+    <div id="providers-container"
+         class="flex flex--column">
+    </div>
+    <div id="main-container"
+         class="flex vertical-center horizontal-center stretch">
+      <div class="mdl-card mdl-shadow--2dp">
+        <div class="mdl-card__title">
+          <h2 class="mdl-card__title-text">Data Discovery and Access Platform</h2>
+        </div>
+        <div class="mdl-card__supporting-text">
+          <p><strong>
+            Welcome to the GA4GH Demo of federated identity and claims-based access management.
+          </strong></p>
+          <p>
+            The Data Discovery and Access Platform provides researchers access to data provided by data hosts.
+            Researchers can bring their own identities from various identity providers and aggregate
+            <a href="http://bit.ly/ga4gh-ri-v1#ga4gh-researcher-identity--access-claims-frozen-rfc" target="_blank">GA4GH Researcher Identity Claims</a>
+            from these accounts to meet access criteria for these research datasets.
+          </p>
+          <p>
+            This <strong>Playground Edition</strong> of the platform can be used for testing of claims by allowing users to log
+            in using Test Persona accounts. These test persona accounts can be modified to assert different Identity Claims and then be used to
+            test data access against policies that check those claims.
+            <strong>Only for use with synthetic and public datasets.</strong>
+          </p>
+        </div>
+        <div class="mdl-card__actions hide">
+          <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--primary"
+                  disabled>
+            Explore
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

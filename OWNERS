@@ -1,0 +1,6 @@
+# third_party requires either 2 LDAPs or a file to another OWNERS
+# file under third_party/ that has 2 valid LDAPs.
+craigv
+nmousavi
+
+file://depot/google3/cloud/healthcare/OWNERS.data_connect

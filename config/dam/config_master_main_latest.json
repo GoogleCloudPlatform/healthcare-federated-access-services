@@ -1,0 +1,376 @@
+{
+  "version": "v0",
+  "revision": "1",
+  "commitTime": "1544824316",
+  "ui": {
+    "label": "Test Genome Repository"
+  },
+  "trustedPassportIssuers": {
+    "ic": {
+      "issuer": "https://${Your-IC-Domain}/oidc",
+      "clientId": "6126e2e5-7139-46a4-9457-e2b7341d6bdd"
+    }
+  },
+  "trustedSources": {
+    "elixir_institutes": {
+      "sources": [
+        "https://login.elixir-czech.org/oidc/",
+        "https://ga4gh.org/duri/no_org"
+      ]
+    }
+  },
+  "policies": {
+    "bona_fide": {
+      "allow": {
+        "claim": "ResearcherStatus",
+        "values": [
+          "https://doi.org/10.1038/s41431-018-0219-y",
+          "http://www.ga4gh.org/beacon/bonafide/ver1.0"
+        ],
+        "from": [
+          "elixir_institutes",
+          "eu_universities"
+        ]
+      },
+      "ui": {
+        "label": "Bona Fide",
+        "description": "Bona Fide Researcher Status v1.0.0 as defined by the Registered Access researcher model.",
+        "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#Sec6"
+      }
+    },
+    "ethics": {
+      "allow": {
+        "claim": "AcceptedTermsAndPolicies",
+        "values": ["https://doi.org/10.1038/s41431-018-0219-y"],
+        "by": ["self", "so"]
+      },
+      "ui": {
+        "label": "Researcher Ethics Agreement",
+        "description": "Based on Registered Access ethics terms",
+        "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#figure-1"
+      }
+    },
+    "dac": {
+      "allow": {
+        "claim": "ControlledAccessGrants",
+        "from": ["eu_institutes"],
+        "values": ["${DATASET}"],
+        "by": ["dac"]
+      },
+      "ui": {
+        "label": "Data Access Committee Approval",
+        "description": "Approval from a DAC for the researcher to access specific datasets",
+        "infoUrl": "https://${info-url}"
+      }
+    }
+  },
+  "resources": {
+    "thousand-genomes": {
+      "views": {
+        "file-access": {
+          "serviceTemplate": "gcs",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "${data-hosting-project}",
+                "bucket": "${gcs-bucket-name}"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["bona_fide"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "Full File Read Access"
+          }
+        }
+      },
+      "maxTokenTtl": "7d",
+      "ui": {
+        "applyUrl": "${dataset-apply-url}",
+        "description": "Demo Controlled Access of a subset of the 1000 Genomes dataset.",
+        "imageUrl": "${dataset-image-url}",
+        "infoUrl": "${dataset-info-url}",
+        "label": "1000 Genomes",
+        "troubleshootUrl": "${dataset-troubleshoot-url}",
+        "owner":"Human Genome Project",
+        "size":"250 GB",
+        "access":"registered, controlled",
+        "year":"2017",
+        "tags":"Demo, Genomics, Research"
+      }
+    },
+  "serviceTemplates": {
+    "beacon": {
+      "targetAdapter": "token:jwt:gatekeeper",
+      "itemFormat": "url",
+      "roles" : {
+        "basic_discovery": {
+          "targetScopes": [
+            "registered"
+          ],
+          "damRoleCategories": ["exists"],
+          "ui": {
+            "label": "Discovery Beacon Search without Metadata",
+            "description": "Query genome data and return 'found' or 'not found' status"
+          }
+        },
+        "discovery": {
+          "targetScopes": [
+            "registered",
+            "controlled"
+          ],
+          "damRoleCategories": ["metadata"],
+          "ui": {
+            "label": "Discovery Beacon Search with Metadata",
+            "description": "Query genome data and receive metadata results"
+          }
+        }
+      },
+      "interfaces": {
+        "http:beacon": "${url}"
+      },
+      "ui": {
+        "label": "Beacon Discovery Search"
+      }
+    },
+    "gcs": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "gcs",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/storage.objectViewer"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "File Viewer",
+            "description": "List and read files"
+          }
+        },
+        "creator": {
+          "targetRoles": ["roles/storage.objectCreator"],
+          "damRoleCategories": ["write"],
+          "ui": {
+            "label": "File Creator",
+            "description": "Write files (without read access)"
+          }
+        },
+        "editor": {
+          "targetRoles": [
+            "roles/storage.objectViewer",
+            "roles/storage.objectCreator"
+          ],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read", "write"],
+          "ui": {
+            "label": "File Editor",
+            "description": "Read and write files plus manipulate file metadata"
+          }
+        }
+      },
+      "interfaces": {
+        "gcp:gs": "gs://${bucket}",
+        "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${bucket}"
+      },
+      "ui": {
+        "label": "Google Cloud Storage"
+      }
+    },
+    "bigquery": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "bigquery",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/BQReader"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "BigQuery Viewer",
+            "description": "Query tables and view table metadata"
+          }
+        },
+        "editor": {
+          "targetRoles": ["roles/bigquery.dataEditor"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read", "write"],
+          "ui": {
+            "label": "BigQuery Editor",
+            "description": "Query and modify tables and table metadata"
+          }
+        }
+      },
+      "interfaces": {
+        "http:gcp:bq": "https://www.googleapis.com/bigquery/v1/projects/${project}"
+      },
+      "ui": {
+        "label": "Google BigQuery"
+      }
+    },
+    "views": {
+      "targetAdapter": "token:aggregate:view",
+      "itemFormat": "view",
+      "roles": {
+        "viewer": {
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "Viewer",
+            "description": "Offers Viewer access across multiple views"
+          }
+        }
+      },
+      "ui": {
+        "label": "Multiple Resource Views"
+      }
+    }
+  },
+  "claimDefinitions": {
+    "AffiliationAndRole": {
+      "ui": {
+        "label": "Affiliation and Role",
+        "description": "The Identity’s roles within affiliated institutions as specified by eduPerson with specific vocabulary extensions",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.vod2g2cjxjmp"
+      }
+    },
+    "AcceptedTermsAndPolicies": {
+      "ui": {
+        "label": "Accepted Terms and Policies",
+        "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.pif6raoahha5"
+      }
+    },
+    "ResearcherStatus": {
+      "ui": {
+        "label": "Bona Fide Researcher Status",
+        "description": "Canonical URLs that indicate that the person has been acknowledged to be a bona fide researcher",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.jdh4ks6h3zzp"
+      }
+    },
+    "ControlledAccessGrants": {
+      "ui": {
+        "label": "Controlled Access Grants",
+        "description": "A list of datasets or other objects for which controlled access has been granted to this researcher",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.s459xswt1qt3"
+      }
+    }
+  },
+  "testPersonas": {
+    "administrator": {
+      "ui": {
+        "label": "Administrator"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://${Your-IC-Domain}/oidc",
+          "sub": "admin@example.org"
+        }
+      }
+    },
+    "nci_researcher": {
+      "ui": {
+        "label": "NCI Researcher"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "sub": "nci_researcher@example.org"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "ResearcherStatus",
+            "source": "https://ga4gh.org/duri/no_org",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "peer"
+          },
+          {
+            "claimName": "AcceptedTermsAndPolicies",
+            "source": "https://example.edu",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "self"
+          }
+        ]
+      },
+      "resources": {
+        "thousand-genomes" : {
+          "access" : ["discovery-access/discovery", "file-access/viewer"]
+        }
+      }
+    },
+    "eu_researcher": {
+      "ui": {
+        "label": "EU Researcher"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "sub": "eu_researcher@example.org"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "ControlledAccessGrants",
+            "source": "https://ga4gh.org/duri/no_org",
+            "value": "https://dac.example.org/datasets/ds123",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac"
+          }
+        ]
+      },
+      "resources": {
+        "eu_example" : {
+          "access" : ["files/viewer"]
+        }
+      }
+    },
+    "undergrad_candice": {
+      "ui": {
+        "label": "Undergrad Candice"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "sub": "undergrad_candice@example.org"
+        }
+      },
+      "resources": {
+      }
+    }
+  },
+  "clients": {
+    "test_page": {
+      "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
+      "ui": {
+        "label": "IC Test Page",
+        "description": "The Identity Concentrator's test page can access DAM directly"
+      }
+    }
+  },
+  "options": {
+    "readOnlyMasterRealm": true,
+    "gcpManagedKeysMaxRequestedTtl": "7d",
+    "gcpManagedKeysPerAccount": 8,
+    "gcpServiceAccountProject": "${account-hosting-project}"
+  }
+}

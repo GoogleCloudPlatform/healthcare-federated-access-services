@@ -1,0 +1,343 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Package dam provides protocol buffer versions of the DAM API, allowing
+// end points to receive requests and returns responses using these messages.
+package ic.v1;
+
+import "common/models/common.proto";
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/ic/api/v1";
+
+///////////////////////////////////////////////////
+// oidc
+
+message OidcConfig {
+  string issuer = 1 [json_name = "issuer"];
+  string jwks_uri = 2 [json_name = "jwks_uri"];
+  string auth_url = 3 [json_name = "auth_url"];
+  repeated string response_types_supported = 4
+      [json_name = "response_types_supported"];
+  string token_endpoint = 5 [json_name = "token_endpoint"];
+  string revocation_endpoint = 8 [json_name = "revocation_endpoint"];
+  string userinfo_endpoint = 6 [json_name = "userinfo_endpoint"];
+  repeated string scopes_supported = 7 [json_name = "scopes_supported"];
+}
+
+///////////////////////////////////////////////////
+
+message IcConfig {
+  string version = 1;
+  int64 revision = 2;
+  double commit_time = 3;
+  map<string, IdentityProvider> identity_providers = 4;
+  map<string, Client> clients = 5;
+  map<string, common.models.AccountTag> account_tags = 6;
+  ConfigOptions options = 7;
+  map<string, string> ui = 8;
+}
+
+message IdentityProvider {
+  string issuer = 1;
+  string authorize_url = 2;
+  string response_type = 3;
+  string token_url = 4;
+  repeated string scopes = 5;
+  string translate_using = 6;
+  string client_id = 7;
+  map<string, string> ui = 8;
+}
+
+message Client {
+  string client_id = 1;
+  repeated string redirect_uris = 2;
+  map<string, string> ui = 3;
+}
+
+message ConfigOptions {
+  message Descriptor {
+    string label = 1;
+    string description = 2;
+    string regexp = 3;
+    string type = 4;
+    bool is_list = 5;
+    repeated string enum_values = 6;
+    string min = 7;
+    string max = 8;
+    string default_value = 9;
+  }
+  int32 account_name_length = 1;
+  bool read_only_master_realm = 2;
+  repeated string whitelisted_realms = 3;
+  string default_passport_token_ttl = 4;
+  string max_passport_token_ttl = 5;
+  string auth_code_token_ttl = 6;
+  string access_token_ttl = 7;
+  string refresh_token_ttl = 8;
+  string claim_ttl_cap = 9;
+  map<string, Descriptor> computed_descriptors = 10 [json_name = "descriptors"];
+}
+
+message IcSecrets {
+  string version = 1;
+  int64 revision = 2;
+  double commit_time = 3;
+  map<string, string> client_secrets = 4;
+  map<string, string> id_provider_secrets = 5;
+
+  message TokenKeys {
+    string private_key = 1;
+    string public_key = 2;
+  }
+  map<string, TokenKeys> token_keys = 6;
+}
+
+message ReadOnlyConfig {
+  string dex_url = 1;
+  string dex_port = 2;
+}
+
+message Realm {}
+
+///////////////////////////////////////////////////
+
+message Account {
+  int64 revision = 1;
+  AccountProfile profile = 2;
+  AccountProperties properties = 3;
+  repeated ConnectedAccount connected_accounts = 4;
+  string state = 5;
+  string owner = 6;
+  map<string, string> ui = 7;
+}
+
+message AccountProperties {
+  string subject = 1;
+  string email = 2;
+  bool email_verified = 3;
+  double created = 4;
+  double modified = 5;
+}
+
+message AccountProfile {
+  string username = 2;
+  string name = 3;
+  string given_name = 4;
+  string family_name = 5;
+  string middle_name = 6;
+  string profile = 7;
+  string picture = 8;
+  string zone_info = 9;
+  string locale = 10;
+}
+
+message ConnectedAccount {
+  AccountProfile profile = 1;
+  AccountProperties properties = 2;
+  string provider = 3;
+  double refreshed = 4;
+  int64 revision = 5;
+  int64 link_revision = 6;
+  map<string, AccountClaimList> claims = 7;
+  repeated string tags = 8;
+  IdentityProvider computed_identity_provider = 9
+      [json_name = "identityProvider"];
+  string computed_login_hint = 10 [json_name = "loginHint"];
+}
+
+message AccountClaimList {
+  repeated AccountClaim list = 1;
+}
+
+message AccountClaim {
+  message Condition {
+    repeated string value = 1;
+    repeated string source = 2;
+    repeated string by = 3;
+  }
+  string value = 1;
+  string source = 2;
+  double asserted = 3;
+  double expires = 4;
+  map<string, Condition> condition = 5;
+  string by = 6;
+}
+
+message AccountLookup {
+  string subject = 1;
+  int64 revision = 2;
+  double commit_time = 3;
+  string state = 4;
+}
+
+///////////////////////////////////////////////////
+
+message ConfigModification {
+  int64 revision = 1;
+  bool dry_run = 3;
+}
+
+message GetInfoRequest {}
+
+message GetInfoResponse {
+  string name = 1;
+  repeated string versions = 2;
+  int64 start_time = 3;
+  repeated string modules = 4;
+  map<string, string> ui = 5;
+}
+
+message RealmRequest {
+  Realm item = 1;
+}
+
+message RealmResponse {}
+
+message GetIdentityProvidersRequest {}
+
+message GetIdentityProvidersResponse {
+  map<string, IdentityProvider> identity_providers = 1;
+}
+
+message GetTokenRequest {}
+
+message GetTokenResponse {
+  message Info {
+    string name = 1;
+    string email = 2;
+  }
+  string access_token = 1 [json_name = "access_token"];
+  string token_type = 2 [json_name = "token_type"];
+  int32 expires_in = 3 [json_name = "expires_in"];
+  string refresh_token = 4 [json_name = "refresh_token"];
+  string id_token = 5 [json_name = "id_token"];
+  string scope = 6;
+  string uid = 7;
+  Info info = 8;
+}
+
+message ClientRequest {
+  Client item = 1;
+  string client_secret = 2 [json_name = "client_secret"];
+}
+
+message ClientResponse {
+  Client client = 1;
+  string client_secret = 2 [json_name = "client_secret"];
+}
+
+message ConfigRequest {
+  IcConfig item = 1;
+  ConfigModification modification = 2;
+}
+
+message ConfigResponse {}
+
+message ConfigIdentityProviderRequest {
+  IdentityProvider item = 1;
+  ConfigModification modification = 2;
+}
+
+message ConfigIdProviderResponse {}
+
+message ConfigClientRequest {
+  Client item = 1;
+  ConfigModification modification = 2;
+}
+
+message ConfigClientResponse {}
+
+message ConfigOptionsRequest {
+  ConfigOptions item = 1;
+  ConfigModification modification = 2;
+}
+
+message ConfigOptionsResponse {}
+
+message AccountRequest {
+  Account item = 1;
+  ConfigModification modification = 2;
+}
+
+message AccountResponse {
+  Account account = 1;
+}
+
+message AccountSubjectRequest {
+  ConnectedAccount item = 1;
+  ConfigModification modification = 2;
+}
+
+message AccountSubjectResponse {
+  ConnectedAccount item = 1;
+}
+
+message SubjectClaimsRequest {
+  ConfigModification modification = 1;
+}
+
+message SubjectClaimsResponse {
+  map<string, AccountClaimList> claims = 1;
+}
+
+message ClientSecretRequest {}
+
+message ClientSecretResponse {
+  string secret = 1;
+}
+
+message TokenMetadata {
+  string token_type = 1;
+  int64 issued_at = 2;
+  string scope = 3;
+  string identity_provider = 4;
+  string subject = 5;
+}
+
+message TokenMetadataRequest {}
+
+message TokenMetadataResponse {
+  TokenMetadata token_metadata = 1;
+}
+
+message TokensMetadataRequest {}
+
+message TokensMetadataResponse {
+  map<string, TokenMetadata> tokens_metadata = 1;
+}
+
+message RevocationRequest {
+  string token = 1;
+}
+
+///////////////////////////////////////////////////
+
+message LoginPageProviders {
+  message ProviderEntry {
+    string name = 1;
+    string url = 2;
+    map<string, string> ui = 3;
+  }
+  map<string, ProviderEntry> idps = 1;
+  map<string, ProviderEntry> personas = 2;
+}
+
+message GetPersonasResponse {
+  message Meta {
+    repeated string claim_names = 1;
+  }
+  map<string, Meta> personas = 1;
+}

@@ -1,0 +1,182 @@
+{
+  "version": "v0",
+  "revision": "1",
+  "commitTime": "1544824316",
+  "ui": {
+    "label": "Minimum Test DAM"
+  },
+  "trustedPassportIssuers": {
+    "ic_dev": {
+      "issuer": "https://ic-dot-example.appspot.com/oidc"
+    }
+  },
+  "trustedSources": {
+    "the_broad": {
+      "sources": [
+        "https://ga4gh.broadinstitute.org"
+      ]
+    }
+  },
+  "policies": {
+    "bona_fide": {
+      "allow": {
+        "claim": "BonaFide",
+        "values": ["https://doi.org/10.1038/s41431-018-0219-y"]
+      },
+      "ui": {
+        "label": "Bona Fide",
+        "description": "NIH custom Bona Fide reseacher status that makes use of Registered Access Bona Fide status and/or Library Cards",
+        "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#Sec6"
+      }
+    }
+  },
+  "resources": {
+    "ga4gh-apis": {
+      "views": {
+        "files": {
+          "serviceTemplate": "gcs",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "ga4gh-apis",
+                "bucket": "ga4gh-apis-controlled-access"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["bona_fide"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "File Read"
+          }
+        }
+      },
+      "maxTokenTtl": "1h",
+      "ui": {
+        "applyUrl": "http://apply.ga4gh-apis.org",
+        "description": "Google demo of GA4GH APIs",
+        "imageUrl": "https://www.ebi.ac.uk/sites/ebi.ac.uk/files/groups/external_relations/images/wide-imagery/Global_Alliance_news_logo_780x400_0.jpg",
+        "infoUrl": "http://info.ga4gh-apis.org",
+        "label": "GA4GH APIs",
+        "troubleshootUrl": "http://troubleshoot.ga4gh-apis.org"
+      }
+    }
+  },
+  "serviceTemplates": {
+    "gcs": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "gcs",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/storage.objectViewer"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "File Viewer",
+            "description": "List and read files"
+          }
+        }
+      },
+      "interfaces": {
+        "gcp:gs": "gs://${bucket}",
+        "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${bucket}"
+      },
+      "ui": {
+        "label": "Google Cloud Storage"
+      }
+    }
+  },
+  "claimDefinitions": {
+    "BonaFide": {
+      "ui": {
+        "label": "Bona Fide",
+        "description": "Unique identifiers in the form of URLs that indicate that the person has been acknowledged to be a researcher",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.jdh4ks6h3zzp"
+      }
+    }
+  },
+  "testPersonas": {
+    "non-admin": {
+      "ui": {
+        "label": "Non Admin"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://ic-dot-example.appspot.com/oidc",
+          "sub": "non-admin@faculty.example.edu"
+        },
+        "ga4ghClaims": []
+      },
+      "resources": {
+      }
+    },
+    "admin": {
+      "ui": {
+        "label": "Admin"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://ic-dot-example.appspot.com/oidc",
+          "sub": "admin@faculty.example.edu"
+        },
+        "ga4ghClaims": []
+      },
+      "resources": {
+      }
+    },
+    "dr_joe_elixir": {
+      "ui": {
+        "label": "Dr. Joe"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://ic-dot-example.appspot.com/oidc",
+          "sub": "dr_joe@faculty.example.edu"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "BonaFide",
+            "source": "https://ga4gh.broadinstitute.org",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "peer"
+          }
+        ]
+      },
+      "resources": {
+        "ga4gh-apis" : {
+          "access" : ["files/viewer"]
+        }
+      }
+    }
+  },
+  "clients": {
+    "test_client": {
+      "clientId": "00000000-0000-0000-0000-000000000000",
+      "ui": {
+        "label": "Test Client",
+        "description": "Unit test client"
+      }
+    }
+  },
+  "options": {
+    "readOnlyMasterRealm": true,
+    "gcpManagedKeysMaxRequestedTtl": "7d",
+    "gcpManagedKeysPerAccount": 8,
+    "gcpServiceAccountProject": "ga4gh-identity"
+  }
+}
