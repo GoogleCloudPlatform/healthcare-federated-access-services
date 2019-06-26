@@ -1,0 +1,25 @@
+{
+  "ga4gh": {
+    "ControlledAccessGrants": [
+      {
+        "value": "https://dac.nih.gov/datasets/phs000710",
+        "source": "https://dbgap.nlm.nih.gov/aa",
+        "expires": 1664887269,
+        "asserted": 1543927269,
+        "by": "dac"
+      }
+    ],
+    "AffiliationAndRole": [
+      {
+        "value": "researcher@ACME-INC.orgs.nih.gov",
+        "source": "https://dbgap.nlm.nih.gov/aa",
+        "expires": 1565184000,
+        "asserted": 1543927269,
+        "by": "so"
+      }
+    ]
+  },
+  "exp": 1553870302,
+  "iss": "https://dbgap.nlm.nih.gov/aa",
+  "sub": "999999"
+}

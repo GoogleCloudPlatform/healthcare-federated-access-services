@@ -1,0 +1,103 @@
+<!--
+ Copyright 2019 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<html>
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+      var instructions = ${TOKEN_URL};
+      var state = {};
+      var steps = [];
+      var step = 0;
+      function onInit() {
+        if (instructions) {
+          followInstructions();
+          return;
+        }
+        var params = new URLSearchParams(window.location.hash.substr(1));
+        var tok = params.get("id_token") || "";
+        var access = params.get("access_token") || "";
+        var state = params.get("state") || "";
+        var error = params.get("error") || "";
+        var errDesc = params.get("error_description") || "";
+        var url = [location.protocol, '//', location.host, location.pathname].join('');
+        url += "?client_extract=true&state=" + encodeURIComponent(state) + "&id_token=" + encodeURIComponent(tok) + "&access_token=" + encodeURIComponent(access);
+        if (error) {
+          url += "&error=" + encodeURIComponent(error) + "&error_description=" + encodeURIComponent(errDesc);
+        }
+        window.location.href = url;
+      }
+      function followInstructions() {
+        var parts = instructions.split("|");
+        for (var i = 0; i < parts.length; i++) {
+          var part = parts[i];
+          var idx = part.indexOf("=");
+          var name = part.substring(0, idx);
+          var url = part.substring(idx+1);
+          steps.push({
+            name: name,
+            url: url
+          });
+        }
+        resolve();
+      }
+      function resolve() {
+        var url = steps[step].url;
+        for (var name in state) {
+          // Replace all using split and join.
+          url = url.split("$["+name+"]").join(state[name]);
+        }
+        var type = "GET";
+        if (url.startsWith("POST@")) {
+          url = url.substring(5);
+          type = "POST";
+        }
+        $.ajax({
+          url: url,
+          type: type,
+          xhrFields: {
+            withCredentials: true
+          },
+          success: function(resp) {
+            var name = steps[step].name;
+            state[name] = resp;
+            step++;
+            if (step >= steps.length) {
+              return finish();
+            }
+            resolve();
+          },
+          error: function(err) {
+            $("#output").text(JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
+      function finish() {
+        var tok = state["ID_TOKEN"] || "";
+        if (!tok) {
+          $("#output").text("ERROR: invalid sequence of steps (does not define ID_TOKEN)");
+          return false;
+        }
+        var url = window.location.href + "&id_token=" + encodeURIComponent(tok);
+        window.location.href = url
+        return true;
+      }
+    </script>
+  </head>
+  <body onload="onInit();">
+    <pre id="output"></pre>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "revision": "1",
+  "profile": {
+    "username": "someone_account",
+    "name": "Someone Account"
+  },
+  "properties": {
+    "subject": "someone-account",
+    "created": 1561210176.6699858,
+    "modified": 1561226831.7180042
+  },
+  "connectedAccounts": [],
+  "state": "ACTIVE"
+}

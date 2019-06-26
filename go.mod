@@ -1,0 +1,25 @@
+module github.com/googlegenomics/ga4gh-identity
+
+require (
+	cloud.google.com/go v0.35.1
+	github.com/cenkalti/backoff v2.1.1+incompatible
+	github.com/coreos/go-oidc v2.0.0+incompatible
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/fsnotify/fsnotify v1.4.7
+	github.com/gofrs/flock v0.7.0
+	github.com/golang/mock v1.2.0
+	github.com/golang/protobuf v1.3.1
+	github.com/google/addlicense v0.0.0-20190510175307-22550fa7c1b0 // indirect
+	github.com/google/go-cmp v0.2.0
+	github.com/google/uuid v1.1.0
+	github.com/gorilla/mux v1.7.0
+	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
+	github.com/stretchr/testify v1.3.0 // indirect
+	go.opencensus.io v0.19.0 // indirect
+	golang.org/x/crypto v0.0.0-20190424203555-c05e17bb3b2d
+	golang.org/x/oauth2 v0.0.0-20190130055435-99b60b757ec1
+	google.golang.org/api v0.1.0
+	google.golang.org/genproto v0.0.0-20190201180003-4b09977fb922 // indirect
+	google.golang.org/grpc v1.18.0 // indirect
+	gopkg.in/square/go-jose.v2 v2.3.1
+)
