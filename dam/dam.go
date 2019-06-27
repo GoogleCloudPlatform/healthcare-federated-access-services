@@ -98,7 +98,6 @@ const (
 	noScope             = ""
 	defaultPersonaScope = ""
 	damStaticService    = "dam-static"
-	inheritService      = ""
 
 	requestTTLInNanoFloat64 = ga4gh.ContextKey("requested_ttl")
 )
@@ -2138,8 +2137,8 @@ func (s *Service) importFiles() error {
 	if ok {
 		return nil
 	}
-	log.Printf("import DAM config into data store")
-	fs := getFileStore(s.store, inheritService)
+	fs := getFileStore(s.store, os.Getenv("IMPORT_SERVICE"))
+	log.Printf("import DAM config %q into data store", fs.Info()["service"])
 	tx, err := s.store.Tx(true)
 	if err != nil {
 		return err
@@ -2178,7 +2177,8 @@ func isAutoReset() bool {
 
 func getFileStore(store storage.Store, service string) storage.Store {
 	info := store.Info()
-	if service == inheritService {
+	if len(service) == 0 {
+		// Inherit service name from existing store.
 		service = info["service"]
 	}
 	path := info["path"]

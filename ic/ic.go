@@ -1261,9 +1261,13 @@ func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
 		return
 	}
-	dam := os.Getenv("PERSONA_DAM")
+	dam := os.Getenv("PERSONA_DAM_URL")
 	if len(dam) == 0 {
-		dam = strings.Replace(s.accountDomain, "ic-", "dam-", -1)
+		scheme := "http:"
+		if len(r.URL.Scheme) > 0 {
+			scheme = r.URL.Scheme
+		}
+		dam = strings.Replace(scheme+"//"+s.accountDomain, "ic-", "dam-", -1)
 	}
 
 	page := strings.Replace(s.testPage, "${DAM_URL}", dam, -1)
