@@ -62,7 +62,7 @@ Add the IAM Admin role to the `App Engine default service account` of the server
 
 Add `Service Account Token Creator` role to `App Engine default service account` of server hosting project.
 
-### Configuare
+### Configure
 
 - Fill in `gcp/{dam|ic}/app.yaml`. Example:
 
