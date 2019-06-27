@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"regexp"
 
-	cfg "google3/third_party/hcls_federated_access/dam/api/v1/v1"
+	cfg "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 )
 
 func BuildPolicyValidator(ctx context.Context, policy *cfg.Policy, defs map[string]*cfg.ClaimDefinition, sources map[string]*cfg.TrustedSource) (*Policy, error) {

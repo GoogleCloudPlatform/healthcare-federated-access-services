@@ -50,10 +50,10 @@ import (
 
 	"gopkg.in/square/go-jose.v2"
 	josejwt "gopkg.in/square/go-jose.v2/jwt"
-	compb "google3/third_party/hcls_federated_access/common/models/models"
-	dampb "google3/third_party/hcls_federated_access/dam/api/v1/v1"
+	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
+	dampb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
-	pb "google3/third_party/hcls_federated_access/ic/api/v1/v1"
+	pb "google3/third_party/hcls_federated_access/ic/api/v1/go_proto"
 )
 
 const (

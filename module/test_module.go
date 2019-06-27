@@ -19,7 +19,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
-	dampb "google3/third_party/hcls_federated_access/dam/api/v1/v1"
+	dampb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 )
 
 // TestModule provides extended functionality for testing infrastructure.

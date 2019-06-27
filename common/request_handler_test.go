@@ -18,7 +18,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"google3/third_party/hcls_federated_access/common/models/models"
+	"google3/third_party/hcls_federated_access/common/models/go_proto"
 )
 
 func assertHeader(t *testing.T, w *httptest.ResponseRecorder, header string, expect string) {

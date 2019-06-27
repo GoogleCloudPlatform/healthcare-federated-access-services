@@ -21,7 +21,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
-	pb "google3/third_party/hcls_federated_access/common/models/models"
+	pb "google3/third_party/hcls_federated_access/common/models/go_proto"
 )
 
 const (

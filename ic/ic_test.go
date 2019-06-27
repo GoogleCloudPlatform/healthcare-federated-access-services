@@ -33,7 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/test"
 
-	pb "google3/third_party/hcls_federated_access/ic/api/v1/v1"
+	pb "google3/third_party/hcls_federated_access/ic/api/v1/go_proto"
 )
 
 const (

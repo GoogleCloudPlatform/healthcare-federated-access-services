@@ -29,7 +29,7 @@ import (
 	"google3/third_party/golang/fsnotify/fsnotify"
 
 	// TODO: this should be more generic, not DAM pb.
-	pb "google3/third_party/hcls_federated_access/dam/api/v1/v1"
+	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 )
 
 const (

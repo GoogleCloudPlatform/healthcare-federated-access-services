@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 
-	dampb "google3/third_party/hcls_federated_access/dam/api/v1/v1"
+	dampb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 )
 
 // Playground enables test environment persona features.

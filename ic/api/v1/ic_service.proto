@@ -18,7 +18,7 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package ic.v1;
 
-import "common/models/common.proto";
+import "third_party/hcls_federated_access/common/models/common.proto";
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/ic/api/v1";
 

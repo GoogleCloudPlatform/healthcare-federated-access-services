@@ -22,8 +22,8 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
-	pb "google3/third_party/hcls_federated_access/dam/api/v1/v1"
-	icpb "google3/third_party/hcls_federated_access/ic/api/v1/v1"
+	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
+	icpb "google3/third_party/hcls_federated_access/ic/api/v1/go_proto"
 )
 
 // TODO: remove this by making the proto common.

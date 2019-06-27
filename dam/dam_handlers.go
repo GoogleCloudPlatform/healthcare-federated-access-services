@@ -24,7 +24,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
-	pb "google3/third_party/hcls_federated_access/dam/api/v1/v1"
+	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
 )
 

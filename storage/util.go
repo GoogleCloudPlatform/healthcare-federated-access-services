@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 
-	pb "google3/third_party/hcls_federated_access/dam/api/v1/v1"
+	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 )
 
 var (
