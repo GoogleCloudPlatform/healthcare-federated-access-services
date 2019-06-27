@@ -77,9 +77,9 @@ func MakeConfigHistory(desc, resType string, rev int64, ts float64, r *http.Requ
 	}
 }
 
-func GetHistory(store StorageInterface, datatype, realm, id string, r *http.Request) (*pb.History, int, error) {
+func GetHistory(store Store, datatype, realm, user, id string, r *http.Request) (*pb.History, int, error) {
 	hlist := make([]proto.Message, 0)
-	if err := store.ReadHistory(datatype, realm, id, &hlist); err != nil {
+	if err := store.ReadHistory(datatype, realm, user, id, &hlist); err != nil {
 		if os.IsNotExist(err) {
 			// TODO: perhaps this should be the empty list?
 			return nil, http.StatusBadRequest, fmt.Errorf("no config history available")

@@ -26,7 +26,6 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"google3/third_party/golang/fsnotify/fsnotify"
 
 	// TODO: this should be more generic, not DAM pb.
 	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
@@ -68,8 +67,6 @@ func NewFileStorage(service, path string) *FileStorage {
 		mutex:   &sync.Mutex{},
 	}
 
-	go watcher(path, f)
-
 	return f
 }
 
@@ -82,8 +79,8 @@ func (f *FileStorage) Info() map[string]string {
 	}
 }
 
-func (f *FileStorage) Exists(datatype, realm, id string, rev int64) (bool, error) {
-	fn := f.fname(datatype, realm, id, rev)
+func (f *FileStorage) Exists(datatype, realm, user, id string, rev int64) (bool, error) {
+	fn := f.fname(datatype, realm, user, id, rev)
 	if _, ok := f.cache.GetEntity(fn); ok {
 		return true, nil
 	}
@@ -96,15 +93,15 @@ func (f *FileStorage) Exists(datatype, realm, id string, rev int64) (bool, error
 	return false, err
 }
 
-func (f *FileStorage) Read(datatype, realm, id string, rev int64, content proto.Message) error {
-	return f.ReadTx(datatype, realm, id, rev, content, nil)
+func (f *FileStorage) Read(datatype, realm, user, id string, rev int64, content proto.Message) error {
+	return f.ReadTx(datatype, realm, user, id, rev, content, nil)
 }
 
-func (f *FileStorage) ReadTx(datatype, realm, id string, rev int64, content proto.Message, tx Tx) error {
+func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	fname := f.fname(datatype, realm, id, rev)
+	fname := f.fname(datatype, realm, user, id, rev)
 	if tx == nil || !tx.IsUpdate() {
 		if data, ok := f.cache.GetEntity(fname); ok {
 			content.Reset()
@@ -139,15 +136,15 @@ func (f *FileStorage) ReadTx(datatype, realm, id string, rev int64, content prot
 	return nil
 }
 
-func (f *FileStorage) MultiReadTx(datatype, realm string, content map[string]proto.Message, typ proto.Message, tx Tx) error {
+func (f *FileStorage) MultiReadTx(datatype, realm, user string, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error {
 	return fmt.Errorf("file storage does not support MultiReadTx")
 }
 
-func (f *FileStorage) ReadHistory(datatype, realm, id string, content *[]proto.Message) error {
-	return f.ReadHistoryTx(datatype, realm, id, content, nil)
+func (f *FileStorage) ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error {
+	return f.ReadHistoryTx(datatype, realm, user, id, content, nil)
 }
 
-func (f *FileStorage) ReadHistoryTx(datatype, realm, id string, content *[]proto.Message, tx Tx) error {
+func (f *FileStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = f.Tx(false)
@@ -157,7 +154,7 @@ func (f *FileStorage) ReadHistoryTx(datatype, realm, id string, content *[]proto
 		defer tx.Finish()
 	}
 
-	hfname := f.historyName(datatype, realm, id)
+	hfname := f.historyName(datatype, realm, user, id)
 	if err := checkFile(hfname); err != nil {
 		return err
 	}
@@ -177,26 +174,26 @@ func (f *FileStorage) ReadHistoryTx(datatype, realm, id string, content *[]proto
 	return nil
 }
 
-func (f *FileStorage) Write(datatype, realm, id string, rev int64, content proto.Message, history proto.Message) error {
+func (f *FileStorage) Write(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message) error {
 	return fmt.Errorf("file storage does not support Write")
 }
 
-func (f *FileStorage) WriteTx(datatype, realm, id string, rev int64, content proto.Message, history proto.Message, tx Tx) error {
+func (f *FileStorage) WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx Tx) error {
 	return fmt.Errorf("file storage does not support WriteTx")
 }
 
 // Delete a record.
-func (f *FileStorage) Delete(datatype, realm, id string, rev int64) error {
+func (f *FileStorage) Delete(datatype, realm, user, id string, rev int64) error {
 	return fmt.Errorf("file storage does not support Delete")
 }
 
 // DeleteTx delete a record with transaction.
-func (f *FileStorage) DeleteTx(datatype, realm, id string, rev int64, tx Tx) error {
+func (f *FileStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx Tx) error {
 	return fmt.Errorf("file storage does not support DeleteTx")
 }
 
 // MultiDeleteTx deletes all records of a certain data type within a realm.
-func (f *FileStorage) MultiDeleteTx(datatype, realm string, tx Tx) error {
+func (f *FileStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) error {
 	return fmt.Errorf("file storage does not support MultiDeleteTx")
 }
 
@@ -211,17 +208,17 @@ func (f *FileStorage) Tx(update bool) (Tx, error) {
 	}, nil
 }
 
-func (f *FileStorage) fname(datatype, realm, id string, rev int64) string {
+func (f *FileStorage) fname(datatype, realm, user, id string, rev int64) string {
 	r := LatestRevName
 	if rev > 0 {
 		r = fmt.Sprintf("%06d", rev)
 	}
 	// TODO: use path.Join(...)
-	return fmt.Sprintf("%s/%s_%s_%s_%s.json", f.path, datatype, realm, id, r)
+	return fmt.Sprintf("%s/%s_%s%s_%s_%s.json", f.path, datatype, realm, UserFragment(user), id, r)
 }
 
-func (f *FileStorage) historyName(datatype, realm, id string) string {
-	return fmt.Sprintf("%s/%s_%s_%s_%s.json", f.path, datatype, realm, id, HistoryRevName)
+func (f *FileStorage) historyName(datatype, realm, user, id string) string {
+	return fmt.Sprintf("%s/%s_%s%s_%s_%s.json", f.path, datatype, realm, UserFragment(user), id, HistoryRevName)
 }
 
 func checkFile(path string) error {
@@ -244,35 +241,9 @@ func (tx *FileTx) IsUpdate() bool {
 	return tx.writer
 }
 
-func watcher(path string, f *FileStorage) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Println("ERROR", err)
+func UserFragment(user string) string {
+	if user == DefaultUser {
+		return ""
 	}
-	defer watcher.Close()
-
-	done := make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case event := <-watcher.Events:
-				if event.Op == fsnotify.Write {
-					f.mutex.Lock()
-					f.cache.DeleteEntity(event.Name)
-					f.cache.DeleteHistory(event.Name)
-					f.mutex.Unlock()
-				}
-			case err := <-watcher.Errors:
-				fmt.Println("ERROR", err)
-			}
-		}
-	}()
-
-	// out of the box fsnotify can watch a single file, or a single directory
-	if err := watcher.Add(path); err != nil {
-		log.Println("ERROR", err)
-	}
-
-	<-done
+	return "_" + user
 }

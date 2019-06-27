@@ -133,14 +133,16 @@ func (h *processesHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 }
 func (h *processesHandler) LookupItem(name string, vars map[string]string) bool {
 	h.item = make(map[string]*pb.BackgroundProcess)
-	m := make(map[string]proto.Message)
-	err := h.s.store.MultiReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, m, &pb.BackgroundProcess{}, h.tx)
+	m := make(map[string]map[string]proto.Message)
+	err := h.s.store.MultiReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, m, &pb.BackgroundProcess{}, h.tx)
 	if err != nil {
 		return false
 	}
-	for k, v := range m {
-		if process, ok := v.(*pb.BackgroundProcess); ok {
-			h.item[k] = process
+	for _, userVal := range m {
+		for k, v := range userVal {
+			if process, ok := v.(*pb.BackgroundProcess); ok {
+				h.item[k] = process
+			}
 		}
 	}
 	return true
@@ -208,7 +210,7 @@ func (h *processHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 }
 func (h *processHandler) LookupItem(name string, vars map[string]string) bool {
 	h.item = &pb.BackgroundProcess{}
-	err := h.s.store.ReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, name, storage.LatestRev, h.item, h.tx)
+	err := h.s.store.ReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, name, storage.LatestRev, h.item, h.tx)
 	if err != nil {
 		return false
 	}

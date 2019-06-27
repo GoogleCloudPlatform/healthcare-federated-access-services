@@ -53,12 +53,12 @@ type keyGcSettings struct {
 }
 
 type KeyGarbageCollector struct {
-	store storage.StorageInterface
+	store storage.Store
 	wh    *AccountWarehouse
 	mutex *sync.Mutex
 }
 
-func NewKeyGarbageCollector(store storage.StorageInterface, wh *AccountWarehouse) (*KeyGarbageCollector, error) {
+func NewKeyGarbageCollector(store storage.Store, wh *AccountWarehouse) (*KeyGarbageCollector, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
 	gc := &KeyGarbageCollector{
 		store: store,
@@ -79,7 +79,7 @@ func (gc *KeyGarbageCollector) RegisterProject(realm, project string, maxRequest
 	kgc := &pb.BackgroundProcess{}
 	locked := false
 	for try := 0; try < 5; try++ {
-		err := gc.store.ReadTx(BackgroundProcessDataType, storage.DefaultRealm, KeyGcProcessName, storage.LatestRev, kgc, tx)
+		err := gc.store.ReadTx(BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, KeyGcProcessName, storage.LatestRev, kgc, tx)
 		if err == nil || storage.ErrNotFound(err) {
 			locked = true
 			break
@@ -188,7 +188,7 @@ func (gc *KeyGarbageCollector) RegisterProject(realm, project string, maxRequest
 
 	if save {
 		kgc.SettingsChangeTime = common.GetNowInUnix()
-		if err := gc.store.WriteTx(BackgroundProcessDataType, storage.DefaultRealm, KeyGcProcessName, storage.LatestRev, kgc, nil, tx); err != nil {
+		if err := gc.store.WriteTx(BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, KeyGcProcessName, storage.LatestRev, kgc, nil, tx); err != nil {
 			return fmt.Errorf("%s: unable to write garbage collection object in data storage layer: %v", kgcName, err)
 		}
 	}
@@ -237,7 +237,7 @@ func (gc *KeyGarbageCollector) lockGC() (*pb.BackgroundProcess, bool) {
 	kgc := &pb.BackgroundProcess{}
 	locked := false
 	for try := 0; try < 5; try++ {
-		err := gc.store.ReadTx(BackgroundProcessDataType, storage.DefaultRealm, KeyGcProcessName, storage.LatestRev, kgc, tx)
+		err := gc.store.ReadTx(BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, KeyGcProcessName, storage.LatestRev, kgc, tx)
 		if err == nil || storage.ErrNotFound(err) {
 			locked = true
 			break
@@ -262,7 +262,7 @@ func (gc *KeyGarbageCollector) lockGC() (*pb.BackgroundProcess, bool) {
 	kgc.StartTime = common.GetNowInUnix()
 	kgc.ProgressTime = kgc.StartTime
 	kgc.FinishTime = 0
-	if err := gc.store.WriteTx(BackgroundProcessDataType, storage.DefaultRealm, KeyGcProcessName, storage.LatestRev, kgc, nil, tx); err != nil {
+	if err := gc.store.WriteTx(BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, KeyGcProcessName, storage.LatestRev, kgc, nil, tx); err != nil {
 		log.Printf("%s: unable to write garbage collection object in data storage layer: %v", kgcName, err)
 		return kgc, false
 	}
@@ -293,7 +293,7 @@ func (gc *KeyGarbageCollector) putGC(kgc *pb.BackgroundProcess, tries int) {
 	defer tx.Finish()
 
 	for try := 0; try < tries; try++ {
-		err = gc.store.WriteTx(BackgroundProcessDataType, storage.DefaultRealm, KeyGcProcessName, storage.LatestRev, kgc, nil, tx)
+		err = gc.store.WriteTx(BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, KeyGcProcessName, storage.LatestRev, kgc, nil, tx)
 		if err == nil {
 			return
 		}

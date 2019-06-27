@@ -25,25 +25,35 @@ const (
 	LatestRevName  = "latest"
 	HistoryRevName = "history"
 	DefaultRealm   = "master"
+	DefaultUser    = ""
+	DefaultID      = "main"
 	WipeAllRealms  = ""
 
-	AuthCodeDatatype = "auth_code"
-	TokensDatatype   = "tokens"
+	AccountDatatype       = "account"
+	AccountLookupDatatype = "acct_lookup"
+	AuthCodeDatatype      = "auth_code"
+	ClientDatatype        = "client"
+	ConfigDatatype        = "config"
+	LoginStateDatatype    = "login_state"
+	PermissionsDatatype   = "permissions"
+	SecretsDatatype       = "secrets"
+	TokensDatatype        = "tokens"
 )
 
-type StorageInterface interface {
+// Store is an interface to the storage layer.
+type Store interface {
 	Info() map[string]string
-	Exists(datatype, realm, id string, rev int64) (bool, error)
-	Read(datatype, realm, id string, rev int64, content proto.Message) error
-	ReadTx(datatype, realm, id string, rev int64, content proto.Message, tx Tx) error
-	MultiReadTx(datatype, realm string, content map[string]proto.Message, typ proto.Message, tx Tx) error
-	ReadHistory(datatype, realm, id string, content *[]proto.Message) error
-	ReadHistoryTx(datatype, realm, id string, content *[]proto.Message, tx Tx) error
-	Write(datatype, realm, id string, rev int64, content proto.Message, history proto.Message) error
-	WriteTx(datatype, realm, id string, rev int64, content proto.Message, history proto.Message, tx Tx) error
-	Delete(datatype, realm, id string, rev int64) error
-	DeleteTx(datatype, realm, id string, rev int64, tx Tx) error
-	MultiDeleteTx(datatype, realm string, tx Tx) error
+	Exists(datatype, realm, user, id string, rev int64) (bool, error)
+	Read(datatype, realm, user, id string, rev int64, content proto.Message) error
+	ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error
+	MultiReadTx(datatype, realm, user string, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error
+	ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error
+	ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) error
+	Write(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message) error
+	WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx Tx) error
+	Delete(datatype, realm, user, id string, rev int64) error
+	DeleteTx(datatype, realm, user, id string, rev int64, tx Tx) error
+	MultiDeleteTx(datatype, realm, user string, tx Tx) error
 	Wipe(realm string) error
 	Tx(update bool) (Tx, error)
 }
@@ -57,9 +67,4 @@ type Tx interface {
 func ErrNotFound(err error) bool {
 	// TODO: make this smarter.
 	return strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no such file")
-}
-
-// TokensID constructs the ID field for token entities.
-func TokensID(sub, id string) string {
-	return sub + "/" + id
 }

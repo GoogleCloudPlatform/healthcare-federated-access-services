@@ -19,6 +19,7 @@ indexes:
   - name: service
   - name: realm
   - name: type
+  - name: user_id
   - name: id
   - name: rev
 
@@ -27,5 +28,6 @@ indexes:
   - name: service
   - name: realm
   - name: type
+  - name: user_id
   - name: rev
   - name: id

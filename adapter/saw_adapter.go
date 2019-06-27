@@ -38,9 +38,9 @@ type SawAdapter struct {
 }
 
 // NewSawAdapter creates a Service Account Warehouse (SAW) adapter.
-func NewSawAdapter(store storage.StorageInterface, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
+func NewSawAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
 	var desc pb.TargetAdapter
-	if err := store.Read(AdapterDataType, storage.DefaultRealm, sawName, storage.LatestRev, &desc); err != nil {
+	if err := store.Read(AdapterDataType, storage.DefaultRealm, storage.DefaultUser, sawName, storage.LatestRev, &desc); err != nil {
 		return nil, fmt.Errorf("reading %q descriptor: %v", sawName, err)
 	}
 	return &SawAdapter{

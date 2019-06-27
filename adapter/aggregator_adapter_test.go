@@ -33,7 +33,7 @@ func TestAggregatorAdapter(t *testing.T) {
 	warehouse := clouds.NewMockTokenCreator(false)
 	secretStore := storage.NewMemoryStorage("dam", "test/config")
 	secrets := &pb.DamSecrets{}
-	if err := secretStore.Read("secrets", storage.DefaultRealm, "main", storage.LatestRev, secrets); err != nil {
+	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
 	}
 	adapters := &adapter.TargetAdapters{
@@ -55,7 +55,7 @@ func TestAggregatorAdapter(t *testing.T) {
 	adapters.Descriptors[adapt.Name()] = adapt.Descriptor()
 	var cfg pb.DamConfig
 	cfgStore := storage.NewMemoryStorage("dam", "test/config")
-	if err = cfgStore.Read("config", storage.DefaultRealm, "main", storage.LatestRev, &cfg); err != nil {
+	if err = cfgStore.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, &cfg); err != nil {
 		t.Fatalf("loading config: %v", err)
 	}
 	tmpl := "views"

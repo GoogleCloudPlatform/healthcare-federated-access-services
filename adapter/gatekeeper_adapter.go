@@ -50,9 +50,9 @@ type GatekeeperAdapter struct {
 }
 
 // NewGatekeeperAdapter creates a GatekeeperAdapter.
-func NewGatekeeperAdapter(store storage.StorageInterface, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
+func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
 	var desc pb.TargetAdapter
-	if err := store.Read(AdapterDataType, storage.DefaultRealm, gatekeeperName, storage.LatestRev, &desc); err != nil {
+	if err := store.Read(AdapterDataType, storage.DefaultRealm, storage.DefaultUser, gatekeeperName, storage.LatestRev, &desc); err != nil {
 		return nil, fmt.Errorf("reading %q descriptor: %v", gatekeeperName, err)
 	}
 	keys := secrets.GetGatekeeperTokenKeys()

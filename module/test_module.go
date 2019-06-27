@@ -24,15 +24,15 @@ import (
 
 // TestModule provides extended functionality for testing infrastructure.
 type TestModule struct {
-	store storage.StorageInterface
+	store storage.Store
 	realm string
 	cfg   *dampb.DamConfig
 }
 
 // NewTestModule creates a module for testing infrastructure.
-func NewTestModule(t *testing.T, store storage.StorageInterface, realm string) Module {
+func NewTestModule(t *testing.T, store storage.Store, realm string) Module {
 	cfg := &dampb.DamConfig{}
-	if err := store.Read("config", realm, "main", storage.LatestRev, cfg); err != nil {
+	if err := store.Read(storage.ConfigDatatype, realm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		t.Fatalf("loading config: %v", err)
 	}
 	return &TestModule{

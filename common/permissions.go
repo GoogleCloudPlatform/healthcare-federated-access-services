@@ -25,19 +25,13 @@ import (
 	pb "google3/third_party/hcls_federated_access/common/models/go_proto"
 )
 
-const (
-	permissionsName = "permissions"
-	defaultRealm    = "master"
-	mainID          = "main"
-)
-
 // Permissions type exposes functions access user permissions.
 type Permissions struct {
 	perm *pb.Permissions
 }
 
 // LoadPermissions loads permission from storage/config.
-func LoadPermissions(store storage.StorageInterface) (*Permissions, error) {
+func LoadPermissions(store storage.Store) (*Permissions, error) {
 	info := store.Info()
 	service := info["service"]
 	path := info["path"]
@@ -49,7 +43,7 @@ func LoadPermissions(store storage.StorageInterface) (*Permissions, error) {
 	fs := storage.NewFileStorage(service, path)
 	perms := &pb.Permissions{}
 
-	if err := fs.Read(permissionsName, defaultRealm, mainID, storage.LatestRev, perms); err != nil {
+	if err := fs.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perms); err != nil {
 		return nil, err
 	}
 	return &Permissions{perm: perms}, nil

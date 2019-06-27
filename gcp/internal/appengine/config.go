@@ -29,7 +29,7 @@ import (
 
 // MustBuildAccountWarehouse builds a *gcp.AccountWarehouse from the
 // environment variables PROJECT, ROLE, and SCOPES.  It panics on failure.
-func MustBuildAccountWarehouse(ctx context.Context, store storage.StorageInterface) clouds.ResourceTokenCreator {
+func MustBuildAccountWarehouse(ctx context.Context, store storage.Store) clouds.ResourceTokenCreator {
 	client, err := google.DefaultClient(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		log.Fatalf("Error creating HTTP client: %v", err)

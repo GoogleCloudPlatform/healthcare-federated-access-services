@@ -51,7 +51,7 @@ func main() {
 	if serviceName == "" {
 		serviceName = DefaultServiceName
 	}
-	var store storage.StorageInterface
+	var store storage.Store
 	switch storeName {
 	case "datastore":
 		project := os.Getenv("PROJECT")

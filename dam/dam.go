@@ -47,9 +47,6 @@ import (
 )
 
 const (
-	configName    = "config"
-	clientName    = "client"
-	secretsName   = "secrets"
 	version       = "v1alpha"
 	realmVariable = "{realm}"
 
@@ -99,7 +96,6 @@ const (
 
 	noClientID          = ""
 	noScope             = ""
-	mainID              = "main"
 	defaultPersonaScope = ""
 	damStaticService    = "dam-static"
 	inheritService      = ""
@@ -121,7 +117,7 @@ type Service struct {
 	adapters       *adapter.TargetAdapters
 	roleCategories map[string]*pb.RoleCategory
 	domainURL      string
-	store          storage.StorageInterface
+	store          storage.Store
 	warehouse      clouds.ResourceTokenCreator
 	permissions    *common.Permissions
 	Handler        *ServiceHandler
@@ -140,10 +136,10 @@ type ServiceHandler struct {
 // - domain: domain used to host DAM service
 // - store: data storage and configuration storage
 // - warehouse: resource token creator service
-func NewService(ctx context.Context, domain string, store storage.StorageInterface, warehouse clouds.ResourceTokenCreator) *Service {
+func NewService(ctx context.Context, domain string, store storage.Store, warehouse clouds.ResourceTokenCreator) *Service {
 	fs := getFileStore(store, damStaticService)
 	var roleCat pb.DamRoleCategoriesResponse
-	if err := fs.Read("role", storage.DefaultRealm, "en", storage.LatestRev, &roleCat); err != nil {
+	if err := fs.Read("role", storage.DefaultRealm, storage.DefaultUser, "en", storage.LatestRev, &roleCat); err != nil {
 		log.Fatalf("cannot load role categories: %v", err)
 	}
 	perms, err := common.LoadPermissions(store)
@@ -1134,7 +1130,7 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(status, err, w)
 		return
 	}
-	h, status, err := storage.GetHistory(s.store, configName, getRealm(r), mainID, r)
+	h, status, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
 		common.HandleError(status, err, w)
 	}
@@ -1168,7 +1164,7 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	cfg = &pb.DamConfig{}
-	if status, err := s.realmReadTx(configName, getRealm(r), mainID, rev, cfg, nil); err != nil {
+	if status, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
 		common.HandleError(status, err, w)
 		return
 	}
@@ -1235,7 +1231,7 @@ func (s *Service) ConfigClientSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := &pb.DamSecrets{}
-	if status, err := s.realmReadTx(secretsName, storage.DefaultRealm, mainID, storage.LatestRev, c, tx); err != nil {
+	if status, err := s.realmReadTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, c, tx); err != nil {
 		common.HandleError(status, err, w)
 		return
 	}
@@ -1441,7 +1437,7 @@ func (s *Service) GetTestPersonas(w http.ResponseWriter, r *http.Request) {
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) GetStore() storage.StorageInterface {
+func (s *Service) GetStore() storage.Store {
 	return s.store
 }
 
@@ -1912,21 +1908,13 @@ func normalizeConfig(cfg *pb.DamConfig) error {
 
 func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error) {
 	cfg := &pb.DamConfig{}
-	if _, err := s.realmReadTx(configName, realm, mainID, storage.LatestRev, cfg, tx); err != nil {
+	if _, err := s.realmReadTx(storage.ConfigDatatype, realm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg, tx); err != nil {
 		return nil, err
 	}
 	if err := normalizeConfig(cfg); err != nil {
-		return nil, fmt.Errorf("invalid config file %q: %v", configName, err)
+		return nil, fmt.Errorf("invalid config file %q: %v", storage.ConfigDatatype, err)
 	}
 	return cfg, nil
-}
-
-func (s *Service) loadClient(tx storage.Tx, realm, clientID string) (*pb.Client, error) {
-	client := &pb.Client{}
-	if _, err := s.realmReadTx(clientName, realm, clientID, storage.LatestRev, client, tx); err != nil {
-		return nil, err
-	}
-	return client, nil
 }
 
 func (s *Service) buildValidatorMap(cfg *pb.DamConfig) (map[string]*validator.Policy, error) {
@@ -2065,16 +2053,7 @@ func (s *Service) saveConfig(cfg *pb.DamConfig, desc, resType string, r *http.Re
 	}
 	cfg.Revision++
 	cfg.CommitTime = float64(time.Now().UnixNano()) / 1e9
-	if err := s.store.WriteTx(configName, getRealm(r), mainID, cfg.Revision, cfg, storage.MakeConfigHistory(desc, resType, cfg.Revision, cfg.CommitTime, r, id.Subject, orig, update), tx); err != nil {
-		return fmt.Errorf("service storage unavailable: %v, retry later", err)
-	}
-	return nil
-}
-
-func (s *Service) saveClient(client *pb.Client, clientID, desc, resType string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
-	client.Revision++
-	client.CommitTime = float64(time.Now().UnixNano()) / 1e9
-	if err := s.store.WriteTx(clientName, storage.DefaultRealm, clientID, client.Revision, client, storage.MakeConfigHistory(desc, resType, client.Revision, client.CommitTime, r, id.Subject, nil, nil), tx); err != nil {
+	if err := s.store.WriteTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, storage.MakeConfigHistory(desc, resType, cfg.Revision, cfg.CommitTime, r, id.Subject, orig, update), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
@@ -2083,7 +2062,7 @@ func (s *Service) saveClient(client *pb.Client, clientID, desc, resType string, 
 func (s *Service) saveSecrets(secrets *pb.DamSecrets, desc, resType string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
 	secrets.Revision++
 	secrets.CommitTime = float64(time.Now().UnixNano()) / 1e9
-	if err := s.store.WriteTx(secretsName, storage.DefaultRealm, mainID, secrets.Revision, secrets, storage.MakeConfigHistory(desc, resType, secrets.Revision, secrets.CommitTime, r, id.Subject, nil, nil), tx); err != nil {
+	if err := s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, storage.MakeConfigHistory(desc, resType, secrets.Revision, secrets.CommitTime, r, id.Subject, nil, nil), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
@@ -2091,26 +2070,26 @@ func (s *Service) saveSecrets(secrets *pb.DamSecrets, desc, resType string, r *h
 
 func (s *Service) loadSecrets(tx storage.Tx) (*pb.DamSecrets, error) {
 	secrets := &pb.DamSecrets{}
-	_, err := s.realmReadTx(secretsName, storage.DefaultRealm, mainID, storage.LatestRev, secrets, tx)
+	_, err := s.realmReadTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets, tx)
 	if err != nil {
 		return nil, err
 	}
 	return secrets, nil
 }
 
-func (s *Service) realmReadTx(datatype, realm, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {
-	err := s.store.ReadTx(datatype, realm, id, rev, item, tx)
+func (s *Service) realmReadTx(datatype, realm, user, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {
+	err := s.store.ReadTx(datatype, realm, user, id, rev, item, tx)
 	if err == nil {
 		return http.StatusOK, nil
 	}
 	if storage.ErrNotFound(err) && realm != storage.DefaultRealm {
-		err = s.store.ReadTx(datatype, storage.DefaultRealm, id, rev, item, tx)
+		err = s.store.ReadTx(datatype, storage.DefaultRealm, user, id, rev, item, tx)
 		if err == nil {
 			return http.StatusOK, nil
 		}
 	}
 	if storage.ErrNotFound(err) {
-		if len(id) > 0 && id != mainID {
+		if len(id) > 0 && id != storage.DefaultID {
 			return http.StatusNotFound, fmt.Errorf("%s %q not found", datatype, id)
 		}
 		return http.StatusNotFound, fmt.Errorf("%s not found", datatype)
@@ -2152,7 +2131,7 @@ func (s *Service) importFiles() error {
 		}
 	}
 
-	ok, err := s.store.Exists(secretsName, storage.DefaultRealm, mainID, storage.LatestRev)
+	ok, err := s.store.Exists(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev)
 	if err != nil {
 		return err
 	}
@@ -2175,19 +2154,19 @@ func (s *Service) importFiles() error {
 	}
 	cfg := &pb.DamConfig{}
 
-	if err = fs.Read(configName, storage.DefaultRealm, mainID, storage.LatestRev, cfg); err != nil {
+	if err = fs.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		return err
 	}
 	history.Revision = cfg.Revision
-	if err = s.store.WriteTx(configName, storage.DefaultRealm, mainID, cfg.Revision, cfg, history, tx); err != nil {
+	if err = s.store.WriteTx(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, history, tx); err != nil {
 		return err
 	}
 	secrets := &pb.DamSecrets{}
-	if err = fs.Read(secretsName, storage.DefaultRealm, mainID, storage.LatestRev, secrets); err != nil {
+	if err = fs.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		return err
 	}
 	history.Revision = secrets.Revision
-	if err = s.store.WriteTx(secretsName, storage.DefaultRealm, mainID, secrets.Revision, secrets, history, tx); err != nil {
+	if err = s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
 		return err
 	}
 	return s.registerProject(cfg, storage.DefaultRealm)
@@ -2197,7 +2176,7 @@ func isAutoReset() bool {
 	return os.Getenv("IMPORT") == "AUTO_RESET"
 }
 
-func getFileStore(store storage.StorageInterface, service string) storage.StorageInterface {
+func getFileStore(store storage.Store, service string) storage.Store {
 	info := store.Info()
 	if service == inheritService {
 		service = info["service"]

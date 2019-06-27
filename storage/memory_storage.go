@@ -62,18 +62,22 @@ func (m *MemoryStorage) Info() map[string]string {
 	}
 }
 
-func (m *MemoryStorage) Exists(datatype, realm, id string, rev int64) (bool, error) {
-	if _, ok := m.cache.GetEntity(m.fname(datatype, realm, id, rev)); ok {
+func (m *MemoryStorage) Exists(datatype, realm, user, id string, rev int64) (bool, error) {
+	fname := m.fname(datatype, realm, user, id, rev)
+	if _, ok := m.cache.GetEntity(fname); ok {
 		return true, nil
 	}
-	return m.fs.Exists(datatype, realm, id, rev)
+	if m.deleted[fname] {
+		return false, nil
+	}
+	return m.fs.Exists(datatype, realm, user, id, rev)
 }
 
-func (m *MemoryStorage) Read(datatype, realm, id string, rev int64, content proto.Message) error {
-	return m.ReadTx(datatype, realm, id, rev, content, nil)
+func (m *MemoryStorage) Read(datatype, realm, user, id string, rev int64, content proto.Message) error {
+	return m.ReadTx(datatype, realm, user, id, rev, content, nil)
 }
 
-func (m *MemoryStorage) ReadTx(datatype, realm, id string, rev int64, content proto.Message, tx Tx) error {
+func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(false)
@@ -83,7 +87,7 @@ func (m *MemoryStorage) ReadTx(datatype, realm, id string, rev int64, content pr
 		defer tx.Finish()
 	}
 
-	fname := m.fname(datatype, realm, id, rev)
+	fname := m.fname(datatype, realm, user, id, rev)
 	if data, ok := m.cache.GetEntity(fname); ok {
 		content.Reset()
 		proto.Merge(content, data)
@@ -94,7 +98,7 @@ func (m *MemoryStorage) ReadTx(datatype, realm, id string, rev int64, content pr
 		return fmt.Errorf("not found: %q", fname)
 	}
 
-	if err := m.fs.ReadTx(datatype, realm, id, rev, content, tx); err != nil {
+	if err := m.fs.ReadTx(datatype, realm, user, id, rev, content, tx); err != nil {
 		return err
 	}
 
@@ -102,7 +106,7 @@ func (m *MemoryStorage) ReadTx(datatype, realm, id string, rev int64, content pr
 	return nil
 }
 
-func (m *MemoryStorage) MultiReadTx(datatype, realm string, content map[string]proto.Message, typ proto.Message, tx Tx) error {
+func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
@@ -112,23 +116,8 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm string, content map[string]p
 		defer tx.Finish()
 	}
 
-	extractID := m.fs.fname(datatype, realm, "(.*)", LatestRev)
-	re, err := regexp.Compile(extractID)
-	if err != nil {
-		return fmt.Errorf("file extract ID %q regexp error: %v", extractID, err)
-	}
-	return filepath.Walk(m.fs.path, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		matches := re.FindStringSubmatch(path)
-		if len(matches) < 2 {
-			return nil
-		}
-		if m.deleted[m.fname(datatype, realm, matches[1], LatestRev)] {
+	return m.findPath(datatype, realm, user, func(path, userMatch, idMatch string) error {
+		if m.deleted[m.fname(datatype, realm, userMatch, idMatch, LatestRev)] {
 			return nil
 		}
 		file, err := os.Open(path)
@@ -140,16 +129,66 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm string, content map[string]p
 		if err := jsonpb.Unmarshal(file, p); err != nil && err != io.EOF {
 			return fmt.Errorf("file %q invalid JSON: %v", path, err)
 		}
-		content[matches[1]] = p
+		userContent, ok := content[userMatch]
+		if !ok {
+			content[userMatch] = make(map[string]proto.Message)
+			userContent = content[userMatch]
+		}
+		userContent[idMatch] = p
 		return nil
 	})
 }
 
-func (m *MemoryStorage) ReadHistory(datatype, realm, id string, content *[]proto.Message) error {
-	return m.ReadHistoryTx(datatype, realm, id, content, nil)
+func (m *MemoryStorage) findPath(datatype, realm, user string, fn func(string, string, string) error) error {
+	searchUser := user
+	if user == DefaultUser {
+		searchUser = "(.*)"
+	} else {
+		searchUser = "(" + user + ")"
+	}
+	extractID := m.fs.fname(datatype, realm, searchUser, "(.*)", LatestRev)
+	re, err := regexp.Compile(extractID)
+	if err != nil {
+		return fmt.Errorf("file extract ID %q regexp error: %v", extractID, err)
+	}
+	defaultUserID := m.fs.fname(datatype, realm, DefaultUser, "(.*)", LatestRev)
+	dure, err := regexp.Compile(defaultUserID)
+	if err != nil {
+		return fmt.Errorf("file extract ID %q regexp error: %v", defaultUserID, err)
+	}
+	return filepath.Walk(m.fs.path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		matches := re.FindStringSubmatch(path)
+		var userMatch string
+		var idMatch string
+		if len(matches) == 3 {
+			userMatch = matches[1]
+			idMatch = matches[2]
+		} else if user == DefaultUser {
+			matches = dure.FindStringSubmatch(path)
+			if len(matches) == 2 {
+				userMatch = "default"
+				idMatch = matches[1]
+			} else {
+				return nil
+			}
+		} else {
+			return nil
+		}
+		return fn(path, userMatch, idMatch)
+	})
 }
 
-func (m *MemoryStorage) ReadHistoryTx(datatype, realm, id string, content *[]proto.Message, tx Tx) error {
+func (m *MemoryStorage) ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error {
+	return m.ReadHistoryTx(datatype, realm, user, id, content, nil)
+}
+
+func (m *MemoryStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(false)
@@ -159,7 +198,7 @@ func (m *MemoryStorage) ReadHistoryTx(datatype, realm, id string, content *[]pro
 		defer tx.Finish()
 	}
 
-	hfname := m.historyName(datatype, realm, id)
+	hfname := m.historyName(datatype, realm, user, id)
 	if data, ok := m.cache.GetHistory(hfname); ok {
 		for _, he := range data {
 			*content = append(*content, he)
@@ -167,7 +206,7 @@ func (m *MemoryStorage) ReadHistoryTx(datatype, realm, id string, content *[]pro
 		return nil
 	}
 
-	if err := m.fs.ReadHistoryTx(datatype, realm, id, content, tx); err != nil {
+	if err := m.fs.ReadHistoryTx(datatype, realm, user, id, content, tx); err != nil {
 		return err
 	}
 
@@ -175,11 +214,11 @@ func (m *MemoryStorage) ReadHistoryTx(datatype, realm, id string, content *[]pro
 	return nil
 }
 
-func (m *MemoryStorage) Write(datatype, realm, id string, rev int64, content proto.Message, history proto.Message) error {
-	return m.WriteTx(datatype, realm, id, rev, content, history, nil)
+func (m *MemoryStorage) Write(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message) error {
+	return m.WriteTx(datatype, realm, user, id, rev, content, history, nil)
 }
 
-func (m *MemoryStorage) WriteTx(datatype, realm, id string, rev int64, content proto.Message, history proto.Message, tx Tx) error {
+func (m *MemoryStorage) WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(true)
@@ -190,17 +229,17 @@ func (m *MemoryStorage) WriteTx(datatype, realm, id string, rev int64, content p
 	}
 
 	hlist := make([]proto.Message, 0)
-	if err := m.ReadHistoryTx(datatype, realm, id, &hlist, tx); err != nil && !ErrNotFound(err) {
+	if err := m.ReadHistoryTx(datatype, realm, user, id, &hlist, tx); err != nil && !ErrNotFound(err) {
 		return err
 	}
 
 	hlist = append(hlist, history)
-	hfname := m.historyName(datatype, realm, id)
+	hfname := m.historyName(datatype, realm, user, id)
 	m.cache.PutHistory(hfname, hlist)
 
-	vname := m.fname(datatype, realm, id, rev)
+	vname := m.fname(datatype, realm, user, id, rev)
 	m.cache.PutEntity(vname, content)
-	lname := m.fname(datatype, realm, id, LatestRev)
+	lname := m.fname(datatype, realm, user, id, LatestRev)
 	m.cache.PutEntity(lname, content)
 	if _, ok := m.deleted[vname]; ok {
 		delete(m.deleted, vname)
@@ -213,12 +252,12 @@ func (m *MemoryStorage) WriteTx(datatype, realm, id string, rev int64, content p
 }
 
 // Delete a record.
-func (m *MemoryStorage) Delete(datatype, realm, id string, rev int64) error {
-	return m.DeleteTx(datatype, realm, id, rev, nil)
+func (m *MemoryStorage) Delete(datatype, realm, user, id string, rev int64) error {
+	return m.DeleteTx(datatype, realm, user, id, rev, nil)
 }
 
 // DeleteTx delete a record with transaction.
-func (m *MemoryStorage) DeleteTx(datatype, realm, id string, rev int64, tx Tx) error {
+func (m *MemoryStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(true)
@@ -227,9 +266,9 @@ func (m *MemoryStorage) DeleteTx(datatype, realm, id string, rev int64, tx Tx) e
 		}
 		defer tx.Finish()
 	}
-	vname := m.fname(datatype, realm, id, rev)
+	vname := m.fname(datatype, realm, user, id, rev)
 	m.cache.DeleteEntity(vname)
-	lname := m.fname(datatype, realm, id, LatestRev)
+	lname := m.fname(datatype, realm, user, id, LatestRev)
 	m.cache.DeleteEntity(lname)
 	m.deleted[vname] = true
 	m.deleted[lname] = true
@@ -237,7 +276,7 @@ func (m *MemoryStorage) DeleteTx(datatype, realm, id string, rev int64, tx Tx) e
 }
 
 // MultiDeleteTx deletes all records of a certain data type within a realm.
-func (m *MemoryStorage) MultiDeleteTx(datatype, realm string, tx Tx) error {
+func (m *MemoryStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
@@ -247,23 +286,8 @@ func (m *MemoryStorage) MultiDeleteTx(datatype, realm string, tx Tx) error {
 		defer tx.Finish()
 	}
 
-	extractID := m.fs.fname(datatype, realm, "(.*)", LatestRev)
-	re, err := regexp.Compile(extractID)
-	if err != nil {
-		return fmt.Errorf("file extract ID %q regexp error: %v", extractID, err)
-	}
-	return filepath.Walk(m.fs.path, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		matches := re.FindStringSubmatch(path)
-		if len(matches) < 2 {
-			return nil
-		}
-		return m.DeleteTx(datatype, realm, matches[1], LatestRev, tx)
+	return m.findPath(datatype, realm, user, func(path, userMatch, idMatch string) error {
+		return m.DeleteTx(datatype, realm, userMatch, idMatch, LatestRev, tx)
 	})
 }
 
@@ -283,17 +307,17 @@ func (m *MemoryStorage) Tx(update bool) (Tx, error) {
 	}, nil
 }
 
-func (m *MemoryStorage) fname(datatype, realm, id string, rev int64) string {
+func (m *MemoryStorage) fname(datatype, realm, user, id string, rev int64) string {
 	r := LatestRevName
 	if rev > 0 {
 		r = fmt.Sprintf("%06d", rev)
 	}
 	// TODO: use path.Join(...)
-	return fmt.Sprintf("%s/%s/%s_%s_%s_%s.json", m.path, m.service, datatype, realm, id, r)
+	return fmt.Sprintf("%s/%s/%s_%s%s_%s_%s.json", m.path, m.service, datatype, realm, UserFragment(user), id, r)
 }
 
-func (m *MemoryStorage) historyName(datatype, realm, id string) string {
-	return fmt.Sprintf("%s/%s/%s_%s_%s_%s.json", m.path, m.service, datatype, realm, id, HistoryRevName)
+func (m *MemoryStorage) historyName(datatype, realm, user, id string) string {
+	return fmt.Sprintf("%s/%s/%s_%s%s_%s_%s.json", m.path, m.service, datatype, realm, UserFragment(user), id, HistoryRevName)
 }
 
 type MemTx struct {

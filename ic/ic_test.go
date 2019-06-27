@@ -166,7 +166,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Name:    "Get someone else's token as an admin",
 			Method:  "GET",
-			Path:    "/identity/v1alpha/test/token/someone-account/1a2_3b4",
+			Path:    "/identity/v1alpha/test/token/someone-account/1a2-3b4",
 			Persona: "admin",
 			Output:  `{"tokenMetadata":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh openid","identityProvider":"google"}}`,
 			Status:  http.StatusOK,
@@ -174,7 +174,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Name:    "Get someone else's token as an non-admin",
 			Method:  "GET",
-			Path:    "/identity/v1alpha/test/token/dr_joe_elixir/1a2_3b4",
+			Path:    "/identity/v1alpha/test/token/dr_joe_elixir/1a2-3b4",
 			Persona: "non-admin",
 			Output:  `^.*token not found.*`,
 			Status:  http.StatusNotFound,
@@ -282,7 +282,7 @@ func TestAdminHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "admin",
-			Output:  `{"tokensMetadata":{"dr_joe_elixir/123-456":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh identities profiles openid","identityProvider":"elixir"},"someone-account/1a2_3b4":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh openid","identityProvider":"google"}}}`,
+			Output:  `{"tokensMetadata":{"dr_joe_elixir/123-456":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh identities profiles openid","identityProvider":"elixir"},"someone-account/1a2-3b4":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh openid","identityProvider":"google"}}}`,
 			Status:  http.StatusOK,
 		},
 		{

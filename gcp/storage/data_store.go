@@ -65,6 +65,7 @@ type DatastoreEntity struct {
 	Service  string         `datastore:"service"`
 	Datatype string         `datastore:"type"`
 	Realm    string         `datastore:"realm"`
+	User     string         `datastore:"user_id"`
 	Id       string         `datastore:"id"`
 	Rev      int64          `datastore:"rev"`
 	Version  string         `datastore:"version,noindex"`
@@ -77,6 +78,7 @@ type DatastoreHistory struct {
 	Service  string         `datastore:"service"`
 	Datatype string         `datastore:"type"`
 	Realm    string         `datastore:"realm"`
+	User     string         `datastore:"user_id"`
 	Id       string         `datastore:"id"`
 	Rev      int64          `datastore:"rev"`
 	Version  string         `datastore:"version,noindex"`
@@ -118,8 +120,8 @@ func (s *DatastoreStorage) Info() map[string]string {
 	}
 }
 
-func (s *DatastoreStorage) Exists(datatype, realm, id string, rev int64) (bool, error) {
-	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, id, rev), nil)
+func (s *DatastoreStorage) Exists(datatype, realm, user, id string, rev int64) (bool, error) {
+	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
 	e := new(DatastoreEntity)
 	err := s.client.Get(s.ctx, k, e)
 	if err == nil {
@@ -130,11 +132,11 @@ func (s *DatastoreStorage) Exists(datatype, realm, id string, rev int64) (bool, 
 	return false, err
 }
 
-func (s *DatastoreStorage) Read(datatype, realm, id string, rev int64, content proto.Message) error {
-	return s.ReadTx(datatype, realm, id, rev, content, nil)
+func (s *DatastoreStorage) Read(datatype, realm, user, id string, rev int64, content proto.Message) error {
+	return s.ReadTx(datatype, realm, user, id, rev, content, nil)
 }
 
-func (s *DatastoreStorage) ReadTx(datatype, realm, id string, rev int64, content proto.Message, tx storage.Tx) error {
+func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx storage.Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
@@ -148,8 +150,8 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, id string, rev int64, content
 		return fmt.Errorf("invalid transaction")
 	}
 
-	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, id, rev), nil)
-	e, err := s.datastoreEntity(k, datatype, realm, id, rev, content)
+	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
+	e, err := s.datastoreEntity(k, datatype, realm, user, id, rev, content)
 	if err != nil {
 		return err
 	}
@@ -165,7 +167,7 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, id string, rev int64, content
 	return nil
 }
 
-func (s *DatastoreStorage) MultiReadTx(datatype, realm string, content map[string]proto.Message, typ proto.Message, tx storage.Tx) error {
+func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
@@ -176,7 +178,11 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm string, content map[strin
 	}
 
 	// TODO: handle pagination.
-	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("rev = ", storage.LatestRev).Order("id").Limit(maxPageSize)
+	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm)
+	if user != storage.DefaultUser {
+		q = q.Filter("user_id = ", user)
+	}
+	q = q.Filter("rev = ", storage.LatestRev).Order("id").Limit(maxPageSize)
 	results := make([]DatastoreEntity, maxPageSize)
 	if _, err := s.client.GetAll(s.ctx, q, &results); err != nil {
 		return err
@@ -191,16 +197,21 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm string, content map[strin
 		if err := jsonpb.Unmarshal(strings.NewReader(e.Content), p); err != nil {
 			return err
 		}
-		content[e.Id] = p
+		userContent, ok := content[e.User]
+		if !ok {
+			content[e.User] = make(map[string]proto.Message)
+			userContent = content[e.User]
+		}
+		userContent[e.Id] = p
 	}
 	return nil
 }
 
-func (s *DatastoreStorage) ReadHistory(datatype, realm, id string, content *[]proto.Message) error {
-	return s.ReadHistoryTx(datatype, realm, id, content, nil)
+func (s *DatastoreStorage) ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error {
+	return s.ReadHistoryTx(datatype, realm, user, id, content, nil)
 }
 
-func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, id string, content *[]proto.Message, tx storage.Tx) error {
+func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx storage.Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
@@ -211,7 +222,7 @@ func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, id string, content *[]
 	}
 
 	// TODO: handle pagination.
-	q := datastore.NewQuery(historyKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("id =", id).Order("rev").Limit(maxPageSize)
+	q := datastore.NewQuery(historyKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("user_id =", user).Filter("id =", id).Order("rev").Limit(maxPageSize)
 	results := make([]DatastoreHistory, maxPageSize)
 	if _, err := s.client.GetAll(s.ctx, q, &results); err != nil {
 		return err
@@ -229,11 +240,11 @@ func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, id string, content *[]
 	return nil
 }
 
-func (s *DatastoreStorage) Write(datatype, realm, id string, rev int64, content proto.Message, history proto.Message) error {
-	return s.WriteTx(datatype, realm, id, rev, content, history, nil)
+func (s *DatastoreStorage) Write(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message) error {
+	return s.WriteTx(datatype, realm, user, id, rev, content, history, nil)
 }
 
-func (s *DatastoreStorage) WriteTx(datatype, realm, id string, rev int64, content proto.Message, history proto.Message, tx storage.Tx) error {
+func (s *DatastoreStorage) WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx storage.Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(true)
@@ -248,8 +259,8 @@ func (s *DatastoreStorage) WriteTx(datatype, realm, id string, rev int64, conten
 	}
 
 	if rev != storage.LatestRev {
-		rk := datastore.NameKey(entityKind, s.entityKey(datatype, realm, id, rev), nil)
-		re, err := s.datastoreEntity(rk, datatype, realm, id, rev, content)
+		rk := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
+		re, err := s.datastoreEntity(rk, datatype, realm, user, id, rev, content)
 		if err != nil {
 			return err
 		}
@@ -259,8 +270,8 @@ func (s *DatastoreStorage) WriteTx(datatype, realm, id string, rev int64, conten
 		}
 	}
 	if history != nil {
-		hk := datastore.NameKey(historyKind, s.historyKey(datatype, realm, id, rev), nil)
-		he, err := s.datastoreHistory(hk, datatype, realm, id, rev, history)
+		hk := datastore.NameKey(historyKind, s.historyKey(datatype, realm, user, id, rev), nil)
+		he, err := s.datastoreHistory(hk, datatype, realm, user, id, rev, history)
 		if err != nil {
 			dstx.Rollback()
 			return err
@@ -270,8 +281,8 @@ func (s *DatastoreStorage) WriteTx(datatype, realm, id string, rev int64, conten
 			return err
 		}
 	}
-	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, id, storage.LatestRev), nil)
-	e, err := s.datastoreEntity(k, datatype, realm, id, rev, content)
+	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, storage.LatestRev), nil)
+	e, err := s.datastoreEntity(k, datatype, realm, user, id, rev, content)
 	if err != nil {
 		dstx.Rollback()
 		return err
@@ -284,12 +295,12 @@ func (s *DatastoreStorage) WriteTx(datatype, realm, id string, rev int64, conten
 }
 
 // Delete a record.
-func (s *DatastoreStorage) Delete(datatype, realm, id string, rev int64) error {
-	return s.DeleteTx(datatype, realm, id, rev, nil)
+func (s *DatastoreStorage) Delete(datatype, realm, user, id string, rev int64) error {
+	return s.DeleteTx(datatype, realm, user, id, rev, nil)
 }
 
 // DeleteTx delete a record with transaction.
-func (s *DatastoreStorage) DeleteTx(datatype, realm, id string, rev int64, tx storage.Tx) error {
+func (s *DatastoreStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx storage.Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(true)
@@ -303,7 +314,7 @@ func (s *DatastoreStorage) DeleteTx(datatype, realm, id string, rev int64, tx st
 		return fmt.Errorf("invalid transaction")
 	}
 
-	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, id, rev), nil)
+	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
 	if err := dstx.Tx.Delete(k); err != nil {
 		dstx.Rollback()
 		return err
@@ -312,8 +323,12 @@ func (s *DatastoreStorage) DeleteTx(datatype, realm, id string, rev int64, tx st
 }
 
 // MultiDeleteTx deletes all records of a certain data type within a realm.
-func (s *DatastoreStorage) MultiDeleteTx(datatype, realm string, tx storage.Tx) error {
-	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("rev = ", storage.LatestRev).Order("id").Limit(maxPageSize)
+func (s *DatastoreStorage) MultiDeleteTx(datatype, realm, user string, tx storage.Tx) error {
+	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm)
+	if user != storage.DefaultUser {
+		q = q.Filter("user_id =", user)
+	}
+	q = q.Filter("rev = ", storage.LatestRev).Order("id")
 	_, err := s.multiDelete(q)
 	return err
 }
@@ -392,27 +407,33 @@ func (s *DatastoreStorage) init() error {
 	return nil
 }
 
-func (s *DatastoreStorage) entityKey(datatype, realm, id string, rev int64) string {
+func (s *DatastoreStorage) entityKey(datatype, realm, user, id string, rev int64) string {
 	r := storage.LatestRevName
 	if rev > 0 {
 		r = fmt.Sprintf("%06d", rev)
 	}
-	return fmt.Sprintf("%s/%s/%s/%s/%s", s.service, datatype, realm, id, r)
+	if user == storage.DefaultUser {
+		user = "~"
+	}
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%s", s.service, datatype, realm, user, id, r)
 }
 
 func (s *DatastoreStorage) metaKey(id string) string {
 	return fmt.Sprintf("%s/%s/%s/%s", s.service, "meta", id, "meta")
 }
 
-func (s *DatastoreStorage) historyKey(datatype, realm, id string, rev int64) string {
+func (s *DatastoreStorage) historyKey(datatype, realm, user, id string, rev int64) string {
 	r := storage.LatestRevName
 	if rev > 0 {
 		r = fmt.Sprintf("%06d", rev)
 	}
-	return fmt.Sprintf("%s/%s.%s/%s/%s/%s", s.service, datatype, storage.HistoryRevName, realm, id, r)
+	if user == storage.DefaultUser {
+		user = "~"
+	}
+	return fmt.Sprintf("%s/%s.%s/%s/%s/%s/%s", s.service, datatype, storage.HistoryRevName, realm, user, id, r)
 }
 
-func (s *DatastoreStorage) datastoreEntity(key *datastore.Key, datatype, realm, id string, rev int64, content proto.Message) (*DatastoreEntity, error) {
+func (s *DatastoreStorage) datastoreEntity(key *datastore.Key, datatype, realm, user, id string, rev int64, content proto.Message) (*DatastoreEntity, error) {
 	m := jsonpb.Marshaler{}
 	js, err := m.MarshalToString(content)
 	if err != nil {
@@ -423,6 +444,7 @@ func (s *DatastoreStorage) datastoreEntity(key *datastore.Key, datatype, realm, 
 		Service:  s.service,
 		Datatype: datatype,
 		Realm:    realm,
+		User:     user,
 		Id:       id,
 		Rev:      rev,
 		Version:  storageVersion,
@@ -431,7 +453,7 @@ func (s *DatastoreStorage) datastoreEntity(key *datastore.Key, datatype, realm, 
 	}, nil
 }
 
-func (s *DatastoreStorage) datastoreHistory(key *datastore.Key, datatype, realm, id string, rev int64, content proto.Message) (*DatastoreHistory, error) {
+func (s *DatastoreStorage) datastoreHistory(key *datastore.Key, datatype, realm, user, id string, rev int64, content proto.Message) (*DatastoreHistory, error) {
 	m := jsonpb.Marshaler{}
 	js, err := m.MarshalToString(content)
 	if err != nil {
@@ -442,6 +464,7 @@ func (s *DatastoreStorage) datastoreHistory(key *datastore.Key, datatype, realm,
 		Service:  s.service,
 		Datatype: datatype,
 		Realm:    realm,
+		User:     user,
 		Id:       id,
 		Rev:      rev,
 		Version:  storageVersion,

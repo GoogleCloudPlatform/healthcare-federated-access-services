@@ -45,7 +45,7 @@ var (
 )
 
 type ServiceInterface interface {
-	GetStore() storage.StorageInterface
+	GetStore() storage.Store
 }
 
 type HandlerFactory struct {

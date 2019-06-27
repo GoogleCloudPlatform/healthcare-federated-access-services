@@ -34,9 +34,9 @@ type AggregatorAdapter struct {
 }
 
 // NewAggregatorAdapter creates a AggregatorAdapter.
-func NewAggregatorAdapter(store storage.StorageInterface, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
+func NewAggregatorAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
 	var desc pb.TargetAdapter
-	if err := store.Read(AdapterDataType, storage.DefaultRealm, aggregatorName, storage.LatestRev, &desc); err != nil {
+	if err := store.Read(AdapterDataType, storage.DefaultRealm, storage.DefaultUser, aggregatorName, storage.LatestRev, &desc); err != nil {
 		return nil, fmt.Errorf("reading %q descriptor: %v", aggregatorName, err)
 	}
 	sawAdapter, ok := adapters.ByName[SawAdapterName]

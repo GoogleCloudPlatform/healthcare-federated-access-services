@@ -66,11 +66,6 @@ const (
 
 	maxClaimsLength = 1900
 
-	accountName         = "account"
-	configName          = "config"
-	secretsName         = "secrets"
-	accountLookupName   = "acct_lookup"
-	loginStateName      = "login_state"
 	loginPageFile       = "gcp/ic/fe/login.html"
 	clientLoginPageFile = "gcp/ic/fe/client_login.html"
 	testPageFile        = "gcp/ic/fe/test.html"
@@ -122,17 +117,15 @@ const (
 	noScope              = ""
 	scopeOpenID          = "openid"
 	personaProvider      = "<persona>"
-	mainID               = "main"
 	matchFullScope       = false
 	matchPrefixScope     = true
 	generateRefreshToken = true
 	noRefreshToken       = false
-	defaultRealm         = "master"
 	noDuration           = 0 * time.Second
 )
 
 func defaultPath(path string) string {
-	return strings.Replace(path, common.RealmVariable, defaultRealm, -1)
+	return strings.Replace(path, common.RealmVariable, storage.DefaultRealm, -1)
 }
 
 var (
@@ -240,7 +233,7 @@ var (
 
 type Service struct {
 	fileRoot        string
-	store           storage.StorageInterface
+	store           storage.Store
 	Handler         *ServiceHandler
 	ctx             context.Context
 	loginPage       string
@@ -264,7 +257,7 @@ type ServiceHandler struct {
 // - accountDomain: domain used to host service account warehouse
 // - store: data storage and configuration storage
 // - module: the extended functionality for this environment
-func NewService(domain, accountDomain string, store storage.StorageInterface, module module.Module) *Service {
+func NewService(domain, accountDomain string, store storage.Store, module module.Module) *Service {
 	ctx := context.Background()
 	sh := &ServiceHandler{}
 	lp, err := loadFile(loginPageFile)
@@ -306,7 +299,7 @@ func NewService(domain, accountDomain string, store storage.StorageInterface, mo
 	if err = s.importFiles(); err != nil {
 		log.Fatalf("cannot initialize storage: %v", err)
 	}
-	cfg, err := s.loadConfig(nil, defaultRealm)
+	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		log.Fatalf("cannot load config: %v", err)
 	}
@@ -462,7 +455,7 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(status, err, w)
 		return
 	}
-	h, status, err := storage.GetHistory(s.store, configName, getRealm(r), mainID, r)
+	h, status, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
 		common.HandleError(status, err, w)
 	}
@@ -487,7 +480,7 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	cfg := &pb.IcConfig{}
-	if status, err := s.realmReadTx(configName, getRealm(r), mainID, rev, cfg, nil); err != nil {
+	if status, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
 		common.HandleError(status, err, w)
 		return
 	}
@@ -640,7 +633,7 @@ func (s *Service) Revocation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the token from storage.
-	if err := s.store.DeleteTx(storage.TokensDatatype, getRealm(r), identity.Subject+"/"+identity.ID, storage.LatestRev, tx); err != nil {
+	if err := s.store.DeleteTx(storage.TokensDatatype, getRealm(r), identity.Subject, identity.ID, storage.LatestRev, tx); err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("failed to revoke token: %v", err), w)
 	}
 	return
@@ -788,7 +781,7 @@ func (s *Service) buildState(idpName, realm, clientID, scope, redirect string, t
 
 	id := common.GenerateGUID()
 
-	err := s.store.WriteTx(loginStateName, defaultRealm, id, storage.LatestRev, state, nil, tx)
+	err := s.store.WriteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, id, storage.LatestRev, state, nil, tx)
 	if err != nil {
 		return "", err
 	}
@@ -901,13 +894,13 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var loginState compb.LoginState
-	err := s.store.Read(loginStateName, defaultRealm, stateParam, storage.LatestRev, &loginState)
+	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
 		return
 	}
 	// state should be one time usage.
-	err = s.store.Delete(loginStateName, defaultRealm, stateParam, storage.LatestRev)
+	err = s.store.Delete(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("delete login state failed, %q", err), w)
 		return
@@ -1280,7 +1273,7 @@ func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) GetStore() storage.StorageInterface {
+func (s *Service) GetStore() storage.Store {
 	return s.store
 }
 
@@ -1359,7 +1352,7 @@ func (c *realm) Remove(name string) error {
 	if err := c.s.store.Wipe(name); err != nil {
 		return err
 	}
-	if name == defaultRealm {
+	if name == storage.DefaultRealm {
 		return c.s.importFiles()
 	}
 	return nil
@@ -1941,7 +1934,7 @@ func (h *tokenMetadataHandler) LookupItem(name string, vars map[string]string) b
 	h.jti = jti
 
 	h.item = &pb.TokenMetadata{}
-	if err := h.s.store.ReadTx(storage.TokensDatatype, getRealm(h.r), storage.TokensID(sub, jti), storage.LatestRev, h.item, h.tx); err != nil {
+	if err := h.s.store.ReadTx(storage.TokensDatatype, getRealm(h.r), sub, jti, storage.LatestRev, h.item, h.tx); err != nil {
 		return false
 	}
 	return true
@@ -1971,7 +1964,7 @@ func (h *tokenMetadataHandler) Patch(name string) error {
 }
 
 func (h *tokenMetadataHandler) Remove(name string) error {
-	return h.s.store.DeleteTx(storage.TokensDatatype, getRealm(h.r), storage.TokensID(h.sub, h.jti), storage.LatestRev, h.tx)
+	return h.s.store.DeleteTx(storage.TokensDatatype, getRealm(h.r), h.sub, h.jti, storage.LatestRev, h.tx)
 }
 
 func (h *tokenMetadataHandler) CheckIntegrity() (proto.Message, int, error) {
@@ -2018,14 +2011,16 @@ func (h *adminTokenMetadataHandler) Setup(tx storage.Tx, isAdmin bool) (int, err
 
 func (h *adminTokenMetadataHandler) LookupItem(name string, vars map[string]string) bool {
 	h.item = make(map[string]*pb.TokenMetadata)
-	m := make(map[string]proto.Message)
-	err := h.s.store.MultiReadTx(storage.TokensDatatype, getRealm(h.r), m, &pb.TokenMetadata{}, h.tx)
+	m := make(map[string]map[string]proto.Message)
+	err := h.s.store.MultiReadTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, m, &pb.TokenMetadata{}, h.tx)
 	if err != nil {
 		return false
 	}
-	for k, v := range m {
-		if t, ok := v.(*pb.TokenMetadata); ok {
-			h.item[k] = t
+	for userKey, userVal := range m {
+		for idKey, idVal := range userVal {
+			if id, ok := idVal.(*pb.TokenMetadata); ok {
+				h.item[userKey+"/"+idKey] = id
+			}
 		}
 	}
 	return true
@@ -2055,7 +2050,7 @@ func (h *adminTokenMetadataHandler) Patch(name string) error {
 }
 
 func (h *adminTokenMetadataHandler) Remove(name string) error {
-	return h.s.store.MultiDeleteTx(storage.TokensDatatype, getRealm(h.r), h.tx)
+	return h.s.store.MultiDeleteTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, h.tx)
 }
 
 func (h *adminTokenMetadataHandler) CheckIntegrity() (proto.Message, int, error) {
@@ -2505,12 +2500,12 @@ func (c *adminClaims) Save(tx storage.Tx, name string, vars map[string]string, d
 
 func getRealm(r *http.Request) string {
 	if r == nil {
-		return defaultRealm
+		return storage.DefaultRealm
 	}
 	if realm, ok := mux.Vars(r)["realm"]; ok && len(realm) > 0 {
 		return realm
 	}
-	return defaultRealm
+	return storage.DefaultRealm
 }
 
 func getName(r *http.Request) string {
@@ -2618,13 +2613,13 @@ func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcCon
 	}
 	realm := getRealm(r)
 	var tokenMetadata pb.TokenMetadata
-	if err := s.store.ReadTx(storage.AuthCodeDatatype, realm, token.ID, storage.LatestRev, &tokenMetadata, tx); err != nil {
+	if err := s.store.ReadTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, &tokenMetadata, tx); err != nil {
 		if storage.ErrNotFound(err) {
 			return nil, http.StatusUnauthorized, fmt.Errorf("auth code invalid or has already been exchanged")
 		}
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("reading auth code metadata from storage: %v", err)
 	}
-	if err := s.store.DeleteTx(storage.AuthCodeDatatype, realm, token.ID, storage.LatestRev, tx); err != nil {
+	if err := s.store.DeleteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, tx); err != nil {
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("removing auth code metadata from storage: %v", err)
 	}
 
@@ -2688,7 +2683,7 @@ func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.Ic
 		return nil, status, fmt.Errorf("inspecting token: %v", err)
 	}
 	token := pb.TokenMetadata{}
-	if err := s.store.ReadTx(storage.TokensDatatype, getRealm(r), storage.TokensID(id.Subject, id.ID), storage.LatestRev, &token, tx); err != nil {
+	if err := s.store.ReadTx(storage.TokensDatatype, getRealm(r), id.Subject, id.ID, storage.LatestRev, &token, tx); err != nil {
 		if storage.ErrNotFound(err) {
 			return nil, http.StatusBadRequest, fmt.Errorf("the incoming refresh token had already been revoked or is invalid")
 		}
@@ -2974,7 +2969,7 @@ func (s *Service) createAuthToken(subject, scope, provider, realm string, now ti
 		IdentityProvider: provider,
 		Subject:          subject,
 	}
-	err := s.store.WriteTx(storage.AuthCodeDatatype, realm, token.ID, storage.LatestRev, tokenMetadata, nil, tx)
+	err := s.store.WriteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, tokenMetadata, nil, tx)
 	if err != nil {
 		return "", fmt.Errorf("writing refresh token metadata to storage: %v", err)
 	}
@@ -3037,7 +3032,7 @@ func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm s
 			Scope:            claims.Scope,
 			IdentityProvider: claims.IdentityProvider,
 		}
-		err := s.store.WriteTx(storage.TokensDatatype, realm, storage.TokensID(claims.Subject, claims.ID), storage.LatestRev, tokenMetadata, nil, tx)
+		err := s.store.WriteTx(storage.TokensDatatype, realm, claims.Subject, claims.ID, storage.LatestRev, tokenMetadata, nil, tx)
 		if err != nil {
 			return "", fmt.Errorf("writing refresh token metadata to storage: %v", err)
 		}
@@ -3336,7 +3331,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 			"issuer":       idp.Issuer,
 			"authorizeUrl": idp.AuthorizeUrl,
 		}
-		if !s.idpUsesClientLoginPage(name, defaultRealm) {
+		if !s.idpUsesClientLoginPage(name, storage.DefaultRealm) {
 			m["tokenUrl"] = idp.TokenUrl
 		}
 		if err := validateURLs(m); err != nil {
@@ -3473,7 +3468,7 @@ func makeLoginHint(provider, subject string) string {
 
 func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*pb.Account, int, error) {
 	acct := &pb.Account{}
-	status, err := s.singleRealmReadTx(accountName, realm, name, storage.LatestRev, acct, tx)
+	status, err := s.singleRealmReadTx(storage.AccountDatatype, realm, storage.DefaultUser, name, storage.LatestRev, acct, tx)
 	if err != nil {
 		return nil, status, err
 	}
@@ -3576,12 +3571,12 @@ func sendRedirect(url string, r *http.Request, w http.ResponseWriter) {
 
 func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.IcConfig, error) {
 	cfg := &pb.IcConfig{}
-	_, err := s.realmReadTx(configName, realm, mainID, storage.LatestRev, cfg, tx)
+	_, err := s.realmReadTx(storage.ConfigDatatype, realm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg, tx)
 	if err != nil {
-		return nil, fmt.Errorf("cannot load config file %q: %v", configName, err)
+		return nil, fmt.Errorf("cannot load %q file: %v", storage.ConfigDatatype, err)
 	}
 	if err := normalizeConfig(cfg); err != nil {
-		return nil, fmt.Errorf("invalid config file %q: %v", configName, err)
+		return nil, fmt.Errorf("invalid %q file: %v", storage.ConfigDatatype, err)
 	}
 
 	return cfg, nil
@@ -3593,7 +3588,7 @@ func (s *Service) saveConfig(cfg *pb.IcConfig, desc, resType string, r *http.Req
 	}
 	cfg.Revision++
 	cfg.CommitTime = common.GetNowInUnixNano()
-	if err := s.store.WriteTx(configName, getRealm(r), mainID, cfg.Revision, cfg, storage.MakeConfigHistory(desc, resType, cfg.Revision, cfg.CommitTime, r, id.Subject, orig, update), tx); err != nil {
+	if err := s.store.WriteTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, storage.MakeConfigHistory(desc, resType, cfg.Revision, cfg.CommitTime, r, id.Subject, orig, update), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
@@ -3601,7 +3596,7 @@ func (s *Service) saveConfig(cfg *pb.IcConfig, desc, resType string, r *http.Req
 
 func (s *Service) loadSecrets(tx storage.Tx) (*pb.IcSecrets, error) {
 	secrets := &pb.IcSecrets{}
-	_, err := s.realmReadTx(secretsName, defaultRealm, mainID, storage.LatestRev, secrets, tx)
+	_, err := s.realmReadTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -3650,7 +3645,7 @@ func (s *Service) getIssuerPrivateKey(iss string, tx storage.Tx) (*rsa.PrivateKe
 func (s *Service) saveSecrets(secrets *pb.IcSecrets, desc, resType string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
 	secrets.Revision++
 	secrets.CommitTime = float64(time.Now().UnixNano()) / 1e9
-	if err := s.store.WriteTx(secretsName, defaultRealm, mainID, secrets.Revision, secrets, storage.MakeConfigHistory(desc, resType, secrets.Revision, secrets.CommitTime, r, id.Subject, nil, nil), tx); err != nil {
+	if err := s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, storage.MakeConfigHistory(desc, resType, secrets.Revision, secrets.CommitTime, r, id.Subject, nil, nil), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
@@ -3658,7 +3653,7 @@ func (s *Service) saveSecrets(secrets *pb.IcSecrets, desc, resType string, r *ht
 
 func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*pb.AccountLookup, error) {
 	lookup := &pb.AccountLookup{}
-	status, err := s.singleRealmReadTx(accountLookupName, realm, acct, storage.LatestRev, lookup, tx)
+	status, err := s.singleRealmReadTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, acct, storage.LatestRev, lookup, tx)
 	if err != nil && status == http.StatusNotFound {
 		return nil, nil
 	}
@@ -3668,7 +3663,7 @@ func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*pb.AccountL
 func (s *Service) saveAccountLookup(lookup *pb.AccountLookup, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
 	lookup.Revision++
 	lookup.CommitTime = common.GetNowInUnixNano()
-	if err := s.store.WriteTx(accountLookupName, realm, fedAcct, lookup.Revision, lookup, storage.MakeConfigHistory("link account", accountLookupName, lookup.Revision, lookup.CommitTime, r, id.Subject, nil, lookup), tx); err != nil {
+	if err := s.store.WriteTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, fedAcct, lookup.Revision, lookup, storage.MakeConfigHistory("link account", storage.AccountLookupDatatype, lookup.Revision, lookup.CommitTime, r, id.Subject, nil, lookup), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
@@ -3697,19 +3692,19 @@ func (s *Service) saveAccount(oldAcct, newAcct *pb.Account, desc string, r *http
 		}
 	}
 
-	if err := s.store.WriteTx(accountName, getRealm(r), newAcct.Properties.Subject, newAcct.Revision, newAcct, storage.MakeConfigHistory(desc, accountName, newAcct.Revision, newAcct.Properties.Modified, r, subject, oldAcct, newAcct), tx); err != nil {
+	if err := s.store.WriteTx(storage.AccountDatatype, getRealm(r), storage.DefaultUser, newAcct.Properties.Subject, newAcct.Revision, newAcct, storage.MakeConfigHistory(desc, storage.AccountDatatype, newAcct.Revision, newAcct.Properties.Modified, r, subject, oldAcct, newAcct), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
 }
 
-func (s *Service) singleRealmReadTx(datatype, realm, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {
-	err := s.store.ReadTx(datatype, realm, id, rev, item, tx)
+func (s *Service) singleRealmReadTx(datatype, realm, user, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {
+	err := s.store.ReadTx(datatype, realm, user, id, rev, item, tx)
 	if err == nil {
 		return http.StatusOK, nil
 	}
 	if storage.ErrNotFound(err) {
-		if len(id) > 0 && id != mainID {
+		if len(id) > 0 && id != storage.DefaultID {
 			return http.StatusNotFound, fmt.Errorf("%s %q not found", datatype, id)
 		}
 		return http.StatusNotFound, fmt.Errorf("%s not found", datatype)
@@ -3717,19 +3712,19 @@ func (s *Service) singleRealmReadTx(datatype, realm, id string, rev int64, item 
 	return http.StatusServiceUnavailable, fmt.Errorf("service storage unavailable: %v, retry later", err)
 }
 
-func (s *Service) realmReadTx(datatype, realm, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {
-	err := s.store.ReadTx(datatype, realm, id, rev, item, tx)
+func (s *Service) realmReadTx(datatype, realm, user, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {
+	err := s.store.ReadTx(datatype, realm, user, id, rev, item, tx)
 	if err == nil {
 		return http.StatusOK, nil
 	}
-	if storage.ErrNotFound(err) && realm != defaultRealm {
-		err = s.store.ReadTx(datatype, defaultRealm, id, rev, item, tx)
+	if storage.ErrNotFound(err) && realm != storage.DefaultRealm {
+		err = s.store.ReadTx(datatype, storage.DefaultRealm, user, id, rev, item, tx)
 		if err == nil {
 			return http.StatusOK, nil
 		}
 	}
 	if storage.ErrNotFound(err) {
-		if len(id) > 0 && id != mainID {
+		if len(id) > 0 && id != storage.DefaultID {
 			return http.StatusNotFound, fmt.Errorf("%s %q not found", datatype, id)
 		}
 		return http.StatusNotFound, fmt.Errorf("%s not found", datatype)
@@ -3763,7 +3758,7 @@ func (s *Service) importFiles() error {
 	// TODO: FIXME do not check in this destructive code.
 	if imp := os.Getenv("IMPORT"); imp == "AUTO_RESET" {
 		wipe := false
-		cfg, err := s.loadConfig(nil, defaultRealm)
+		cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
 			if !storage.ErrNotFound(err) {
 				wipe = true
@@ -3785,7 +3780,7 @@ func (s *Service) importFiles() error {
 	}
 	defer tx.Finish()
 
-	ok, err := s.store.Exists(secretsName, defaultRealm, mainID, storage.LatestRev)
+	ok, err := s.store.Exists(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev)
 	if err != nil {
 		return err
 	}
@@ -3809,19 +3804,19 @@ func (s *Service) importFiles() error {
 	fs := storage.NewFileStorage(service, path)
 
 	cfg := &pb.IcConfig{}
-	if err = fs.Read(configName, defaultRealm, mainID, storage.LatestRev, cfg); err != nil {
+	if err = fs.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		return err
 	}
 	history.Revision = cfg.Revision
-	if err = s.store.WriteTx(configName, defaultRealm, mainID, cfg.Revision, cfg, history, tx); err != nil {
+	if err = s.store.WriteTx(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, history, tx); err != nil {
 		return err
 	}
 	secrets := &pb.IcSecrets{}
-	if err = fs.Read(secretsName, defaultRealm, mainID, storage.LatestRev, secrets); err != nil {
+	if err = fs.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		return err
 	}
 	history.Revision = secrets.Revision
-	if err = s.store.WriteTx(secretsName, defaultRealm, mainID, secrets.Revision, secrets, history, tx); err != nil {
+	if err = s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
 		return err
 	}
 	return nil

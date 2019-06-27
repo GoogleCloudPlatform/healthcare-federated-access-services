@@ -28,7 +28,7 @@ func TestCheckIntegrity(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "test/config")
 	s := dam.NewService(context.Background(), "test.org", store, nil)
 	cfg := &pb.DamConfig{}
-	if err := store.Read("config", storage.DefaultRealm, "main", storage.LatestRev, cfg); err != nil {
+	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		t.Fatalf("error reading config: %v", err)
 	}
 	if err := s.CheckIntegrity(cfg); err != nil {

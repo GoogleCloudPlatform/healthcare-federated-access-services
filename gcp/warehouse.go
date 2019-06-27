@@ -82,7 +82,7 @@ type AccountWarehouse struct {
 
 // NewAccountWarehouse creates a new AccountWarehouse using the provided client
 // and options.
-func NewAccountWarehouse(client *http.Client, store storage.StorageInterface) (*AccountWarehouse, error) {
+func NewAccountWarehouse(client *http.Client, store storage.Store) (*AccountWarehouse, error) {
 	iamSvc, err := iam.New(client)
 	if err != nil {
 		return nil, fmt.Errorf("creating IAM client: %v", err)

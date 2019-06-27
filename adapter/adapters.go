@@ -84,7 +84,7 @@ type TargetAdapters struct {
 }
 
 // CreateAdapters registers and collects all adapters with the system.
-func CreateAdapters(store storage.StorageInterface, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets) (*TargetAdapters, error) {
+func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets) (*TargetAdapters, error) {
 	adapters := &TargetAdapters{
 		ByName:      make(map[string]Adapter),
 		Descriptors: make(map[string]*pb.TargetAdapter),
@@ -142,7 +142,7 @@ func ResolveServiceRole(roleName string, view *pb.View, res *pb.Resource, cfg *p
 	return sRole, nil
 }
 
-func registerAdapter(adapters *TargetAdapters, store storage.StorageInterface, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, init func(storage.StorageInterface, clouds.ResourceTokenCreator, *pb.DamSecrets, *TargetAdapters) (Adapter, error)) {
+func registerAdapter(adapters *TargetAdapters, store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, init func(storage.Store, clouds.ResourceTokenCreator, *pb.DamSecrets, *TargetAdapters) (Adapter, error)) {
 	adapter, err := init(store, warehouse, secrets, adapters)
 	if err != nil {
 		adapters.errors = append(adapters.errors, err)

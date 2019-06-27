@@ -61,7 +61,7 @@ func main() {
 	if serviceName == "" {
 		serviceName = DefaultServiceName
 	}
-	var store storage.StorageInterface
+	var store storage.Store
 	switch storeName {
 	case "datastore":
 		store = gcp_storage.NewDatastoreStorage(ctx, project, serviceName, path)
