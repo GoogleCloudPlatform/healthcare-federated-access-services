@@ -232,7 +232,6 @@ var (
 )
 
 type Service struct {
-	fileRoot        string
 	store           storage.Store
 	Handler         *ServiceHandler
 	ctx             context.Context
@@ -419,7 +418,7 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(oidcJwksPath, s.OidcKeys).Methods("GET")
 	r.HandleFunc(oidcUserInfoPath, s.OidcUserInfo).Methods("GET", "POST")
 
-	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(s.fileRoot, staticDirectory))))
+	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(storage.ProjectRoot, staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)
 	return r
 }
