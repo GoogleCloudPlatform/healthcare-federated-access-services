@@ -5,8 +5,6 @@ require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/coreos/go-oidc v2.0.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/fsnotify/fsnotify v1.4.7
-	github.com/gofrs/flock v0.7.0
 	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.3.1
 	github.com/google/go-cmp v0.2.0
