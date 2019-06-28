@@ -15,15 +15,18 @@
 package dam
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"reflect"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
+	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
 	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
 )
@@ -247,6 +250,75 @@ func (h *processHandler) CheckIntegrity() (proto.Message, int, error) {
 }
 func (h *processHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return fmt.Errorf("save not allowed")
+}
+
+/////////////////////////////////////////////////////////
+
+type tokensHandler struct {
+	s     *Service
+	w     http.ResponseWriter
+	r     *http.Request
+	input *pb.TokensRequest
+	item  []*compb.TokenMetadata
+	cfg   *pb.DamConfig
+	id    *ga4gh.Identity
+	tx    storage.Tx
+}
+
+func NewTokensHandler(s *Service, w http.ResponseWriter, r *http.Request) *tokensHandler {
+	return &tokensHandler{
+		s:     s,
+		w:     w,
+		r:     r,
+		input: &pb.TokensRequest{},
+	}
+}
+func (h *tokensHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	h.tx = tx
+	h.cfg = cfg
+	h.id = id
+	return status, err
+}
+func (h *tokensHandler) LookupItem(name string, vars map[string]string) bool {
+	items, err := h.s.warehouse.ListTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength))
+	if err != nil {
+		return false
+	}
+	h.item = items
+	return true
+}
+func (h *tokensHandler) NormalizeInput(name string, vars map[string]string) error {
+	return common.GetRequest(h.input, h.r)
+}
+func (h *tokensHandler) Get(name string) error {
+	if h.item != nil {
+		common.SendResponse(&pb.TokensResponse{
+			Tokens: h.item,
+		}, h.w)
+	}
+	return nil
+}
+func (h *tokensHandler) Post(name string) error {
+	return fmt.Errorf("POST not allowed")
+}
+func (h *tokensHandler) Put(name string) error {
+	return fmt.Errorf("PUT not allowed")
+}
+func (h *tokensHandler) Patch(name string) error {
+	return fmt.Errorf("PATCH not allowed")
+}
+func (h *tokensHandler) Remove(name string) error {
+	if len(h.item) == 0 {
+		return nil
+	}
+	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), nil)
+}
+func (h *tokensHandler) CheckIntegrity() (proto.Message, int, error) {
+	return nil, http.StatusOK, nil
+}
+func (h *tokensHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return nil
 }
 
 /////////////////////////////////////////////////////////

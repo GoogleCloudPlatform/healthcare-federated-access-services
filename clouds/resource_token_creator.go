@@ -18,6 +18,8 @@ package clouds
 import (
 	"context"
 	"time"
+
+	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
 )
 
 // ResourceTokenCreationParams provides information on a set of items to perform an action upon.
@@ -36,4 +38,11 @@ type ResourceTokenCreator interface {
 
 	// GetTokenWithTTL returns an account and a resource token for resource accessing.
 	GetTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (string, string, error)
+
+	// ListTokens returns a list of outstanding access tokens.
+	ListTokens(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error)
+
+	// DeleteTokens removes tokens belonging to 'id' with given names.
+	// If 'names' is empty, delete all tokens belonging to 'id'.
+	DeleteTokens(ctx context.Context, project, id string, names []string) error
 }

@@ -40,6 +40,8 @@ import (
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/iamcredentials/v1"
 	cloudstorage "google.golang.org/api/storage/v1"
+
+	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
 )
 
 const (
@@ -138,6 +140,52 @@ func (wh *AccountWarehouse) GetTokenWithTTL(ctx context.Context, id string, ttl,
 		return wh.GetAccountKey(ctx, id, ttl, maxTTL, numKeys, params)
 	}
 	return wh.GetAccessToken(ctx, id, params)
+}
+
+// ListTokens returns a list of outstanding access tokens.
+func (wh *AccountWarehouse) ListTokens(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error) {
+	account := wh.GetAccountName(project, id)
+	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("list tokens from service keys: %v", err)
+	}
+	out := make([]*compb.TokenMetadata, len(k.Keys))
+	for i, key := range k.Keys {
+		// Use the last part of the key identifier as the GUID.
+		parts := strings.Split(key.Name, "/")
+		out[i] = &compb.TokenMetadata{
+			Name:     parts[len(parts)-1],
+			IssuedAt: key.ValidAfterTime,
+			Expires:  key.ValidBeforeTime,
+		}
+	}
+
+	return out, nil
+}
+
+// DeleteTokens removes tokens belonging to 'id' with given names.
+// If 'names' is empty, delete all tokens belonging to 'id'.
+func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string, names []string) error {
+	account := wh.GetAccountName(project, id)
+	if len(names) == 0 {
+		k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
+		if err != nil {
+			return fmt.Errorf("listing tokens for service keys: %v", err)
+		}
+		names = make([]string, len(k.Keys))
+		for i, key := range k.Keys {
+			parts := strings.Split(key.Name, "/")
+			names[i] = parts[len(parts)-1]
+		}
+	}
+	keyPrefix := account + "/keys/"
+	for _, name := range names {
+		fullKeyName := keyPrefix + name
+		if _, err := wh.iam.Projects.ServiceAccounts.Keys.Delete(fullKeyName).Context(ctx).Do(); err != nil {
+			return fmt.Errorf("deleting token key %q: %v", name, err)
+		}
+	}
+	return nil
 }
 
 // GetAccountKey returns a service account key associated with id.
@@ -273,12 +321,22 @@ func (wh *AccountWarehouse) RemoveServiceAccount(ctx context.Context, project, e
 	})
 }
 
+// GetAccountName produces a hashed ID and a fully qualified SA name from a 3rd party id.
+func (wh *AccountWarehouse) GetAccountName(project, id string) string {
+	hid := hashID(id)
+	return accountName(project, hid)
+}
+
+func accountName(project, hashID string) string {
+	return accountID(project, fmt.Sprintf("%s@%s.iam.gserviceaccount.com", hashID, project))
+}
+
 func (wh *AccountWarehouse) getBackingAccount(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (string, error) {
 	service := wh.iam.Projects.ServiceAccounts
 	proj := params.AccountProject
 
 	hid := hashID(id)
-	name := accountID(proj, fmt.Sprintf("%s@%s.iam.gserviceaccount.com", hid, proj))
+	name := accountName(proj, hid)
 	account, err := service.Get(name).Context(ctx).Do()
 	if err == nil {
 		// TODO: verify there are no user_id->SA_account collisions.

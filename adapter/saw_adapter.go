@@ -26,9 +26,10 @@ import (
 
 const (
 	// SawAdapterName is the name identifier exposed in config files.
-	SawAdapterName     = "token:gcp:sa"
-	sawName            = "saw"
-	sawMaxUserIDLength = 100 // service account desc max length
+	SawAdapterName = "token:gcp:sa"
+	sawName        = "saw"
+	// SawMaxUserIDLength is the service account desc max length.
+	SawMaxUserIDLength = 100
 )
 
 // SawAdapter is a Service Account Warehouse (SAW) adapter.
@@ -77,7 +78,7 @@ func (a *SawAdapter) MintToken(input *Action) (string, string, error) {
 	if a.warehouse == nil {
 		return "", "", fmt.Errorf("SAW minting token: DAM service account warehouse not configured")
 	}
-	userID := common.TokenUserID(input.Identity, sawMaxUserIDLength)
+	userID := common.TokenUserID(input.Identity, SawMaxUserIDLength)
 	maxKeyTTL, _ := common.ParseDuration(input.Config.Options.GcpManagedKeysMaxRequestedTtl, input.MaxTTL)
 	acct, token, err := a.warehouse.GetTokenWithTTL(input.Request.Context(), userID, input.TTL, maxKeyTTL, int(input.Config.Options.GcpManagedKeysPerAccount), resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config))
 	if err != nil {

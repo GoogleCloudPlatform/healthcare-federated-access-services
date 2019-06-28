@@ -72,6 +72,7 @@ const (
 	testPersonasPath      = methodPrefix + "testPersonas"
 	processesPath         = methodPrefix + "processes"
 	processPath           = methodPrefix + "processes/{name}"
+	tokensPath            = methodPrefix + "tokens"
 
 	configPath                      = methodPrefix + "config"
 	configResourcePath              = configPath + "/resources/{name}"
@@ -319,6 +320,7 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(realmPath, common.MakeHandler(s, s.realmFactory()))
 	r.HandleFunc(processesPath, common.MakeHandler(s, s.processesFactory()))
 	r.HandleFunc(processPath, common.MakeHandler(s, s.processFactory()))
+	r.HandleFunc(tokensPath, common.MakeHandler(s, s.tokensFactory()))
 
 	r.HandleFunc(configHistoryPath, s.ConfigHistory)
 	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
@@ -910,6 +912,10 @@ func (s *Service) GetViewRole(w http.ResponseWriter, r *http.Request) {
 
 // GetResourceToken implements the GetResourceToken RPC method.
 func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method %s not allowed", r.Method), w)
+		return
+	}
 	vars := mux.Vars(r)
 	name := vars["name"]
 	viewName := vars["view"]
@@ -1475,6 +1481,18 @@ func (s *Service) processFactory() *common.HandlerFactory {
 		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewProcessHandler(s, w, r)
+		},
+	}
+}
+
+func (s *Service) tokensFactory() *common.HandlerFactory {
+	return &common.HandlerFactory{
+		TypeName:            "tokens",
+		PathPrefix:          tokensPath,
+		HasNamedIdentifiers: false,
+		IsAdmin:             false,
+		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+			return NewTokensHandler(s, w, r)
 		},
 	}
 }

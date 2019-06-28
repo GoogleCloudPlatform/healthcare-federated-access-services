@@ -18,6 +18,8 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package dam.v1;
 
+import "third_party/hcls_federated_access/common/models/common.proto";
+
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/dam/api/v1";
 
 message DamConfig {
@@ -454,6 +456,12 @@ message BackgroundProcessRequest {}
 
 message BackgroundProcessResponse {
   BackgroundProcess process = 1;
+}
+
+message TokensRequest {}
+
+message TokensResponse {
+  repeated common.models.TokenMetadata tokens = 1;
 }
 
 ////////////////////////////////////////////////

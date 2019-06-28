@@ -94,10 +94,14 @@ func TestSawAdapter(t *testing.T) {
 			},
 			expect: []clouds.MockTokenCreatorEntry{
 				{
-					ID:      "larry|idp1.org",
-					TTL:     60 * time.Second,
-					MaxTTL:  168 * time.Hour,
-					NumKeys: 8,
+					AccountID: "larry|idp1.org",
+					TokenID:   "1",
+					TTL:       60 * time.Second,
+					MaxTTL:    168 * time.Hour,
+					NumKeys:   8,
+					IssuedAt:  1,
+					Expires:   1001,
+					Token:     "token_1",
 				},
 			},
 			fail: false,

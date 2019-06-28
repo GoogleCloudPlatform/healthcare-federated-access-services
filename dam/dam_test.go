@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/clouds"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/test"
@@ -33,7 +34,8 @@ import (
 
 func TestHandlers(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "test/config")
-	s := NewService(context.Background(), "test.org", store, nil)
+	wh := clouds.NewMockTokenCreator(false)
+	s := NewService(context.Background(), "test.org", store, wh)
 	tests := []test.HandlerTest{
 		{
 			Method: "GET",
@@ -675,6 +677,72 @@ func TestHandlers(t *testing.T) {
 			},`,
 			Output: `^.*"ga4gh-apis":\{\}`,
 			Status: http.StatusFailedDependency,
+		},
+		{
+			Method: "GET",
+			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
+			Output: `^{.*"token":.*}`,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "POST",
+			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
+			Output: `^{.*"token":.*}`,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "PUT",
+			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
+			Output: `^.*not allowed`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "PATCH",
+			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
+			Output: `^.*not allowed`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "DELETE",
+			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
+			Output: "^.*not allowed",
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "GET",
+			Path:   "/dam/v1alpha/test/tokens",
+			Output: `^\{"tokens":\[\{"name":.*\]}`,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "POST",
+			Path:   "/dam/v1alpha/test/tokens",
+			Output: `^.*exists`,
+			Status: http.StatusConflict,
+		},
+		{
+			Method: "PUT",
+			Path:   "/dam/v1alpha/test/tokens",
+			Output: `^.*not allowed`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "PATCH",
+			Path:   "/dam/v1alpha/test/tokens",
+			Output: `^.*not allowed`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "DELETE",
+			Path:   "/dam/v1alpha/test/tokens",
+			Output: "",
+			Status: http.StatusOK,
+		},
+		{
+			Method: "GET",
+			Path:   "/dam/v1alpha/test/tokens",
+			Output: `{"tokens":[]}`,
+			Status: http.StatusOK,
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests)

@@ -43,3 +43,9 @@ message LoginState {
   string scope = 4;
   string redirect = 5;
 }
+
+message TokenMetadata {
+  string name = 1;
+  string issued_at = 2;
+  string expires = 3;
+}
