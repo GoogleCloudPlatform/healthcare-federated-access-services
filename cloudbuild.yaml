@@ -1,0 +1,16 @@
+steps:
+# Get the go version being used. Useful for debugging.
+- id: go_version
+- name: "gcr.io/cloud-builders/go"
+  args: ["version"]
+  env: ["GOPATH=go"]
+# Fetch all dependencies
+- id: go_mod_tidy
+- name: "gcr.io/cloud-builders/go"
+  args: ["mod", "tidy"]
+  env: ["GOPATH=go"]
+# Run one of the tests
+- id: go_test
+  name: "gcr.io/cloud-builders/go"
+  args: ["test", "./validator"]
+  env: ["GOPATH=go"]
