@@ -137,7 +137,7 @@ func (wh *AccountWarehouse) RegisterAccountProject(realm, project string, maxReq
 
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
 func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
-	if ttl > maxAccessTokenTTL {
+	if ttl > maxAccessTokenTTL || common.IsJSON(params.TokenFormat) {
 		return wh.GetAccountKey(ctx, id, ttl, maxTTL, numKeys, params)
 	}
 	return wh.GetAccessToken(ctx, id, params)
