@@ -18,7 +18,7 @@
   <head>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script>
-      var instructions = ${TOKEN_URL};
+      var instructions = ${INSTRUCTIONS};
       var state = {};
       var steps = [];
       var step = 0;
@@ -27,18 +27,9 @@
           followInstructions();
           return;
         }
-        var params = new URLSearchParams(window.location.hash.substr(1));
-        var tok = params.get("id_token") || "";
-        var access = params.get("access_token") || "";
-        var state = params.get("state") || "";
-        var error = params.get("error") || "";
-        var errDesc = params.get("error_description") || "";
-        var url = [location.protocol, '//', location.host, location.pathname].join('');
-        url += "?client_extract=true&state=" + encodeURIComponent(state) + "&id_token=" + encodeURIComponent(tok) + "&access_token=" + encodeURIComponent(access);
-        if (error) {
-          url += "&error=" + encodeURIComponent(error) + "&error_description=" + encodeURIComponent(errDesc);
-        }
-        window.location.href = url;
+        var accessTok = getParam("access_token") || "";
+        var idTok = getParam("id_token") || "";
+        finishRedirect(accessTok, idTok);
       }
       function followInstructions() {
         var parts = instructions.split("|");
@@ -76,7 +67,7 @@
             state[name] = resp;
             step++;
             if (step >= steps.length) {
-              return finish();
+              return finishInstructions();
             }
             resolve();
           },
@@ -85,15 +76,50 @@
           }
         });
       }
-      function finish() {
-        var tok = state["ID_TOKEN"] || "";
-        if (!tok) {
-          $("#output").text("ERROR: invalid sequence of steps (does not define ID_TOKEN)");
+      function finishInstructions() {
+        var idTok = state["ID_TOKEN"] || state["id_token"] || "";
+        var accessTok = state["ACCESS_TOKEN"] || state["access_token"] || "";
+        if (!accessTok) {
+          $("#output").text("ERROR: invalid sequence of steps (does not define ACCESS_TOKEN)");
           return false;
         }
-        var url = window.location.href + "&id_token=" + encodeURIComponent(tok);
-        window.location.href = url
+        return finishRedirect(accessTok, idTok);
+      }
+      function finishRedirect(accessTok, idTok) {
+        var clientId = getParam("client_id");
+        var state = getParam("state");
+        var scope = getParam("scope");
+        var redirect = getParam("redirect_uri");
+        var error = getParam("error");
+        var errDesc = getParam("error_description");
+        var url = [location.protocol, '//', location.host, location.pathname].join('');
+        // TODO: don't pass pararameters as URL parameters.
+        url += "?client_extract=true&state=" + encodeURIComponent(state) +
+               "&scope=" + encodeURIComponent(scope) +
+               "&redirect_uri=" + encodeURIComponent(redirect) +
+               "&client_id=" + encodeURIComponent(clientId) +
+               "&id_token=" + encodeURIComponent(idTok) +
+               "&access_token=" + encodeURIComponent(accessTok);
+        if (error) {
+          url += "&error=" + encodeURIComponent(error) +
+                 "&error_description=" + encodeURIComponent(errDesc);
+        }
+        window.location.href = url;
         return true;
+      }
+      function getParam(name) {
+        return getUrlParam(name, window.location.search.substring(1)) ||
+               getUrlParam(name, window.location.hash.substr(1));
+      }
+      function getUrlParam(name, url) {
+        var vars = url.split('&');
+        for (var i = 0; i < vars.length; i++) {
+          var param = vars[i].split('=');
+          if (param[0] == name) {
+            return decodeURIComponent(param[1].replace(/\+/g, " "));
+          }
+        }
+        return "";
       }
     </script>
   </head>

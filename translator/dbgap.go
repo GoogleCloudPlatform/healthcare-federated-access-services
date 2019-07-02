@@ -15,11 +15,13 @@
 package translator
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -32,8 +34,11 @@ import (
 
 const (
 	// TODO: Update the issuer address once NCBI stands up their own OIDC endpoint.
-	dbGapIssuer = "https://dbgap.nlm.nih.gov/aa"
-	dbGapOrgURL = "https://orgs.nih.gov/orgs/"
+	dbGapIssuer         = "https://dbgap.nlm.nih.gov/aa"
+	dbGapOrgURL         = "https://orgs.nih.gov/orgs/"
+	dbGapUserInfoURL    = "https://dbgap.ncbi.nlm.nih.gov/aa/jwt/user_info.cgi?${TOKEN}"
+	dbGapPassportURL    = "https://dbgap.ncbi.nlm.nih.gov/aa/jwt/user_passport.cgi?${TOKEN}"
+	eraCommonsAuthority = "eRA"
 )
 
 // DbGapTranslator is a ga4gh.Translator that converts dbGap identities into GA4GH identities.
@@ -59,13 +64,28 @@ type dbGapPassport struct {
 	SO     *string       `json:"so"`
 }
 
-type dbGapClaims struct {
-	DbGapPassport []dbGapPassport `json:"dbgap_passport"`
+type dbGapIdentity struct {
+	Authority string      `json:"authority"`
+	ID        interface{} `json:"id"`
 }
 
-// idToken mocks OIDC library's idToken implementation, except minor differences in the types of
+type vCard struct {
+	Email      string   `json:"email"`
+	GivenName  string   `json:"fname"`
+	FamilyName string   `json:"lname"`
+	Orgs       []string `json:"orgs"`
+	Roles      []string `json:"roles"`
+}
+
+type dbGapClaims struct {
+	DbGapPassport []dbGapPassport `json:"dbgap_passport"`
+	Identity      []dbGapIdentity `json:"identity"`
+	Vcard         vCard           `json:"vcard"`
+}
+
+// dbGapIdToken mocks OIDC library's idToken implementation, except minor differences in the types of
 // Audience, Expiry, and IssuedAt fields to facilitate JSON unmarshalling.
-type idToken struct {
+type dbGapIdToken struct {
 	Issuer   string `json:"iss"`
 	Subject  string `json:"sub"`
 	Audience string `json:"aud"`
@@ -79,7 +99,7 @@ const validSec = 3600 * 24 * 60 // 60 days
 
 var removePunctuation = regexp.MustCompile("[^a-zA-Z0-9 ]+")
 
-func convertToOIDCIDToken(token idToken) *oidc.IDToken {
+func convertToOIDCIDToken(token dbGapIdToken) *oidc.IDToken {
 	return &oidc.IDToken{
 		Issuer:          token.Issuer,
 		Subject:         token.Subject,
@@ -95,7 +115,6 @@ func convertToOIDCIDToken(token idToken) *oidc.IDToken {
 // passed to this translator do not have an audience claim with a value equal to the
 // clientID value then they will be rejected.
 func NewDbGapTranslator(publicKey string) (*DbGapTranslator, error) {
-	// TODO: Create an ID token verifier once issuer endpoint has been setup.
 	block, _ := pem.Decode([]byte(publicKey))
 	if block == nil {
 		return &DbGapTranslator{}, nil
@@ -110,27 +129,80 @@ func NewDbGapTranslator(publicKey string) (*DbGapTranslator, error) {
 // TranslateToken implements the ga4gh.Translator interface.
 func (s *DbGapTranslator) TranslateToken(ctx context.Context, auth string) (*ga4gh.Identity, error) {
 	if err := common.VerifyTokenWithKey(s.publicKey, auth); err != nil {
-		return nil, fmt.Errorf("verifying token signature: %v", err)
+		return nil, fmt.Errorf("verifying user token signature: %v", err)
 	}
+	userInfo, err := s.getURL(dbGapUserInfoURL, auth)
+	if err != nil {
+		return nil, fmt.Errorf("getting dbGaP user info: %v", err)
+	}
+	if err := common.VerifyTokenWithKey(s.publicKey, userInfo); err != nil {
+		return nil, fmt.Errorf("verifying user info token signature: %v", err)
+	}
+	passport, err := s.getURL(dbGapPassportURL, auth)
+	if err != nil {
+		return nil, fmt.Errorf("getting dbGaP passport: %v", err)
+	}
+	if err := common.VerifyTokenWithKey(s.publicKey, passport); err != nil {
+		return nil, fmt.Errorf("verifying passport token signature: %v", err)
+	}
+
 	var claims dbGapClaims
-	var id idToken
-	parsed, err := jwt.ParseSigned(auth)
-	if err != nil {
-		return nil, fmt.Errorf("parsing signed ID token: %v", err)
+	var id dbGapIdToken
+	if err := s.extractClaims(auth, &id, &claims); err != nil {
+		return nil, fmt.Errorf("extracting user claims: %v", err)
 	}
-	err = parsed.UnsafeClaimsWithoutVerification(&id, &claims)
-	if err != nil {
-		return nil, fmt.Errorf("extracting claims from token: %v", err)
+	if err := s.extractClaims(userInfo, &id, &claims); err != nil {
+		return nil, fmt.Errorf("extracting user info claims: %v", err)
+	}
+	if err := s.extractClaims(passport, &id, &claims); err != nil {
+		return nil, fmt.Errorf("extracting passport claims: %v", err)
 	}
 	return s.translateToken(convertToOIDCIDToken(id), claims, time.Now())
 }
 
+func (s *DbGapTranslator) getURL(url, userTok string) (string, error) {
+	url = strings.Replace(url, "${TOKEN}", userTok, -1)
+	get, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(get.Body)
+	body := buf.String()
+	if get.StatusCode < 200 || get.StatusCode > 299 {
+		return "", fmt.Errorf("http status %d: %v", get.StatusCode, body)
+	}
+	return body, nil
+}
+
+func (s *DbGapTranslator) extractClaims(tok string, id *dbGapIdToken, claims *dbGapClaims) error {
+	parsed, err := jwt.ParseSigned(tok)
+	if err != nil {
+		return fmt.Errorf("parsing signed token: %v", err)
+	}
+	err = parsed.UnsafeClaimsWithoutVerification(id, claims)
+	if err != nil {
+		return fmt.Errorf("extracting claims from token: %v", err)
+	}
+	return nil
+}
+
 func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims, now time.Time) (*ga4gh.Identity, error) {
 	id := ga4gh.Identity{
-		Issuer:  token.Issuer,
-		Subject: token.Subject,
-		Expiry:  token.Expiry.Unix(),
-		GA4GH:   make(map[string][]ga4gh.Claim),
+		Issuer:     token.Issuer,
+		Subject:    token.Subject,
+		Expiry:     token.Expiry.Unix(),
+		GA4GH:      make(map[string][]ga4gh.Claim),
+		GivenName:  claims.Vcard.GivenName,
+		FamilyName: claims.Vcard.FamilyName,
+		Email:      claims.Vcard.Email,
+	}
+	for _, ident := range claims.Identity {
+		if ident.Authority == eraCommonsAuthority {
+			if username, ok := ident.ID.(string); ok {
+				id.Username = username
+			}
+		}
 	}
 	accessions := make(map[string]dbGapAccess)
 	type source struct {
@@ -162,7 +234,7 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		}
 		var r string
 		if *p.Role == "pi" || *p.Role == "downloader" {
-			r = "researcher"
+			r = "nih.researcher"
 		} else {
 			r = "member"
 		}

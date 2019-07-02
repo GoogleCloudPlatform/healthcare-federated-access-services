@@ -886,7 +886,7 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 	extract := common.GetParam(r, "client_extract") // makes sure we only grab state from client once
 	if len(stateParam) == 0 && len(code) == 0 && len(idToken) == 0 && len(extract) == 0 {
 		page := s.clientLoginPage
-		page = strings.Replace(page, "${TOKEN_URL}", `""`, -1)
+		page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
 		page = pageVariableRE.ReplaceAllString(page, `""`)
 		sendHTML(page, w)
 		return
@@ -928,11 +928,15 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := url.Query()
-	q.Set("code", code)
+	if code != "" {
+		q.Set("code", code)
+	}
 	if idToken != "" {
 		q.Set("id_token", idToken)
 	}
-	q.Set("access_token", accessToken)
+	if accessToken != "" {
+		q.Set("access_token", accessToken)
+	}
 	q.Set("scope", loginState.Scope)
 	q.Set("redirect_uri", loginState.Redirect)
 	q.Set("client_id", loginState.ClientId)
@@ -972,11 +976,13 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid identity provider %q", idpName), w)
 		return
 	}
-	// TODO: id_token can be filled in by dbgap hack (this is to be replaced by OIDC flows).
+	accessTok := common.GetParam(r, "access_token")
 	idTok := common.GetParam(r, "id_token")
-	if len(code) == 0 && len(idTok) == 0 {
+	if len(code) == 0 && len(idTok) == 0 && len(accessTok) == 0 && len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
+		// Allow the client login page to follow instructions encoded in the TokenUrl.
+		// This enables support for some non-OIDC clients.
 		page := s.clientLoginPage
-		page = strings.Replace(page, "${TOKEN_URL}", `"`+idp.TokenUrl+`"`, -1)
+		page = strings.Replace(page, "${INSTRUCTIONS}", `"`+idp.TokenUrl+`"`, -1)
 		page = pageVariableRE.ReplaceAllString(page, `""`)
 		sendHTML(page, w)
 		return
@@ -986,25 +992,24 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	if len(idTok) == 0 {
+	if len(accessTok) == 0 {
 		idpc := idpConfig(idp, s.getDomainURL(), secrets)
-		tok, err := idpc.Exchange(r.Context(), code)
+		accessTok, err := idpc.Exchange(r.Context(), code)
 		if err != nil {
 			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid code: %v", err), w)
 			return
 		}
-		idTok, ok = tok.Extra("id_token").(string)
+		idTok, ok = accessTok.Extra("id_token").(string)
 		if !ok {
 			common.HandleError(http.StatusUnauthorized, fmt.Errorf("token does not contain a valid id_token field"), w)
 			return
 		}
 	}
-	tok := common.GetParam(r, "access_token")
-	if tok == "" {
-		tok = idTok
+	if accessTok == "" {
+		accessTok = idTok
 	}
 
-	login, status, err := s.loginTokenToIdentity(tok, idp, r, cfg, secrets)
+	login, status, err := s.loginTokenToIdentity(accessTok, idp, r, cfg, secrets)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return

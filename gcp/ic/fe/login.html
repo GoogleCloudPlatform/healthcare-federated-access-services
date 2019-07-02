@@ -159,7 +159,10 @@
       function onInit() {
           if (!providers) return;
           providers.idps && populateProviderHtml("idps", providers.idps);
-          providers.personas && populateProviderHtml("personas", providers.personas);
+          if (providers.personas && Object.keys(providers.personas).length > 0) {
+            populateProviderHtml("personas", providers.personas);
+            $('.playground').removeClass("hide");
+          }
       }
 
       function populateProviderHtml(id, items) {
@@ -175,7 +178,7 @@
           if (id === 'idps') {
               return '<h4>Log in</h4><p>Verify your identity to discover and access data.</p>';
           } else if (id === 'personas') {
-              return '<h4>Testing personas</h4><p>Log in using one of these existing testing personas.</p>';
+              return '<h4 class="playground">Testing personas</h4><p class="playground">Log in using one of these existing testing personas.</p>';
           }
       }
 
@@ -238,7 +241,7 @@
             <a href="http://bit.ly/ga4gh-ri-v1#ga4gh-researcher-identity--access-claims-frozen-rfc" target="_blank">GA4GH Researcher Identity Claims</a>
             from these accounts to meet access criteria for these research datasets.
           </p>
-          <p>
+          <p class="playground" class="hide">
             This <strong>Playground Edition</strong> of the platform can be used for testing of claims by allowing users to log
             in using Test Persona accounts. These test persona accounts can be modified to assert different Identity Claims and then be used to
             test data access against policies that check those claims.

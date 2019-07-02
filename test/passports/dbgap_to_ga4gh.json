@@ -2,14 +2,14 @@
   "ga4gh": {
     "AffiliationAndRole": [
       {
-        "value": "researcher@ACME-INC.orgs.nih.gov",
+        "value": "nih.researcher@ACME-INC.orgs.nih.gov",
         "source": "https://orgs.nih.gov/orgs/060909999",
         "expires": 1565184000,
         "asserted": 1543927269,
         "by": "so"
       },
       {
-        "value": "researcher@ACME-INC.orgs.nih.gov",
+        "value": "nih.researcher@ACME-INC.orgs.nih.gov",
         "source": "https://dbgap.nlm.nih.gov/aa",
         "expires": 1565184000,
         "asserted": 1543927269,
@@ -28,5 +28,9 @@
   },
   "exp": 1553870302,
   "iss": "https://dbgap.nlm.nih.gov/aa",
-  "sub": "999999"
+  "sub": "999999",
+  "preferred_username": "dr_joe",
+  "email": "dr_joe@example.org",
+  "given_name": "Joe",
+  "family_name": "Smith"
 }

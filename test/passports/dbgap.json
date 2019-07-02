@@ -56,6 +56,28 @@
       "title": "Testing a centralized approach for access to controlled datasets."
     }
   ],
+  "identity": [
+    {
+      "authority": "dbgap",
+      "id": 999999
+    },
+    {
+      "authority": "eRA",
+      "id": "dr_joe"
+    }
+  ],
+  "vcard": {
+    "email": "dr_joe@example.org",
+    "fname": "Joe",
+    "lname": "Smith",
+    "orgs": [
+      "ACME, INC."
+    ],
+    "roles": [
+      "have_approved_access",
+      "pi"
+    ]
+  },
   "exp": 1553870302,
   "iat": 1553870152,
   "iss": "https://dbgap.nlm.nih.gov/aa",

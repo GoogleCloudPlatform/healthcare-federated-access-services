@@ -57,7 +57,7 @@ func testTranslator(t *testing.T, tests []testCase) {
 			t.Fatalf("test %q failed to read input file %q: %v", test.name, test.input, err)
 		}
 
-		var token idToken
+		var token dbGapIdToken
 		if err := json.Unmarshal(payload, &token); err != nil {
 			t.Fatalf("test %q failed to unmarshal ID token: %v", test.name, err)
 		}
