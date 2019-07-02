@@ -80,7 +80,7 @@ func (a *SawAdapter) MintToken(input *Action) (string, string, error) {
 	}
 	userID := common.TokenUserID(input.Identity, SawMaxUserIDLength)
 	maxKeyTTL, _ := common.ParseDuration(input.Config.Options.GcpManagedKeysMaxRequestedTtl, input.MaxTTL)
-	acct, token, err := a.warehouse.GetTokenWithTTL(input.Request.Context(), userID, input.TTL, maxKeyTTL, int(input.Config.Options.GcpManagedKeysPerAccount), resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config))
+	acct, token, err := a.warehouse.MintTokenWithTTL(input.Request.Context(), userID, input.TTL, maxKeyTTL, int(input.Config.Options.GcpManagedKeysPerAccount), resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config))
 	if err != nil {
 		return "", "", fmt.Errorf("SAW minting token: %v", err)
 	}

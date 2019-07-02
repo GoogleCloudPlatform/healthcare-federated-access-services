@@ -37,6 +37,7 @@ var (
 	NameRE              = regexp.MustCompile(`^[A-Za-z][-_A-Za-z0-9\.]{1,30}[A-Za-z0-9]$`)
 	LongNameRE          = regexp.MustCompile(`^[A-Za-z][-_A-Za-z0-9\.]{1,46}[A-Za-z0-9]$`)
 	PlaceholderOrNameRE = regexp.MustCompile(`^(-|[A-Za-z][-_A-Za-z0-9\.]{1,30}[A-Za-z0-9])$`)
+	TokenNameRE         = regexp.MustCompile(`^[-_\.A-Za-z0-9]{1,64}$`)
 	longNameFields      = map[string]bool{
 		"realm": true,
 	}

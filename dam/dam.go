@@ -73,6 +73,7 @@ const (
 	processesPath         = methodPrefix + "processes"
 	processPath           = methodPrefix + "processes/{name}"
 	tokensPath            = methodPrefix + "tokens"
+	tokenPath             = methodPrefix + "tokens/{name}"
 
 	configPath                      = methodPrefix + "config"
 	configResourcePath              = configPath + "/resources/{name}"
@@ -321,6 +322,7 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(processesPath, common.MakeHandler(s, s.processesFactory()))
 	r.HandleFunc(processPath, common.MakeHandler(s, s.processFactory()))
 	r.HandleFunc(tokensPath, common.MakeHandler(s, s.tokensFactory()))
+	r.HandleFunc(tokenPath, common.MakeHandler(s, s.tokenFactory()))
 
 	r.HandleFunc(configHistoryPath, s.ConfigHistory)
 	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
@@ -1493,6 +1495,21 @@ func (s *Service) tokensFactory() *common.HandlerFactory {
 		IsAdmin:             false,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewTokensHandler(s, w, r)
+		},
+	}
+}
+
+func (s *Service) tokenFactory() *common.HandlerFactory {
+	return &common.HandlerFactory{
+		TypeName:            "token",
+		PathPrefix:          tokenPath,
+		HasNamedIdentifiers: true,
+		IsAdmin:             false,
+		NameChecker: map[string]*regexp.Regexp{
+			"name": common.TokenNameRE,
+		},
+		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+			return NewTokenHandler(s, w, r)
 		},
 	}
 }

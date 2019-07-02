@@ -281,7 +281,7 @@ func (h *tokensHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 	return status, err
 }
 func (h *tokensHandler) LookupItem(name string, vars map[string]string) bool {
-	items, err := h.s.warehouse.ListTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength))
+	items, err := h.s.warehouse.ListTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength))
 	if err != nil {
 		return false
 	}
@@ -318,6 +318,72 @@ func (h *tokensHandler) CheckIntegrity() (proto.Message, int, error) {
 	return nil, http.StatusOK, nil
 }
 func (h *tokensHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return nil
+}
+
+/////////////////////////////////////////////////////////
+
+type tokenHandler struct {
+	s     *Service
+	w     http.ResponseWriter
+	r     *http.Request
+	input *pb.TokenRequest
+	item  *compb.TokenMetadata
+	cfg   *pb.DamConfig
+	id    *ga4gh.Identity
+	tx    storage.Tx
+}
+
+// NewTokenHandler is the handler for the tokens/{name} endpoint.
+func NewTokenHandler(s *Service, w http.ResponseWriter, r *http.Request) *tokenHandler {
+	return &tokenHandler{
+		s:     s,
+		w:     w,
+		r:     r,
+		input: &pb.TokenRequest{},
+	}
+}
+func (h *tokenHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	h.tx = tx
+	h.cfg = cfg
+	h.id = id
+	return status, err
+}
+func (h *tokenHandler) LookupItem(name string, vars map[string]string) bool {
+	item, err := h.s.warehouse.GetTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), name)
+	if err != nil {
+		return false
+	}
+	h.item = item
+	return true
+}
+func (h *tokenHandler) NormalizeInput(name string, vars map[string]string) error {
+	return common.GetRequest(h.input, h.r)
+}
+func (h *tokenHandler) Get(name string) error {
+	common.SendResponse(&pb.TokenResponse{
+		Token: h.item,
+	}, h.w)
+	return nil
+}
+func (h *tokenHandler) Post(name string) error {
+	return fmt.Errorf("POST not allowed")
+}
+func (h *tokenHandler) Put(name string) error {
+	return fmt.Errorf("PUT not allowed")
+}
+func (h *tokenHandler) Patch(name string) error {
+	return fmt.Errorf("PATCH not allowed")
+}
+func (h *tokenHandler) Remove(name string) error {
+	list := []string{name}
+	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), list)
+}
+func (h *tokenHandler) CheckIntegrity() (proto.Message, int, error) {
+	return nil, http.StatusOK, nil
+}
+func (h *tokenHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
 }
 

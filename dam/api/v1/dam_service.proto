@@ -464,6 +464,12 @@ message TokensResponse {
   repeated common.models.TokenMetadata tokens = 1;
 }
 
+message TokenRequest {}
+
+message TokenResponse {
+  common.models.TokenMetadata token = 1;
+}
+
 ////////////////////////////////////////////////
 
 message ConfigModification {

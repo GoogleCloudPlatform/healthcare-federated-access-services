@@ -36,11 +36,14 @@ type ResourceTokenCreator interface {
 	// RegisterAccountProject registers account hosting project in key garbage collector.
 	RegisterAccountProject(realm, project string, maxRequestedTTL int, keysPerAccount int) error
 
-	// GetTokenWithTTL returns an account and a resource token for resource accessing.
-	GetTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (string, string, error)
+	// MintTokenWithTTL returns an account and a newly minted resource token for resource accessing.
+	MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (string, string, error)
 
-	// ListTokens returns a list of outstanding access tokens.
-	ListTokens(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error)
+	// GetTokenMetadata returns an access token based on its name.
+	GetTokenMetadata(ctx context.Context, project, id, name string) (*compb.TokenMetadata, error)
+
+	// ListTokenMetadata returns a list of outstanding access tokens.
+	ListTokenMetadata(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error)
 
 	// DeleteTokens removes tokens belonging to 'id' with given names.
 	// If 'names' is empty, delete all tokens belonging to 'id'.

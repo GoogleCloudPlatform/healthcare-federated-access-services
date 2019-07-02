@@ -57,8 +57,8 @@ func (m *MockTokenCreator) RegisterAccountProject(realm, project string, maxRequ
 	return nil
 }
 
-// GetTokenWithTTL returns an account and a resource token for resource accessing.
-func (m *MockTokenCreator) GetTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (string, string, error) {
+// MintTokenWithTTL returns an account and a newly minted resource token for resource accessing.
+func (m *MockTokenCreator) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (string, string, error) {
 	m.tokID++
 	tokenID := fmt.Sprintf("%d", m.tokID)
 	entry := MockTokenCreatorEntry{
@@ -95,8 +95,22 @@ func testTokenUser(project, id string) string {
 	return project + "/" + id
 }
 
-// ListTokens returns a list of outstanding access tokens.
-func (m *MockTokenCreator) ListTokens(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error) {
+// GetTokenMetadata returns an access token based on its name.
+func (m *MockTokenCreator) GetTokenMetadata(ctx context.Context, project, id, name string) (*compb.TokenMetadata, error) {
+	list, err := m.ListTokenMetadata(ctx, project, id)
+	if err != nil {
+		return nil, fmt.Errorf("getting token: %v", err)
+	}
+	for _, meta := range list {
+		if meta.Name == name {
+			return meta, nil
+		}
+	}
+	return nil, fmt.Errorf("token %q not found", name)
+}
+
+// ListTokenMetadata returns a list of outstanding access tokens.
+func (m *MockTokenCreator) ListTokenMetadata(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error) {
 	tokenUser := testTokenUser(project, id)
 	list, ok := m.tokens[tokenUser]
 	if !ok {
@@ -121,7 +135,12 @@ func (m *MockTokenCreator) DeleteTokens(ctx context.Context, project, id string,
 		found := false
 		for i, entry := range list {
 			if entry.Name == name {
-				list = append(list[:i-1], list[i+1:]...)
+				if len(list) == 1 {
+					list = []*compb.TokenMetadata{}
+					delete(m.tokens, tokenUser)
+				} else {
+					list = append(list[:i-1], list[i+1:]...)
+				}
 				found = true
 				break
 			}

@@ -134,16 +134,38 @@ func (wh *AccountWarehouse) RegisterAccountProject(realm, project string, maxReq
 	return wh.keyGC.RegisterProject(realm, project, time.Second*time.Duration(maxRequestedTTL), keysPerAccount)
 }
 
-// GetTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
-func (wh *AccountWarehouse) GetTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (string, string, error) {
+// MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
+func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (string, string, error) {
 	if ttl > maxAccessTokenTTL {
 		return wh.GetAccountKey(ctx, id, ttl, maxTTL, numKeys, params)
 	}
 	return wh.GetAccessToken(ctx, id, params)
 }
 
-// ListTokens returns a list of outstanding access tokens.
-func (wh *AccountWarehouse) ListTokens(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error) {
+// GetTokenMetadata returns an access token based on its name.
+func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, name string) (*compb.TokenMetadata, error) {
+	account := wh.GetAccountName(project, id)
+	// A standard Keys.Get does not return ValidAfterTime or ValidBeforeTime
+	// so use List and pull the right key out of the list. These lists are small.
+	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("getting token service key list: %v", err)
+	}
+	for _, key := range k.Keys {
+		parts := strings.Split(key.Name, "/")
+		if name == parts[len(parts)-1] {
+			return &compb.TokenMetadata{
+				Name:     name,
+				IssuedAt: key.ValidAfterTime,
+				Expires:  key.ValidBeforeTime,
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("token key %q not found", name)
+}
+
+// ListTokenMetadata returns a list of outstanding access tokens.
+func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error) {
 	account := wh.GetAccountName(project, id)
 	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
 	if err != nil {

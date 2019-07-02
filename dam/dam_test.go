@@ -744,6 +744,55 @@ func TestHandlers(t *testing.T) {
 			Output: `{"tokens":[]}`,
 			Status: http.StatusOK,
 		},
+		{
+			Name:   "Add another service key for use with tests that follow",
+			Method: "GET",
+			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
+			Output: `^{.*"token":.*}`,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "GET",
+			Path:   "/dam/v1alpha/test/tokens/none",
+			Output: `^.*not found`,
+			Status: http.StatusNotFound,
+		},
+		{
+			Method: "GET",
+			Path:   "/dam/v1alpha/test/tokens/3",
+			Output: `^\{"token":\{"name":.*}`,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "POST",
+			Path:   "/dam/v1alpha/test/tokens/4",
+			Output: `^.*not allowed`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "PUT",
+			Path:   "/dam/v1alpha/test/tokens/3",
+			Output: `^.*not allowed`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "PATCH",
+			Path:   "/dam/v1alpha/test/tokens/3",
+			Output: `^.*not allowed`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "DELETE",
+			Path:   "/dam/v1alpha/test/tokens/3",
+			Output: "",
+			Status: http.StatusOK,
+		},
+		{
+			Method: "GET",
+			Path:   "/dam/v1alpha/test/tokens/3",
+			Output: `^.*not found`,
+			Status: http.StatusNotFound,
+		},
 	}
 	test.HandlerTests(t, s.Handler, tests)
 }
