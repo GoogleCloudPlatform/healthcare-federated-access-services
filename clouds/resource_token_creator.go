@@ -28,6 +28,14 @@ type ResourceTokenCreationParams struct {
 	Items          []map[string]string
 	Roles          []string
 	Scopes         []string
+	TokenFormat    string
+}
+
+// ResourceTokenResult is returned from GetTokenWithTTL().
+type ResourceTokenResult struct {
+	Account string
+	Token   string
+	Format  string
 }
 
 // ResourceTokenCreator abstracts token creation for resource accessing in cloud platforms. This refers to Service Account Warehouses (SAWs) in GCP and our communication.
@@ -37,7 +45,7 @@ type ResourceTokenCreator interface {
 	RegisterAccountProject(realm, project string, maxRequestedTTL int, keysPerAccount int) error
 
 	// MintTokenWithTTL returns an account and a newly minted resource token for resource accessing.
-	MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (string, string, error)
+	MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (*ResourceTokenResult, error)
 
 	// GetTokenMetadata returns an access token based on its name.
 	GetTokenMetadata(ctx context.Context, project, id, name string) (*compb.TokenMetadata, error)

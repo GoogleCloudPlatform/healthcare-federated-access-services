@@ -125,7 +125,7 @@ func TestSawAdapter(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		_, _, err := adapt.MintToken(test.input)
+		_, err := adapt.MintToken(test.input)
 		if test.fail != (err != nil) {
 			t.Fatalf("test %q error mismatch: want error %v, got error %v", test.name, test.fail, err)
 		}

@@ -55,6 +55,14 @@ type Action struct {
 	ServiceTemplate *pb.ServiceTemplate
 	TTL             time.Duration
 	View            *pb.View
+	TokenFormat     string
+}
+
+// MintTokenResult is returned by the MintToken() method.
+type MintTokenResult struct {
+	Account     string
+	Token       string
+	TokenFormat string
 }
 
 // Adapter defines the interface for all DAM adapters that take access actions.
@@ -71,8 +79,8 @@ type Adapter interface {
 	// CheckConfig validates that a new configuration is compatible with this adapter.
 	CheckConfig(templateName string, template *pb.ServiceTemplate, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) error
 
-	// MintToken has the adapter mint a token and return <account>, <token>, error.
-	MintToken(input *Action) (string, string, error)
+	// MintToken has the adapter mint a token.
+	MintToken(input *Action) (*MintTokenResult, error)
 }
 
 // TargetAdapters includes all adapters that are registered with the system.

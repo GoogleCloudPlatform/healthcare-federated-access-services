@@ -73,21 +73,25 @@ func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTempla
 	return nil
 }
 
-// MintToken has the adapter mint a token and return <account>, <token>, error.
-func (a *SawAdapter) MintToken(input *Action) (string, string, error) {
+// MintToken has the adapter mint a token.
+func (a *SawAdapter) MintToken(input *Action) (*MintTokenResult, error) {
 	if a.warehouse == nil {
-		return "", "", fmt.Errorf("SAW minting token: DAM service account warehouse not configured")
+		return nil, fmt.Errorf("SAW minting token: DAM service account warehouse not configured")
 	}
 	userID := common.TokenUserID(input.Identity, SawMaxUserIDLength)
 	maxKeyTTL, _ := common.ParseDuration(input.Config.Options.GcpManagedKeysMaxRequestedTtl, input.MaxTTL)
-	acct, token, err := a.warehouse.MintTokenWithTTL(input.Request.Context(), userID, input.TTL, maxKeyTTL, int(input.Config.Options.GcpManagedKeysPerAccount), resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config))
+	result, err := a.warehouse.MintTokenWithTTL(input.Request.Context(), userID, input.TTL, maxKeyTTL, int(input.Config.Options.GcpManagedKeysPerAccount), resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config, input.TokenFormat))
 	if err != nil {
-		return "", "", fmt.Errorf("SAW minting token: %v", err)
+		return nil, fmt.Errorf("SAW minting token: %v", err)
 	}
-	return acct, token, nil
+	return &MintTokenResult{
+		Account:     result.Account,
+		Token:       result.Token,
+		TokenFormat: result.Format,
+	}, nil
 }
 
-func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRole *pb.ServiceRole, view *pb.View, cfg *pb.DamConfig) *clouds.ResourceTokenCreationParams {
+func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRole *pb.ServiceRole, view *pb.View, cfg *pb.DamConfig, format string) *clouds.ResourceTokenCreationParams {
 	roles := []string{}
 	scopes := []string{}
 	if sRole != nil {
@@ -107,5 +111,6 @@ func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRol
 		Items:          items,
 		Roles:          roles,
 		Scopes:         scopes,
+		TokenFormat:    format,
 	}
 }

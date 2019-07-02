@@ -109,21 +109,21 @@ func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.Servic
 	return nil
 }
 
-// MintToken has the adapter mint a token and return <account>, <token>, error.
-func (a *AggregatorAdapter) MintToken(input *Action) (string, string, error) {
-	var acct, token string
+// MintToken has the adapter mint a token.
+func (a *AggregatorAdapter) MintToken(input *Action) (*MintTokenResult, error) {
+	var result *MintTokenResult
 	for _, entry := range input.Aggregates {
 		action := *input
 		action.ServiceTemplate = input.Config.ServiceTemplates[entry.View.ServiceTemplate]
 		vsRole, err := ResolveServiceRole(input.GrantRole, entry.View, entry.Res, input.Config)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 		action.ServiceRole = vsRole
-		acct, token, err = a.sawAdapter.MintToken(&action)
+		result, err = a.sawAdapter.MintToken(&action)
 		if err != nil {
-			return "", "", fmt.Errorf("aggregator minting token on item %d resource view: %v", entry.Index, err)
+			return nil, fmt.Errorf("aggregator minting token on item %d resource view: %v", entry.Index, err)
 		}
 	}
-	return acct, token, nil
+	return result, nil
 }

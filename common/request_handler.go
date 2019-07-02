@@ -248,6 +248,11 @@ func GetRequest(pb proto.Message, r *http.Request) error {
 	return nil
 }
 
+// IsJSON returns true when the data format is JSON
+func IsJSON(str string) bool {
+	return str == "application/json" || str == "JSON" || str == "json"
+}
+
 func SendResponse(resp proto.Message, w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
@@ -255,6 +260,16 @@ func SendResponse(resp proto.Message, w http.ResponseWriter) error {
 	AddCorsHeaders(w)
 	ma := jsonpb.Marshaler{}
 	return ma.Marshal(w, resp)
+}
+
+// SendJSONResponse sends headers and a response in string format.
+func SendJSONResponse(json string, w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	AddCorsHeaders(w)
+	_, err := w.Write([]byte(json))
+	return err
 }
 
 func CheckName(field, name string, rem map[string]*regexp.Regexp) error {

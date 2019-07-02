@@ -976,8 +976,6 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var token string
-	var acct string
 	sRole, err := adapter.ResolveServiceRole(grantRole, view, res, cfg)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
@@ -1001,6 +999,12 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	keyFile := false
+	tokenFormat := ""
+	if common.GetParam(r, "response_type") == "key-file-type" {
+		keyFile = true
+		tokenFormat = "application/json"
+	}
 	adapterAction := &adapter.Action{
 		Aggregates:      aggregates,
 		Identity:        id,
@@ -1015,17 +1019,26 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 		ServiceTemplate: st,
 		TTL:             ttl,
 		View:            view,
+		TokenFormat:     tokenFormat,
 	}
-	if acct, token, err = adapt.MintToken(adapterAction); err != nil {
+	result, err := adapt.MintToken(adapterAction)
+	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
+	if keyFile {
+		if common.IsJSON(result.TokenFormat) {
+			common.SendJSONResponse(result.Token, w)
+			return
+		}
+		common.HandleError(http.StatusBadRequest, fmt.Errorf("adapter cannot create key file format"), w)
+	}
 	out := pb.GetTokenResponse{
 		Name:    name,
 		View:    s.makeView(viewName, view, res, cfg),
-		Account: acct,
-		Token:   token,
+		Account: result.Account,
+		Token:   result.Token,
 		Ttl:     common.TtlString(ttl),
 	}
 	common.SendResponse(proto.Message(&out), w)

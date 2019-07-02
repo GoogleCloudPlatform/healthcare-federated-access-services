@@ -111,11 +111,11 @@ func TestGatekeeperAdapter(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		_, token, err := adapt.MintToken(test.input)
+		result, err := adapt.MintToken(test.input)
 		if test.fail != (err != nil) {
 			t.Fatalf("test %q error mismatch: want error %v, got error %v", test.name, test.fail, err)
 		}
-		if err == nil && len(token) == 0 {
+		if err == nil && len(result.Token) == 0 {
 			t.Errorf("test %q token mismatch: want non-empty, got empty", test.name)
 		}
 	}

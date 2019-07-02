@@ -89,15 +89,15 @@ func (a *GatekeeperAdapter) CheckConfig(templateName string, template *pb.Servic
 	return nil
 }
 
-// MintToken has the adapter mint a token and return <account>, <token>, error.
-func (a *GatekeeperAdapter) MintToken(input *Action) (string, string, error) {
+// MintToken has the adapter mint a token.
+func (a *GatekeeperAdapter) MintToken(input *Action) (*MintTokenResult, error) {
 	if input.MaxTTL > 0 && input.TTL > input.MaxTTL {
-		return "", "", fmt.Errorf("minting gatekeeper token: TTL of %q exceeds max TTL of %q", common.TtlString(input.TTL), common.TtlString(input.MaxTTL))
+		return nil, fmt.Errorf("minting gatekeeper token: TTL of %q exceeds max TTL of %q", common.TtlString(input.TTL), common.TtlString(input.MaxTTL))
 	}
 	block, _ := pem.Decode([]byte(a.privateKey))
 	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		return "", "", fmt.Errorf("parsing private key: %v", err)
+		return nil, fmt.Errorf("parsing private key: %v", err)
 	}
 	now := time.Now()
 
@@ -120,7 +120,11 @@ func (a *GatekeeperAdapter) MintToken(input *Action) (string, string, error) {
 	jot.Header[keyID] = keyID
 	token, err := jot.SignedString(priv)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
-	return input.Identity.Subject, token, nil
+	return &MintTokenResult{
+		Account:     input.Identity.Subject,
+		Token:       token,
+		TokenFormat: "base64",
+	}, nil
 }

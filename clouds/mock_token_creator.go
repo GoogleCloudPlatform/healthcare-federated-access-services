@@ -57,8 +57,8 @@ func (m *MockTokenCreator) RegisterAccountProject(realm, project string, maxRequ
 	return nil
 }
 
-// MintTokenWithTTL returns an account and a newly minted resource token for resource accessing.
-func (m *MockTokenCreator) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (string, string, error) {
+// MintTokenWithTTL returns an account and a resource token for resource accessing.
+func (m *MockTokenCreator) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (*ResourceTokenResult, error) {
 	m.tokID++
 	tokenID := fmt.Sprintf("%d", m.tokID)
 	entry := MockTokenCreatorEntry{
@@ -86,9 +86,13 @@ func (m *MockTokenCreator) MintTokenWithTTL(ctx context.Context, id string, ttl,
 	})
 	m.calls = append(m.calls, entry)
 	if ttl > maxTTL {
-		return "", "", fmt.Errorf("TTL of %v exceeds max TTL of %v", ttl, maxTTL)
+		return nil, fmt.Errorf("TTL of %v exceeds max TTL of %v", ttl, maxTTL)
 	}
-	return "acct", entry.Token, nil
+	return &ResourceTokenResult{
+		Account: "acct",
+		Token:   entry.Token,
+		Format:  "base64",
+	}, nil
 }
 
 func testTokenUser(project, id string) string {

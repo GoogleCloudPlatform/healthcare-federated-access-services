@@ -18,6 +18,7 @@ package gcp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -135,7 +136,7 @@ func (wh *AccountWarehouse) RegisterAccountProject(realm, project string, maxReq
 }
 
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
-func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (string, string, error) {
+func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
 	if ttl > maxAccessTokenTTL {
 		return wh.GetAccountKey(ctx, id, ttl, maxTTL, numKeys, params)
 	}
@@ -211,10 +212,10 @@ func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string
 }
 
 // GetAccountKey returns a service account key associated with id.
-func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (string, string, error) {
+func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
 	account, err := wh.getBackingAccount(ctx, id, params)
 	if err != nil {
-		return "", "", fmt.Errorf("getting backing account: %v", err)
+		return nil, fmt.Errorf("getting backing account: %v", err)
 	}
 
 	if numKeys == 0 {
@@ -222,36 +223,34 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 	}
 	makeRoom := numKeys - 1
 	keyTTL := common.KeyTTL(maxTTL, numKeys)
-	k, _, _, err := wh.ManageAccountKeys(ctx, params.AccountProject, account, ttl, keyTTL, makeRoom)
+	_, _, _, err = wh.ManageAccountKeys(ctx, params.AccountProject, account, ttl, keyTTL, makeRoom)
 	if err != nil {
-		return "", "", fmt.Errorf("garbage collecting keys: %v", err)
+		return nil, fmt.Errorf("garbage collecting keys: %v", err)
 	}
-	if k != nil {
-		// TODO: remove this if it doesn't / will never work.
-		key, err := wh.iam.Projects.ServiceAccounts.Keys.Get(k.Name).Context(ctx).Do()
-		if err != nil {
-			return "", "", fmt.Errorf("getting key: %v", err)
-		}
-		if len(key.PrivateKeyData) > 0 {
-			return account, key.PrivateKeyData, nil
-		}
-	}
-
 	key, err := wh.iam.Projects.ServiceAccounts.Keys.Create(accountID(inheritProject, account), &iam.CreateServiceAccountKeyRequest{
 		PrivateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE",
 	}).Context(ctx).Do()
 	if err != nil {
-		return "", "", fmt.Errorf("creating key: %v", err)
+		return nil, fmt.Errorf("creating key: %v", err)
 	}
 
-	/*
-		out, err := base64.StdEncoding.DecodeString(key.PrivateKeyData)
+	if common.IsJSON(params.TokenFormat) {
+		bytes, err := base64.StdEncoding.DecodeString(key.PrivateKeyData)
 		if err != nil {
 			return nil, fmt.Errorf("decoding key: %v", err)
 		}
-	*/
+		return &clouds.ResourceTokenResult{
+			Account: account,
+			Token:   string(bytes),
+			Format:  params.TokenFormat,
+		}, nil
+	}
 
-	return account, key.PrivateKeyData, nil
+	return &clouds.ResourceTokenResult{
+		Account: account,
+		Token:   key.PrivateKeyData,
+		Format:  "base64",
+	}, nil
 }
 
 func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, account string, ttl, maxKeyTTL time.Duration, keysPerAccount int) (*iam.ServiceAccountKey, int, int, error) {
@@ -303,20 +302,24 @@ func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, acco
 
 // GetAccessToken returns an access token for the service account uniquely
 // associated with id.
-func (wh *AccountWarehouse) GetAccessToken(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (string, string, error) {
+func (wh *AccountWarehouse) GetAccessToken(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
 	account, err := wh.getBackingAccount(ctx, id, params)
 	if err != nil {
-		return "", "", fmt.Errorf("getting backing account: %v", err)
+		return nil, fmt.Errorf("getting backing account: %v", err)
 	}
 
 	response, err := wh.creds.Projects.ServiceAccounts.GenerateAccessToken(accountID(inheritProject, account), &iamcredentials.GenerateAccessTokenRequest{
 		Scope: params.Scopes,
 	}).Context(ctx).Do()
 	if err != nil {
-		return "", "", fmt.Errorf("generating access token: %v", err)
+		return nil, fmt.Errorf("generating access token: %v", err)
 	}
 
-	return account, response.AccessToken, nil
+	return &clouds.ResourceTokenResult{
+		Account: account,
+		Token:   response.AccessToken,
+		Format:  "base64",
+	}, nil
 }
 
 func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, project string, callback func(sa *iam.ServiceAccount) bool) error {
