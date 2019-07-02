@@ -176,7 +176,7 @@
           type: "POST",
           success: function(resp) {
             console.log("Authorization: " + JSON.stringify(resp, undefined, 2))
-            $("#passport").val(resp.id_token);
+            $("#passport").val(resp.access_token);
             displaySuccess("passport token has been refreshed");
           },
           error: function(err) {
