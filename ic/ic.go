@@ -879,11 +879,46 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("authorization error: %q, description: %q", errStr, errDesc), w)
 		return
 	}
+	stateParam := common.GetParam(r, "state")
+	var loginState compb.LoginState
+	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
+		return
+	}
+	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
+		return
+	}
+	// For the purposes of simplifying OIDC redirect_uri registrations, this handler is on a path without
+	// realms or other query param context. To make the handling of these requests compatible with the
+	// rest of the code, this request will be forwarded to a standard path at "finishLoginPath" and state
+	// parameters received from the OIDC call flow will be normalized into query parameters.
+	path := strings.Replace(finishLoginPath, "{realm}", loginState.Realm, -1)
+	path = strings.Replace(path, "{name}", loginState.IdpName, -1)
+
+	u, err := url.Parse(path)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, fmt.Errorf("bad redirect format: %v", err), w)
+		return
+	}
+	r.Form.Set("client_id", loginState.ClientId)
+	u.RawQuery = r.Form.Encode()
+	sendRedirect(u.String(), r, w)
+}
+
+func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request method not supported: %q", r.Method), w)
+		return
+	}
+
 	code := common.GetParam(r, "code")
 	idToken := common.GetParam(r, "id_token")
 	accessToken := common.GetParam(r, "access_token")
 	stateParam := common.GetParam(r, "state")
 	extract := common.GetParam(r, "client_extract") // makes sure we only grab state from client once
+
 	if len(stateParam) == 0 && len(code) == 0 && len(idToken) == 0 && len(extract) == 0 {
 		page := s.clientLoginPage
 		page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
@@ -892,14 +927,21 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := s.store.Tx(true)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+	defer tx.Finish()
+
 	var loginState compb.LoginState
-	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
+	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState, tx)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
 		return
 	}
 	// state should be one time usage.
-	err = s.store.Delete(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev)
+	err = s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, tx)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("delete login state failed, %q", err), w)
 		return
@@ -915,56 +957,21 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("missing auth code"), w)
 		return
 	}
-	// For the purposes of simplifying OIDC redirect_uri registrations, this handler is on a path without
-	// realms or other query param context. To make the handling of these requests compatible with the
-	// rest of the code, this request will be forwarded to a standard path at "finishLoginPath" and state
-	// parameters received from the OIDC call flow will be normalized into query parameters.
-	path := strings.Replace(finishLoginPath, "{realm}", loginState.Realm, -1)
-	path = strings.Replace(path, "{name}", loginState.IdpName, -1)
 
-	url, err := url.Parse(path)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("bad redirect format: %v", err), w)
-		return
-	}
-	q := url.Query()
-	if code != "" {
-		q.Set("code", code)
-	}
-	if idToken != "" {
-		q.Set("id_token", idToken)
-	}
-	if accessToken != "" {
-		q.Set("access_token", accessToken)
-	}
-	q.Set("scope", loginState.Scope)
-	q.Set("redirect_uri", loginState.Redirect)
-	q.Set("client_id", loginState.ClientId)
-	url.RawQuery = q.Encode()
-	sendRedirect(url.String(), r, w)
-}
-
-func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	code := common.GetParam(r, "code")
-	redirect := common.GetParam(r, "redirect_uri")
+	redirect := loginState.Redirect
+	scope := loginState.Scope
 	clientID := getClientID(r)
 	idpName := getName(r)
-	scope, err := getScope(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
+
+	if clientID != loginState.ClientId {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request client id does not match login state, want %q, got %q", loginState.ClientId, clientID), w)
 		return
 	}
 
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+	if idpName != loginState.IdpName {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request idp does not match login state, want %q, got %q", loginState.IdpName, idpName), w)
 		return
 	}
-	defer tx.Finish()
 
 	cfg, err := s.loadConfig(tx, getRealm(r))
 	if err != nil {
@@ -976,9 +983,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid identity provider %q", idpName), w)
 		return
 	}
-	accessTok := common.GetParam(r, "access_token")
-	idTok := common.GetParam(r, "id_token")
-	if len(code) == 0 && len(idTok) == 0 && len(accessTok) == 0 && len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
+	if len(code) == 0 && len(idToken) == 0 && len(accessToken) == 0 && len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
 		// Allow the client login page to follow instructions encoded in the TokenUrl.
 		// This enables support for some non-OIDC clients.
 		page := s.clientLoginPage
@@ -992,24 +997,24 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	if len(accessTok) == 0 {
+	if len(accessToken) == 0 {
 		idpc := idpConfig(idp, s.getDomainURL(), secrets)
-		accessTok, err := idpc.Exchange(r.Context(), code)
+		tok, err := idpc.Exchange(r.Context(), code)
 		if err != nil {
 			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid code: %v", err), w)
 			return
 		}
-		idTok, ok = accessTok.Extra("id_token").(string)
+		idToken, ok = tok.Extra("id_token").(string)
 		if !ok {
 			common.HandleError(http.StatusUnauthorized, fmt.Errorf("token does not contain a valid id_token field"), w)
 			return
 		}
 	}
-	if accessTok == "" {
-		accessTok = idTok
+	if accessToken == "" {
+		accessToken = idToken
 	}
 
-	login, status, err := s.loginTokenToIdentity(accessTok, idp, r, cfg, secrets)
+	login, status, err := s.loginTokenToIdentity(accessToken, idp, r, cfg, secrets)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
