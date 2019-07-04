@@ -38,6 +38,28 @@ var (
 			},
 		},
 	}
+	bonaFide2ndIdentity = &ga4gh.Identity{
+		Issuer:  "https://issuer.org",
+		Subject: "subject1",
+		GA4GH: map[string][]ga4gh.Claim{
+			"BonaFide": []ga4gh.Claim{
+				{
+					Value:    "https://bonafide.org/v1",
+					Source:   "https://badsource.com",
+					By:       "so",
+					Asserted: float64(time.Now().Unix()) - 3600,
+					Expires:  float64(time.Now().Unix()) + 3600,
+				},
+				{
+					Value:    "https://bonafide.org/v1",
+					Source:   "https://source.org",
+					By:       "so",
+					Asserted: float64(time.Now().Unix()) - 3600,
+					Expires:  float64(time.Now().Unix()) + 3600,
+				},
+			},
+		},
+	}
 	metConditionIdentity = &ga4gh.Identity{
 		Issuer:  "https://issuer.org",
 		Subject: "subject1",
@@ -167,6 +189,24 @@ func TestClaimValidator(t *testing.T) {
 			values:  []string{"https://bonafide.org/v1"},
 			sources: []string{"https://source.org"},
 			by:      []string{"self"},
+			ok:      false,
+		},
+		{
+			name:    "bona fide match 2nd entry",
+			id:      bonaFide2ndIdentity,
+			claim:   "BonaFide",
+			values:  []string{"https://bonafide.org/v1"},
+			sources: []string{"https://source.org"},
+			by:      []string{"so"},
+			ok:      true,
+		},
+		{
+			name:    "bona fide match nothing on a list",
+			id:      bonaFide2ndIdentity,
+			claim:   "BonaFide",
+			values:  []string{"https://bonafide.org/v1"},
+			sources: []string{"https://source_no_match.org"},
+			by:      []string{"so"},
 			ok:      false,
 		},
 		{

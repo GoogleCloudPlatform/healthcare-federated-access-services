@@ -116,27 +116,29 @@ func (c *ClaimValidator) validate(ttl float64, identity *ga4gh.Identity) bool {
 			}
 		}
 		if !match || len(v.Source) == 0 {
-			return false
+			continue
 		}
 		if len(c.Sources) > 0 {
 			if _, ok := c.Sources[v.Source]; !ok {
-				return false
+				continue
 			}
 		}
 		if len(c.By) > 0 {
 			if _, ok := c.By[v.By]; !ok {
-				return false
+				continue
 			}
 		}
 		if len(v.Condition) == 0 {
 			return true
 		}
+
+		match = false
 		for ck, cv := range v.Condition {
+			match = false
 			idcList, ok := identity.GA4GH[ck]
 			if !ok {
-				return false
+				continue
 			}
-			match = false
 			for _, idc := range idcList {
 				if idc.Asserted > now || idc.Expires < now+ttl {
 					continue
@@ -154,10 +156,12 @@ func (c *ClaimValidator) validate(ttl float64, identity *ga4gh.Identity) bool {
 				break
 			}
 			if !match {
-				return false
+				break
 			}
 		}
-		return true
+		if match {
+			return true
+		}
 	}
 	return false
 }
