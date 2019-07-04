@@ -919,20 +919,38 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	stateParam := common.GetParam(r, "state")
 	extract := common.GetParam(r, "client_extract") // makes sure we only grab state from client once
 
-	if len(stateParam) == 0 && len(code) == 0 && len(idToken) == 0 && len(extract) == 0 {
-		page := s.clientLoginPage
-		page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
-		page = pageVariableRE.ReplaceAllString(page, `""`)
-		sendHTML(page, w)
-		return
-	}
-
 	tx, err := s.store.Tx(true)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 	defer tx.Finish()
+
+	cfg, err := s.loadConfig(tx, getRealm(r))
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+	idpName := getName(r)
+	idp, ok := cfg.IdentityProviders[idpName]
+	if !ok {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid identity provider %q", idpName), w)
+		return
+	}
+
+	if len(extract) == 0 && len(code) == 0 && len(idToken) == 0 && len(accessToken) == 0 {
+		instructions := ""
+		if len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
+			// Allow the client login page to follow instructions encoded in the TokenUrl.
+			// This enables support for some non-OIDC clients.
+			instructions = `"` + idp.TokenUrl + `"`
+		}
+		page := s.clientLoginPage
+		page = strings.Replace(page, "${INSTRUCTIONS}", instructions, -1)
+		page = pageVariableRE.ReplaceAllString(page, `""`)
+		sendHTML(page, w)
+		return
+	}
 
 	var loginState compb.LoginState
 	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState, tx)
@@ -961,7 +979,6 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	redirect := loginState.Redirect
 	scope := loginState.Scope
 	clientID := getClientID(r)
-	idpName := getName(r)
 
 	if clientID != loginState.ClientId {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request client id does not match login state, want %q, got %q", loginState.ClientId, clientID), w)
@@ -973,25 +990,6 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := s.loadConfig(tx, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	idp, ok := cfg.IdentityProviders[idpName]
-	if !ok {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid identity provider %q", idpName), w)
-		return
-	}
-	if len(code) == 0 && len(idToken) == 0 && len(accessToken) == 0 && len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
-		// Allow the client login page to follow instructions encoded in the TokenUrl.
-		// This enables support for some non-OIDC clients.
-		page := s.clientLoginPage
-		page = strings.Replace(page, "${INSTRUCTIONS}", `"`+idp.TokenUrl+`"`, -1)
-		page = pageVariableRE.ReplaceAllString(page, `""`)
-		sendHTML(page, w)
-		return
-	}
 	secrets, err := s.loadSecrets(tx)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
