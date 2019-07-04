@@ -31,6 +31,10 @@ import (
 	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
 )
 
+var (
+	interfaceRE = regexp.MustCompile(`\$\{(.*)\}`)
+)
+
 func (s *Service) CheckIntegrity(cfg *pb.DamConfig) error {
 	if s.adapters == nil {
 		return fmt.Errorf("target adapters not loaded")
@@ -263,6 +267,23 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 	}
 	if err := s.checkServiceRoles(template.ServiceRoles, template.TargetAdapter, template.ItemFormat, false, cfg); err != nil {
 		return fmt.Errorf("service template %q roles: %v", name, err)
+	}
+	varNames := make(map[string]bool)
+	desc := s.adapters.Descriptors[template.TargetAdapter]
+	for _, v := range desc.ItemFormats {
+		for varName := range v.Variables {
+			varNames[varName] = true
+		}
+	}
+	for k, v := range template.Interfaces {
+		match := interfaceRE.FindAllString(v, -1)
+		for _, varMatch := range match {
+			// Remove the `${` prefix and `}` suffix.
+			varName := varMatch[2 : len(varMatch)-1]
+			if _, ok := varNames[varName]; !ok {
+				return fmt.Errorf("service template %q interface %q variable name %q not defined for adapter %q", name, k, varName, template.TargetAdapter)
+			}
+		}
 	}
 	return nil
 }
