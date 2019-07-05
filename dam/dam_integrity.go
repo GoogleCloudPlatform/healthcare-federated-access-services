@@ -310,11 +310,12 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 		return fmt.Errorf("view %q provides more than one item when only one was expected for adapter %q", viewName, template.TargetAdapter)
 	}
 	for idx, item := range view.Items {
-		if len(item.Vars) == 0 {
-			return fmt.Errorf("view %q item %d has no variables defined", viewName, idx+1)
-		}
-		if _, err := adapter.GetItemVariables(s.adapters, template.TargetAdapter, template.ItemFormat, item); err != nil {
+		vars, err := adapter.GetItemVariables(s.adapters, template.TargetAdapter, template.ItemFormat, item)
+		if err != nil {
 			return fmt.Errorf("item %d: %v", idx, err)
+		}
+		if len(vars) == 0 {
+			return fmt.Errorf("view %q item %d has no variables defined", viewName, idx+1)
 		}
 	}
 	return nil

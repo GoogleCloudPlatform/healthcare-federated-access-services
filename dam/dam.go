@@ -1842,6 +1842,9 @@ func makeConfig(cfg *pb.DamConfig) *pb.DamConfig {
 }
 
 func receiveConfig(cfg, origCfg *pb.DamConfig) *pb.DamConfig {
+	for k, v := range cfg.Resources {
+		cfg.Resources[k] = receiveResource(v)
+	}
 	cfg.Options = receiveConfigOptions(cfg.Options, origCfg)
 	return cfg
 }

@@ -126,6 +126,11 @@ func GetItemVariables(adapters *TargetAdapters, targetAdapter, itemFormat string
 		if !ok {
 			return nil, fmt.Errorf("target adapter %q item format %q variable %q is undefined", targetAdapter, itemFormat, varname)
 		}
+		if len(val) == 0 {
+			// Treat empty input the same as not provided so long as the variable name is valid.
+			delete(item.Vars, varname)
+			continue
+		}
 		re, ok := adapters.VariableREs[targetAdapter][itemFormat][varname]
 		if !ok {
 			continue

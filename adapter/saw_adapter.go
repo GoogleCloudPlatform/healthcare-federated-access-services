@@ -104,7 +104,7 @@ func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRol
 	}
 	items := make([]map[string]string, len(view.Items))
 	for index, item := range view.Items {
-		items[index] = item.Vars
+		items[index] = scrubVars(item.Vars)
 	}
 	return &clouds.ResourceTokenCreationParams{
 		AccountProject: cfg.Options.GcpServiceAccountProject,
@@ -113,4 +113,13 @@ func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRol
 		Scopes:         scopes,
 		TokenFormat:    format,
 	}
+}
+
+func scrubVars(vars map[string]string) map[string]string {
+	for k, v := range vars {
+		if len(v) == 0 {
+			delete(vars, k)
+		}
+	}
+	return vars
 }

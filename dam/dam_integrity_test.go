@@ -34,6 +34,14 @@ func TestCheckIntegrity(t *testing.T) {
 	if err := s.CheckIntegrity(cfg); err != nil {
 		t.Errorf("CheckIntegrity(cfg) error: %v", err)
 	}
+	cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = "!@@@@"
+	if err := s.CheckIntegrity(cfg); err == nil {
+		t.Errorf("CheckIntegrity(cfg) on invalid bucket name: expected error, got success")
+	}
+	cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = ""
+	if err := s.CheckIntegrity(cfg); err != nil {
+		t.Errorf("CheckIntegrity(cfg) on empty bucket name: expected success, got error: %v", err)
+	}
 	cfg.ServiceTemplates["gcs"].Interfaces["http:test"] = "https://example.com/${bad-variable}"
 	if err := s.CheckIntegrity(cfg); err == nil {
 		t.Errorf("CheckIntegrity(cfg) on bad variable in interface: expected error, got success")
