@@ -195,6 +195,7 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		GA4GH:      make(map[string][]ga4gh.Claim),
 		GivenName:  claims.Vcard.GivenName,
 		FamilyName: claims.Vcard.FamilyName,
+		Name:       common.JoinNonEmpty([]string{claims.Vcard.GivenName, claims.Vcard.FamilyName}, " "),
 		Email:      claims.Vcard.Email,
 	}
 	for _, ident := range claims.Identity {

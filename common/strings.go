@@ -50,3 +50,14 @@ func GenerateGUID() string {
 func ParseGUID(in string) (uuid.UUID, error) {
 	return uuid.Parse(in), nil
 }
+
+// JoinNonEmpty filters empty strings and joins remainder together.
+func JoinNonEmpty(in []string, separator string) string {
+	out := []string{}
+	for _, v := range in {
+		if len(v) > 0 {
+			out = append(out, v)
+		}
+	}
+	return strings.Join(out, separator)
+}

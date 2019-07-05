@@ -32,5 +32,6 @@
   "preferred_username": "dr_joe",
   "email": "dr_joe@example.org",
   "given_name": "Joe",
-  "family_name": "Smith"
+  "family_name": "Smith",
+  "name": "Joe Smith"
 }

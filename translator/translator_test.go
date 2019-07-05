@@ -77,7 +77,7 @@ func testTranslator(t *testing.T, tests []testCase) {
 		}
 		test.cmpOptions = append(test.cmpOptions, sortClaims())
 		if !cmp.Equal(expectedID, *id, test.cmpOptions...) {
-			t.Fatalf("test %q unexpected output:\n%v\nexpected:\n%v", test.name, id, expectedID)
+			t.Fatalf("test %q unexpected output:\n%+v\nexpected:\n%+v", test.name, id, expectedID)
 		}
 	}
 }
