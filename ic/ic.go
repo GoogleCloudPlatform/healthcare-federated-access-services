@@ -880,6 +880,17 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	stateParam := common.GetParam(r, "state")
+	extract := common.GetParam(r, "client_extract") // makes sure we only grab state from client once
+
+	// Some IdPs need state extracted from html anchor.
+	if len(stateParam) == 0 && len(extract) == 0 {
+		page := s.clientLoginPage
+		page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
+		page = pageVariableRE.ReplaceAllString(page, `""`)
+		sendHTML(page, w)
+		return
+	}
+
 	var loginState compb.LoginState
 	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
 	if err != nil {
