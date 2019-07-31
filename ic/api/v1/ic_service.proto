@@ -305,6 +305,7 @@ message TokenMetadata {
   string scope = 3;
   string identity_provider = 4;
   string subject = 5;
+  string nonce = 6;
 }
 
 message TokenMetadataRequest {}

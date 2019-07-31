@@ -88,6 +88,7 @@ type Identity struct {
 	Audiences        Audiences           `json:"aud,omitempty"`
 	AuthorizedParty  string              `json:"azp,omitempty"`
 	ID               string              `json:"jti,omitempty"`
+	Nonce            string              `json:"nonce,omitempty"`
 	GA4GH            map[string][]Claim  `json:"ga4gh,omitempty"`
 	UserinfoClaims   []string            `json:"ga4gh_userinfo_claims"`
 	IdentityProvider string              `json:"idp,omitempty"`

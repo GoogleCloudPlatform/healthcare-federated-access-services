@@ -115,6 +115,7 @@ const (
 	ga4ghClaimNamePrefix = "ga4gh."
 	noClientID           = ""
 	noScope              = ""
+	noNonce              = ""
 	scopeOpenID          = "openid"
 	personaProvider      = "<persona>"
 	matchFullScope       = false
@@ -336,6 +337,16 @@ func getClientSecret(r *http.Request) string {
 		return cs
 	}
 	return common.GetParam(r, "clientSecret")
+}
+
+func getNonce(r *http.Request) (string, error) {
+	n := common.GetParam(r, "nonce")
+	if len(n) > 0 {
+		return n, nil
+	}
+	// TODO: should return error after front end supports nonce field.
+	// return "", fmt.Errorf("request must include 'nonce'")
+	return "no-nonce", nil
 }
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -661,7 +672,13 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params := "?client_id=" + getClientID(r) + "&redirect_uri=" + url.QueryEscape(redirect)
+	nonce, err := getNonce(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
+
+	params := "?client_id=" + getClientID(r) + "&redirect_uri=" + url.QueryEscape(redirect) + "&nonce=" + url.QueryEscape(nonce)
 	if len(scope) > 0 {
 		params += "&scope=" + url.QueryEscape(scope)
 	}
@@ -686,7 +703,7 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID := getClientID(r)
-	params = "?client_id=" + clientID + "&redirect_uri=" + url.QueryEscape(redirect) + "&scope=" + url.QueryEscape(scope)
+	params = "?client_id=" + clientID + "&redirect_uri=" + url.QueryEscape(redirect) + "&scope=" + url.QueryEscape(scope) + "&nonce=" + url.QueryEscape(nonce)
 	for pname, p := range personas {
 		ui := p.Ui
 		if ui == nil {
@@ -738,7 +755,12 @@ func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirec
 		return nil, "", err
 	}
 
-	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, tx)
+	nonce, err := getNonce(r)
+	if err != nil {
+		return nil, "", err
+	}
+
+	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, nonce, tx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -769,13 +791,14 @@ func idpConfig(idp *pb.IdentityProvider, domainURL string, secrets *pb.IcSecrets
 	}
 }
 
-func (s *Service) buildState(idpName, realm, clientID, scope, redirect string, tx storage.Tx) (string, error) {
+func (s *Service) buildState(idpName, realm, clientID, scope, redirect, nonce string, tx storage.Tx) (string, error) {
 	state := &compb.LoginState{
 		IdpName:  idpName,
 		Realm:    realm,
 		ClientId: clientID,
 		Scope:    scope,
 		Redirect: redirect,
+		Nonce:    nonce,
 	}
 
 	id := common.GenerateGUID()
@@ -820,6 +843,11 @@ func (s *Service) idpUsesClientLoginPage(idpName, realm string) bool {
 }
 
 func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig, idpName, loginHint string) {
+	nonce, err := getNonce(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
 	idp, ok := cfg.IdentityProviders[idpName]
 	if !ok {
 		common.HandleError(http.StatusNotFound, fmt.Errorf("login service %q not found", idpName), w)
@@ -841,7 +869,7 @@ func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig
 	}
 	options := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("response_type", resType),
-		oauth2.SetAuthURLParam("nonce", common.GenerateGUID()),
+		oauth2.SetAuthURLParam("nonce", nonce),
 		oauth2.SetAuthURLParam("prompt", "login consent"),
 	}
 	if len(loginHint) > 0 {
@@ -977,7 +1005,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: add security checks here as per OIDC spec.
-	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 || len(loginState.ClientId) == 0 || len(loginState.Redirect) == 0 {
+	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 || len(loginState.ClientId) == 0 || len(loginState.Redirect) == 0 || len(loginState.Nonce) == 0 {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
 		return
 	}
@@ -989,6 +1017,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 
 	redirect := loginState.Redirect
 	scope := loginState.Scope
+	nonce := loginState.Nonce
 	clientID := getClientID(r)
 
 	if clientID != loginState.ClientId {
@@ -1028,6 +1057,16 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(status, err, w)
 		return
 	}
+
+	// If Idp does not support nonce field, use nonce in state instead.
+	if len(login.Nonce) == 0 {
+		login.Nonce = nonce
+	}
+	if nonce != login.Nonce {
+		common.HandleError(status, fmt.Errorf("nonce in id token is not equal to nonce linked to auth code"), w)
+		return
+	}
+
 	s.finishLogin(login, idpName, redirect, scope, clientID, tx, cfg, r, w)
 }
 
@@ -1173,6 +1212,11 @@ func (s *Service) personaLogin(pName string, p *dampb.TestPersona, cfg *pb.IcCon
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
+	nonce, err := getNonce(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
 
 	id, err := playground.PersonaToIdentity(pName, p, scope)
 	if err != nil {
@@ -1184,6 +1228,7 @@ func (s *Service) personaLogin(pName string, p *dampb.TestPersona, cfg *pb.IcCon
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
+	id.Nonce = nonce
 
 	s.finishLogin(id, personaProvider, redirect, scope, getClientID(r), tx, cfg, r, w)
 }
@@ -1251,7 +1296,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		subject = acct.Properties.Subject
 	}
 
-	auth, err := s.createAuthToken(subject, scope, provider, realm, time.Now(), cfg, tx)
+	auth, err := s.createAuthToken(subject, scope, provider, realm, id.Nonce, time.Now(), cfg, tx)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
@@ -2651,6 +2696,7 @@ func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcCon
 		Subject:          tokenMetadata.Subject,
 		Scope:            tokenMetadata.Scope,
 		IdentityProvider: tokenMetadata.IdentityProvider,
+		Nonce:            tokenMetadata.Nonce,
 	}
 	return s.getTokenAccountIdentity(id, realm, cfg, tx)
 }
@@ -2688,6 +2734,7 @@ func (s *Service) getTokenAccountIdentity(token *ga4gh.Identity, realm string, c
 	id.Scope = token.Scope
 	id.Expiry = token.Expiry
 	id.IdentityProvider = token.IdentityProvider
+	id.Nonce = token.Nonce
 	return id, http.StatusOK, nil
 }
 
@@ -2925,7 +2972,7 @@ func shorten(identity *ga4gh.Identity) error {
 	return nil
 }
 
-func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject string, iat, nbf, exp int64, aud []string, azp string) *ga4gh.Identity {
+func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string, iat, nbf, exp int64, aud []string, azp string) *ga4gh.Identity {
 	claims := &ga4gh.Identity{
 		Issuer:           iss,
 		Subject:          subject,
@@ -2938,6 +2985,7 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject string, iat, n
 		Scope:            scope,
 		IdentityProvider: identity.IdentityProvider,
 		UserinfoClaims:   []string{},
+		Nonce:            nonce,
 	}
 	if !hasScopes("refresh", scope, matchFullScope) {
 		// TODO: remove this extra "ga4gh" check once DDAP is compatible.
@@ -2978,7 +3026,7 @@ func (auth *authToken) Valid() error {
 	return nil
 }
 
-func (s *Service) createAuthToken(subject, scope, provider, realm string, now time.Time, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
+func (s *Service) createAuthToken(subject, scope, provider, realm, nonce string, now time.Time, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
 	ttl := getDurationOption(cfg.Options.AuthCodeTokenTtl, descAuthCodeTokenTTL)
 	token := &authToken{
 		ID:     common.GenerateGUID(),
@@ -2990,6 +3038,7 @@ func (s *Service) createAuthToken(subject, scope, provider, realm string, now ti
 		Scope:            scope,
 		IdentityProvider: provider,
 		Subject:          subject,
+		Nonce:            nonce,
 	}
 	err := s.store.WriteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, tokenMetadata, nil, tx)
 	if err != nil {
@@ -3005,7 +3054,7 @@ func (s *Service) createAuthToken(subject, scope, provider, realm string, now ti
 	return jot.SignedString(priv)
 }
 
-func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm string, now time.Time, ttl time.Duration, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
+func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm, nonce string, now time.Time, ttl time.Duration, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
 	subject := identity.Subject
 	iss := s.getIssuerString()
 	exp := now.Add(ttl)
@@ -3030,7 +3079,7 @@ func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm s
 		return "", err
 	}
 
-	claims := scopedIdentity(identity, scope, iss, subject, now.Unix(), now.Add(-1*time.Minute).Unix(), exp.Unix(), audiences, azp)
+	claims := scopedIdentity(identity, scope, iss, subject, nonce, now.Unix(), now.Add(-1*time.Minute).Unix(), exp.Unix(), audiences, azp)
 
 	if hasScopes("ga4gh", scope, matchFullScope) {
 		err = shorten(claims)
@@ -3077,17 +3126,17 @@ func (s *Service) createTokens(identity *ga4gh.Identity, includeRefresh bool, r 
 
 	clientID := getClientID(r)
 	realm := getRealm(r)
-	accessTok, err := s.createToken(identity, filterScopes(identity.Scope, filterAccessTokScope), clientID, clientID, realm, now, duration, cfg, tx)
+	accessTok, err := s.createToken(identity, filterScopes(identity.Scope, filterAccessTokScope), clientID, clientID, realm, noNonce, now, duration, cfg, tx)
 	if err != nil {
 		return nil, fmt.Errorf("creating access token: %v", err)
 	}
-	idTok, err := s.createToken(identity, filterScopes(identity.Scope, filterIDTokScope), clientID, clientID, realm, now, duration, cfg, tx)
+	idTok, err := s.createToken(identity, filterScopes(identity.Scope, filterIDTokScope), clientID, clientID, realm, identity.Nonce, now, duration, cfg, tx)
 	if err != nil {
 		return nil, fmt.Errorf("creating id token: %v", err)
 	}
 	refreshTok := ""
 	if includeRefresh {
-		if refreshTok, err = s.createToken(identity, "refresh "+identity.Scope, "", "", realm, now, getDurationOption(cfg.Options.RefreshTokenTtl, descRefreshTokenTTL), cfg, tx); err != nil {
+		if refreshTok, err = s.createToken(identity, "refresh "+identity.Scope, "", "", realm, noNonce, now, getDurationOption(cfg.Options.RefreshTokenTtl, descRefreshTokenTTL), cfg, tx); err != nil {
 			return nil, fmt.Errorf("creating refresh token: %v", err)
 		}
 	}
@@ -3930,7 +3979,7 @@ func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// scope down identity information based on the token scope.
-	id = scopedIdentity(id, id.Scope, id.Issuer, id.Subject, id.IssuedAt, id.NotBefore, id.Expiry, nil, "")
+	id = scopedIdentity(id, id.Scope, id.Issuer, id.Subject, noNonce, id.IssuedAt, id.NotBefore, id.Expiry, nil, "")
 
 	data, err := json.Marshal(id)
 	if err != nil {

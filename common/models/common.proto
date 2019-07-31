@@ -42,6 +42,7 @@ message LoginState {
   string client_id = 3;
   string scope = 4;
   string redirect = 5;
+  string nonce = 6;
 }
 
 message TokenMetadata {

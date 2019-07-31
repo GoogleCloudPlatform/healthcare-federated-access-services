@@ -16,6 +16,7 @@ package ic
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -25,20 +26,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp"
 	"github.com/coreos/go-oidc"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	pb "google3/third_party/hcls_federated_access/ic/api/v1/go_proto"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/test"
-
-	pb "google3/third_party/hcls_federated_access/ic/api/v1/go_proto"
 )
 
 const (
 	domain     = "example.com"
 	oidcIssuer = "https://" + domain + "/oidc"
+	testClientID = "00000000-0000-0000-0000-000000000000"
+	testClientSecret = "00000000-0000-0000-0000-000000000001"
 )
 
 func init() {
@@ -69,7 +72,7 @@ func TestOidcEndpoints(t *testing.T) {
 	identity := &ga4gh.Identity{
 		Subject: "sub",
 	}
-	tok, err := s.createToken(identity, "openid", oidcIssuer, "azp", storage.DefaultRealm, time.Now(), time.Hour*1, cfg, nil)
+	tok, err := s.createToken(identity, "openid", oidcIssuer, "azp", storage.DefaultRealm, noNonce, time.Now(), time.Hour*1, cfg, nil)
 	if err != nil {
 		t.Fatalf("creating token: %v", err)
 	}
@@ -119,7 +122,7 @@ func TestUserinfoClaims(t *testing.T) {
 		},
 	}
 
-	tok, err := s.createToken(identity, "openid ga4gh", oidcIssuer, "azp", storage.DefaultRealm, time.Now(), time.Hour*1, cfg, nil)
+	tok, err := s.createToken(identity, "openid ga4gh", oidcIssuer, "azp", storage.DefaultRealm, noNonce, time.Now(), time.Hour*1, cfg, nil)
 	if err != nil {
 		t.Fatalf("creating token: %v", err)
 	}
@@ -257,7 +260,7 @@ func TestHandlers(t *testing.T) {
 }
 
 func createTestToken(t *testing.T, s *Service, id *ga4gh.Identity, scope string, cfg *pb.IcConfig) string {
-	token, err := s.createToken(id, scope, "", "", "test", time.Now(), time.Hour, cfg, nil)
+	token, err := s.createToken(id, scope, "", "", "test", noNonce, time.Now(), time.Hour, cfg, nil)
 	if err != nil {
 		t.Fatalf("creating test token: %v", err)
 	}
@@ -311,4 +314,79 @@ func TestAdminHandlers(t *testing.T) {
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests)
+}
+
+func TestNonce(t *testing.T) {
+	nonce := "nonce-for-test"
+	damStore := storage.NewMemoryStorage("dam-min", "test/config")
+	store := storage.NewMemoryStorage("ic-min", "test/config")
+	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm))
+	cfg, err := s.loadConfig(nil, "test")
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+
+	// Auth Code should not include "nonce".
+	auth, err := s.createAuthToken("someone-account", "openid", personaProvider, "test", nonce, time.Now(), cfg, nil)
+	id, err := common.ConvertTokenToIdentityUnsafe(auth)
+	if len(id.Nonce) > 0 {
+		t.Error("Auth Code should not include 'nonce'")
+	}
+
+	path := strings.ReplaceAll(tokenPath, "{realm}", "test")
+
+	// ID token request by auth code should include "nonce".
+	w := httptest.NewRecorder()
+	params := fmt.Sprintf("grant_type=authorization_code&client_id=%s&client_secret=%s&redirect_uri=http://example.com&code=%s", testClientID, testClientSecret, auth)
+	r := httptest.NewRequest("POST", path+"?"+params, nil)
+	s.Handler.ServeHTTP(w, r)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("get tokens by auth code want ok, got %q", resp.Status)
+	}
+
+	unmarshaler := jsonpb.Unmarshaler{}
+	tokens := pb.GetTokenResponse{}
+	err = unmarshaler.Unmarshal(resp.Body, &tokens)
+	if err != nil {
+		t.Fatalf("unmarshal failed")
+	}
+	id, err = common.ConvertTokenToIdentityUnsafe(tokens.IdToken)
+	if id.Nonce != nonce {
+		t.Errorf("get tokens by auth code, id_token.nonce incorrect: want %q, got %q", id.Nonce, nonce)
+	}
+	access, err := common.ConvertTokenToIdentityUnsafe(tokens.AccessToken)
+	if len(access.Nonce) > 0 {
+		t.Error("access token should not include nonce")
+	}
+	refresh, err := common.ConvertTokenToIdentityUnsafe(tokens.RefreshToken)
+	if len(refresh.Nonce) > 0 {
+		t.Error("refresh token should not include nonce")
+	}
+
+	// ID token request by refresh token should not include "nonce".
+	w = httptest.NewRecorder()
+	params = fmt.Sprintf("grant_type=refresh_token&client_id=%s&client_secret=%s&redirect_uri=http://example.com&refresh_token=%s", testClientID, testClientSecret, tokens.RefreshToken)
+	r = httptest.NewRequest("POST", path+"?"+params, nil)
+	s.Handler.ServeHTTP(w, r)
+	resp = w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("get tokens by refresh token want ok, got %q", resp.Status)
+	}
+	err = unmarshaler.Unmarshal(resp.Body, &tokens)
+	if err != nil {
+		t.Error("unmarshal failed")
+	}
+	id, err = common.ConvertTokenToIdentityUnsafe(tokens.IdToken)
+	if len(id.Nonce) > 0 {
+		t.Error("get tokens by refresh token, id token not include nonce")
+	}
+	access, err = common.ConvertTokenToIdentityUnsafe(tokens.AccessToken)
+	if len(access.Nonce) > 0 {
+		t.Error("access token should not include nonce")
+	}
+	refresh, err = common.ConvertTokenToIdentityUnsafe(tokens.RefreshToken)
+	if len(refresh.Nonce) > 0 {
+		t.Error("refresh token should not include nonce")
+	}
 }
