@@ -132,7 +132,6 @@ message ServiceRole {
 
 message AccessRole {
   repeated string policies = 1;
-  map<string, string> ui = 2;
   repeated PolicyBasis computed_policy_basis = 3 [json_name = "policyBasis"];
 }
 

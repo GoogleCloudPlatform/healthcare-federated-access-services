@@ -230,6 +230,11 @@ var (
 		Max:          "9125d",
 		DefaultValue: "90d",
 	}
+	shortNameRE  = regexp.MustCompile(`^[A-Za-z][-_A-Za-z0-9\.]{0,30}[A-Za-z0-9]$`)
+	tagField     = "tag"
+	tagNameCheck = map[string]*regexp.Regexp{
+		tagField: shortNameRE,
+	}
 )
 
 type Service struct {
@@ -3398,6 +3403,9 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		if err := common.CheckName("name", name, nil); err != nil {
 			return fmt.Errorf("invalid idProvider name %q: %v", name, err)
 		}
+		if len(idp.Issuer) == 0 {
+			return fmt.Errorf("invalid idProvider %q: missing 'issuer' field", name)
+		}
 		m := map[string]string{
 			"issuer":       idp.Issuer,
 			"authorizeUrl": idp.AuthorizeUrl,
@@ -3409,6 +3417,9 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 			return err
 		}
 		if err := validateTranslator(idp.TranslateUsing, idp.Issuer); err != nil {
+			return fmt.Errorf("identity provider %q: %v", name, err)
+		}
+		if err := common.CheckUI(idp.Ui, true); err != nil {
 			return fmt.Errorf("identity provider %q: %v", name, err)
 		}
 	}
@@ -3430,6 +3441,19 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 			}); err != nil {
 				return err
 			}
+		}
+		if err := common.CheckUI(client.Ui, true); err != nil {
+			return fmt.Errorf("client %q: %v", name, err)
+		}
+	}
+
+	for name, at := range cfg.AccountTags {
+		if err := common.CheckName(tagField, name, tagNameCheck); err != nil {
+			return fmt.Errorf("invalid account tag name %q: %v", name, err)
+		}
+
+		if err := common.CheckUI(at.Ui, true); err != nil {
+			return fmt.Errorf("account tag %q: %v", name, err)
 		}
 	}
 
@@ -3465,6 +3489,11 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 	if dpTTL > mpTTL {
 		return fmt.Errorf("defaultPassportTtl (%s) must not be greater than maxPassportTtl (%s)", dpTTL, mpTTL)
 	}
+
+	if err := common.CheckUI(cfg.Ui, true); err != nil {
+		return fmt.Errorf("config root: %v", err)
+	}
+
 	return nil
 }
 

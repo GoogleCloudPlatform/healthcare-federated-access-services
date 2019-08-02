@@ -3,29 +3,54 @@
   "revision": "1",
   "commitTime": "1544824316",
   "ui": {
-    "label": "Test DAM"
+    "label": "Test DAM",
+    "description": "Test DAM"
   },
   "trustedPassportIssuers": {
     "ic_dev": {
-      "issuer": "https://ic-dev-dot-hcls-data-connect-demo.appspot.com/oidc"
+      "issuer": "https://ic-dev-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "ui": {
+        "label": "IC Dev",
+        "description": "IC Dev passport issuer"
+      }
     },
     "ic_staging": {
-      "issuer": "https://ic-staging-dot-hcls-data-connect-demo.appspot.com/oidc"
+      "issuer": "https://ic-staging-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "ui": {
+        "label": "IC Staging",
+        "description": "IC Staging passport issuer"
+      }
     },
     "ic_prod": {
-      "issuer": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc"
+      "issuer": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "ui": {
+        "label": "IC Prod",
+        "description": "IC Prod passport issuer"
+      }
     },
     "dbGaP": {
       "issuer": "https://dbgap.nlm.nih.gov/aa",
-      "translateUsing": "dbgap_translator"
+      "translateUsing": "dbgap_translator",
+      "ui": {
+        "label": "dbGaP passport issuer",
+        "description": "dbGaP passport issuer"
+      }
     },
     "elixir": {
       "issuer": "https://login.elixir-czech.org/oidc/",
-      "translateUsing": "elixir_translator"
+      "translateUsing": "elixir_translator",
+      "ui": {
+        "label": "elixir passport issuer",
+        "description": "elixir passport issuer"
+      }
     },
     "nih": {
       "issuer": "https://login.nih.gov/oidc/",
-      "translateUsing": "dbgap_translator"
+      "translateUsing": "dbgap_translator",
+      "ui": {
+        "label": "nih passport issuer",
+        "description": "nih passport issuer"
+      }
     }
   },
   "trustedSources": {
@@ -41,12 +66,20 @@
       "claims": [
         "^[A-Z].*$",
         "^nih.*$"
-      ]
+      ],
+      "ui": {
+        "label": "nih institutes",
+        "description": "nih institutes claim source"
+      }
     },
     "the_broad": {
       "sources": [
         "https://ga4gh.broadinstitute.org"
-      ]
+      ],
+      "ui": {
+        "label": "the broad",
+        "description": "the broad claim source"
+      }
     },
     "elixir_institutes": {
       "sources": [
@@ -55,7 +88,11 @@
       "claims": [
         "BonaFide",
         "^elixir.*$"
-      ]
+      ],
+      "ui": {
+        "label": "elixir institutes",
+        "description": "elixir institutes claim source"
+      }
     },
     "eu_universities": {
       "sources": [
@@ -64,7 +101,11 @@
       "claims": [
         "AcceptedTermsAndPolicies",
         "BonaFide"
-      ]
+      ],
+      "ui": {
+        "label": "eu universities",
+        "description": "eu universities claim source"
+      }
     },
     "us_universities": {
       "sources": [
@@ -73,7 +114,11 @@
       "claims": [
         "AcceptedTermsAndPolicies",
         "BonaFide"
-      ]
+      ],
+      "ui": {
+        "label": "us universities",
+        "description": "us universities claim source"
+      }
     },
     "research_companies": {
       "sources": [
@@ -83,7 +128,11 @@
       "claims": [
         "AcceptedTermsAndPolicies",
         "BonaFide"
-      ]
+      ],
+      "ui": {
+        "label": "research companies",
+        "description": "research companies claim source"
+      }
     }
   },
   "policies": {
@@ -240,7 +289,8 @@
           },
           "defaultRole": "viewer",
           "ui": {
-            "label": "BigQuery Read"
+            "label": "BigQuery Read",
+            "description": "GCP BigQuery Read"
           }
         },
         "gcs_read": {
@@ -273,7 +323,8 @@
           },
           "defaultRole": "viewer",
           "ui": {
-            "label": "File Read"
+            "label": "File Read",
+            "description": "GCS File Read"
           }
         },
         "gcp": {
@@ -306,7 +357,8 @@
           },
           "defaultRole": "viewer",
           "ui": {
-            "label": "GCP GCS and BigQuery"
+            "label": "GCP GCS and BigQuery",
+            "description": "GCP GCS and BigQuery"
           }
         }
       },
@@ -347,7 +399,8 @@
           },
           "defaultRole": "discovery",
           "ui":{
-            "label": "Beacon Discovery"
+            "label": "Beacon Discovery",
+            "description": "Search data from Beacon Discovery"
           }
         },
         "gcs_read": {
@@ -375,7 +428,8 @@
           },
           "defaultRole": "viewer",
           "ui": {
-            "label": "File Read"
+            "label": "File Read",
+            "description": "GCS File Read"
           }
         }
       },
@@ -421,7 +475,8 @@
         "http:beacon": "${url}"
       },
       "ui": {
-        "label": "Beacon Discovery Search"
+        "label": "Beacon Discovery Search",
+        "description": "Search data from Beacon Discovery"
       }
     },
     "gcs": {
@@ -467,7 +522,8 @@
         "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${bucket}"
       },
       "ui": {
-        "label": "Google Cloud Storage"
+        "label": "Google Cloud Storage",
+        "description": "Google Cloud Storage"
       }
     },
     "bigquery": {
@@ -501,7 +557,9 @@
         "http:gcp:bq": "https://www.googleapis.com/bigquery/v1/projects/${project}"
       },
       "ui": {
-        "label": "Google BigQuery"
+        "label": "Google BigQuery",
+        "description": "Google BigQuery"
+
       }
     },
     "views": {
@@ -517,7 +575,8 @@
         }
       },
       "ui": {
-        "label": "Multiple Resource Views"
+        "label": "Multiple Resource Views",
+        "description": "Offers access across multiple views"
       }
     }
   },

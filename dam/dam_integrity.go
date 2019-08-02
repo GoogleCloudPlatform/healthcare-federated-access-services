@@ -59,6 +59,9 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		if _, ok := translators[ti.TranslateUsing]; !ok && len(ti.TranslateUsing) > 0 {
 			return fmt.Errorf("trusted identity %q as unknown translator %q", n, ti.TranslateUsing)
 		}
+		if err := common.CheckUI(ti.Ui, true); err != nil {
+			return fmt.Errorf("trusted passport issuer %q: %v", n, err)
+		}
 	}
 
 	for n, tc := range cfg.TrustedSources {
@@ -97,6 +100,9 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 				return fmt.Errorf("trusted source %q claim regular expression %q does not match any claim definitions", n, claim)
 			}
 		}
+		if err := common.CheckUI(tc.Ui, true); err != nil {
+			return fmt.Errorf("trusted claim %q: %v", n, err)
+		}
 	}
 
 	for n, policy := range cfg.Policies {
@@ -108,6 +114,9 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		}
 		if path, err := s.checkConditionIntegrity(n, policy.Disallow, "disallow", cfg); err != nil {
 			return fmt.Errorf("policy name %q condition %q: %v", n, path, err)
+		}
+		if err := common.CheckUI(policy.Ui, true); err != nil {
+			return fmt.Errorf("policy name %q: %v", n, err)
 		}
 	}
 	if _, err := s.resolvePolicies(cfg); err != nil {
@@ -137,17 +146,23 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 				return fmt.Errorf("resource %q error: %v", n, err)
 			}
 		}
+		if err := common.CheckUI(res.Ui, true); err != nil {
+			return fmt.Errorf("resource name %q: %v", n, err)
+		}
 	}
 
 	for n, cl := range cfg.Clients {
 		if _, err := common.ParseGUID(cl.ClientId); err != nil || len(cl.ClientId) != clientIdLen {
 			return fmt.Errorf("client %q does not contain a valid client ID", n)
 		}
+		if err := common.CheckUI(cl.Ui, true); err != nil {
+			return fmt.Errorf("client %q: %v", n, err)
+		}
 	}
 
 	for n, def := range cfg.ClaimDefinitions {
-		if def.Ui == nil || len(def.Ui["label"]) == 0 {
-			return fmt.Errorf("claim definition %q does not have a UI label defined", n)
+		if err := common.CheckUI(def.Ui, true); err != nil {
+			return fmt.Errorf("claim definition %q: %v", n, err)
 		}
 	}
 
@@ -172,6 +187,9 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		if pmatch, ok := personaEmail[tid.Subject]; ok {
 			return fmt.Errorf("test persona %q subject %q conflicts with the identity of test persona %q", n, tid.Subject, pmatch)
 		}
+		if err := common.CheckUI(tp.Ui, false); err != nil {
+			return fmt.Errorf("test persona %q: %v", n, err)
+		}
 		// Checking persona expectations is in checkExtraIntegrity() to give an
 		// opportunity for runTests() to catch problems and calculate a ConfigModification
 		// response.
@@ -179,6 +197,10 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 
 	if err := s.checkOptionsIntegrity(cfg.Options); err != nil {
 		return err
+	}
+
+	if err := common.CheckUI(cfg.Ui, true); err != nil {
+		return fmt.Errorf("root config object: %v", err)
 	}
 
 	return nil
@@ -241,6 +263,9 @@ func (s *Service) checkViewIntegrity(name string, view *pb.View, res *pb.Resourc
 	if len(view.ComputedInterfaces) > 0 {
 		return fmt.Errorf("view %q interfaces should be determined at runtime and cannot be stored as part of the config", name)
 	}
+	if err := common.CheckUI(view.Ui, true); err != nil {
+		return fmt.Errorf("view name %q: %v", name, err)
+	}
 
 	return nil
 }
@@ -284,6 +309,9 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 				return fmt.Errorf("service template %q interface %q variable name %q not defined for adapter %q", name, k, varName, template.TargetAdapter)
 			}
 		}
+	}
+	if err := common.CheckUI(template.Ui, true); err != nil {
+		return fmt.Errorf("service template %q: %v", name, err)
 	}
 	return nil
 }
@@ -375,6 +403,9 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, targetAdap
 		}
 		if requirementCheck && desc.Requirements.TargetScope && len(role.TargetScopes) == 0 {
 			return fmt.Errorf("role %q does not provide any target scopes assignments", rname)
+		}
+		if err := common.CheckUI(role.Ui, true); err != nil {
+			return fmt.Errorf("role %q: %v", rname, err)
 		}
 	}
 	return nil

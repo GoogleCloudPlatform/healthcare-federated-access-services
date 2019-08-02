@@ -40,7 +40,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam",
-			Output: `^{"name":"Data Access Manager","versions":\["v1alpha"\],"startTime":"[0-9]+","ui":{"label":"Test DAM".*}}$`,
+			Output: `^{"name":"Data Access Manager","versions":\["v1alpha"\],"startTime":"[0-9]+","ui":{"description":"Test DAM","label":"Test DAM".*}}$`,
 			Status: http.StatusOK,
 		},
 		{
@@ -225,7 +225,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/resources/new-resource",
-			Input:  `{"item":{"maxTokenTtl": "3h"}}`,
+			Input:  `{"item":{"maxTokenTtl": "3h","ui":{"label":"label","description":"desc"}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
@@ -238,7 +238,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/resources/new-resource",
-			Input:  `{"item": {"ui":{"label":"foo"}}, "modification": {"testPersonas":{"dr_joe_elixir":{"resources":{"ga4gh-apis":{"access":["beacon/discovery","gcs_read/viewer"]}}}}}}`,
+			Input:  `{"item": {"ui":{"label":"foo","description":"bar"}}, "modification": {"testPersonas":{"dr_joe_elixir":{"resources":{"ga4gh-apis":{"access":["beacon/discovery","gcs_read/viewer"]}}}}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -280,7 +280,11 @@ func TestHandlers(t *testing.T) {
 												"policies":["bona_fide", "ethics", "GRU"]
 											}
 										},
-					          "defaultRole": "viewer"
+					          "defaultRole": "viewer",
+										"ui": {
+											"label": "foo",
+											"description": "bar"
+										}
 									},
 									"modification": {
 									}
@@ -304,6 +308,10 @@ func TestHandlers(t *testing.T) {
 											"viewer":{
 												"policies":["bona_fide", "ethics", "GRU"]
 											}
+										},
+										"ui": {
+											"label": "foo",
+											"description": "bar"
 										}
 									},
 									"modification": {
@@ -326,20 +334,20 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/trustedPassportIssuers/new-issuer",
-			Input:  `{"item":{"issuer":"https://test.org"}}`,
+			Input:  `{"item":{"issuer":"https://test.org","ui":{"label":"foo","description":"bar"}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/trustedPassportIssuers/new-issuer",
-			Input:  `{"item":{"issuer":"https://test.org"}}`,
+			Input:  `{"item":{"issuer":"https://test.org","ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/trustedPassportIssuers/new-issuer",
-			Input:  `{"item":{"issuer":"https://test2.org"}}`,
+			Input:  `{"item":{"issuer":"https://test2.org","ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -357,20 +365,20 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/trustedSources/new-source",
-			Input:  `{"item":{"sources":["https://test.org"]}}`,
+			Input:  `{"item":{"sources":["https://test.org"],"ui":{"label":"foo","description":"bar"}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/trustedSources/new-source",
-			Input:  `{"item":{"sources":["https://test2.org"]}}`,
+			Input:  `{"item":{"sources":["https://test2.org"],"ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/trustedSources/new-source",
-			Input:  `{"item":{"sources":["https://test3.org"]}}`,
+			Input:  `{"item":{"sources":["https://test3.org"],"ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -388,20 +396,20 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/policies/new-policy",
-			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test.org"]}}}`,
+			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test.org"]},"ui":{"label":"foo","description":"bar"}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/policies/new-policy",
-			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test2.org"]}}}`,
+			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test2.org"]},"ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/policies/new-policy",
-			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test3.org"]}}}`,
+			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test3.org"]},"ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -419,20 +427,20 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/claimDefinitions/new.claim",
-			Input:  `{"item":{"ui":{"label":"new.Claim"}}}`,
+			Input:  `{"item":{"ui":{"label":"new.Claim","description":"bar"}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/claimDefinitions/new.claim",
-			Input:  `{"item":{"ui":{"label":"new.Claim2"}}}`,
+			Input:  `{"item":{"ui":{"label":"new.Claim2","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/claimDefinitions/new.claim",
-			Input:  `{"item":{"ui":{"label":"new.Claim3"}}}`,
+			Input:  `{"item":{"ui":{"label":"new.Claim3","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -463,7 +471,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/serviceTemplates/new-service",
-			Input:  `{"item":{"interfaces":{"gcp:gs":"gs://${bucket}"}}}`,
+			Input:  `{"item":{"interfaces":{"gcp:gs":"gs://${bucket}"},"ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -512,20 +520,20 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/clients/new-client",
-			Input:  `{"item":{"ui":{"label":"new-client"}}}`,
+			Input:  `{"item":{"ui":{"label":"new-client","description":"bar"}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/clients/new-client",
-			Input:  `{"item":{"ui":{"label":"new-client2"}}}`,
+			Input:  `{"item":{"ui":{"label":"new-client2","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/clients/new-client",
-			Input:  `{"item":{"ui":{"label":"new-client3"}}}`,
+			Input:  `{"item":{"ui":{"label":"new-client3","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -540,6 +548,9 @@ func TestHandlers(t *testing.T) {
 			Path:   "/dam/v1alpha/test/config/testPersonas/dr_joe_era_commons",
 			Input: `{"item":
 				{
+					"ui": {
+						"label": "dr_joe_era_commons test"
+					},
 					"idToken": {
 						"standardClaims": {
 							"iss": "https://login.nih.gov/oidc/",
@@ -590,6 +601,9 @@ func TestHandlers(t *testing.T) {
 			Path:   "/dam/v1alpha/test/config/testPersonas/dr_joe_era_commons",
 			Input: `{"item":
 				{
+					"ui": {
+						"label": "dr_joe_era_commons test"
+					},
 					"idToken": {
 						"standardClaims": {
 							"iss": "https://login.nih.gov/oidc/",

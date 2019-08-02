@@ -709,7 +709,7 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 				common.HandleError(http.StatusInternalServerError, fmt.Errorf("resource %q view %q service template %q target adapter %q is undefined", resname, vname, v.ServiceTemplate, st.TargetAdapter), w)
 				return
 			}
-			for rolename, role := range v.AccessRoles {
+			for rolename := range v.AccessRoles {
 				for interfaceName, iface := range v.ComputedInterfaces {
 					for _, interfaceURI := range iface.Uri {
 						if len(v.ContentTypes) == 0 {
@@ -738,7 +738,7 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 								MaxTokenTtl:     res.MaxTokenTtl,
 								ResourceUi:      res.Ui,
 								ViewUi:          v.Ui,
-								RoleUi:          role.Ui,
+								RoleUi:          st.Ui,
 							}
 						}
 					}
@@ -1811,10 +1811,9 @@ func mergePolicyBasis(name, ptype, clause string, cond *pb.Condition, rmap map[s
 
 func (s *Service) makeViewRoles(view *pb.View, res *pb.Resource, cfg *pb.DamConfig) map[string]*pb.AccessRole {
 	out := make(map[string]*pb.AccessRole)
-	for rname, vRole := range view.AccessRoles {
+	for rname := range view.AccessRoles {
 		out[rname] = &pb.AccessRole{
 			ComputedPolicyBasis: s.makePolicyBasis(rname, view, res, cfg),
-			Ui:                  vRole.Ui,
 		}
 	}
 	return out

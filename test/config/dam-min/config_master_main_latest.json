@@ -3,18 +3,27 @@
   "revision": "1",
   "commitTime": "1544824316",
   "ui": {
-    "label": "Minimum Test DAM"
+    "label": "Minimum Test DAM",
+    "description": "Minimum Test DAM"
   },
   "trustedPassportIssuers": {
     "ic_dev": {
-      "issuer": "https://ic-dot-example.appspot.com/oidc"
+      "issuer": "https://ic-dot-example.appspot.com/oidc",
+      "ui": {
+        "label": "IC Dev",
+        "description": "IC Dev passport issuer"
+      }
     }
   },
   "trustedSources": {
     "the_broad": {
       "sources": [
         "https://ga4gh.broadinstitute.org"
-      ]
+      ],
+      "ui": {
+        "label": "the broad",
+        "description": "the broad claim source"
+      }
     }
   },
   "policies": {
@@ -58,7 +67,8 @@
           },
           "defaultRole": "viewer",
           "ui": {
-            "label": "File Read"
+            "label": "File Read",
+            "description": "GCS file read"
           }
         }
       },
@@ -95,7 +105,8 @@
         "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${bucket}"
       },
       "ui": {
-        "label": "Google Cloud Storage"
+        "label": "Google Cloud Storage",
+        "description": "GCS file read"
       }
     }
   },

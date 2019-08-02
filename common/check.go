@@ -157,3 +157,24 @@ func OptDuration(optName, optVal, minVal, maxVal string) (time.Duration, time.Du
 	}
 	return v, min, max, nil
 }
+
+// CheckUI checks UI object in config.
+func CheckUI(ui map[string]string, requireDescription bool) error {
+	if ui == nil {
+		return fmt.Errorf("UI object missing")
+	}
+
+	if label := ui[UILabel]; len(label) == 0 {
+		return fmt.Errorf("UI object missing %q field", UILabel)
+	}
+
+	if !requireDescription {
+		return nil
+	}
+
+	if desc := ui[UIDescription]; len(desc) == 0 {
+		return fmt.Errorf("UI object missing %q field", UIDescription)
+	}
+
+	return nil
+}

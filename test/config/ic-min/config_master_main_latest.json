@@ -1,4 +1,8 @@
 {
+  "ui": {
+    "label": "Min Test Identity Concentrator",
+    "description": "Min Test Identity Concentrator"
+  },
   "clients": {
     "test_client": {
       "clientId": "00000000-0000-0000-0000-000000000000",
