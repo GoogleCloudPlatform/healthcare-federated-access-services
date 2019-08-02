@@ -15,9 +15,9 @@
 syntax = "proto3";
 
 // Package models defines models share between IC and DAM server.
-package common.models;
+package models;
 
-option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/common/models";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models";
 
 message Permissions {
   message PermissionUser {

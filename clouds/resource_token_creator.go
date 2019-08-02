@@ -19,7 +19,7 @@ import (
 	"context"
 	"time"
 
-	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
+	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 // ResourceTokenCreationParams provides information on a set of items to perform an action upon.

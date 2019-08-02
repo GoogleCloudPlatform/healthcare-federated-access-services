@@ -22,7 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
-	pb "google3/third_party/hcls_federated_access/common/models/go_proto"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 // Permissions type exposes functions access user permissions.

@@ -18,9 +18,9 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package ic.v1;
 
-import "third_party/hcls_federated_access/common/models/common.proto";
+import "proto/models/common.proto";
 
-option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/ic/api/v1";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1";
 
 ///////////////////////////////////////////////////
 // oidc
@@ -45,7 +45,7 @@ message IcConfig {
   double commit_time = 3;
   map<string, IdentityProvider> identity_providers = 4;
   map<string, Client> clients = 5;
-  map<string, common.models.AccountTag> account_tags = 6;
+  map<string, models.AccountTag> account_tags = 6;
   ConfigOptions options = 7;
   map<string, string> ui = 8;
 }

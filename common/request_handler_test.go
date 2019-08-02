@@ -18,7 +18,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"google3/third_party/hcls_federated_access/common/models/go_proto"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 func assertHeader(t *testing.T, w *httptest.ResponseRecorder, header string, expect string) {
@@ -30,7 +30,7 @@ func assertHeader(t *testing.T, w *httptest.ResponseRecorder, header string, exp
 func TestSendResponse(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	msg := &models.LoginState{}
+	msg := &pb.LoginState{}
 
 	err := SendResponse(msg, w)
 	if err != nil {

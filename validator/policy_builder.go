@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"regexp"
 
-	cfg "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
-func BuildPolicyValidator(ctx context.Context, policy *cfg.Policy, defs map[string]*cfg.ClaimDefinition, sources map[string]*cfg.TrustedSource) (*Policy, error) {
+// BuildPolicyValidator creates a new policy validator.
+func BuildPolicyValidator(ctx context.Context, policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource) (*Policy, error) {
 	allow, err := policyValidator(ctx, policy.Allow, defs, sources)
 	if err != nil {
 		return nil, err
@@ -34,7 +35,7 @@ func BuildPolicyValidator(ctx context.Context, policy *cfg.Policy, defs map[stri
 	return NewPolicy(allow, disallow), nil
 }
 
-func policyValidator(ctx context.Context, c *cfg.Condition, defs map[string]*cfg.ClaimDefinition, sources map[string]*cfg.TrustedSource) (Validator, error) {
+func policyValidator(ctx context.Context, c *pb.Condition, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource) (Validator, error) {
 	if c == nil {
 		return nil, nil
 	}
@@ -70,20 +71,20 @@ func policyValidator(ctx context.Context, c *cfg.Condition, defs map[string]*cfg
 		return Or(vs), nil
 	}
 	switch k := c.Key.(type) {
-	case *cfg.Condition_Claim:
+	case *pb.Condition_Claim:
 		src, err := expandSources(k.Claim, c.From, sources)
 		if err != nil {
 			return nil, err
 		}
 		return NewClaimValidator(k.Claim, c.Values, c.Is, src, byMap(c.By))
-	case *cfg.Condition_DataUse:
+	case *pb.Condition_DataUse:
 		// TODO: implement this and deal with policy complexity with multiple DU values.
 		return &Constant{OK: true}, nil
 	}
 	return nil, fmt.Errorf("condition requires one of claim, dataUse, userList, allTrue, anyTrue: %v", c)
 }
 
-func expandSources(claim string, from []string, sources map[string]*cfg.TrustedSource) (map[string]bool, error) {
+func expandSources(claim string, from []string, sources map[string]*pb.TrustedSource) (map[string]bool, error) {
 	out := make(map[string]bool)
 	for _, f := range from {
 		source, ok := sources[f]
@@ -136,7 +137,8 @@ func byMap(strs []string) map[string]bool {
 	return out
 }
 
-func ValidateCondition(c *cfg.Condition, defs map[string]*cfg.ClaimDefinition) error {
+// ValidateCondition validates a condition.
+func ValidateCondition(c *pb.Condition, defs map[string]*pb.ClaimDefinition) error {
 	n := 0
 	if len(c.AllTrue) > 0 {
 		n++
@@ -147,10 +149,10 @@ func ValidateCondition(c *cfg.Condition, defs map[string]*cfg.ClaimDefinition) e
 	du := false
 	claim := ""
 	switch k := c.Key.(type) {
-	case *cfg.Condition_Claim:
+	case *pb.Condition_Claim:
 		claim = k.Claim
 		n++
-	case *cfg.Condition_DataUse:
+	case *pb.Condition_DataUse:
 		du = true
 		n++
 	}

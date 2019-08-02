@@ -17,7 +17,7 @@ package storage
 import (
 	"testing"
 
-	pb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
 const (

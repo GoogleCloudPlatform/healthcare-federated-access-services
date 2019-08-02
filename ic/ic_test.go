@@ -31,16 +31,16 @@ import (
 	"github.com/coreos/go-oidc"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
-	pb "google3/third_party/hcls_federated_access/ic/api/v1/go_proto"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/module"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/test"
 )
 
 const (
-	domain     = "example.com"
-	oidcIssuer = "https://" + domain + "/oidc"
-	testClientID = "00000000-0000-0000-0000-000000000000"
+	domain           = "example.com"
+	oidcIssuer       = "https://" + domain + "/oidc"
+	testClientID     = "00000000-0000-0000-0000-000000000000"
 	testClientSecret = "00000000-0000-0000-0000-000000000001"
 )
 

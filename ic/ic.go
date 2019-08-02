@@ -41,19 +41,19 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"gopkg.in/square/go-jose.v2"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/playground"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/translator"
 
-	"gopkg.in/square/go-jose.v2"
 	josejwt "gopkg.in/square/go-jose.v2/jwt"
-	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
-	dampb "google3/third_party/hcls_federated_access/dam/api/v1/go_proto"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
-	pb "google3/third_party/hcls_federated_access/ic/api/v1/go_proto"
+	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
+	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 const (

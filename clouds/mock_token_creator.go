@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
+	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 type MockTokenCreatorEntry struct {

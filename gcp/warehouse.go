@@ -42,7 +42,7 @@ import (
 	"google.golang.org/api/iamcredentials/v1"
 	cloudstorage "google.golang.org/api/storage/v1"
 
-	compb "google3/third_party/hcls_federated_access/common/models/go_proto"
+	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 const (
