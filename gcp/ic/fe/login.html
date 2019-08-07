@@ -200,22 +200,13 @@
           var cardClass = 'mdl-card mdl-shadow--2dp';
           // TODO: escape url and label to be safe strings.
           if (iconUrl) {
-              return `<a class="${cardClass}" onclick="onClickProvider(event);" href="${url}">` +
+              return `<a class="${cardClass}" href="${url}">` +
                   `<div class="mdl-card__title flex vertical-center"><img src="${iconUrl}" alt="Icon"/>${label}</div>` +
                   '</a>';
           }
-          return `<a class="${cardClass} no-image" onclick="onClickProvider(event);"  href="${url}">` +
+          return `<a class="${cardClass} no-image" href="${url}">` +
               `<div class="mdl-card__title flex vertical-center">${label}</div>` +
               '</a>';
-      }
-
-      function onClickProvider(event) {
-        // var app = "${APPLICATION_NAME}";
-        // var message = `By clicking OK, you agree to release your Researcher Claims to ${app}`;
-        // var ans = window.confirm(message);
-        // if (!ans) {
-        //   event.preventDefault();
-        // }
       }
   </script>
 </head>

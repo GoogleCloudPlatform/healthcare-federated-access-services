@@ -29,15 +29,16 @@ const (
 	DefaultID      = "main"
 	WipeAllRealms  = ""
 
-	AccountDatatype       = "account"
-	AccountLookupDatatype = "acct_lookup"
-	AuthCodeDatatype      = "auth_code"
-	ClientDatatype        = "client"
-	ConfigDatatype        = "config"
-	LoginStateDatatype    = "login_state"
-	PermissionsDatatype   = "permissions"
-	SecretsDatatype       = "secrets"
-	TokensDatatype        = "tokens"
+	AccountDatatype        = "account"
+	AccountLookupDatatype  = "acct_lookup"
+	AuthCodeDatatype       = "auth_code"
+	ClientDatatype         = "client"
+	ConfigDatatype         = "config"
+	LoginStateDatatype     = "login_state"
+	AuthTokenStateDatatype = "auth_token_state"
+	PermissionsDatatype    = "permissions"
+	SecretsDatatype        = "secrets"
+	TokensDatatype         = "tokens"
 )
 
 // Store is an interface to the storage layer.

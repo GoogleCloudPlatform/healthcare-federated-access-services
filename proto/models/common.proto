@@ -45,6 +45,17 @@ message LoginState {
   string nonce = 6;
 }
 
+// AuthTokenState records states for create auth token.
+message AuthTokenState {
+  string redirect = 1;
+  string subject = 2;
+  string scope = 3;
+  string provider = 4;
+  string realm = 5;
+  string nonce = 6;
+  string login_hint = 7;
+}
+
 message TokenMetadata {
   string name = 1;
   string issued_at = 2;

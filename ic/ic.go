@@ -66,12 +66,13 @@ const (
 
 	maxClaimsLength = 1900
 
-	loginPageFile       = "gcp/ic/fe/login.html"
-	clientLoginPageFile = "gcp/ic/fe/client_login.html"
-	testPageFile        = "gcp/ic/fe/test.html"
-	staticDirectory     = "gcp/ic/static/"
-	version             = "v1alpha"
-	requiresAdmin       = true
+	loginPageFile              = "gcp/ic/fe/login.html"
+	clientLoginPageFile        = "gcp/ic/fe/client_login.html"
+	informationReleasePageFile = "gcp/ic/fe/information_release.html"
+	testPageFile               = "gcp/ic/fe/test.html"
+	staticDirectory            = "gcp/ic/static/"
+	version                    = "v1alpha"
+	requiresAdmin              = true
 
 	basePath         = "/identity"
 	realmPath        = basePath + "/" + version + "/" + common.RealmVariable
@@ -90,15 +91,16 @@ const (
 	configClientsPath           = configPath + "/clients/{name}"
 	configOptionsPath           = configPath + "/options"
 
-	identityProvidersPath = methodPrefix + "identityProviders"
-	translatorsPath       = methodPrefix + "passportTranslators"
-	tokenPath             = methodPrefix + "token"
-	tokenMetadataPath     = methodPrefix + "token/{sub}/{jti}"
-	revocationPath        = methodPrefix + "revoke"
-	loginPagePath         = methodPrefix + "login"
-	loginPath             = methodPrefix + "login/{name}"
-	finishLoginPrefix     = methodPrefix + "loggedin/"
-	finishLoginPath       = finishLoginPrefix + "{name}"
+	identityProvidersPath        = methodPrefix + "identityProviders"
+	translatorsPath              = methodPrefix + "passportTranslators"
+	tokenPath                    = methodPrefix + "token"
+	tokenMetadataPath            = methodPrefix + "token/{sub}/{jti}"
+	revocationPath               = methodPrefix + "revoke"
+	loginPagePath                = methodPrefix + "login"
+	loginPath                    = methodPrefix + "login/{name}"
+	finishLoginPrefix            = methodPrefix + "loggedin/"
+	finishLoginPath              = finishLoginPrefix + "{name}"
+	acceptInformationReleasePath = methodPrefix + "inforelease"
 
 	personasPath       = methodPrefix + "personas"
 	personaPath        = personasPath + "/{name}"
@@ -238,18 +240,19 @@ var (
 )
 
 type Service struct {
-	store           storage.Store
-	Handler         *ServiceHandler
-	ctx             context.Context
-	loginPage       string
-	clientLoginPage string
-	testPage        string
-	startTime       int64
-	permissions     *common.Permissions
-	domain          string
-	accountDomain   string
-	module          module.Module
-	translators     sync.Map
+	store                 storage.Store
+	Handler               *ServiceHandler
+	ctx                   context.Context
+	loginPage             string
+	clientLoginPage       string
+	infomationReleasePage string
+	testPage              string
+	startTime             int64
+	permissions           *common.Permissions
+	domain                string
+	accountDomain         string
+	module                module.Module
+	translators           sync.Map
 }
 
 type ServiceHandler struct {
@@ -273,6 +276,10 @@ func NewService(domain, accountDomain string, store storage.Store, module module
 	if err != nil {
 		log.Fatalf("cannot load client login page: %v", err)
 	}
+	irp, err := loadFile(informationReleasePageFile)
+	if err != nil {
+		log.Fatalf("cannot load information release page: %v", err)
+	}
 	tp, err := loadFile(testPageFile)
 	if err != nil {
 		log.Fatalf("cannot load test page: %v", err)
@@ -282,17 +289,18 @@ func NewService(domain, accountDomain string, store storage.Store, module module
 		log.Fatalf("cannot load permissions:%v", err)
 	}
 	s := &Service{
-		store:           store,
-		Handler:         sh,
-		ctx:             ctx,
-		loginPage:       lp,
-		clientLoginPage: clp,
-		testPage:        tp,
-		startTime:       time.Now().Unix(),
-		permissions:     perms,
-		domain:          domain,
-		accountDomain:   accountDomain,
-		module:          module,
+		store:                 store,
+		Handler:               sh,
+		ctx:                   ctx,
+		loginPage:             lp,
+		clientLoginPage:       clp,
+		infomationReleasePage: irp,
+		testPage:              tp,
+		startTime:             time.Now().Unix(),
+		permissions:           perms,
+		domain:                domain,
+		accountDomain:         accountDomain,
+		module:                module,
 	}
 
 	if err := validateURLs(map[string]string{
@@ -363,7 +371,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	// Allow some requests to proceed without client IDs and/or secrets.
 	path := common.RequestAbstractPath(r)
-	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, acceptLoginPath) || strings.HasPrefix(path, oidcWellKnownPath) {
+	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcWellKnownPath) {
 		sh.Handler.ServeHTTP(w, r)
 		return
 	}
@@ -422,6 +430,7 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(loginPath, s.Login)
 	r.HandleFunc(acceptLoginPath, s.AcceptLogin)
 	r.HandleFunc(finishLoginPath, s.FinishLogin)
+	r.HandleFunc(acceptInformationReleasePath, s.acceptInformationRelease).Methods("GET")
 	r.HandleFunc(personasPath, s.Personas)
 	r.HandleFunc(personaPath, s.Persona)
 	r.HandleFunc(testPath, s.Test)
@@ -728,19 +737,7 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	clientName := "the application"
-	for name, cli := range cfg.Clients {
-		if cli.ClientId == clientID {
-			if cli.Ui != nil && len(cli.Ui[common.UILabel]) > 0 {
-				clientName = cli.Ui[common.UILabel]
-			} else {
-				clientName = name
-			}
-			break
-		}
-	}
 	page := strings.Replace(s.loginPage, "${PROVIDER_LIST}", json, -1)
-	page = strings.Replace(page, "${APPLICATION_NAME}", clientName, -1)
 	sendHTML(page, w)
 }
 
@@ -1301,7 +1298,37 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		subject = acct.Properties.Subject
 	}
 
-	auth, err := s.createAuthToken(subject, scope, provider, realm, id.Nonce, time.Now(), cfg, tx)
+	loginHint := makeLoginHint(provider, id.Subject)
+
+	if provider == personaProvider {
+		s.sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, id.Nonce, loginHint, cfg, tx, r, w)
+		return
+	}
+
+	// redirect to information release page.
+	state := &compb.AuthTokenState{
+		Redirect:  redirect,
+		Subject:   subject,
+		Scope:     scope,
+		Provider:  provider,
+		Realm:     realm,
+		Nonce:     id.Nonce,
+		LoginHint: loginHint,
+	}
+
+	stateID := common.GenerateGUID()
+
+	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	s.sendInformationReleasePage(id, stateID, clientID, scope, realm, cfg, w)
+}
+
+func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, nonce, loginHint string, cfg *pb.IcConfig, tx storage.Tx, r *http.Request, w http.ResponseWriter) {
+	auth, err := s.createAuthToken(subject, scope, provider, realm, nonce, time.Now(), cfg, tx)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
@@ -1320,9 +1347,100 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	}
 	q := url.Query()
 	q.Set("code", auth)
-	q.Set("login_hint", makeLoginHint(provider, id.Subject))
+	q.Set("login_hint", loginHint)
 	url.RawQuery = q.Encode()
 	sendRedirect(url.String(), r, w)
+}
+
+func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, clientID, scope, realm string, cfg *pb.IcConfig, w http.ResponseWriter) {
+	clientName := "the application"
+	for name, cli := range cfg.Clients {
+		if cli.ClientId == clientID {
+			if cli.Ui != nil && len(cli.Ui[common.UILabel]) > 0 {
+				clientName = cli.Ui[common.UILabel]
+			} else {
+				clientName = name
+			}
+			break
+		}
+	}
+
+	var info []string
+	scopes := strings.Split(scope, " ")
+
+	for _, s := range scopes {
+		if s == "openid" && len(id.Subject) != 0 {
+			info = append(info, "openid: "+id.Subject)
+		}
+		if s == "profile" {
+			var profile []string
+			if len(id.Name) != 0 {
+				profile = append(profile, id.Name)
+			}
+			if len(id.Email) != 0 {
+				profile = append(profile, id.Email)
+			}
+			info = append(info, "profile: "+strings.Join(profile, ","))
+		}
+		if s == "ga4gh" && len(id.GA4GH) != 0 {
+			info = append(info, "GA4GH claims")
+		}
+		if s == "account_admin" {
+			info = append(info, "admin claims")
+		}
+	}
+
+	for i := range info {
+		info[i] = "\"" + info[i] + "\""
+	}
+
+	page := strings.Replace(s.infomationReleasePage, "${APPLICATION_NAME}", clientName, -1)
+	page = strings.Replace(page, "${INFORMATION}", strings.Join(info, ","), -1)
+	page = strings.Replace(page, "${STATE}", stateID, -1)
+	page = strings.Replace(page, "${PATH}", strings.Replace(acceptInformationReleasePath, "{realm}", realm, -1), -1)
+
+	sendHTML(page, w)
+}
+
+func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Request) {
+	stateID := common.GetParam(r, "state")
+	if len(stateID) == 0 {
+		common.HandleError(http.StatusBadRequest, fmt.Errorf("missing %q parameter", "state"), w)
+		return
+	}
+
+	agree := common.GetParam(r, "agree")
+	if agree != "y" {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("no information release"), w)
+		return
+	}
+
+	tx, err := s.store.Tx(true)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	state := &compb.AuthTokenState{}
+	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	err = s.store.DeleteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	cfg, err := s.loadConfig(tx, state.Realm)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	s.sendAuthTokenToRedirect(state.Redirect, state.Subject, state.Scope, state.Provider, state.Realm, state.Nonce, state.LoginHint, cfg, tx, r, w)
 }
 
 func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
