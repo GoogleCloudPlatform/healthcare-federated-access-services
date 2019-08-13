@@ -44,7 +44,7 @@ import (
 	"gopkg.in/square/go-jose.v2"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/playground"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"

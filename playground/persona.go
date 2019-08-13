@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )

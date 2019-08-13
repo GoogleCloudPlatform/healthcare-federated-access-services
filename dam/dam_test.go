@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/clouds"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/test"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/validator"

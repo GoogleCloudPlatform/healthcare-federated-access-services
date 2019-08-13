@@ -18,7 +18,7 @@ package validator
 import (
 	"context"
 
-	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 // Constant is a ga4gh.Validator that returns a set success and error value.

@@ -20,7 +20,7 @@ import (
 
 	"github.com/coreos/go-oidc"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 // OIDCIdentityTranslator verifies signatures for tokens returned by an OIDC endpoint and in the

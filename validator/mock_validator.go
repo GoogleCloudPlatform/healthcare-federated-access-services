@@ -20,7 +20,7 @@ package validator
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	reflect "reflect"
 )
 

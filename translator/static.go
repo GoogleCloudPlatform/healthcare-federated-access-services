@@ -19,7 +19,7 @@ package translator
 import (
 	"context"
 
-	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 // Static is a ga4gh.Translator that returns a single static Identity.

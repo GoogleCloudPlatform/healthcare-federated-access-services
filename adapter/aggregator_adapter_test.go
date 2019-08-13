@@ -25,7 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
-	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 func TestAggregatorAdapter(t *testing.T) {

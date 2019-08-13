@@ -30,7 +30,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/coreos/go-oidc"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/module"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"

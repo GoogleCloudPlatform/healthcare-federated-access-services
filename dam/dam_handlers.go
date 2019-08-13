@@ -26,7 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 
-	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )

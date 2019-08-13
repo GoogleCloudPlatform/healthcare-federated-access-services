@@ -27,7 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/ic"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
-	//ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	//ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 const (

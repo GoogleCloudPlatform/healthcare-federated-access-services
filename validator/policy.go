@@ -17,7 +17,7 @@ package validator
 import (
 	"context"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 // Policy is a ga4gh.Validator that succeeds if any of the wrapped validators

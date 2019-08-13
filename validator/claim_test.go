@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	ga4gh "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 var (

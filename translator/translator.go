@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"golang.org/x/oauth2"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 // Translator is used to convert an HTTP bearer authorization string that is _not_ in

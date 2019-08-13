@@ -37,7 +37,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/clouds"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/playground"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/translator"

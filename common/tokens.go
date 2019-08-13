@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 
 	jose "gopkg.in/square/go-jose.v2"
 	josejwt "gopkg.in/square/go-jose.v2/jwt"
