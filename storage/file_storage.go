@@ -44,8 +44,9 @@ var (
 type FileStorage struct {
 	service string
 	path    string
-	cache   *StorageCache
-	mutex   *sync.Mutex
+
+	mu    sync.Mutex
+	cache *StorageCache
 }
 
 func NewFileStorage(service, path string) *FileStorage {
@@ -64,7 +65,6 @@ func NewFileStorage(service, path string) *FileStorage {
 		service: strings.Split(service, "-")[0],
 		path:    path,
 		cache:   NewStorageCache(),
-		mutex:   &sync.Mutex{},
 	}
 
 	return f
@@ -98,8 +98,8 @@ func (f *FileStorage) Read(datatype, realm, user, id string, rev int64, content 
 }
 
 func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	fname := f.fname(datatype, realm, user, id, rev)
 	if tx == nil || !tx.IsUpdate() {
