@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	testConfigPath = "test/config"
+	testConfigPath = "testdata/config"
 	damService     = "dam"
 	damMinService  = "dam-min"
 )

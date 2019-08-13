@@ -82,15 +82,15 @@ func TestElixir(t *testing.T) {
 	tests := []testCase{
 		{
 			name:       "successful translation",
-			input:      "test/passports/elixir.json",
+			input:      "testdata/passports/elixir.json",
 			translator: translator,
-			expected:   "test/passports/elixir_to_ga4gh.json",
+			expected:   "testdata/passports/elixir_to_ga4gh.json",
 		},
 		{
 			name:       "translation of passport with no claim",
-			input:      "test/passports/elixir_no_claim.json",
+			input:      "testdata/passports/elixir_no_claim.json",
 			translator: translator,
-			expected:   "test/passports/elixir_no_claim_to_ga4gh.json",
+			expected:   "testdata/passports/elixir_no_claim_to_ga4gh.json",
 		},
 	}
 	testTranslator(t, tests)

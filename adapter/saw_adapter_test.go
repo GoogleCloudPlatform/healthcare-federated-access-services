@@ -29,9 +29,9 @@ import (
 )
 
 func TestSawAdapter(t *testing.T) {
-	store := storage.NewMemoryStorage("dam-static", "test/config")
+	store := storage.NewMemoryStorage("dam-static", "testdata/config")
 	warehouse := clouds.NewMockTokenCreator(false)
-	secretStore := storage.NewMemoryStorage("dam", "test/config")
+	secretStore := storage.NewMemoryStorage("dam", "testdata/config")
 	secrets := &pb.DamSecrets{}
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
@@ -45,7 +45,7 @@ func TestSawAdapter(t *testing.T) {
 		t.Fatalf("new SAW adapter: %v", err)
 	}
 	var cfg pb.DamConfig
-	cfgStore := storage.NewMemoryStorage("dam", "test/config")
+	cfgStore := storage.NewMemoryStorage("dam", "testdata/config")
 	if err = cfgStore.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, &cfg); err != nil {
 		t.Fatalf("loading config: %v", err)
 	}

@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	testConfigPath = "test/config"
+	testConfigPath = "testdata/config"
 	testService    = "permissions"
 )
 

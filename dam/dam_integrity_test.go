@@ -25,7 +25,7 @@ import (
 )
 
 func TestCheckIntegrity(t *testing.T) {
-	store := storage.NewMemoryStorage("dam", "test/config")
+	store := storage.NewMemoryStorage("dam", "testdata/config")
 	s := dam.NewService(context.Background(), "test.org", store, nil)
 	cfg := &pb.DamConfig{}
 	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {

@@ -26,7 +26,7 @@ const (
 )
 
 func TestMemoryStorageDelete(t *testing.T) {
-	store := NewMemoryStorage("storage", "test")
+	store := NewMemoryStorage("storage", "testdata")
 	content := &pb.TestPersona{}
 	if err := store.Read(testStoreFileType, DefaultRealm, DefaultUser, testFileID, LatestRev, content); err != nil {
 		t.Errorf("reading default file: want success, got error: %v", err)

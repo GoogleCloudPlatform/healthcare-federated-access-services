@@ -62,7 +62,7 @@ func (m *mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestOidcEndpoints(t *testing.T) {
-	store := storage.NewMemoryStorage("ic-min", "test/config")
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(domain, domain, store, module.NewBasicModule())
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -100,8 +100,8 @@ func TestOidcEndpoints(t *testing.T) {
 }
 
 func TestUserinfoClaims(t *testing.T) {
-	damStore := storage.NewMemoryStorage("dam-min", "test/config")
-	store := storage.NewMemoryStorage("ic-min", "test/config")
+	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm))
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -145,8 +145,8 @@ func TestUserinfoClaims(t *testing.T) {
 }
 
 func TestHandlers(t *testing.T) {
-	damStore := storage.NewMemoryStorage("dam-min", "test/config")
-	store := storage.NewMemoryStorage("ic-min", "test/config")
+	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm))
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
@@ -268,8 +268,8 @@ func createTestToken(t *testing.T, s *Service, id *ga4gh.Identity, scope string,
 }
 
 func TestAdminHandlers(t *testing.T) {
-	damStore := storage.NewMemoryStorage("dam-min", "test/config")
-	store := storage.NewMemoryStorage("ic-min", "test/config")
+	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm))
 	tests := []test.HandlerTest{
 		{
@@ -318,8 +318,8 @@ func TestAdminHandlers(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	nonce := "nonce-for-test"
-	damStore := storage.NewMemoryStorage("dam-min", "test/config")
-	store := storage.NewMemoryStorage("ic-min", "test/config")
+	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm))
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {

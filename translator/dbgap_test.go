@@ -43,15 +43,15 @@ func TestDbGap(t *testing.T) {
 	tests := []testCase{
 		{
 			name:       "successful translation",
-			input:      "test/passports/dbgap.json",
+			input:      "testdata/passports/dbgap.json",
 			translator: translator,
-			expected:   "test/passports/dbgap_to_ga4gh.json",
+			expected:   "testdata/passports/dbgap_to_ga4gh.json",
 		},
 		{
 			name:       "translation of a passport with no datasets",
-			input:      "test/passports/dbgap_no_datasets.json",
+			input:      "testdata/passports/dbgap_no_datasets.json",
 			translator: translator,
-			expected:   "test/passports/dbgap_no_datasets_to_ga4gh.json",
+			expected:   "testdata/passports/dbgap_no_datasets_to_ga4gh.json",
 		},
 	}
 	testTranslator(t, tests)

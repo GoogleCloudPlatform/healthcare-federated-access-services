@@ -33,7 +33,7 @@ import (
 )
 
 func TestHandlers(t *testing.T) {
-	store := storage.NewMemoryStorage("dam", "test/config")
+	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockTokenCreator(false)
 	s := NewService(context.Background(), "test.org", store, wh)
 	tests := []test.HandlerTest{
@@ -812,7 +812,7 @@ func TestHandlers(t *testing.T) {
 }
 
 func TestMinConfig(t *testing.T) {
-	store := storage.NewMemoryStorage("dam-min", "test/config")
+	store := storage.NewMemoryStorage("dam-min", "testdata/config")
 	s := NewService(context.Background(), "test.org", store, nil)
 	tests := []test.HandlerTest{
 		{
@@ -862,7 +862,7 @@ func (contextMatcher) String() string {
 }
 
 func TestCheckAuthorization(t *testing.T) {
-	store := storage.NewMemoryStorage("dam", "test/config")
+	store := storage.NewMemoryStorage("dam", "testdata/config")
 	s := NewService(context.Background(), "test.org", store, nil)
 
 	// Ensure pass context with TTL in validator
