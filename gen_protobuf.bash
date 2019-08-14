@@ -14,11 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-protoc --go_out=paths=source_relative:. proto/models/common.proto
-protoc --go_out=paths=source_relative:. proto/ic/v1/ic_service.proto
-protoc --go_out=paths=source_relative:. internal/proto/builder/builder.proto
-protoc --go_out=paths=source_relative:. proto/dam/v1/dam_secrets.proto
-protoc --go_out=paths=source_relative:. proto/dam/v1/dam_service.proto
+echo "List of proto files:"
+find . -type f -name "*.proto" -exec echo {} \;
+
+echo
+echo "Generating go packages for proto files"
+find . -type f -name "*.proto" -exec protoc --go_out=paths=source_relative:. {} \;
+echo "Generating go packages for proto files: completed"
 
 # Install addlicense: go get -u github.com/google/addlicense
+echo "Adding license to go packages"
 find . -type f -name "*.pb.go" -exec addlicense {} \;
+echo "Adding license to go packages: completed"
