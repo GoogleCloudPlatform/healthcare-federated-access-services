@@ -1,0 +1,640 @@
+{
+  "version": "v0",
+  "revision": "1",
+  "commitTime": "1544824316",
+  "ui": {
+    "label": "Test Genome Repository",
+    "description": "Test Genome Repository"
+  },
+  "trustedPassportIssuers": {
+    "ic_prod": {
+      "issuer": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "IC Prod",
+        "description": "IC Prod passport issuer"
+      }
+    },
+    "elixir": {
+      "issuer": "https://login.elixir-czech.org/oidc/",
+      "translateUsing": "elixir_translator",
+      "ui": {
+        "label": "elixir passport issuer",
+        "description": "elixir passport issuer"
+      }
+    }
+  },
+  "trustedSources": {
+    "nih_institutes": {
+      "sources": [
+        "https://nci.nih.gov"
+      ],
+      "ui": {
+        "label": "nih institutes",
+        "description": "nih institutes claim source"
+      }
+    },
+    "dbgap": {
+      "sources": [
+        "https://dbgap.nlm.nih.gov/aa"
+      ],
+      "ui": {
+        "label": "dbGap",
+        "description": "dbGap claim source"
+      }
+    },
+    "elixir_institutes": {
+      "sources": [
+        "https://login.elixir-czech.org/oidc/",
+        "https://ga4gh.org/duri/no_org"
+      ],
+      "ui": {
+        "label": "elixir institutes",
+        "description": "elixir institutes claim source"
+      }
+    },
+    "eu_institutes": {
+      "sources": [
+        "https://ebi.ac.uk"
+      ],
+      "ui": {
+        "label": "eu institutes",
+        "description": "eu institutes claim source"
+      }
+    },
+    "eu_universities": {
+      "sources": [
+        "https://uni-heidelberg.de",
+        "https://www.cam.ac.uk"
+      ],
+      "claims": [
+        "AcceptedTermsAndPolicies",
+        "ResearcherStatus"
+      ],
+      "ui": {
+        "label": "eu universities",
+        "description": "eu universities claim source"
+      }
+    }
+  },
+  "policies": {
+    "bona_fide": {
+      "allow": {
+        "anyTrue": [
+          {
+            "claim": "ResearcherStatus",
+            "values": [
+              "https://doi.org/10.1038/s41431-018-0219-y",
+              "http://www.ga4gh.org/beacon/bonafide/ver1.0"
+            ],
+            "from": [
+              "elixir_institutes",
+              "eu_universities"
+            ]
+          },
+          {
+            "claim": "AffiliationAndRole",
+            "values": ["^nih\\.researcher@.*$"],
+            "from": ["dbgap"]
+          }
+        ]
+      },
+      "ui": {
+        "label": "Bona Fide",
+        "description": "Bona Fide reseacher status that makes use of Registered Access Bona Fide status and/or NIH researcher status",
+        "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#Sec6"
+      }
+    },
+    "nih_bona_fide": {
+      "allow": {
+        "claim": "AffiliationAndRole",
+        "values": ["^nih\\.researcher@.*$"],
+        "from": ["dbgap"]
+      },
+      "ui": {
+        "label": "NIH Bona Fide",
+        "description": "NIH custom Bona Fide reseacher status sourced from organizational claims",
+        "infoUrl": "https://osp.od.nih.gov/wp-content/uploads/NIH_Best_Practices_for_Controlled-Access_Data_Subject_to_the_NIH_GDS_Policy.pdf"
+      }
+    },
+    "ethics": {
+      "allow": {
+        "claim": "AcceptedTermsAndPolicies",
+        "values": ["https://doi.org/10.1038/s41431-018-0219-y"],
+        "by": ["self", "so"]
+      },
+      "ui": {
+        "label": "Researcher Ethics Agreement",
+        "description": "Based on Registered Access ethics terms",
+        "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#figure-1"
+      }
+    },
+    "nih_dac": {
+      "allow": {
+        "claim": "ControlledAccessGrants",
+        "from": [
+          "dbgap",
+          "nih_institutes"
+        ],
+        "values": ["${DATASET}"],
+        "by": ["dac"]
+      },
+      "ui": {
+        "label": "NIH Data Access Committee Approval",
+        "description": "Approval from a NIH DAC for the researcher to access specific datasets",
+        "infoUrl": "https://osp.od.nih.gov/scientific-sharing/policy-oversight/"
+      }
+    },
+    "eu_dac": {
+      "allow": {
+        "claim": "ControlledAccessGrants",
+        "from": ["eu_institutes"],
+        "values": ["${DATASET}"],
+        "by": ["dac"]
+      },
+      "ui": {
+        "label": "EGA Data Access Committee Approval",
+        "description": "Approval from a EGA DAC for the researcher to access specific datasets",
+        "infoUrl": "https://ebi.ac.uk/policy-oversight"
+      }
+    }
+  },
+  "resources": {
+    "thousand-genomes": {
+      "views": {
+        "discovery-access": {
+          "serviceTemplate": "beacon",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "discovery",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "url": "https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"
+              }
+            }
+          ],
+          "aud": "https://ga4gh-apis-beacon.dnastack.com",
+          "roles": {
+            "discovery": {
+              "policies": ["bona_fide"]
+            }
+          },
+          "defaultRole": "discovery",
+          "ui":{
+            "label": "Beacon Discovery Access",
+            "description": "Search data from Beacon Discovery server"
+          }
+        },
+        "file-access": {
+          "serviceTemplate": "gcs",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "ga4gh-apis",
+                "bucket": "ga4gh-apis-controlled-access"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["bona_fide"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "Full File Read Access",
+            "description": "Google Cloud Storage (GCS) standard bucket"
+          }
+        }
+      },
+      "maxTokenTtl": "7d",
+      "ui": {
+        "applyUrl": "http://apply.1000-genomes.org",
+        "description": "Demo Controlled Access of a subset of the 1000 Genomes dataset. See: https://www.nature.com/articles/nature15393.",
+        "imageUrl": "https://www.genengnews.com/wp-content/uploads/2018/08/Oct1_2015_ErnestoDelAguilaIII_1000GenomesProject9614313724-1.jpg",
+        "infoUrl": "http://info.1000-genomes.org",
+        "label": "1000 Genomes",
+        "troubleshootUrl": "http://troubleshoot.1000-genomes.org",
+        "owner":"Human Genome Project",
+        "size":"250 GB",
+        "access":"registered, controlled",
+        "year":"2017",
+        "tags":"Demo, Genomics, Research"
+      }
+    },
+    "nih_example": {
+      "views": {
+        "discovery": {
+          "serviceTemplate": "beacon",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "discovery",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "url": "https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"
+              }
+            }
+          ],
+          "aud": "https://ga4gh-apis-beacon.dnastack.com",
+          "roles": {
+            "discovery": {
+              "policies": ["nih_bona_fide"]
+            }
+          },
+          "defaultRole": "discovery",
+          "ui":{
+            "label": "Beacon Discovery Access",
+            "description": "Search data from Beacon Discovery server"
+          }
+        },
+        "files": {
+          "serviceTemplate": "gcs_requester_pays",
+          "version": "dataset v1",
+          "topic": "BAM",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-b",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "ga4gh-apis",
+                "requester-pays-bucket": "ga4gh-apis-requester-pays"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["nih_dac(DATASET=https://dac.nih.gov/datasets/phs000710)"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "File Read",
+            "description": "Google Cloud Storage (GCS) requester-pays bucket"
+          }
+        }
+      },
+      "maxTokenTtl": "30d",
+      "ui": {
+        "applyUrl": "https://dataset.nih.gov/ds/phs000710/apply",
+        "description": "NIH pretend dataset",
+        "imageUrl": "https://cdn2.techworld.com/cmsdata/features/3668601/gp-at-hand-nhs-ai-health-1000x600_thumb800.jpg",
+        "infoUrl": "https://dataset.nih.gov/ds/phs000710/info",
+        "label": "Pretend NIH Dataset",
+        "troubleshootUrl": "https://dataset.nih.gov/ds/phs000710/troubleshoot",
+        "owner":"NCI",
+        "size":"100 GB",
+        "access":"controlled",
+        "year":"2020",
+        "tags":"Research, Teaching Hospital"
+      }
+    }
+  },
+  "serviceTemplates": {
+    "beacon": {
+      "targetAdapter": "token:jwt:gatekeeper",
+      "itemFormat": "url",
+      "roles" : {
+        "basic_discovery": {
+          "targetScopes": [
+            "registered"
+          ],
+          "damRoleCategories": ["exists"],
+          "ui": {
+            "label": "Discovery Beacon Search without Metadata",
+            "description": "Query genome data and return 'found' or 'not found' status"
+          }
+        },
+        "discovery": {
+          "targetScopes": [
+            "registered",
+            "controlled"
+          ],
+          "damRoleCategories": ["metadata"],
+          "ui": {
+            "label": "Discovery Beacon Search with Metadata",
+            "description": "Query genome data and receive metadata results"
+          }
+        }
+      },
+      "interfaces": {
+        "http:beacon": "${url}"
+      },
+      "ui": {
+        "label": "Beacon Discovery Search",
+        "description": "Search data from Beacon Discovery server"
+      }
+    },
+    "gcs": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "gcs",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/storage.objectViewer"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "File Viewer",
+            "description": "List and read files"
+          }
+        },
+        "creator": {
+          "targetRoles": ["roles/storage.objectCreator"],
+          "damRoleCategories": ["write"],
+          "ui": {
+            "label": "File Creator",
+            "description": "Write files (without read access)"
+          }
+        },
+        "editor": {
+          "targetRoles": [
+            "roles/storage.objectViewer",
+            "roles/storage.objectCreator"
+          ],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read", "write"],
+          "ui": {
+            "label": "File Editor",
+            "description": "Read and write files plus manipulate file metadata"
+          }
+        }
+      },
+      "interfaces": {
+        "gcp:gs": "gs://${bucket}",
+        "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${bucket}"
+      },
+      "ui": {
+        "label": "Google Cloud Storage",
+        "description": "Google Cloud Storage (GCS) standard bucket"
+      }
+    },
+    "gcs_requester_pays": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "gcs",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/storage.objectViewer"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "File Viewer",
+            "description": "List and read files"
+          }
+        }
+      },
+      "interfaces": {
+        "gcp:gs": "gs://${requester-pays-bucket}",
+        "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${requester-pays-bucket}"
+      },
+      "ui": {
+        "label": "Google Cloud Storage",
+        "description": "Google Cloud Storage (GCS) requester-pays bucket"
+      }
+    },
+    "bigquery": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "bigquery",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/BQReader"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "BigQuery Viewer",
+            "description": "Query tables and view table metadata"
+          }
+        },
+        "editor": {
+          "targetRoles": ["roles/bigquery.dataEditor"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read", "write"],
+          "ui": {
+            "label": "BigQuery Editor",
+            "description": "Query and modify tables and table metadata"
+          }
+        }
+      },
+      "interfaces": {
+        "http:gcp:bq": "https://www.googleapis.com/bigquery/v1/projects/${project}"
+      },
+      "ui": {
+        "label": "Google BigQuery",
+        "description": "Google BigQuery example"
+      }
+    },
+    "views": {
+      "targetAdapter": "token:aggregate:view",
+      "itemFormat": "view",
+      "roles": {
+        "viewer": {
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "Viewer",
+            "description": "Offers Viewer access across multiple views"
+          }
+        }
+      },
+      "ui": {
+        "label": "Multiple Resource Views",
+        "description": "Offers access across multiple views"
+      }
+    }
+  },
+  "claimDefinitions": {
+    "AffiliationAndRole": {
+      "ui": {
+        "label": "Affiliation and Role",
+        "description": "The Identity’s roles within affiliated institutions as specified by eduPerson with specific vocabulary extensions",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.vod2g2cjxjmp"
+      }
+    },
+    "AcceptedTermsAndPolicies": {
+      "ui": {
+        "label": "Accepted Terms and Policies",
+        "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.pif6raoahha5"
+      }
+    },
+    "ResearcherStatus": {
+      "ui": {
+        "label": "Bona Fide Researcher Status",
+        "description": "Canonical URLs that indicate that the person has been acknowledged to be a bona fide researcher",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.jdh4ks6h3zzp"
+      }
+    },
+    "ControlledAccessGrants": {
+      "ui": {
+        "label": "Controlled Access Grants",
+        "description": "A list of datasets or other objects for which controlled access has been granted to this researcher",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.s459xswt1qt3"
+      }
+    }
+  },
+  "testPersonas": {
+    "administrator": {
+      "ui": {
+        "label": "Administrator"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc",
+          "sub": "admin@nci.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        }
+      }
+    },
+    "nci_researcher": {
+      "ui": {
+        "label": "NCI Researcher"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc",
+          "sub": "nci_researcher@nci.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "AffiliationAndRole",
+            "source": "https://orgs.nih.gov/orgs/060909999",
+            "value": "nih.researcher@nci.orgs.nih.gov",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "so"
+          },
+          {
+            "claimName": "AffiliationAndRole",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "nih.researcher@nci.orgs.nih.gov",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "system"
+          },
+          {
+            "claimName": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000710",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac"
+          }
+        ]
+      },
+      "resources": {
+        "nih_example": {
+          "access" : ["discovery/discovery", "files/viewer"]
+        },
+        "thousand-genomes" : {
+          "access" : ["discovery-access/discovery", "file-access/viewer"]
+        }
+      }
+    },
+    "eu_researcher": {
+      "ui": {
+        "label": "EU Researcher"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "sub": "eu_researcher@elixir-czech.org",
+          "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "ControlledAccessGrants",
+            "source": "https://ebi.ac.uk",
+            "value": "https://dac.ebi.ac.uk/datasets/ds123",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac"
+          }
+        ]
+      },
+      "resources": {
+      }
+    },
+    "undergrad_candice": {
+      "ui": {
+        "label": "Undergrad Candice"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "sub": "undergrad_candice@uni-heidelberg.de",
+          "picture": "https://www.cl.uni-heidelberg.de/images/siegel_uni_hd_gross.gif"
+        }
+      },
+      "resources": {
+      }
+    }
+  },
+  "clients": {
+    "ddap_dev": {
+      "clientId": "b6bf058f-7904-4b98-8982-d5a7a3a38052",
+      "ui": {
+        "label": "DAM DDAP Development",
+        "description": "DDAP Developer environment"
+      }
+    },
+    "ddap_staging": {
+      "clientId": "ab7ac98b-fc80-4556-9b4c-0191bce2cdcb",
+      "ui": {
+        "label": "DAM DDAP Staging",
+        "description": "DDAP Staging environment"
+      }
+    },
+    "ddap_prod": {
+      "clientId": "d0e75142-ee26-4217-86dd-0b01c9f8f811",
+      "ui": {
+        "label": "DAM DDAP Production",
+        "description": "DDAP Production environment"
+      }
+    },
+    "test_page": {
+      "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
+      "ui": {
+        "label": "IC Test Page",
+        "description": "The Identity Concentrator's test page can access DAM directly"
+      }
+    }
+  },
+  "options": {
+    "readOnlyMasterRealm": true,
+    "gcpManagedKeysMaxRequestedTtl": "7d",
+    "gcpManagedKeysPerAccount": 8,
+    "gcpServiceAccountProject": "hcls-data-connect-demo"
+  }
+}

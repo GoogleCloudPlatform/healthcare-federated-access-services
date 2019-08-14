@@ -3,38 +3,209 @@
   "revision": "1",
   "commitTime": "1544824316",
   "ui": {
-    "label": "Test Genome Repository"
+    "label": "Test Genome Repository A",
+    "description": "Test Genome Repository A"
   },
   "trustedPassportIssuers": {
-    "ic": {
-      "issuer": "https://${Your-IC-Domain}/oidc",
-      "clientId": "6126e2e5-7139-46a4-9457-e2b7341d6bdd"
+    "ic_dev": {
+      "issuer": "https://ic-dev-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "IC Dev",
+        "description": "IC Dev passport issuer"
+      }
+    },
+    "ic_staging": {
+      "issuer": "https://ic-staging-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "IC Staging",
+        "description": "IC Staging passport issuer"
+      }
+    },
+    "ic_prod": {
+      "issuer": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "IC Prod",
+        "description": "IC Prod passport issuer"
+      }
+    },
+    "chaopeng": {
+      "issuer": "https://ic-chaopeng-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "chaopeng's IC",
+        "description": "chaopeng's IC Dev passport issuer"
+      }
+    },
+    "craigv": {
+      "issuer": "https://ic-craigv-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "craigv's IC",
+        "description": "craigv's IC Dev passport issuer"
+      }
+    },
+    "localhost": {
+      "issuer": "http://localhost:8080/oidc",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "Local IC Dev",
+        "description": "Local IC Dev passport issuer"
+      }
+    },
+    "dbGaP": {
+      "issuer": "https://dbgap.nlm.nih.gov/aa",
+      "translateUsing": "dbgap_translator",
+      "ui": {
+        "label": "dbGaP passport issuer",
+        "description": "dbGaP passport issuer"
+      }
+    },
+    "elixir": {
+      "issuer": "https://login.elixir-czech.org/oidc/",
+      "translateUsing": "elixir_translator",
+      "clientId": "5bf6422e-ab73-42a9-b558-b89cab0421db",
+      "ui": {
+        "label": "elixir passport issuer",
+        "description": "elixir passport issuer"
+      }
+    },
+    "nih": {
+      "issuer": "https://login.nih.gov/oidc",
+      "translateUsing": "dbgap_translator",
+      "ui": {
+        "label": "nih passport issuer",
+        "description": "nih passport issuer"
+      }
     }
   },
   "trustedSources": {
+    "nih_institutes": {
+      "sources": [
+        "https://dbgap.nlm.nih.gov/aa",
+        "https://nci.nih.gov",
+        "https://institute1.nih.gov",
+        "https://institute2.nih.gov",
+        "https://institute3.nih.gov",
+        "https://institute4.nih.gov"
+      ],
+      "claims": [
+        "^[^\\.]+$",
+        "^nih.*$"
+      ],
+      "ui": {
+        "label": "nih institutes",
+        "description": "nih institutes claim source"
+      }
+    },
+    "the_broad": {
+      "sources": [
+        "https://ga4gh.broadinstitute.org"
+      ],
+      "ui": {
+        "label": "the broad",
+        "description": "the broad claim source"
+      }
+    },
     "elixir_institutes": {
       "sources": [
         "https://login.elixir-czech.org/oidc/",
         "https://ga4gh.org/duri/no_org"
-      ]
+      ],
+      "claims": [
+        "ResearcherStatus",
+        "^elixir.*$"
+      ],
+      "ui": {
+        "label": "elixir institutes",
+        "description": "elixir institutes claim source"
+      }
+    },
+    "eu_universities": {
+      "sources": [
+        "https://uni-heidelberg.de"
+      ],
+      "claims": [
+        "AcceptedTermsAndPolicies",
+        "ResearcherStatus"
+      ],
+      "ui": {
+        "label": "eu universities",
+        "description": "eu universities claim source"
+      }
+    },
+    "us_universities": {
+      "sources": [
+        "https://ga4gh.stanford.edu/claims"
+      ],
+      "claims": [
+        "AcceptedTermsAndPolicies",
+        "ResearcherStatus"
+      ],
+      "ui": {
+        "label": "us universities",
+        "description": "us universities claim source"
+      }
+    },
+    "research_companies": {
+      "sources": [
+        "https://ga4gh.google.com/claims",
+        "https://ga4gh.dnastack.com/claims"
+      ],
+      "claims": [
+        "AcceptedTermsAndPolicies",
+        "ResearcherStatus"
+      ],
+      "ui": {
+        "label": "research companies",
+        "description": "research companies claim source"
+      }
     }
   },
   "policies": {
+    "GRU": {
+      "allow": {
+        "dataUse": "DUO:0000005"
+      },
+      "ui": {
+        "label": "General Research Use",
+        "description": "This primary category consent code indicates that use is allowed for health/medical/biomedical purposes and other biological research, including the study of population origins or ancestry",
+        "infoUrl": "https://www.ebi.ac.uk/ols/ontologies/duo/terms?iri=http%3A%2F%2Fpurl.obolibrary.org%2Fobo%2FDUO_0000005"
+      }
+    },
     "bona_fide": {
       "allow": {
-        "claim": "ResearcherStatus",
-        "values": [
-          "https://doi.org/10.1038/s41431-018-0219-y",
-          "http://www.ga4gh.org/beacon/bonafide/ver1.0"
-        ],
-        "from": [
-          "elixir_institutes",
-          "eu_universities"
+        "anyTrue": [
+          {
+            "claim": "ResearcherStatus",
+            "values": [
+              "https://doi.org/10.1038/s41431-018-0219-y",
+              "http://www.ga4gh.org/beacon/bonafide/ver1.0"
+            ],
+            "from": [
+              "elixir_institutes",
+              "nih_institutes",
+              "eu_universities",
+              "us_universities",
+              "research_companies"
+            ]
+          },
+          {
+            "claim": "AcceptedTermsAndPolicies",
+            "values": ["https://librarycard.broadinstitute.org/v1"],
+            "from": ["the_broad"]
+          }
         ]
+      },
+      "disallow": {
+        "claim": "nih.Blacklisted",
+        "values": ["true"]
       },
       "ui": {
         "label": "Bona Fide",
-        "description": "Bona Fide Researcher Status v1.0.0 as defined by the Registered Access researcher model.",
+        "description": "NIH custom Bona Fide reseacher status that makes use of Registered Access Bona Fide status and/or Library Cards",
         "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#Sec6"
       }
     },
@@ -50,24 +221,195 @@
         "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#figure-1"
       }
     },
-    "dac": {
+    "nih_dac": {
       "allow": {
         "claim": "ControlledAccessGrants",
-        "from": ["eu_institutes"],
-        "values": ["${DATASET}"],
+        "from": ["nih_institutes"],
+        "values": ["${DATASETS}"],
         "by": ["dac"]
       },
       "ui": {
-        "label": "Data Access Committee Approval",
-        "description": "Approval from a DAC for the researcher to access specific datasets",
-        "infoUrl": "https://${info-url}"
+        "label": "NIH Data Access Committee Approval",
+        "description": "Approval from a NIH DAC for the researcher to access specific datasets",
+        "infoUrl": "https://osp.od.nih.gov/scientific-sharing/policy-oversight/"
+      }
+    },
+    "discovery_access": {
+      "allow": {
+        "allTrue": [
+          {
+            "anyTrue": [
+              {
+                "claim": "ResearcherStatus",
+                "values": [
+                  "https://doi.org/10.1038/s41431-018-0219-y",
+                  "https://www.nature.com/articles/s99999-999-9999-z"
+                ],
+                "from": [
+                  "nih_institutes",
+                  "eu_universities",
+                  "us_universities",
+                  "research_companies"
+                ]
+              },
+              {
+                "claim": "nih.DiscoveryAccess",
+                "values": [
+                  "https://nih.gov/access/level1",
+                  "https://nih.gov/access/level2"
+                ],
+                "from": [
+                  "nih_institutes"
+                ]
+              }
+            ]
+          },
+          {
+            "anyTrue": [
+              {
+                "claim": "ControlledAccessGrants",
+                "values": [
+                  "^.*$"
+                ],
+                "from": [
+                  "nih_institutes"
+                ]
+              },
+              {
+                "claim": "AcceptedTermsAndPolicies",
+                "values": ["https://librarycard.nih.gov/v1"],
+                "from": ["nih_institutes"]
+              }
+            ]
+          }
+        ]
+      },
+      "ui": {
+        "label": "NIH Discovery Access",
+        "description": "NIH Discovery Access policy accepting a combination of Bona Fide or special Discovery Access approval in combination with preexisiting grants or library cards",
+        "infoUrl": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5961811/"
       }
     }
   },
   "resources": {
-    "thousand-genomes": {
+    "dataset_example": {
       "views": {
-        "file-access": {
+        "bq_read": {
+          "serviceTemplate": "bigquery",
+          "version": "dataset v1",
+          "topic": "FHIR",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-b",
+          "contentTypes": [
+            "text/csv"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "dataset-example-project",
+                "dataset": "dataset-example-view1"
+              }
+            }, {
+              "vars": {
+                "project": "dataset-example-project",
+                "dataset": "dataset-example-view2"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["nih_dac(DATASETS=^https?://dac\\.nih\\.gov/datasets/phs000709$,^https?://dac\\.nih\\.gov/datasets/phs000710$,https://dac.nih.gov/datasets/phs000711)"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "BigQuery Read",
+            "description": "Google BigQuery example"
+          }
+        },
+        "gcs_read": {
+          "serviceTemplate": "gcs",
+          "version": "dataset v1",
+          "topic": "FHIR",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-b",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "dataset-example-project",
+                "bucket": "dataset-example-bucket1"
+              }
+            }, {
+              "vars": {
+                "project": "dataset-example-project",
+                "bucket": "dataset-example-bucket2"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["nih_dac(DATASETS=^https?://dac\\.nih\\.gov/datasets/phs000709$,^https?://dac\\.nih\\.gov/datasets/phs000710$,https://dac.nih.gov/datasets/phs000711)"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "File Read",
+            "description": "Google GCS Read example"
+          }
+        }
+      },
+      "maxTokenTtl": "3h",
+      "ui": {
+        "applyUrl": "https://www.dataset-example.nih.gov/apply",
+        "description": "Records from U.S. citizens",
+        "imageUrl": "https://cdn2.techworld.com/cmsdata/features/3668601/gp-at-hand-nhs-ai-health-1000x600_thumb800.jpg",
+        "infoUrl": "https://dataset-example.nih.gov",
+        "label": "Dataset Example",
+        "troubleshootUrl": "https://dataset-example.nih.gov/about/dataset-example-program-protocol",
+        "owner":"NIH National Cancer Institute",
+        "size":"50 MB",
+        "access":"controlled",
+        "year":"2018",
+        "tags":"Autism, Infants, Research, Teaching Hospital"
+      }
+    },
+    "ga4gh-apis": {
+      "views": {
+        "beacon": {
+          "serviceTemplate": "beacon",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "discovery",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "url": "https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"
+              }
+            }
+          ],
+          "aud": "https://ga4gh-apis-beacon.dnastack.com",
+          "roles": {
+            "discovery": {
+              "policies": ["bona_fide"]
+            }
+          },
+          "defaultRole": "discovery",
+          "ui":{
+            "label": "Beacon Discovery",
+            "description": "Search data from Beacon Discovery server"
+          }
+        },
+        "gcs_read": {
           "serviceTemplate": "gcs",
           "version": "Phase 3",
           "topic": "variants",
@@ -80,30 +422,107 @@
           "items": [
             {
               "vars": {
-                "project": "${data-hosting-project}",
-                "bucket": "${gcs-bucket-name}"
+                "project": "ga4gh-apis",
+                "bucket": "ga4gh-apis-controlled-access"
               }
             }
           ],
           "roles": {
             "viewer": {
-              "policies": ["bona_fide"]
+              "policies": ["nih_dac(DATASETS=https://dac.nih.gov/datasets/phs000710)"]
             }
           },
           "defaultRole": "viewer",
           "ui": {
-            "label": "Full File Read Access"
+            "label": "File Read",
+            "description": "Read files from gcs bucket"
+          }
+        }
+      },
+      "maxTokenTtl": "1h",
+      "ui": {
+        "applyUrl": "http://apply.ga4gh-apis.org",
+        "description": "Google demo of GA4GH APIs using a subset of 1000 Genomes data. See: https://www.nature.com/articles/nature15393.",
+        "imageUrl": "https://www.ebi.ac.uk/sites/ebi.ac.uk/files/groups/external_relations/images/wide-imagery/Global_Alliance_news_logo_780x400_0.jpg",
+        "infoUrl": "http://info.ga4gh-apis.org",
+        "label": "GA4GH APIs",
+        "troubleshootUrl": "http://troubleshoot.ga4gh-apis.org",
+        "owner":"Human Genome Project",
+        "size":"200 GB",
+        "access":"controlled",
+        "year":"2016",
+        "tags":"Demo, Genomes, Research"
+      }
+    },
+    "thousand-genomes": {
+      "views": {
+        "discovery-access": {
+          "serviceTemplate": "beacon",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "discovery",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "url": "https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"
+              }
+            }
+          ],
+          "aud": "https://ga4gh-apis-beacon.dnastack.com",
+          "roles": {
+            "discovery": {
+              "policies": ["bona_fide", "ethics"]
+            }
+          },
+          "defaultRole": "discovery",
+          "ui":{
+            "label": "Beacon Discovery Access",
+            "description": "Beacon Discovery server"
+          }
+        },
+        "gcs-file-access": {
+          "serviceTemplate": "gcs",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "ga4gh-apis",
+                "bucket": "ga4gh-apis-controlled-access"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["nih_dac(DATASETS=https://dac.nih.gov/datasets/phs000710)"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "Full File Read Access",
+            "description": "Read files from gcs bucket"
           }
         }
       },
       "maxTokenTtl": "7d",
       "ui": {
-        "applyUrl": "${dataset-apply-url}",
-        "description": "Demo Controlled Access of a subset of the 1000 Genomes dataset.",
-        "imageUrl": "${dataset-image-url}",
-        "infoUrl": "${dataset-info-url}",
-        "label": "1000 Genomes",
-        "troubleshootUrl": "${dataset-troubleshoot-url}",
+        "applyUrl": "http://apply.1000-genomes.org",
+        "description": "Demo Controlled Access of a subset of the 1000 Genomes dataset. See: https://www.nature.com/articles/nature15393.",
+        "imageUrl": "https://www.genengnews.com/wp-content/uploads/2018/08/Oct1_2015_ErnestoDelAguilaIII_1000GenomesProject9614313724-1.jpg",
+        "infoUrl": "http://info.1000-genomes.org",
+        "label": "1000 Genomes (non-prod)",
+        "troubleshootUrl": "http://troubleshoot.1000-genomes.org",
         "owner":"Human Genome Project",
         "size":"250 GB",
         "access":"registered, controlled",
@@ -111,6 +530,178 @@
         "tags":"Demo, Genomics, Research"
       }
     },
+    "andrew-test": {
+      "views": {
+        "bq_read_01": {
+          "serviceTemplate": "bigquery",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "datahost01"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["bona_fide", "ethics"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "BigQuery Read on datahost01",
+            "description": "GCP BigQuery Read on datahost01"
+          }
+        },
+        "bq_read_02": {
+          "serviceTemplate": "bigquery",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "datahost02"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["bona_fide", "ethics"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "BigQuery Read on datahost02",
+            "description": "GCP BigQuery Read on datahost02"
+          }
+        },
+        "gcs_read_01": {
+          "serviceTemplate": "gcs",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "datahost01",
+                "bucket": "hclsdatahost"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["bona_fide", "ethics"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "GCS File Read on datahost01",
+            "description": "GCP GCS File Read on datahost01/hclsdatahost"
+          }
+        },
+        "gcs_read_02": {
+          "serviceTemplate": "gcs",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "datahost02",
+                "bucket": "hclsdatahost02"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["bona_fide", "ethics"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "GCS File Read on datahost02",
+            "description": "GCP GCS File Read on datahost02/hclsdatahost02"
+          }
+        },
+        "all": {
+          "serviceTemplate": "views",
+          "version": "Phase 3",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+          ],
+          "items": [
+            {
+              "vars": {
+                "resource": "andrew-test",
+                "view": "bq_read_01"
+              }
+            }, {
+              "vars": {
+                "resource": "andrew-test",
+                "view": "bq_read_02"
+              }
+            }, {
+              "vars": {
+                "resource": "andrew-test",
+                "view": "gcs_read_01"
+              }
+            }, {
+              "vars": {
+                "resource": "andrew-test",
+                "view": "gcs_read_02"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": []
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "All andrew-test GCS+BigQuery resources",
+            "description": "GCP all GCS+BigQuery resources from project andrew-test"
+          }
+        }
+      },
+      "maxTokenTtl": "1h",
+      "ui": {
+        "applyUrl": "http://apply.example.org",
+        "description": "Google POC for Billing",
+        "imageUrl": "https://psmag.com/.image/t_share/MTI3NTgxNjU1MDk4NjkyODgy/genome.jpg",
+        "infoUrl": "http://info.example.org",
+        "label": "Billing Test for GCS and BigQuery",
+        "troubleshootUrl": "http://troubleshoot.example.org",
+        "owner":"Google",
+        "size":"1 GB",
+        "access":"registered, controlled",
+        "year":"2019",
+        "tags":"Demo, Test, GCS, BigQuery"
+      }
+    }
+  },
   "serviceTemplates": {
     "beacon": {
       "targetAdapter": "token:jwt:gatekeeper",
@@ -142,7 +733,8 @@
         "http:beacon": "${url}"
       },
       "ui": {
-        "label": "Beacon Discovery Search"
+        "label": "Beacon Discovery Search",
+        "description": "Query genome data from Beacon Discovery"
       }
     },
     "gcs": {
@@ -188,7 +780,8 @@
         "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${bucket}"
       },
       "ui": {
-        "label": "Google Cloud Storage"
+        "label": "Google Cloud Storage",
+        "description": "Offers Google Cloud Storage access"
       }
     },
     "bigquery": {
@@ -222,7 +815,8 @@
         "http:gcp:bq": "https://www.googleapis.com/bigquery/v1/projects/${project}"
       },
       "ui": {
-        "label": "Google BigQuery"
+        "label": "Google BigQuery",
+        "description": "Offers Google BigQuery access"
       }
     },
     "views": {
@@ -238,7 +832,8 @@
         }
       },
       "ui": {
-        "label": "Multiple Resource Views"
+        "label": "Multiple Resource Views",
+        "description": "Offers Resource Viewer access across multiple views"
       }
     }
   },
@@ -253,7 +848,7 @@
     "AcceptedTermsAndPolicies": {
       "ui": {
         "label": "Accepted Terms and Policies",
-        "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms",
+        "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms and conditions indicated by the URL",
         "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.pif6raoahha5"
       }
     },
@@ -270,6 +865,30 @@
         "description": "A list of datasets or other objects for which controlled access has been granted to this researcher",
         "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.s459xswt1qt3"
       }
+    },
+    "elixir.AffiliatedCountry": {
+      "ui": {
+        "label": "Elixir Affiliated Country",
+        "description": "A ISO 3166 country code that represents the researcher's legal country of origin affiliation"
+      }
+    },
+    "nih.DiscoveryAccess": {
+      "ui": {
+        "label": "Custom NIH access level for discovery",
+        "description": "A claim that the researcher has been granted special permission to access datasets for discovery purposes"
+      }
+    },
+    "nih.HasEraAccount": {
+      "ui": {
+        "label": "Has ERA Commons Account",
+        "description": "Set to 'true' if the researcher as an ERA Commons account"
+      }
+    },
+    "nih.Blacklisted": {
+      "ui": {
+        "label": "NIH Blacklisted from Access",
+        "description": "Ability to blacklist users that have been tagged with this claim"
+      }
     }
   },
   "testPersonas": {
@@ -279,8 +898,119 @@
       },
       "idToken": {
         "standardClaims": {
-          "iss": "https://${Your-IC-Domain}/oidc",
-          "sub": "admin@example.org"
+          "iss": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc",
+          "sub": "admin@nci.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        }
+      }
+    },
+    "dr_joe_elixir": {
+      "ui": {
+        "label": "Dr. Joe (Elixir)"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "sub": "dr_joe@faculty.uni-heidelberg.de",
+          "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "ResearcherStatus",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "source": "https://ga4gh.org/duri/no_org",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "peer"
+          },
+          {
+            "claimName": "AcceptedTermsAndPolicies",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "source": "https://uni-heidelberg.de",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "self"
+          }
+        ]
+      },
+      "resources": {
+        "andrew-test" : {
+          "access": ["all/viewer", "bq_read_01/viewer", "bq_read_02/viewer", "gcs_read_01/viewer", "gcs_read_02/viewer"]
+        },
+        "ga4gh-apis" : {
+          "access" : ["beacon/discovery"]
+        },
+        "thousand-genomes" : {
+          "access" : ["discovery-access/discovery"]
+        }
+      }
+    },
+    "john": {
+      "ui": {
+        "label": "John Persona"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "me",
+          "sub": "you@me.com",
+          "picture": "http://icons.iconarchive.com/icons/dapino/people/256/brown-man-icon.png"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000111",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac"
+          }
+        ]
+      }
+    },
+    "dr_joe_era_commons": {
+      "ui": {
+        "label": "Dr. Joe (eRA Commons)"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.nih.gov/oidc",
+          "sub": "dr_joe@era.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "AffiliationAndRole",
+            "source": "https://uni-heidelberg.de",
+            "value": "faculty@uni-heidelberg.de",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "so"
+          },
+          {
+            "claimName": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000710",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac",
+            "condition": {
+              "AffiliationAndRole": {
+                "value": ["faculty@uni-heidelberg.de"],
+                "by": ["so", "system"]
+              }
+            }
+          }
+        ]
+      },
+      "resources": {
+        "dataset_example" : {
+          "access": ["bq_read/viewer", "gcs_read/viewer"]
+        },
+        "ga4gh-apis" : {
+          "access" : ["gcs_read/viewer"]
+        },
+        "thousand-genomes" : {
+          "access" : ["gcs-file-access/viewer"]
         }
       }
     },
@@ -290,21 +1020,30 @@
       },
       "idToken": {
         "standardClaims": {
-          "iss": "https://login.elixir-czech.org/oidc/",
-          "sub": "nci_researcher@example.org"
+          "iss": "https://login.nih.gov/oidc",
+          "sub": "nci_researcher@nci.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
         },
         "ga4ghClaims": [
           {
+            "claimName": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000710",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac"
+          },
+          {
             "claimName": "ResearcherStatus",
-            "source": "https://ga4gh.org/duri/no_org",
+            "source": "https://nci.nih.gov",
             "value": "https://doi.org/10.1038/s41431-018-0219-y",
             "assertedDuration": "1d",
             "expiresDuration": "30d",
-            "by": "peer"
+            "by": "so"
           },
           {
             "claimName": "AcceptedTermsAndPolicies",
-            "source": "https://example.edu",
+            "source": "https://nci.nih.gov",
             "value": "https://doi.org/10.1038/s41431-018-0219-y",
             "assertedDuration": "1d",
             "expiresDuration": "30d",
@@ -313,57 +1052,119 @@
         ]
       },
       "resources": {
-        "thousand-genomes" : {
-          "access" : ["discovery-access/discovery", "file-access/viewer"]
-        }
-      }
-    },
-    "eu_researcher": {
-      "ui": {
-        "label": "EU Researcher"
-      },
-      "idToken": {
-        "standardClaims": {
-          "iss": "https://login.elixir-czech.org/oidc/",
-          "sub": "eu_researcher@example.org"
+        "andrew-test" : {
+          "access": ["all/viewer", "bq_read_01/viewer", "bq_read_02/viewer", "gcs_read_01/viewer", "gcs_read_02/viewer"]
         },
-        "ga4ghClaims": [
-          {
-            "claimName": "ControlledAccessGrants",
-            "source": "https://ga4gh.org/duri/no_org",
-            "value": "https://dac.example.org/datasets/ds123",
-            "assertedDuration": "1d",
-            "expiresDuration": "30d",
-            "by": "dac"
-          }
-        ]
-      },
-      "resources": {
-        "eu_example" : {
-          "access" : ["files/viewer"]
+        "dataset_example": {
+          "access": ["bq_read/viewer", "gcs_read/viewer"]
+        },
+        "ga4gh-apis" : {
+          "access" : ["beacon/discovery", "gcs_read/viewer"]
+        },
+        "thousand-genomes" : {
+          "access" : ["discovery-access/discovery", "gcs-file-access/viewer"]
         }
       }
     },
-    "undergrad_candice": {
+     "undergrad_candice": {
       "ui": {
         "label": "Undergrad Candice"
       },
       "idToken": {
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
-          "sub": "undergrad_candice@example.org"
+          "sub": "undergrad_candice@uni-heidelberg.de",
+          "picture": "https://www.cl.uni-heidelberg.de/images/siegel_uni_hd_gross.gif"
         }
       },
       "resources": {
       }
+    },
+    "retired_bill": {
+      "ui": {
+        "label": "Retired Bill"
+      },
+      "idToken": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "sub": "undergrad_candice@uni-heidelberg.de",
+          "picture": "https://www.cl.uni-heidelberg.de/images/siegel_uni_hd_gross.gif"
+        },
+        "ga4ghClaims": [
+          {
+            "claimName": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000710",
+            "assertedDuration": "100d",
+            "expiresDuration": "-30d",
+            "by": "dac"
+          }
+        ]
+      }
     }
   },
   "clients": {
+    "ddap_dev": {
+      "clientId": "b6bf058f-7904-4b98-8982-d5a7a3a38052",
+      "ui": {
+        "label": "DAM DDAP Development",
+        "description": "DDAP Developer environment"
+      }
+    },
+    "ddap_staging": {
+      "clientId": "ab7ac98b-fc80-4556-9b4c-0191bce2cdcb",
+      "ui": {
+        "label": "DAM DDAP Staging",
+        "description": "DDAP Staging environment"
+      }
+    },
+    "ddap_prod": {
+      "clientId": "d0e75142-ee26-4217-86dd-0b01c9f8f811",
+      "ui": {
+        "label": "DAM DDAP Production",
+        "description": "DDAP Production environment"
+      }
+    },
+    "billing_test": {
+      "clientId": "135d6a28-5508-493d-a45d-93f4fe02211b",
+      "ui": {
+        "label": "Billing Test",
+        "description": "Direct access by scripts testing Requester Pays billing setups"
+      }
+    },
+    "google_test": {
+      "clientId": "1f8ff367-3950-48c2-9358-781f9adff70c",
+      "ui": {
+        "label": "Google Test",
+        "description": "Dev testing done by Google"
+      }
+    },
+    "chao_test": {
+      "clientId": "46551464-5015-4588-928c-11a4e8440682",
+      "ui": {
+        "label": "Chao's testing DNAstack Front-End",
+        "description": "Chao's testing DDAP Front-End"
+      }
+    },
+    "dnastack_fe": {
+      "clientId": "b1aed96d-6367-4313-87a1-65eda4962a76",
+      "ui": {
+        "label": "DNAstack Front-End",
+        "description": "DDAP Front-End"
+      }
+    },
     "test_page": {
       "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
       "ui": {
         "label": "IC Test Page",
         "description": "The Identity Concentrator's test page can access DAM directly"
+      }
+    },
+    "test_client": {
+      "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed64",
+      "ui": {
+        "label": "Test Client",
+        "description": "Any other miscellaneous testing or demos"
       }
     }
   },
@@ -371,6 +1172,6 @@
     "readOnlyMasterRealm": true,
     "gcpManagedKeysMaxRequestedTtl": "7d",
     "gcpManagedKeysPerAccount": 8,
-    "gcpServiceAccountProject": "${account-hosting-project}"
+    "gcpServiceAccountProject": "hcls-data-connect-demo"
   }
 }

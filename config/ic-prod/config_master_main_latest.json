@@ -92,21 +92,10 @@
       "clientId": "1f8ff367-3950-48c2-9358-781f9adff70c",
       "redirectUris": [
         "http://localhost:8080",
-        "https://ic-dot-hcls-data-connect-demo.appspot.com"
+        "https://ic-dot-craigv-codelab.appspot.com"
       ],
       "ui": {
         "label": "Craig's IC DDAP Development",
-        "description": "DDAP Developer environment"
-      }
-    },
-    "chao_test": {
-      "clientId": "46551464-5015-4588-928c-11a4e8440682",
-      "redirectUris": [
-        "http://localhost:8085/api",
-        "https://dev-gl4yfhvd3a-uc.a.run.app/api"
-      ],
-      "ui": {
-        "label": "Chao's IC DDAP Development",
         "description": "DDAP Developer environment"
       }
     },

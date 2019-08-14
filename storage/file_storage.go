@@ -38,7 +38,7 @@ const (
 
 var (
 	// ProjectRoot locates resources of project.
-	ProjectRoot = os.Getenv("PROJECT_ROOT")
+	ProjectRoot = "third_party/hcls_federated_access"
 )
 
 type FileStorage struct {
