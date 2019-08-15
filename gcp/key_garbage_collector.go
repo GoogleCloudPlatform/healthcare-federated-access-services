@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/storage"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
 	iam "google.golang.org/api/iam/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
