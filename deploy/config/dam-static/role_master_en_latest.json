@@ -1,0 +1,53 @@
+{
+   "damRoleCategories": {
+      "exists": {
+         "order": 1,
+         "ui": {
+            "label": "Exists",
+            "description": "Returns a status whether or not items or query rows exist"
+         }
+      },
+      "metadata": {
+         "order": 2,
+         "ui": {
+            "label": "Metadata",
+            "description": "Returns metadata about items or queries"
+         }
+      },
+      "list": {
+         "order": 3,
+         "ui": {
+            "label": "List",
+            "description": "Returns a list of items"
+         }
+      },
+      "aggregate": {
+         "order": 4,
+         "ui": {
+            "label": "Aggregate",
+            "description": "Returns some aggregate data related to items or queries"
+         }
+      },
+      "read": {
+         "order": 5,
+         "ui": {
+            "label": "Read",
+            "description": "Returns data or contents related to an item"
+         }
+      },
+      "write": {
+         "order": 6,
+         "ui": {
+            "label": "Write",
+            "description": "Allows for the writing of data or contents related to an item"
+         }
+      },
+      "admin": {
+         "order": 7,
+         "ui": {
+            "label": "Admin",
+            "description": "Provides some adminstration functions to control how items are published or shared"
+         }
+      }
+   }
+}

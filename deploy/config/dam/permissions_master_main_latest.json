@@ -1,0 +1,16 @@
+{
+   "version": "v0",
+   "revision": "1",
+   "commitTime": "1544824316",
+   "users": {
+      "admin@example.org": {
+         "roles": {
+            "admin": -1
+         },
+         "tags": [
+            "IC",
+            "DAM"
+         ]
+      }
+   }
+}

@@ -94,7 +94,7 @@ Add `Service Account Token Creator` role to `App Engine default service account`
     STORAGE: "datastore"
   ```
 
-- In `config/dam/config_master_main_latest.json`, add your IC to "trustedPassportIssuers".
+- In `deploy/config/dam/config_master_main_latest.json`, add your IC to "trustedPassportIssuers".
 
   ```
   "ic": {
@@ -103,7 +103,7 @@ Add `Service Account Token Creator` role to `App Engine default service account`
   },
   ```
 
-- Generate keys for `config/{dam|ic}/secrets_master_main_latest.json`
+- Generate keys for `deploy/config/{dam|ic}/secrets_master_main_latest.json`
 
   ```bash
   openssl genrsa -out private.pem 2048
