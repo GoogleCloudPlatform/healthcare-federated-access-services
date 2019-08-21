@@ -1420,6 +1420,7 @@ func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Reques
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
+	defer tx.Finish()
 
 	state := &compb.AuthTokenState{}
 	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
