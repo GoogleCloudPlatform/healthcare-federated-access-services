@@ -24,7 +24,7 @@ env_variables:
   # ACCOUNT_DOMAIN determines the URL domain for accounts (user@domain).
   ACCOUNT_DOMAIN: "your-account-domain"
   # CONFIG_PATH is the path used for reading and writing config files.
-  CONFIG_PATH: "config"
+  CONFIG_PATH: "deploy/config"
   # PROJECT determines the project in which the datastore resides.
   PROJECT: "your-gcp-project-name"
   # PERSONA_DAM_URL sets the playground URL where personas are fetched from for playground logins.

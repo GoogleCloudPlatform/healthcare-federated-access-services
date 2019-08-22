@@ -25,6 +25,6 @@ env_variables:
   # the default for creating service accounts (but the config option overrides this).
   PROJECT: "your-gcp-project-name"
   # CONFIG_PATH is the path used for importing config files.
-  CONFIG_PATH: "config"
+  CONFIG_PATH: "deploy/config"
   # STORAGE is the one of: "memory", "datastore".
   STORAGE: "datastore"
