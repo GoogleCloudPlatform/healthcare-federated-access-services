@@ -237,6 +237,9 @@ var (
 	tagNameCheck = map[string]*regexp.Regexp{
 		tagField: shortNameRE,
 	}
+
+	// skipURLValidationInTokenURL is for skipping URL validation for TokenUrl in format "FOO_BAR=https://...".
+	skipURLValidationInTokenURL = regexp.MustCompile("^[A-Z_]*=https://.*$")
 )
 
 type Service struct {
@@ -832,11 +835,7 @@ func buildRedirectNonOIDC(idp *pb.IdentityProvider, idpc *oauth2.Config, state s
 	return url.String()
 }
 
-func (s *Service) idpUsesClientLoginPage(idpName, realm string) bool {
-	cfg, err := s.loadConfig(nil, realm)
-	if err != nil {
-		return false
-	}
+func (s *Service) idpUsesClientLoginPage(idpName, realm string, cfg *pb.IcConfig) bool {
 	idp, ok := cfg.IdentityProviders[idpName]
 	if !ok {
 		return false
@@ -1012,7 +1011,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(code) == 0 && len(idToken) == 0 && !s.idpUsesClientLoginPage(loginState.IdpName, loginState.Realm) {
+	if len(code) == 0 && len(idToken) == 0 && !s.idpUsesClientLoginPage(loginState.IdpName, loginState.Realm, cfg) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("missing auth code"), w)
 		return
 	}
@@ -3529,9 +3528,10 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 			"issuer":       idp.Issuer,
 			"authorizeUrl": idp.AuthorizeUrl,
 		}
-		if !s.idpUsesClientLoginPage(name, storage.DefaultRealm) {
+		if !skipURLValidationInTokenURL.MatchString(idp.TokenUrl) {
 			m["tokenUrl"] = idp.TokenUrl
 		}
+
 		if err := validateURLs(m); err != nil {
 			return err
 		}

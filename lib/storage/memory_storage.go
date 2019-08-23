@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sync"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -31,16 +30,14 @@ const (
 	memStorageVersion = "v0"
 )
 
-var (
-	memMutex = &sync.Mutex{}
-)
-
+// MemoryStorage is designed as a single threading storage. Will throw exception if multiple TX request.
 type MemoryStorage struct {
 	service string
 	path    string
 	cache   *StorageCache
 	fs      *FileStorage
 	deleted map[string]bool
+	lock    chan bool
 }
 
 func NewMemoryStorage(service, path string) *MemoryStorage {
@@ -50,6 +47,7 @@ func NewMemoryStorage(service, path string) *MemoryStorage {
 		cache:   NewStorageCache(),
 		fs:      NewFileStorage(service, path),
 		deleted: make(map[string]bool),
+		lock:    make(chan bool, 1),
 	}
 }
 
@@ -299,7 +297,11 @@ func (m *MemoryStorage) Wipe(realm string) error {
 }
 
 func (m *MemoryStorage) Tx(update bool) (Tx, error) {
-	memMutex.Lock()
+	select {
+	case m.lock <- true:
+	default:
+		panic("MAYBE BUG: Requested a new TX without the existing TX release.")
+	}
 	m.cache.Backup()
 	return &MemTx{
 		update: update,
@@ -326,7 +328,11 @@ type MemTx struct {
 }
 
 func (tx *MemTx) Finish() {
-	memMutex.Unlock()
+	select {
+	case <-tx.ms.lock:
+	default:
+		panic("MAYBE BUG: Releasing a released TX.")
+	}
 }
 
 func (tx *MemTx) Rollback() {
