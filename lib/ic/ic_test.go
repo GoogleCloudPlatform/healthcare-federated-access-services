@@ -309,7 +309,7 @@ func TestAdminHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "admin",
-			Output:  `{"tokensMetadata":{}}`,
+			Output:  `{}`,
 			Status:  http.StatusOK,
 		},
 	}

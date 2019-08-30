@@ -2221,8 +2221,12 @@ func (h *adminTokenMetadataHandler) NormalizeInput(name string, vars map[string]
 }
 
 func (h *adminTokenMetadataHandler) Get(name string) error {
+	item := h.item
+	if len(item) == 0 {
+		item = nil
+	}
 	common.SendResponse(&pb.TokensMetadataResponse{
-		TokensMetadata: h.item,
+		TokensMetadata: item,
 	}, h.w)
 	return nil
 }

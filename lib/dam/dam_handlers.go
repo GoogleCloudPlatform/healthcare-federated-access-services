@@ -292,9 +292,13 @@ func (h *tokensHandler) NormalizeInput(name string, vars map[string]string) erro
 	return common.GetRequest(h.input, h.r)
 }
 func (h *tokensHandler) Get(name string) error {
+	item := h.item
+	if len(item) == 0 {
+		item = nil
+	}
 	if h.item != nil {
 		common.SendResponse(&pb.TokensResponse{
-			Tokens: h.item,
+			Tokens: item,
 		}, h.w)
 	}
 	return nil

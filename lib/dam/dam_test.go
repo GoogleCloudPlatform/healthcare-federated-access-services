@@ -755,7 +755,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/tokens",
-			Output: `{"tokens":[]}`,
+			Output: `{}`,
 			Status: http.StatusOK,
 		},
 		{
