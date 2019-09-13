@@ -33,6 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 )
@@ -49,16 +50,6 @@ func init() {
 	if err != nil {
 		log.Fatal("Setenv SERVICE_DOMAIN:", err)
 	}
-}
-
-type mockRoundTripper struct {
-	handler http.Handler
-}
-
-func (m *mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	w := httptest.NewRecorder()
-	m.handler.ServeHTTP(w, r)
-	return w.Result(), nil
 }
 
 func TestOidcEndpoints(t *testing.T) {
@@ -78,11 +69,7 @@ func TestOidcEndpoints(t *testing.T) {
 	}
 
 	// Inject the mock http client to oidc client.
-	client := &http.Client{
-		Transport: &mockRoundTripper{
-			handler: s.Handler,
-		},
-	}
+	client := httptestclient.New(s.Handler)
 	ctx := oidc.ClientContext(context.Background(), client)
 	provider, err := oidc.NewProvider(ctx, oidcIssuer)
 	if err != nil {
