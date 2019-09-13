@@ -15,6 +15,7 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
@@ -110,7 +111,7 @@ func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.Servic
 }
 
 // MintToken has the adapter mint a token.
-func (a *AggregatorAdapter) MintToken(input *Action) (*MintTokenResult, error) {
+func (a *AggregatorAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenResult, error) {
 	var result *MintTokenResult
 	for _, entry := range input.Aggregates {
 		action := *input
@@ -120,7 +121,7 @@ func (a *AggregatorAdapter) MintToken(input *Action) (*MintTokenResult, error) {
 			return nil, err
 		}
 		action.ServiceRole = vsRole
-		result, err = a.sawAdapter.MintToken(&action)
+		result, err = a.sawAdapter.MintToken(ctx, &action)
 		if err != nil {
 			return nil, fmt.Errorf("aggregator minting token on item %d resource view: %v", entry.Index, err)
 		}

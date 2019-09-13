@@ -15,6 +15,7 @@
 package adapter
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -90,7 +91,7 @@ func (a *GatekeeperAdapter) CheckConfig(templateName string, template *pb.Servic
 }
 
 // MintToken has the adapter mint a token.
-func (a *GatekeeperAdapter) MintToken(input *Action) (*MintTokenResult, error) {
+func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenResult, error) {
 	if input.MaxTTL > 0 && input.TTL > input.MaxTTL {
 		return nil, fmt.Errorf("minting gatekeeper token: TTL of %q exceeds max TTL of %q", common.TtlString(input.TTL), common.TtlString(input.MaxTTL))
 	}

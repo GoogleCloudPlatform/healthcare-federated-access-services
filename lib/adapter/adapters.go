@@ -16,8 +16,8 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"regexp"
 	"time"
 
@@ -49,7 +49,6 @@ type Action struct {
 	Identity        *ga4gh.Identity
 	Issuer          string
 	MaxTTL          time.Duration
-	Request         *http.Request
 	Resource        *pb.Resource
 	ServiceRole     *pb.ServiceRole
 	ServiceTemplate *pb.ServiceTemplate
@@ -80,7 +79,7 @@ type Adapter interface {
 	CheckConfig(templateName string, template *pb.ServiceTemplate, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) error
 
 	// MintToken has the adapter mint a token.
-	MintToken(input *Action) (*MintTokenResult, error)
+	MintToken(ctx context.Context, input *Action) (*MintTokenResult, error)
 }
 
 // TargetAdapters includes all adapters that are registered with the system.

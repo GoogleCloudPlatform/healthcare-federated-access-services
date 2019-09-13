@@ -15,6 +15,7 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
@@ -74,13 +75,13 @@ func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTempla
 }
 
 // MintToken has the adapter mint a token.
-func (a *SawAdapter) MintToken(input *Action) (*MintTokenResult, error) {
+func (a *SawAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenResult, error) {
 	if a.warehouse == nil {
 		return nil, fmt.Errorf("SAW minting token: DAM service account warehouse not configured")
 	}
 	userID := common.TokenUserID(input.Identity, SawMaxUserIDLength)
 	maxKeyTTL, _ := common.ParseDuration(input.Config.Options.GcpManagedKeysMaxRequestedTtl, input.MaxTTL)
-	result, err := a.warehouse.MintTokenWithTTL(input.Request.Context(), userID, input.TTL, maxKeyTTL, int(input.Config.Options.GcpManagedKeysPerAccount), resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config, input.TokenFormat))
+	result, err := a.warehouse.MintTokenWithTTL(ctx, userID, input.TTL, maxKeyTTL, int(input.Config.Options.GcpManagedKeysPerAccount), resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config, input.TokenFormat))
 	if err != nil {
 		return nil, fmt.Errorf("SAW minting token: %v", err)
 	}

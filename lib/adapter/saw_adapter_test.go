@@ -15,7 +15,7 @@
 package adapter_test
 
 import (
-	"net/http/httptest"
+	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -69,7 +69,6 @@ func TestSawAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveServiceRole(%q, view, res, cfg): error %v", grantRole, err)
 	}
-	r := httptest.NewRequest("GET", "/foo", nil)
 
 	tests := []struct {
 		name   string
@@ -85,7 +84,6 @@ func TestSawAdapter(t *testing.T) {
 				Config:          &cfg,
 				GrantRole:       grantRole,
 				MaxTTL:          168 * time.Hour,
-				Request:         r,
 				Resource:        res,
 				ServiceRole:     sRole,
 				ServiceTemplate: st,
@@ -114,7 +112,6 @@ func TestSawAdapter(t *testing.T) {
 				Config:          &cfg,
 				GrantRole:       "bad",
 				MaxTTL:          1 * time.Hour,
-				Request:         r,
 				Resource:        res,
 				ServiceRole:     sRole,
 				ServiceTemplate: st,
@@ -125,7 +122,7 @@ func TestSawAdapter(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		_, err := adapt.MintToken(test.input)
+		_, err := adapt.MintToken(context.Background(), test.input)
 		if test.fail != (err != nil) {
 			t.Fatalf("test %q error mismatch: want error %v, got error %v", test.name, test.fail, err)
 		}

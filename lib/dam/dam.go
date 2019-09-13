@@ -1013,7 +1013,6 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 		Config:          cfg,
 		GrantRole:       grantRole,
 		MaxTTL:          maxTTL,
-		Request:         r,
 		Resource:        res,
 		ServiceRole:     sRole,
 		ServiceTemplate: st,
@@ -1021,7 +1020,7 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 		View:            view,
 		TokenFormat:     tokenFormat,
 	}
-	result, err := adapt.MintToken(adapterAction)
+	result, err := adapt.MintToken(r.Context(), adapterAction)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
