@@ -365,6 +365,16 @@ func getNonce(r *http.Request) (string, error) {
 	return "no-nonce", nil
 }
 
+func extractState(r *http.Request) (string, error) {
+	n := common.GetParam(r, "state")
+	if len(n) > 0 {
+		return n, nil
+	}
+	// TODO: should return error after front end supports state field.
+	// return "", fmt.Errorf("request must include 'state'")
+	return "no-state", nil
+}
+
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
 		common.AddCorsHeaders(w)
@@ -689,13 +699,19 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	state, err := extractState(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
+
 	nonce, err := getNonce(r)
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
 
-	params := "?client_id=" + getClientID(r) + "&redirect_uri=" + url.QueryEscape(redirect) + "&nonce=" + url.QueryEscape(nonce)
+	params := "?client_id=" + getClientID(r) + "&redirect_uri=" + url.QueryEscape(redirect) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce)
 	if len(scope) > 0 {
 		params += "&scope=" + url.QueryEscape(scope)
 	}
@@ -720,7 +736,7 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID := getClientID(r)
-	params = "?client_id=" + clientID + "&redirect_uri=" + url.QueryEscape(redirect) + "&scope=" + url.QueryEscape(scope) + "&nonce=" + url.QueryEscape(nonce)
+	params = "?client_id=" + clientID + "&redirect_uri=" + url.QueryEscape(redirect) + "&scope=" + url.QueryEscape(scope) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce)
 	for pname, p := range personas {
 		ui := p.Ui
 		if ui == nil {
@@ -759,13 +775,16 @@ func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirec
 	if err != nil {
 		return nil, "", err
 	}
-
+	state, err := extractState(r)
+	if err != nil {
+		return nil, "", err
+	}
 	nonce, err := getNonce(r)
 	if err != nil {
 		return nil, "", err
 	}
 
-	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, nonce, tx)
+	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, state, nonce, tx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -796,19 +815,20 @@ func idpConfig(idp *pb.IdentityProvider, domainURL string, secrets *pb.IcSecrets
 	}
 }
 
-func (s *Service) buildState(idpName, realm, clientID, scope, redirect, nonce string, tx storage.Tx) (string, error) {
-	state := &compb.LoginState{
+func (s *Service) buildState(idpName, realm, clientID, scope, redirect, state, nonce string, tx storage.Tx) (string, error) {
+	login := &compb.LoginState{
 		IdpName:  idpName,
 		Realm:    realm,
 		ClientId: clientID,
 		Scope:    scope,
 		Redirect: redirect,
+		State:    state,
 		Nonce:    nonce,
 	}
 
 	id := common.GenerateGUID()
 
-	err := s.store.WriteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, id, storage.LatestRev, state, nil, tx)
+	err := s.store.WriteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, id, storage.LatestRev, login, nil, tx)
 	if err != nil {
 		return "", err
 	}
@@ -1018,6 +1038,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 
 	redirect := loginState.Redirect
 	scope := loginState.Scope
+	state := loginState.State
 	nonce := loginState.Nonce
 	clientID := getClientID(r)
 
@@ -1068,7 +1089,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.finishLogin(login, idpName, redirect, scope, clientID, tx, cfg, r, w)
+	s.finishLogin(login, idpName, redirect, scope, clientID, state, tx, cfg, r, w)
 }
 
 func toTitle(str string) string {
@@ -1213,6 +1234,11 @@ func (s *Service) personaLogin(pName string, p *dampb.TestPersona, cfg *pb.IcCon
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
+	state, err := extractState(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
 	nonce, err := getNonce(r)
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
@@ -1231,7 +1257,7 @@ func (s *Service) personaLogin(pName string, p *dampb.TestPersona, cfg *pb.IcCon
 	}
 	id.Nonce = nonce
 
-	s.finishLogin(id, personaProvider, redirect, scope, getClientID(r), tx, cfg, r, w)
+	s.finishLogin(id, personaProvider, redirect, scope, getClientID(r), state, tx, cfg, r, w)
 }
 
 func getStateRedirect(r *http.Request) (string, error) {
@@ -1262,7 +1288,7 @@ func (s *Service) getAndValidateStateRedirect(r *http.Request, cfg *pb.IcConfig)
 	return redirect, nil
 }
 
-func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID string, tx storage.Tx, cfg *pb.IcConfig, r *http.Request, w http.ResponseWriter) {
+func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state string, tx storage.Tx, cfg *pb.IcConfig, r *http.Request, w http.ResponseWriter) {
 	realm := getRealm(r)
 	lookup, err := s.accountLookup(realm, id.Subject, tx)
 	if err != nil {
@@ -1300,24 +1326,25 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	loginHint := makeLoginHint(provider, id.Subject)
 
 	if provider == personaProvider {
-		s.sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, id.Nonce, loginHint, cfg, tx, r, w)
+		s.sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, state, id.Nonce, loginHint, cfg, tx, r, w)
 		return
 	}
 
 	// redirect to information release page.
-	state := &compb.AuthTokenState{
+	auth := &compb.AuthTokenState{
 		Redirect:  redirect,
 		Subject:   subject,
 		Scope:     scope,
 		Provider:  provider,
 		Realm:     realm,
+		State:     state,
 		Nonce:     id.Nonce,
 		LoginHint: loginHint,
 	}
 
 	stateID := common.GenerateGUID()
 
-	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
+	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
@@ -1326,7 +1353,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	s.sendInformationReleasePage(id, stateID, clientID, scope, realm, cfg, w)
 }
 
-func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, nonce, loginHint string, cfg *pb.IcConfig, tx storage.Tx, r *http.Request, w http.ResponseWriter) {
+func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, state, nonce, loginHint string, cfg *pb.IcConfig, tx storage.Tx, r *http.Request, w http.ResponseWriter) {
 	auth, err := s.createAuthToken(subject, scope, provider, realm, nonce, time.Now(), cfg, tx)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -1347,6 +1374,7 @@ func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, re
 	q := url.Query()
 	q.Set("code", auth)
 	q.Set("login_hint", loginHint)
+	q.Set("state", state)
 	url.RawQuery = q.Encode()
 	sendRedirect(url.String(), r, w)
 }
@@ -1440,7 +1468,7 @@ func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	s.sendAuthTokenToRedirect(state.Redirect, state.Subject, state.Scope, state.Provider, state.Realm, state.Nonce, state.LoginHint, cfg, tx, r, w)
+	s.sendAuthTokenToRedirect(state.Redirect, state.Subject, state.Scope, state.Provider, state.Realm, state.State, state.Nonce, state.LoginHint, cfg, tx, r, w)
 }
 
 func (s *Service) Test(w http.ResponseWriter, r *http.Request) {

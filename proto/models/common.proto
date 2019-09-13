@@ -42,6 +42,7 @@ message LoginState {
   string client_id = 3;
   string scope = 4;
   string redirect = 5;
+  string state = 7;
   string nonce = 6;
 }
 
@@ -52,6 +53,7 @@ message AuthTokenState {
   string scope = 3;
   string provider = 4;
   string realm = 5;
+  string state = 8;
   string nonce = 6;
   string login_hint = 7;
 }

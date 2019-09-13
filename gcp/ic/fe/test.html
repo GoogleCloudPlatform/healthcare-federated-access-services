@@ -79,7 +79,7 @@
     <script>
       var clientId = "903cfaeb-57d9-4ef6-5659-04377794ed65";
       var clientSecret = "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
-      var loginURL = "/identity/v1alpha/_REALM_/authorize?scope=_SCOPE_&response_type=code&client_id="+clientId+"&redirect_uri=_REDIRECT_&nonce=_NONCE_"
+      var loginURL = "/identity/v1alpha/_REALM_/authorize?scope=_SCOPE_&response_type=code&client_id="+clientId+"&redirect_uri=_REDIRECT_&nonce=_NONCE_&state=_STATE_"
       var passportURL = "/identity/v1alpha/_REALM_/token?grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_&client_id="+clientId+"&client_secret="+clientSecret;
       var refreshURL = "/identity/v1alpha/_REALM_/token?grant_type=refresh_token&refresh_token=_REFRESH_TOKEN_&client_id="+clientId+"&client_secret="+clientSecret;
       var revokeURL = "/identity/v1alpha/_REALM_/revoke";
@@ -107,10 +107,26 @@
       function validateNonce(token) {
         var jwt = parseJwt(token);
         if (jwt.nonce !== window.localStorage.getItem("nonce")) {
-          window.alert(`Token with invalid 'nonce'(${jwt.nonce}), app maybe under replay attack.`);
+          window.alert(`Token with invalid 'nonce', app maybe under replay attack.`);
+          console.log(`nonce in jwt: ${jwt.nonce}, nonce in storage: ${window.localStorage.getItem("nonce")}`);
           return false;
         }
         window.localStorage.removeItem("nonce");
+        return true;
+      }
+
+      function validateState(state) {
+        if (!state) {
+          window.alert(`auth code response without 'state'`)
+          return false
+        }
+
+        if (state !== window.localStorage.getItem("state")) {
+          window.alert(`auth code response with invalid 'state', app maybe under replay attack.`);
+          console.log(`state in auth code response: ${state}, state in storage: ${window.localStorage.getItem("state")}`);
+          return false
+        }
+        window.localStorage.removeItem("state");
         return true;
       }
 
@@ -120,6 +136,8 @@
         var linked = params.get('linked');
         if (code) {
           $("#login_auth").val(code);
+          var state = params.get('state');
+          validateState(state);
         }
         var scope = params.get('scope');
         if (scope) {
@@ -231,7 +249,7 @@
       }
 
       function randomString(length) {
-        var charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._~'
+        var charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz'
         result = ''
 
         while (length > 0) {
@@ -251,11 +269,12 @@
         return result;
       }
 
-      function makeURL(pattern, token, params, nonce) {
+      function makeURL(pattern, token, params, nonce, state) {
         var path = window.location.pathname;
         var redirect = (params && path+"?"+params) || path;
         var realm = path.split('/')[3];  // first character is a slash...
         nonce = nonce || "";
+        state = state || "";
         return pattern.replace(/_PATH_/g, encodeURI(path))
                       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
                       .replace(/_REFRESH_TOKEN_/g, encodeURIComponent(refreshToken))
@@ -268,6 +287,7 @@
                       .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
                       .replace(/_SCOPE_/g, encodeURIComponent($('#scope').val()))
                       .replace(/_NONCE_/g, nonce)
+                      .replace(/_STATE_/g, state)
       }
       function jwt(id) {
         var token = $("#"+id).val();
@@ -277,7 +297,9 @@
         setScope();
         var nonce = randomString(16);
         window.localStorage.setItem('nonce', nonce);
-        var url = makeURL(loginURL, /*token*/ undefined, /*params*/ undefined, nonce);
+        var state = randomString(16);
+        window.localStorage.setItem('state', state);
+        var url = makeURL(loginURL, /*token*/ undefined, /*params*/ undefined, nonce, state);
         window.location.href = url;
       }
       function link() {
