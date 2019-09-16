@@ -43,6 +43,8 @@ message TrustedPassportIssuer {
   string translate_using = 2;
   map<string, string> ui = 3;
   string client_id = 4;
+  string auth_url = 5;
+  string token_url = 6;
 }
 
 message TrustedSource {
@@ -84,6 +86,7 @@ message View {
   message Item {
     map<string, string> vars = 1;
   }
+
   string service_template = 1;
   string version = 2;
   string topic = 3;
@@ -113,6 +116,7 @@ message Client {
   int64 revision = 2;
   double commit_time = 3;
   map<string, string> ui = 4;
+  repeated string redirect_uris = 5;
 }
 
 message ServiceTemplate {

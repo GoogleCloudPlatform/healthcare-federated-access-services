@@ -28,3 +28,5 @@ env_variables:
   CONFIG_PATH: "deploy/config"
   # STORAGE is the one of: "memory", "datastore".
   STORAGE: "datastore"
+  # DEFAULT_BROKER is the default identity broker.
+  DEFAULT_BROKER: "your-broker"

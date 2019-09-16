@@ -119,6 +119,7 @@ type Service struct {
 	adapters       *adapter.TargetAdapters
 	roleCategories map[string]*pb.RoleCategory
 	domainURL      string
+	defaultBroker  string
 	store          storage.Store
 	warehouse      clouds.ResourceTokenCreator
 	permissions    *common.Permissions
@@ -136,9 +137,10 @@ type ServiceHandler struct {
 // NewService create DAM service
 // - ctx: pass in http.Client can replace the one used in oidc request
 // - domain: domain used to host DAM service
+// - defaultBroker: default identity broker
 // - store: data storage and configuration storage
 // - warehouse: resource token creator service
-func NewService(ctx context.Context, domain string, store storage.Store, warehouse clouds.ResourceTokenCreator) *Service {
+func NewService(ctx context.Context, domain, defaultBroker string, store storage.Store, warehouse clouds.ResourceTokenCreator) *Service {
 	fs := getFileStore(store, damStaticService)
 	var roleCat pb.DamRoleCategoriesResponse
 	if err := fs.Read("role", storage.DefaultRealm, storage.DefaultUser, "en", storage.LatestRev, &roleCat); err != nil {
@@ -153,6 +155,7 @@ func NewService(ctx context.Context, domain string, store storage.Store, warehou
 	s := &Service{
 		roleCategories: roleCat.DamRoleCategories,
 		domainURL:      domain,
+		defaultBroker:  defaultBroker,
 		store:          store,
 		warehouse:      warehouse,
 		permissions:    perms,

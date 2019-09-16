@@ -62,6 +62,9 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		if err := common.CheckUI(ti.Ui, true); err != nil {
 			return fmt.Errorf("trusted passport issuer %q: %v", n, err)
 		}
+		if err := checkTrustedIssuerClientCredentials(n, s.defaultBroker, ti); err != nil {
+			return fmt.Errorf("trusted passport issuer %q: %v", n, err)
+		}
 	}
 
 	for n, tc := range cfg.TrustedSources {
@@ -505,6 +508,19 @@ func (s *Service) configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModifica
 		return nil, http.StatusConflict, err
 	}
 	return nil, http.StatusOK, nil
+}
+
+func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.TrustedPassportIssuer) error {
+	if name != defaultBroker {
+		return nil
+	}
+	if len(tpi.AuthUrl) == 0 {
+		fmt.Errorf("AuthUrl not found")
+	}
+	if len(tpi.TokenUrl) == 0 {
+		fmt.Errorf("TokenUrl not found")
+	}
+	return nil
 }
 
 func (s *Service) checkTrustedIssuer(iss string, cfg *pb.DamConfig) error {

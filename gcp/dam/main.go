@@ -47,6 +47,10 @@ func main() {
 	if storeName == "" {
 		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
 	}
+	defaultBroker := os.Getenv("DEFAULT_BROKER")
+	if len(defaultBroker) == 0 {
+		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "DEFAULT_BROKER")
+	}
 	serviceName := os.Getenv("SERVICE_NAME")
 	if serviceName == "" {
 		serviceName = DefaultServiceName
@@ -67,7 +71,7 @@ func main() {
 	// ev := appengine.MustBuildEvaluator(ctx)
 	wh := appengine.MustBuildAccountWarehouse(ctx, store)
 
-	d := dam.NewService(ctx, domain, store /*ev,*/, wh)
+	d := dam.NewService(ctx, domain, defaultBroker, store /*ev,*/, wh)
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"

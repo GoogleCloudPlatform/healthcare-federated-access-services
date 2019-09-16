@@ -35,7 +35,7 @@ import (
 func TestHandlers(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockTokenCreator(false)
-	s := NewService(context.Background(), "test.org", store, wh)
+	s := NewService(context.Background(), "test.org", "no-broker", store, wh)
 	tests := []test.HandlerTest{
 		{
 			Method: "GET",
@@ -813,7 +813,7 @@ func TestHandlers(t *testing.T) {
 
 func TestMinConfig(t *testing.T) {
 	store := storage.NewMemoryStorage("dam-min", "testdata/config")
-	s := NewService(context.Background(), "test.org", store, nil)
+	s := NewService(context.Background(), "test.org", "no-broker", store, nil)
 	tests := []test.HandlerTest{
 		{
 			Name:    "restricted access of 'dr_joe_elixir' (which only exists in min config subdirectory)",
@@ -863,7 +863,7 @@ func (contextMatcher) String() string {
 
 func TestCheckAuthorization(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	s := NewService(context.Background(), "test.org", store, nil)
+	s := NewService(context.Background(), "test.org", "no-broker", store, nil)
 
 	// Ensure pass context with TTL in validator
 	var input io.Reader
