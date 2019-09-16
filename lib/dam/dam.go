@@ -368,20 +368,11 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 		return id, http.StatusOK, nil
 	}
 
-	auth := r.Header.Get("Authorization")
-	paramTok := r.URL.Query().Get("access_token")
-	if len(paramTok) == 0 && len(auth) > 0 {
-		paramTok = auth
-	} else {
-		paramTok = "bearer " + paramTok
-	}
-
-	parts := strings.SplitN(paramTok, " ", 2)
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+	tok, err := extractAccessToken(r)
+	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("authorization requires a bearer token")
 	}
 
-	tok := parts[1]
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
