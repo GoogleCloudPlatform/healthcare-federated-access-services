@@ -77,6 +77,7 @@ Add `Service Account Token Creator` role to `App Engine default service account`
     PROJECT: "${dam-hosting-project}"
     CONFIG_PATH: "config"
     STORAGE: "datastore"
+    DEFAULT_BROKER: "${your-ic-name-in-config-file}"
 
   # ic/app.yaml
   runtime: go112
