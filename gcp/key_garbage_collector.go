@@ -89,24 +89,7 @@ func (gc *KeyGarbageCollector) RegisterProject(realm, project string, maxRequest
 	if !locked {
 		return fmt.Errorf("%s: unable to lock garbage collection object in data storage layer, waiting for next wake cycle", kgcName)
 	}
-	if kgc.ActiveProjects == nil {
-		kgc.ActiveProjects = make(map[string]*pb.BackgroundProcess_Project)
-	}
-	if kgc.ActiveRealms == nil {
-		kgc.ActiveRealms = make(map[string]*pb.BackgroundProcess_Realm)
-	}
-	if kgc.CleanupProjects == nil {
-		kgc.CleanupProjects = make(map[string]int64)
-	}
-	if kgc.DroppedProjects == nil {
-		kgc.DroppedProjects = make(map[string]int64)
-	}
-	if kgc.ProjectStatus == nil {
-		kgc.ProjectStatus = make(map[string]*pb.BackgroundProcess_Status)
-	}
-	if kgc.SuccessStatus == nil {
-		kgc.SuccessStatus = &pb.BackgroundProcess_Status{}
-	}
+	gc.setupGC(kgc)
 	display := ""
 	now := common.GetNowInUnix()
 	emptyProject := len(project) == 0
@@ -198,6 +181,27 @@ func (gc *KeyGarbageCollector) RegisterProject(realm, project string, maxRequest
 	return nil
 }
 
+func (gc *KeyGarbageCollector) setupGC(kgc *pb.BackgroundProcess) {
+	if kgc.ActiveProjects == nil {
+		kgc.ActiveProjects = make(map[string]*pb.BackgroundProcess_Project)
+	}
+	if kgc.ActiveRealms == nil {
+		kgc.ActiveRealms = make(map[string]*pb.BackgroundProcess_Realm)
+	}
+	if kgc.CleanupProjects == nil {
+		kgc.CleanupProjects = make(map[string]int64)
+	}
+	if kgc.DroppedProjects == nil {
+		kgc.DroppedProjects = make(map[string]int64)
+	}
+	if kgc.ProjectStatus == nil {
+		kgc.ProjectStatus = make(map[string]*pb.BackgroundProcess_Status)
+	}
+	if kgc.SuccessStatus == nil {
+		kgc.SuccessStatus = &pb.BackgroundProcess_Status{}
+	}
+}
+
 func (gc *KeyGarbageCollector) findRealm(kgc *pb.BackgroundProcess, project string) *pb.BackgroundProcess_Realm {
 	// TODO: look for best fit, or merge values into new collector settings.
 	for _, realm := range kgc.ActiveRealms {
@@ -212,7 +216,6 @@ func (gc *KeyGarbageCollector) run() {
 	ctx := context.Background()
 	var kgc *pb.BackgroundProcess
 	for sleep := gc.sleepTime(kgc, 0); true; sleep = gc.sleepTime(kgc, wakeTime) {
-		// log.Printf("FIXME %s sleeping %s...", kgcName, common.TtlString(sleep))
 		time.Sleep(sleep)
 		lkgc, work := gc.lockGC()
 		if lkgc == nil || !work {
@@ -239,6 +242,7 @@ func (gc *KeyGarbageCollector) lockGC() (*pb.BackgroundProcess, bool) {
 	for try := 0; try < 5; try++ {
 		err := gc.store.ReadTx(BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, KeyGcProcessName, storage.LatestRev, kgc, tx)
 		if err == nil || storage.ErrNotFound(err) {
+			// Will setup the object below.
 			locked = true
 			break
 		}
@@ -248,6 +252,8 @@ func (gc *KeyGarbageCollector) lockGC() (*pb.BackgroundProcess, bool) {
 		log.Printf("%s: unable to lock garbage collection object in data storage layer, waiting for next wake cycle", kgcName)
 		return nil, false
 	}
+	// Always call setupGC() to add any structures that may not already be defined within the object.
+	gc.setupGC(kgc)
 	cutoff := gc.cutoff(kgc.ActiveProjects)
 	if kgc.ProgressTime >= cutoff {
 		if kgc.FinishTime == 0 || kgc.SettingsChangeTime < kgc.StartTime {
