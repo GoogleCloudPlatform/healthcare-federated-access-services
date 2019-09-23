@@ -1,0 +1,291 @@
+<!--
+ Copyright 2019 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<html>
+  <head>
+    <style>
+      h3 .small {
+        font-size: 12px;
+      }
+      .btn {
+        display: inline-block;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        border: 1px solid transparent;
+        padding: .375rem .75rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        border-radius: .25rem;
+        text-decoration: none;
+        cursor: pointer;
+        font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+        margin: 10px;
+      }
+      .blue {
+        background: #007bff;
+        color: white;
+      }
+      .white {
+        color: #666;
+        border: 1px solid #bbb;
+      }
+      .white:hover {
+        color: #333;
+        border: 1px solid #888;
+      }
+      .black {
+        color: #ddd;
+        background: #222;
+      }
+      .black:hover {
+        color: #fff;
+        background: #000;
+      }
+      .red {
+        color: #fff;
+        background: #dc3545;
+      }
+      .red:hover {
+        color: #fff;
+        background: #c82333;
+      }
+      .box {
+        margin: 20px 0 20px 0;
+      }
+      pre {
+        border: 1px solid #888;
+        background: #eee;
+      }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+      var clientId = "903cfaeb-57d9-4ef6-5659-04377794ed65";
+      var clientSecret = "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
+      var loginURL = "_DAM_URL_/dam/oidc/authorize?response_type=code&client_id="+clientId+"&state=_STATE_&resource=_RESOURCE_URL_&redirect_uri=_REDIRECT_&ttl=1h"
+      var tokenURL = "_DAM_URL_/dam/oidc/token?grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_&client_id="+clientId+"&client_secret="+clientSecret;
+      var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
+      var resourceURL = "_DAM_URL_/dam/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
+      var resources = {};
+
+      function validateState(stateID) {
+        var state = window.localStorage.getItem('state');
+        if (!state) {
+          $("#log").text(`request with invalid 'state' ${stateID}, no 'state' in database`)
+          window.alert(`app maybe under attack.`);
+        }
+        var s = JSON.parse(state)
+        if (s.id !== stateID) {
+          $("#log").text(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`)
+          window.alert(`app maybe under attack.`);
+          return false;
+        }
+
+        window.localStorage.removeItem('state');
+        $('#resURL').text(s.res);
+        return true;
+      }
+
+      function init() {
+        var params = new URLSearchParams(window.location.search);
+        var code = params.get('code');
+        if (code) {
+          $("#auth_code").val(code);
+          var state = params.get('state');
+          validateState(state)
+        }
+        var damUrl = $("#dam_url").val();
+        if (damUrl.includes("//localhost:")) {
+          var port = new URL(damUrl).port;
+          damUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
+          $("#dam_url").val(damUrl);
+        }
+        populateResources();
+      }
+
+      function randomString(length) {
+        var charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz'
+        result = ''
+
+        while (length > 0) {
+          var bytes = new Uint8Array(16);
+          var random = window.crypto.getRandomValues(bytes);
+
+          random.forEach(function(c) {
+            if (length == 0) {
+              return;
+            }
+            if (c < charset.length) {
+              result += charset[c];
+              length--;
+            }
+          });
+        }
+        return result;
+      }
+
+      function makeURL(pattern, token, params, state, resURL) {
+        var path = window.location.href;
+        var redirect = (params && path+"?"+params) || path;
+        var realm = path.split('/')[3];  // first character is a slash...
+        state = state || "";
+        resURL = resURL || "";
+        return pattern.replace(/_PATH_/g, encodeURI(path))
+                      .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
+                      .replace(/_REALM_/g, encodeURIComponent(realm))
+                      .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
+                      .replace(/_VIEW_/g, encodeURIComponent($("#resource_view").val()))
+                      .replace(/_ROLE_/g, encodeURIComponent($("#resource_role").val()))
+                      .replace(/_DAM_URL_/g, encodeURI($("#dam_url").val()))
+                      .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
+                      .replace(/_STATE_/g, state)
+                      .replace(/_RESOURCE_URL_/g, encodeURIComponent(resURL))
+                      .replace(/_RESOURCE_/g, encodeURIComponent($("#resource_name").val()))
+      }
+      function auth() {
+        var resURL = makeURL(resourceURL)
+        var stateID = randomString(16);
+        var state = new Object();
+        state.id = stateID;
+        state.res = resURL;
+        window.localStorage.setItem('state', JSON.stringify(state));
+
+        var url = makeURL(loginURL, /*token*/ undefined, /*params*/ undefined, stateID, resURL);
+        window.location.href = url;
+      }
+      function tokenExchange() {
+        var authCode = $("#auth_code").val();
+        if (!authCode) {
+          $("#log").text("must login first...");
+          return;
+        }
+        var url = makeURL(tokenURL, authCode);
+        $.ajax({
+          url: url,
+          type: "POST",
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + authCode);},
+          success: function(resp) {
+            $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
+            $("#token").val(resp.access_token);
+          },
+          error: function(err) {
+            $("#log").text(JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
+      function populateResources() {
+        $.ajax({
+          url: makeURL(resourcesURL),
+          type: "GET",
+          success: function(resp) {
+            resources = {};
+            for (var resName in resp.resources) {
+              var res = resp.resources[resName];
+              var views = {};
+              for (var viewName in res.views) {
+                var view = res.views[viewName];
+                var roles = [];
+                for (var role in view.roles) {
+                  roles.push(role)
+                }
+                views[viewName] = roles;
+              }
+              resources[resName] = views;
+            }
+            setupResources();
+          },
+          error: function(xhr, status, err) {
+            setupResources();
+          }
+        });
+      }
+      function setupResources() {
+        if (jQuery.isEmptyObject(resources)) {
+          resources = {
+            "thousand-genomes": {
+              "discovery-access": ["discovery"],
+              "gcs-file-access": ["viewer"]
+            }
+          };
+        }
+        populateDropdown('resource_name', Object.keys(resources));
+        resourceChanged();
+      }
+      function populateDropdown(id, values) {
+        var html = '';
+        for (var i = 0; i < values.length; i++) {
+          html += `<option val="${values[i]}">${values[i]}</option>`;
+        }
+        $('#'+id).html(html).val($(`#${id} option:first`).val());
+      }
+      function displayResult(result) {
+        $("#log").text(JSON.stringify(result, undefined, 2));
+      }
+      function displaySuccess(str) {
+        $("#log").text(str);
+      }
+      function displayError(str) {
+        $("#log").text(str);
+      }
+      function resourceChanged() {
+        var val = $('#resource_name').val();
+        var list = Object.keys(resources[val]);
+        populateDropdown('resource_view', list);
+        viewChanged();
+      }
+      function viewChanged() {
+        var val = $('#resource_view').val();
+        var list = resources[$('#resource_name').val()][val];
+        populateDropdown('resource_role', list);
+      }
+    </script>
+  </head>
+  <body onload="init()">
+    <h1>New Token Flow Test</h1>
+    <div class="box">
+      <h3>1. Select Resource on DAM</h3>
+      <input id="dam_url" style="width:100%" value="${DAM_URL}" onchange="populateResources()">
+      <select id="resource_name" style="width:33%" onchange="resourceChanged()"></select>
+      <select id="resource_view" style="width:33%" onchange="viewChanged()"></select>
+      <select id="resource_role" style="width:33%"></select>
+      <div>
+        <a class="btn blue" onclick="auth()">Auth for Resource</a>
+        <a class="btn white" onclick="$('#dam_url').val('http://localhost:8081');">Local DAM</a>
+      </div>
+    </div>
+    <div class="box">
+      <h3>2. Get Authentication Code</h3>
+      Requesting Resource: <span id="resURL"></span>
+      <textarea id="auth_code" rows="4" style="width:100%" readonly></textarea>
+      <div>
+        <a class="btn blue" onclick="tokenExchange()">Token Exchange</a>
+      </div>
+    </div>
+    <div class="box">
+      <h3>3. Exchange Access Token For Resource</h3>
+      <textarea id="token" rows="7" style="width:100%" readonly></textarea>
+      <div>
+        <a class="btn black" onclick="browseDataset()">Browse Resource</a>
+      </div>
+    </div>
+
+    <pre id="log"></pre>
+  </body>
+</html>

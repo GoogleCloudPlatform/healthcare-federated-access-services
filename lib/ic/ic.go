@@ -70,6 +70,7 @@ const (
 	clientLoginPageFile        = "gcp/ic/fe/client_login.html"
 	informationReleasePageFile = "gcp/ic/fe/information_release.html"
 	testPageFile               = "gcp/ic/fe/test.html"
+	tokenFlowTestPageFile      = "gcp/ic/fe/new-flow-test.html"
 	staticDirectory            = "gcp/ic/static/"
 	version                    = "v1alpha"
 	requiresAdmin              = true
@@ -111,8 +112,9 @@ const (
 	adminClaimsPath        = adminPathPrefix + "/subjects/{name}/account/claims"
 	adminTokenMetadataPath = adminPathPrefix + "/tokens"
 
-	testPath      = methodPrefix + "test"
-	authorizePath = methodPrefix + "authorize"
+	testPath          = methodPrefix + "test"
+	tokenFlowTestPath = methodPrefix + "new-flow-test"
+	authorizePath     = methodPrefix + "authorize"
 
 	ga4ghClaimNamePrefix = "ga4gh."
 	noClientID           = ""
@@ -250,6 +252,7 @@ type Service struct {
 	clientLoginPage       string
 	infomationReleasePage string
 	testPage              string
+	tokenFlowTestPage     string
 	startTime             int64
 	permissions           *common.Permissions
 	domain                string
@@ -287,6 +290,11 @@ func NewService(domain, accountDomain string, store storage.Store, module module
 	if err != nil {
 		log.Fatalf("cannot load test page: %v", err)
 	}
+	tfp, err := loadFile(tokenFlowTestPageFile)
+	if err != nil {
+		log.Fatalf("cannot load token flow test page: %v", err)
+	}
+
 	perms, err := common.LoadPermissions(store)
 	if err != nil {
 		log.Fatalf("cannot load permissions:%v", err)
@@ -299,6 +307,7 @@ func NewService(domain, accountDomain string, store storage.Store, module module
 		clientLoginPage:       clp,
 		infomationReleasePage: irp,
 		testPage:              tp,
+		tokenFlowTestPage:     tfp,
 		startTime:             time.Now().Unix(),
 		permissions:           perms,
 		domain:                domain,
@@ -384,7 +393,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	// Allow some requests to proceed without client IDs and/or secrets.
 	path := common.RequestAbstractPath(r)
-	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcWellKnownPath) {
+	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, tokenFlowTestPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcWellKnownPath) {
 		sh.Handler.ServeHTTP(w, r)
 		return
 	}
@@ -447,6 +456,7 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(personasPath, s.Personas)
 	r.HandleFunc(personaPath, s.Persona)
 	r.HandleFunc(testPath, s.Test)
+	r.HandleFunc(tokenFlowTestPath, s.TokenFlowTest)
 	r.HandleFunc(authorizePath, s.Authorize)
 	r.HandleFunc(accountPath, common.MakeHandler(s, s.accountFactory()))
 	r.HandleFunc(accountSubjectPath, common.MakeHandler(s, s.accountSubjectFactory()))
@@ -1486,6 +1496,25 @@ func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := strings.Replace(s.testPage, "${DAM_URL}", dam, -1)
+	sendHTML(page, w)
+}
+
+// TokenFlowTest send token flow test page.
+func (s *Service) TokenFlowTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
+		return
+	}
+	dam := os.Getenv("PERSONA_DAM_URL")
+	if len(dam) == 0 {
+		scheme := "http:"
+		if len(r.URL.Scheme) > 0 {
+			scheme = r.URL.Scheme
+		}
+		dam = strings.Replace(scheme+"//"+s.accountDomain, "ic-", "dam-", -1)
+	}
+
+	page := strings.Replace(s.tokenFlowTestPage, "${DAM_URL}", dam, -1)
 	sendHTML(page, w)
 }
 
