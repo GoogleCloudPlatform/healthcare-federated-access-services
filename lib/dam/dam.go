@@ -76,6 +76,11 @@ const (
 	tokensPath            = methodPrefix + "tokens"
 	tokenPath             = methodPrefix + "tokens/{name}"
 
+	oidcPrefix        = basePath + "/oidc/"
+	loggedInPath      = oidcPrefix + "loggedin"
+	resourceAuthPath  = oidcPrefix + "authorize"
+	resourceTokenPath = oidcPrefix + "token"
+
 	configPath                      = methodPrefix + "config"
 	configResourcePath              = configPath + "/resources/{name}"
 	configViewPath                  = configPath + "/resources/{resource}/views/{name}"
@@ -265,7 +270,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	if r.URL.Path == infoPath {
+	if r.URL.Path == infoPath || r.URL.Path == loggedInPath {
 		sh.Handler.ServeHTTP(w, r)
 		return
 	}
@@ -276,6 +281,11 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	cs := getClientSecret(r)
 	if len(cs) == 0 {
+		// resource auth does not have realm in path.
+		if r.URL.Path == resourceAuthPath {
+			sh.Handler.ServeHTTP(w, r)
+			return
+		}
 		// Allow a request to allocate a client secret to proceed.
 		parts := strings.Split(r.URL.Path, "/")
 		// Path starts with a "/", so first part is always empty.
@@ -284,6 +294,10 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		path := strings.Join(parts, "/")
 		if strings.HasPrefix(path, clientSecretPath) {
+			sh.Handler.ServeHTTP(w, r)
+			return
+		}
+		if path == resourceAuthPath {
 			sh.Handler.ServeHTTP(w, r)
 			return
 		}
@@ -328,6 +342,10 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(tokensPath, common.MakeHandler(s, s.tokensFactory()))
 	r.HandleFunc(tokenPath, common.MakeHandler(s, s.tokenFactory()))
 
+	r.HandleFunc(resourceAuthPath, s.ResourceAuthHandler)
+	r.HandleFunc(resourceTokenPath, s.ExchangeResourceTokenHandler)
+	r.HandleFunc(loggedInPath, s.LoggedInHandler)
+
 	r.HandleFunc(configHistoryPath, s.ConfigHistory)
 	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
 	r.HandleFunc(configResetPath, s.ConfigReset)
@@ -353,6 +371,40 @@ func checkName(name string) error {
 	return common.CheckName("name", name, nil)
 }
 
+func (s *Service) tokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
+	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	if err != nil {
+		return nil, fmt.Errorf("inspecting token: %v", err)
+	}
+
+	iss := id.Issuer
+	t, err := s.getIssuerTranslator(s.ctx, iss, cfg, nil, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err = t.TranslateToken(s.ctx, tok)
+	if err != nil {
+		return nil, fmt.Errorf("translating token from issuer %q: %v", iss, err)
+	}
+	if common.HasUserinfoClaims(id.UserinfoClaims) {
+		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
+		if err != nil {
+			return nil, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
+		}
+	}
+
+	// DAM will only accept tokens designated for use by the requestor's client ID.
+	if len(id.AuthorizedParty) == 0 || id.AuthorizedParty != clientID {
+		return nil, fmt.Errorf("mismatched authorized party")
+	}
+	if err := id.Valid(); err != nil {
+		return nil, err
+	}
+
+	return id, nil
+}
+
 func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
 	// TODO: remove the persona query parameter feature.
 	pname := r.URL.Query().Get("persona")
@@ -368,41 +420,15 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 		return id, http.StatusOK, nil
 	}
 
-	tok, err := extractAccessToken(r)
+	tok, err := extractBearerToken(r)
 	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("authorization requires a bearer token")
+		return nil, http.StatusBadRequest, err
 	}
 
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
-	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
-	}
-
-	iss := id.Issuer
-	t, err := s.getIssuerTranslator(s.ctx, iss, cfg, nil, tx)
+	id, err := s.tokenToPassportIdentity(cfg, tx, tok, getClientID(r))
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
-
-	id, err = t.TranslateToken(s.ctx, tok)
-	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("translating token from issuer %q: %v", iss, err)
-	}
-	if common.HasUserinfoClaims(id.UserinfoClaims) {
-		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
-		if err != nil {
-			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
-		}
-	}
-
-	// DAM will only accept tokens designated for use by the requestor's client ID.
-	if len(id.AuthorizedParty) == 0 || id.AuthorizedParty != getClientID(r) {
-		return nil, http.StatusUnauthorized, fmt.Errorf("mismatched authorized party")
-	}
-	if err := id.Valid(); err != nil {
-		return nil, http.StatusUnauthorized, err
-	}
-
 	return id, http.StatusOK, nil
 }
 
@@ -964,18 +990,6 @@ func (srt byOrder) Less(i, j int) bool {
 
 func (srt byOrder) Swap(i, j int) {
 	srt.strs[i], srt.strs[j] = srt.strs[j], srt.strs[i]
-}
-
-func getIssuerString(r *http.Request) string {
-	s := r.URL.Scheme
-	if len(s) == 0 {
-		// TODO: fix this.
-		s = "https"
-		if strings.HasPrefix(r.Host, "localhost") {
-			s = "http"
-		}
-	}
-	return s + "://" + r.Host
 }
 
 // GetTestResults implements the GetTestResults RPC method.

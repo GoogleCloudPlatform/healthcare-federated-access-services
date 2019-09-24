@@ -245,6 +245,14 @@ message PassportTranslator {
   map<string, string> ui = 2;
 }
 
+message ResourceToken {
+  string name = 1;
+  View view = 2;
+  string account = 3;
+  string token = 4;
+  string ttl = 5;
+}
+
 ///////////////////////////////////////////////////
 
 message BackgroundProcess {
@@ -547,4 +555,23 @@ message ConfigTestPersonaRequest {
 message ConfigClientRequest {
   Client item = 1;
   ConfigModification modification = 2;
+}
+
+message ResourceTokenRequestState {
+  string realm = 1;
+  string client_id = 2;
+  string resource = 3;
+  string view = 4;
+  string role = 5;
+  string state = 6;
+  string broker = 7;
+  string redirect = 8;
+  int64 ttl = 9;
+  bool response_key_file = 10;
+}
+
+message AuthCode {
+  string client_id = 1;
+  bool response_key_file = 2;
+  map<string, ResourceToken> tokens = 3;
 }

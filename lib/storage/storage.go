@@ -39,6 +39,8 @@ const (
 	PermissionsDatatype    = "permissions"
 	SecretsDatatype        = "secrets"
 	TokensDatatype         = "tokens"
+
+	ResourceTokenRequestStateDataType = "resource_token_state"
 )
 
 // Store is an interface to the storage layer.
