@@ -2991,7 +2991,7 @@ func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("translating token from issuer %q: %v", idp.Issuer, err)
 	}
-	if common.HasUserinfoClaims(id.UserinfoClaims) {
+	if idp.MustCallUserinfo || common.HasUserinfoClaims(id.UserinfoClaims) {
 		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
