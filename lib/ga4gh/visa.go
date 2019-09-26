@@ -43,12 +43,12 @@ type VisaData struct {
 	Scope string `json:"scope,omitempty"`
 
 	// Claim contains the Visa Claim.
-	Claim VClaim `json:"ga4gh_visa_v1,omitempty"`
+	Claim Claim `json:"ga4gh_visa_v1,omitempty"`
 }
 
-// VClaim represents a GA4GH Passport Visa Object.
-// A VClaim is an "Assertion".
-type VClaim struct {
+// Claim represents a GA4GH Passport Visa Object.
+// A Claim is an "Assertion".
+type Claim struct {
 	Type       string     `json:"type,omitempty"`
 	Value      string     `json:"value,omitempty"`
 	Source     string     `json:"source,omitempty"`

@@ -108,7 +108,7 @@ func fakeVisaData() *VisaData {
 			Issuer:    "fake-visa-issuer",
 			ExpiresAt: fakeEnd(),
 		},
-		Claim: VClaim{
+		Claim: Claim{
 			Type:     "fake-visa-type",
 			Value:    "fake-visa-value",
 			Source:   "fake-visa-source",
