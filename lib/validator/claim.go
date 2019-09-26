@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	requestTTLInNanoFloat64 = ga4gh.ContextKey("requested_ttl")
+	requestTTLInNanoFloat64 = "requested_ttl"
 )
 
 // valueType is the set of types which are treated like claims that have a

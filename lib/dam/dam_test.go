@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
@@ -849,7 +848,7 @@ func (contextMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	requestTTLInNanoFloat64 := ga4gh.ContextKey("requested_ttl")
+	requestTTLInNanoFloat64 := "requested_ttl"
 	_, ok = c.Value(requestTTLInNanoFloat64).(float64)
 	if !ok {
 		return false

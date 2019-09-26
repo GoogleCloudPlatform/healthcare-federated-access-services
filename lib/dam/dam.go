@@ -107,7 +107,7 @@ const (
 	defaultPersonaScope = ""
 	damStaticService    = "dam-static"
 
-	requestTTLInNanoFloat64 = ga4gh.ContextKey("requested_ttl")
+	requestTTLInNanoFloat64 = "requested_ttl"
 )
 
 var (
