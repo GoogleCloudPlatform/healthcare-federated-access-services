@@ -21,28 +21,28 @@ import (
 )
 
 const (
-	// ClaimAffiliationAndRole as per the Researcher Identity RFC.
-	ClaimAffiliationAndRole = "AffiliationAndRole"
-	// ClaimAcceptedTermsAndPolicies as per the Researcher Identity RFC.
-	ClaimAcceptedTermsAndPolicies = "AcceptedTermsAndPolicies"
-	// ClaimResearcherStatus as per the Researcher Identity RFC.
-	ClaimResearcherStatus = "ResearcherStatus"
-	// ClaimControlledAccessGrants as per the Researcher Identity RFC.
-	ClaimControlledAccessGrants = "ControlledAccessGrants"
+	// OldClaimAffiliationAndRole as per the Researcher Identity RFC.
+	OldClaimAffiliationAndRole = "AffiliationAndRole"
+	// OldClaimAcceptedTermsAndPolicies as per the Researcher Identity RFC.
+	OldClaimAcceptedTermsAndPolicies = "AcceptedTermsAndPolicies"
+	// OldClaimResearcherStatus as per the Researcher Identity RFC.
+	OldClaimResearcherStatus = "ResearcherStatus"
+	// OldClaimControlledAccessGrants as per the Researcher Identity RFC.
+	OldClaimControlledAccessGrants = "ControlledAccessGrants"
 )
 
-// Claim represents a claim object as defined by GA4GH.
-type Claim struct {
+// OldClaim represents a claim object as defined by GA4GH.
+type OldClaim struct {
 	Value     string                    `json:"value"`
 	Source    string                    `json:"source"`
 	Asserted  float64                   `json:"asserted,omitempty"`
 	Expires   float64                   `json:"expires,omitempty"`
-	Condition map[string]ClaimCondition `json:"condition,omitempty"`
+	Condition map[string]OldClaimCondition `json:"condition,omitempty"`
 	By        string                    `json:"by,omitempty"`
 }
 
-// ClaimCondition represents a condition object as defined by GA4GH.
-type ClaimCondition struct {
+// OldClaimCondition represents a condition object as defined by GA4GH.
+type OldClaimCondition struct {
 	Value  []string `json:"value,omitempty"`
 	Source []string `json:"source,omitempty"`
 	By     []string `json:"by,omitempty"`
@@ -76,32 +76,32 @@ func (a *Audiences) UnmarshalJSON(bytes []byte) error {
 // Identity is a GA4GH identity as described by the Data Use and Researcher
 // Identity stream.
 type Identity struct {
-	Subject          string              `json:"sub,omitempty"`
-	Issuer           string              `json:"iss,omitempty"`
-	IssuedAt         int64               `json:"iat,omitempty"`
-	NotBefore        int64               `json:"nbf,omitempty"`
-	Expiry           int64               `json:"exp,omitempty"`
-	Scope            string              `json:"scope,omitempty"`
-	Audiences        Audiences           `json:"aud,omitempty"`
-	AuthorizedParty  string              `json:"azp,omitempty"`
-	ID               string              `json:"jti,omitempty"`
-	Nonce            string              `json:"nonce,omitempty"`
-	GA4GH            map[string][]Claim  `json:"ga4gh,omitempty"`
-	UserinfoClaims   []string            `json:"ga4gh_userinfo_claims"`
-	IdentityProvider string              `json:"idp,omitempty"`
-	Identities       map[string][]string `json:"identities,omitempty"`
-	Username         string              `json:"preferred_username,omitempty"`
-	Email            string              `json:"email,omitempty"`
-	EmailVerified    bool                `json:"email_verified,omitempty"`
-	Name             string              `json:"name,omitempty"`
-	Nickname         string              `json:"nickname,omitempty"`
-	GivenName        string              `json:"given_name,omitempty"`
-	FamilyName       string              `json:"family_name,omitempty"`
-	MiddleName       string              `json:"middle_name,omitempty"`
-	ZoneInfo         string              `json:"zoneinfo,omitempty"`
-	Locale           string              `json:"locale,omitempty"`
-	Picture          string              `json:"picture,omitempty"`
-	Profile          string              `json:"profile,omitempty"`
+	Subject          string                `json:"sub,omitempty"`
+	Issuer           string                `json:"iss,omitempty"`
+	IssuedAt         int64                 `json:"iat,omitempty"`
+	NotBefore        int64                 `json:"nbf,omitempty"`
+	Expiry           int64                 `json:"exp,omitempty"`
+	Scope            string                `json:"scope,omitempty"`
+	Audiences        Audiences             `json:"aud,omitempty"`
+	AuthorizedParty  string                `json:"azp,omitempty"`
+	ID               string                `json:"jti,omitempty"`
+	Nonce            string                `json:"nonce,omitempty"`
+	GA4GH            map[string][]OldClaim `json:"ga4gh,omitempty"`
+	UserinfoClaims   []string              `json:"ga4gh_userinfo_claims"`
+	IdentityProvider string                `json:"idp,omitempty"`
+	Identities       map[string][]string   `json:"identities,omitempty"`
+	Username         string                `json:"preferred_username,omitempty"`
+	Email            string                `json:"email,omitempty"`
+	EmailVerified    bool                  `json:"email_verified,omitempty"`
+	Name             string                `json:"name,omitempty"`
+	Nickname         string                `json:"nickname,omitempty"`
+	GivenName        string                `json:"given_name,omitempty"`
+	FamilyName       string                `json:"family_name,omitempty"`
+	MiddleName       string                `json:"middle_name,omitempty"`
+	ZoneInfo         string                `json:"zoneinfo,omitempty"`
+	Locale           string                `json:"locale,omitempty"`
+	Picture          string                `json:"picture,omitempty"`
+	Profile          string                `json:"profile,omitempty"`
 }
 
 // Valid implements dgrijalva/jwt-go Claims interface. This will be called when using

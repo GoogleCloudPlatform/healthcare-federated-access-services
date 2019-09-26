@@ -26,7 +26,7 @@ var (
 	bonaFideIdentity = &ga4gh.Identity{
 		Issuer:  "https://issuer.org",
 		Subject: "subject1",
-		GA4GH: map[string][]ga4gh.Claim{
+		GA4GH: map[string][]ga4gh.OldClaim{
 			"BonaFide": {
 				{
 					Value:    "https://bonafide.org/v1",
@@ -41,7 +41,7 @@ var (
 	bonaFide2ndIdentity = &ga4gh.Identity{
 		Issuer:  "https://issuer.org",
 		Subject: "subject1",
-		GA4GH: map[string][]ga4gh.Claim{
+		GA4GH: map[string][]ga4gh.OldClaim{
 			"BonaFide": {
 				{
 					Value:    "https://bonafide.org/v1",
@@ -63,7 +63,7 @@ var (
 	metConditionIdentity = &ga4gh.Identity{
 		Issuer:  "https://issuer.org",
 		Subject: "subject1",
-		GA4GH: map[string][]ga4gh.Claim{
+		GA4GH: map[string][]ga4gh.OldClaim{
 			"AffiliationAndRole": {
 				{
 					Value:    "faculty@myuni.edu",
@@ -80,7 +80,7 @@ var (
 					By:       "dac",
 					Asserted: float64(time.Now().Unix()) - 3600,
 					Expires:  float64(time.Now().Unix()) + 10*3600,
-					Condition: map[string]ga4gh.ClaimCondition{
+					Condition: map[string]ga4gh.OldClaimCondition{
 						"AffiliationAndRole": {
 							Value: []string{"student@myuni.edu", "faculty@myuni.edu"},
 							By:    []string{"system", "so"},
@@ -93,7 +93,7 @@ var (
 	unmetConditionIdentity = &ga4gh.Identity{
 		Issuer:  "https://issuer.org",
 		Subject: "subject1",
-		GA4GH: map[string][]ga4gh.Claim{
+		GA4GH: map[string][]ga4gh.OldClaim{
 			"AffiliationAndRole": {
 				{
 					Value:    "student@myuni.edu",
@@ -110,7 +110,7 @@ var (
 					By:       "dac",
 					Asserted: float64(time.Now().Unix()) - 3600,
 					Expires:  float64(time.Now().Unix()) + 10*3600,
-					Condition: map[string]ga4gh.ClaimCondition{
+					Condition: map[string]ga4gh.OldClaimCondition{
 						"AffiliationAndRole": {
 							Value: []string{"faculty@myuni.edu"},
 							By:    []string{"system", "so"},

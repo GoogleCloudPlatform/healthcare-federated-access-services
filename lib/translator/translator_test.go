@@ -41,8 +41,8 @@ type TestTranslator interface {
 
 func sortClaims() cmp.Option {
 	// This comparison option sorts the claims to avoid different orders in the output.
-	return cmp.Transformer("SortClaims", func(in []ga4gh.Claim) []ga4gh.Claim {
-		out := append([]ga4gh.Claim{}, in...)
+	return cmp.Transformer("SortClaims", func(in []ga4gh.OldClaim) []ga4gh.OldClaim {
+		out := append([]ga4gh.OldClaim{}, in...)
 		sort.Slice(out, func(i, j int) bool {
 			return out[i].Value < out[j].Value
 		})

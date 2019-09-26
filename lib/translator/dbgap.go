@@ -192,7 +192,7 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		Issuer:     token.Issuer,
 		Subject:    token.Subject,
 		Expiry:     token.Expiry.Unix(),
-		GA4GH:      make(map[string][]ga4gh.Claim),
+		GA4GH:      make(map[string][]ga4gh.OldClaim),
 		GivenName:  claims.Vcard.GivenName,
 		FamilyName: claims.Vcard.FamilyName,
 		Name:       common.JoinNonEmpty([]string{claims.Vcard.GivenName, claims.Vcard.FamilyName}, " "),
@@ -259,8 +259,8 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 	currUnixTime := now.Unix()
 	affiliationAsserted := float64(currUnixTime)
 	for a, val := range accessions {
-		id.GA4GH[ga4gh.ClaimControlledAccessGrants] = append(id.GA4GH[ga4gh.ClaimControlledAccessGrants],
-			ga4gh.Claim{
+		id.GA4GH[ga4gh.OldClaimControlledAccessGrants] = append(id.GA4GH[ga4gh.OldClaimControlledAccessGrants],
+			ga4gh.OldClaim{
 				Value:    "https://dac.nih.gov/datasets/" + a,
 				Source:   dbGapIssuer,
 				Asserted: val.Issued,
@@ -273,15 +273,15 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		}
 	}
 	for a, src := range affiliations {
-		id.GA4GH[ga4gh.ClaimAffiliationAndRole] = append(id.GA4GH[ga4gh.ClaimAffiliationAndRole],
-			ga4gh.Claim{
+		id.GA4GH[ga4gh.OldClaimAffiliationAndRole] = append(id.GA4GH[ga4gh.OldClaimAffiliationAndRole],
+			ga4gh.OldClaim{
 				Value:    a,
 				Source:   dbGapOrgURL + src.orgID,
 				Asserted: affiliationAsserted,
 				Expires:  float64(currUnixTime + validSec),
 				By:       src.by,
 			},
-			ga4gh.Claim{
+			ga4gh.OldClaim{
 				Value:    a,
 				Source:   dbGapIssuer,
 				Asserted: affiliationAsserted,

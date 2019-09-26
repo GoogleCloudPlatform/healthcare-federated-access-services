@@ -2950,7 +2950,7 @@ func (s *Service) accountToIdentity(acct *pb.Account, cfg *pb.IcConfig) *ga4gh.I
 	id := &ga4gh.Identity{
 		Subject: acct.Properties.Subject,
 		Issuer:  s.getIssuerString(),
-		GA4GH:   make(map[string][]ga4gh.Claim),
+		GA4GH:   make(map[string][]ga4gh.OldClaim),
 		Email:   email,
 	}
 	if acct.Profile != nil {
@@ -3006,9 +3006,9 @@ func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *
 	return id, http.StatusOK, nil
 }
 
-func (s *Service) accountLinkToClaims(acct *pb.Account, subject string, cfg *pb.IcConfig) map[string][]ga4gh.Claim {
+func (s *Service) accountLinkToClaims(acct *pb.Account, subject string, cfg *pb.IcConfig) map[string][]ga4gh.OldClaim {
 	id := &ga4gh.Identity{
-		GA4GH: make(map[string][]ga4gh.Claim),
+		GA4GH: make(map[string][]ga4gh.OldClaim),
 	}
 	link, _ := findLinkedAccount(acct, subject)
 	if link == nil {
@@ -3032,9 +3032,9 @@ func populateLinkClaims(id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.
 
 func populateIdentityClaim(id *ga4gh.Identity, cname string, claim *pb.AccountClaim, ttl time.Duration) {
 	if _, ok := id.GA4GH[cname]; !ok {
-		id.GA4GH[cname] = make([]ga4gh.Claim, 0)
+		id.GA4GH[cname] = make([]ga4gh.OldClaim, 0)
 	}
-	c := ga4gh.Claim{
+	c := ga4gh.OldClaim{
 		Value:    claim.Value,
 		Source:   claim.Source,
 		Asserted: claim.Asserted,
@@ -3042,9 +3042,9 @@ func populateIdentityClaim(id *ga4gh.Identity, cname string, claim *pb.AccountCl
 		By:       claim.By,
 	}
 	if claim.Condition != nil {
-		c.Condition = make(map[string]ga4gh.ClaimCondition)
+		c.Condition = make(map[string]ga4gh.OldClaimCondition)
 		for k, v := range claim.Condition {
-			c.Condition[k] = ga4gh.ClaimCondition{
+			c.Condition[k] = ga4gh.OldClaimCondition{
 				Value:  v.Value,
 				Source: v.Source,
 				By:     v.By,
@@ -3069,7 +3069,7 @@ func populateIdentityClaim(id *ga4gh.Identity, cname string, claim *pb.AccountCl
 	id.GA4GH[cname] = append(id.GA4GH[cname], c)
 }
 
-func findSimilarClaim(claims []ga4gh.Claim, match *ga4gh.Claim) *ga4gh.Claim {
+func findSimilarClaim(claims []ga4gh.OldClaim, match *ga4gh.OldClaim) *ga4gh.OldClaim {
 	for _, c := range claims {
 		if c.Value == match.Value && c.Source == match.Source && c.By == match.By && conditionEqual(c.Condition, match.Condition) {
 			return &c
@@ -3078,7 +3078,7 @@ func findSimilarClaim(claims []ga4gh.Claim, match *ga4gh.Claim) *ga4gh.Claim {
 	return nil
 }
 
-func conditionEqual(a, b map[string]ga4gh.ClaimCondition) bool {
+func conditionEqual(a, b map[string]ga4gh.OldClaimCondition) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -3437,7 +3437,7 @@ func populateAccountClaims(acct *pb.Account, id *ga4gh.Identity, provider string
 	}
 }
 
-func accountClaimCondition(cond map[string]ga4gh.ClaimCondition) map[string]*pb.AccountClaim_Condition {
+func accountClaimCondition(cond map[string]ga4gh.OldClaimCondition) map[string]*pb.AccountClaim_Condition {
 	if cond == nil {
 		return nil
 	}
@@ -3476,7 +3476,7 @@ func setupAccountProperties(id *ga4gh.Identity, subject string, created, modifie
 	}
 }
 
-func claimsAreEqual(a, b map[string][]ga4gh.Claim) bool {
+func claimsAreEqual(a, b map[string][]ga4gh.OldClaim) bool {
 	if len(a) != len(b) {
 		return false
 	}

@@ -156,7 +156,7 @@ func getStandardClaim(persona *dampb.TestPersona, claim string) string {
 
 func populatePersonaClaims(pname string, claims []*dampb.TestPersona_GA4GHClaim, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
-	id.GA4GH = make(map[string][]ga4gh.Claim)
+	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	now := float64(time.Now().Unix())
 
 	for i, claim := range claims {
@@ -173,7 +173,7 @@ func populatePersonaClaims(pname string, claims []*dampb.TestPersona_GA4GHClaim,
 		}
 		_, ok := id.GA4GH[cname]
 		if !ok {
-			id.GA4GH[cname] = make([]ga4gh.Claim, 0)
+			id.GA4GH[cname] = make([]ga4gh.OldClaim, 0)
 		}
 		// claim.AssertedDuration cannot be negative and is assumed to be a duration in the past.
 		a, err := common.ParseDuration(claim.AssertedDuration, 120*time.Second)
@@ -190,7 +190,7 @@ func populatePersonaClaims(pname string, claims []*dampb.TestPersona_GA4GHClaim,
 			e = minPersonaFutureExpiry
 		}
 		expires := now + e.Seconds()
-		c := ga4gh.Claim{
+		c := ga4gh.OldClaim{
 			Value:    claim.Value,
 			Source:   src,
 			Asserted: asserted,
@@ -198,9 +198,9 @@ func populatePersonaClaims(pname string, claims []*dampb.TestPersona_GA4GHClaim,
 			By:       claim.By,
 		}
 		if claim.Condition != nil {
-			c.Condition = make(map[string]ga4gh.ClaimCondition)
+			c.Condition = make(map[string]ga4gh.OldClaimCondition)
 			for k, v := range claim.Condition {
-				c.Condition[k] = ga4gh.ClaimCondition{
+				c.Condition[k] = ga4gh.OldClaimCondition{
 					Value:  v.Value,
 					Source: v.Source,
 					By:     v.By,
