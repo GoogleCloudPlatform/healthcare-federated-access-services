@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package ga4gh provides primitives for dealing with identities as described
-// by the Global Alliance for Genomics and Healthcare's Data Use and Researcher
-// Identity workstream.
 package ga4gh
 
 import (
