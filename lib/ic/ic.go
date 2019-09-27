@@ -145,11 +145,12 @@ var (
 	pageVariableRE       = regexp.MustCompile(`\$\{[-A-Z_]*\}`)
 	defaultIdpScopes     = []string{"openid", "profile", "email"}
 	filterAccessTokScope = map[string]bool{
-		"openid":        true,
-		"ga4gh":         true,
-		"identities":    true,
-		"link":          true,
-		"account_admin": true,
+		"openid":            true,
+		"ga4gh":             true,
+		"identities":        true,
+		"link":              true,
+		"account_admin":     true,
+		"ga4gh_passport_v1": true,
 	}
 	filterIDTokScope = map[string]bool{
 		"openid":  true,
@@ -785,6 +786,12 @@ func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirec
 	if err != nil {
 		return nil, "", err
 	}
+
+	// TODO: Remove after all idp use passport visa.
+	if idp.UsePassportVisa {
+		scope = strings.Join(idp.Scopes, " ")
+	}
+
 	state, err := extractState(r)
 	if err != nil {
 		return nil, "", err
@@ -2991,7 +2998,7 @@ func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("translating token from issuer %q: %v", idp.Issuer, err)
 	}
-	if common.HasUserinfoClaims(id.UserinfoClaims) {
+	if idp.GetUsePassportVisa() || common.HasUserinfoClaims(id.UserinfoClaims) {
 		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
@@ -3028,6 +3035,8 @@ func populateLinkClaims(id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.
 			populateIdentityClaim(id, cname, claim, ttl)
 		}
 	}
+
+	id.VisaJWTs = decryptEmbeddedTokens(link.EcryptedTokens)
 }
 
 func populateIdentityClaim(id *ga4gh.Identity, cname string, claim *pb.AccountClaim, ttl time.Duration) {
@@ -3170,6 +3179,8 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 		IdentityProvider: identity.IdentityProvider,
 		UserinfoClaims:   []string{},
 		Nonce:            nonce,
+		// TODO: VisaJWTs should support scope down.
+		VisaJWTs: identity.VisaJWTs,
 	}
 	if !hasScopes("refresh", scope, matchFullScope) {
 		// TODO: remove this extra "ga4gh" check once DDAP is compatible.
@@ -3399,17 +3410,38 @@ func newAccountWithLink(linkID *ga4gh.Identity, provider string, cfg *pb.IcConfi
 	return acct
 }
 
+func encryptEmbeddedTokens(tokens []string) [][]byte {
+	res := make([][]byte, len(tokens))
+	// TODO encrypt data
+	for i, tok := range tokens {
+		res[i] = []byte(tok)
+	}
+
+	return res
+}
+
+func decryptEmbeddedTokens(tokens [][]byte) []string {
+	res := make([]string, len(tokens))
+	// TODO decrypt data
+	for i, tok := range tokens {
+		res[i] = string(tok)
+	}
+
+	return res
+}
+
 func populateAccountClaims(acct *pb.Account, id *ga4gh.Identity, provider string) {
 	link, _ := findLinkedAccount(acct, id.Subject)
 	now := common.GetNowInUnixNano()
 	if link == nil {
 		link = &pb.ConnectedAccount{
-			Profile:      setupAccountProfile(id),
-			Properties:   setupAccountProperties(id, id.Subject, now, now),
-			Provider:     provider,
-			Refreshed:    now,
-			Revision:     1,
-			LinkRevision: 1,
+			Profile:        setupAccountProfile(id),
+			Properties:     setupAccountProperties(id, id.Subject, now, now),
+			Provider:       provider,
+			Refreshed:      now,
+			Revision:       1,
+			LinkRevision:   1,
+			EcryptedTokens: encryptEmbeddedTokens(id.VisaJWTs),
 		}
 		acct.ConnectedAccounts = append(acct.ConnectedAccounts, link)
 	} else {
@@ -4186,6 +4218,8 @@ func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(status, err, w)
 		return
 	}
+
+	// TODO: should also check the client id of access token is same as request client id.
 
 	// scope down identity information based on the token scope.
 	id = scopedIdentity(id, id.Scope, id.Issuer, id.Subject, noNonce, id.IssuedAt, id.NotBefore, id.Expiry, nil, "")

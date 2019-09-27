@@ -33,12 +33,12 @@ const (
 
 // OldClaim represents a claim object as defined by GA4GH.
 type OldClaim struct {
-	Value     string                    `json:"value"`
-	Source    string                    `json:"source"`
-	Asserted  float64                   `json:"asserted,omitempty"`
-	Expires   float64                   `json:"expires,omitempty"`
+	Value     string                       `json:"value"`
+	Source    string                       `json:"source"`
+	Asserted  float64                      `json:"asserted,omitempty"`
+	Expires   float64                      `json:"expires,omitempty"`
 	Condition map[string]OldClaimCondition `json:"condition,omitempty"`
-	By        string                    `json:"by,omitempty"`
+	By        string                       `json:"by,omitempty"`
 }
 
 // OldClaimCondition represents a condition object as defined by GA4GH.
@@ -102,6 +102,7 @@ type Identity struct {
 	Locale           string                `json:"locale,omitempty"`
 	Picture          string                `json:"picture,omitempty"`
 	Profile          string                `json:"profile,omitempty"`
+	VisaJWTs         []string              `json:"ga4gh_passport_v1,omitempty"`
 }
 
 // Valid implements dgrijalva/jwt-go Claims interface. This will be called when using
