@@ -35,12 +35,29 @@ type Key struct {
 	Public  *rsa.PublicKey
 }
 
+// Component is the type of components in the GA4GH Passport ecosystem.
+type Component int
+
+const (
+	// Unknown is an unkown component.
+	Unknown Component = iota
+	// VisaIssuer0 is a Visa Issuer.
+	VisaIssuer0
+	// VisaIssuer1 is a Visa Issuer.
+	VisaIssuer1
+	// PassportBroker0 is a Passport Broker.
+	PassportBroker0
+	// PassportBroker1 is a Passport Broker.
+	PassportBroker1
+)
+
 // Keys contains fake keys.
-var Keys = map[string]Key{
-	"VisaIssuer0":     keyFromPEM(pems[0]),
-	"VisaIssuer1":     keyFromPEM(pems[1]),
-	"PassportBroker1": keyFromPEM(pems[2]),
-	"PassportBroker2": keyFromPEM(pems[3]),
+var Keys = map[Component]Key{
+	Unknown:         keyFromPEM(pems[0]),
+	VisaIssuer0:     keyFromPEM(pems[1]),
+	VisaIssuer1:     keyFromPEM(pems[2]),
+	PassportBroker0: keyFromPEM(pems[3]),
+	PassportBroker1: keyFromPEM(pems[4]),
 }
 
 type pem struct {
