@@ -16,7 +16,6 @@ package ga4gh
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	glog "github.com/golang/glog"
@@ -62,7 +61,7 @@ func TestPassportJSONFormat(t *testing.T) {
 		t.Fatalf("payloadFromJWT(%v) failed: %v", j, err)
 	}
 	want := fakePassportDataJSON()
-	if diff := cmp.Diff(strings.Replace(want, " ", "", -1), strings.Replace(got, " ", "", -1)); diff != "" {
+	if diff := cmp.Diff(jsontxt(want), jsontxt(got), cmp.Transformer("", jsontxtCanonical)); diff != "" {
 		t.Fatalf("JSON(%v) returned diff (-want +got):\n%s", j, diff)
 	}
 }

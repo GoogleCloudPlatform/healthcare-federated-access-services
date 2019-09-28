@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 
+	glog "github.com/golang/glog"
 	"github.com/dgrijalva/jwt-go"
 )
 
@@ -57,4 +58,26 @@ func payloadFromJWT(j string) (string, error) {
 	}
 
 	return payload.String(), nil
+}
+
+// jsontxt is used internally for transforming for cmp.Diff.
+// Allowing getting stable diff in comparing JSON text strings.
+// Example:
+// diff := cmp.Diff(jsontxt(want), jsontxt(got), cmp.Transformer("", jsontxtCanonical))
+type jsontxt string
+
+func jsontxtCanonical(j jsontxt) string {
+	var s interface{}
+	if err := json.Unmarshal([]byte(j), &s); err != nil {
+		glog.Fatalf("json.Unmarshal(%v) failed: %v", j, err)
+	}
+	d, err := json.Marshal(&s)
+	if err != nil {
+		glog.Fatalf("json.Marshal(%v) failed: %v", s, err)
+	}
+	c := &bytes.Buffer{}
+	if err := json.Indent(c, d, "", indent); err != nil {
+		glog.Fatalf("json.Indent(%v,%v,%v,%v) failed: %v", c, d, "", indent, err)
+	}
+	return c.String()
 }

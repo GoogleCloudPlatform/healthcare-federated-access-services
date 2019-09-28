@@ -16,7 +16,6 @@ package ga4gh
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -62,7 +61,7 @@ func TestVisaJSONFormat(t *testing.T) {
 		t.Fatalf("payloadFromJWT(%v) failed: %v", j, err)
 	}
 	want := fakeVisaDataJSON()
-	if diff := cmp.Diff(strings.TrimSpace(want), strings.TrimSpace(got)); diff != "" {
+	if diff := cmp.Diff(jsontxt(want), jsontxt(got), cmp.Transformer("", jsontxtCanonical)); diff != "" {
 		t.Fatalf("JSON(%v) returned diff (-want +got):\n%s", j, diff)
 	}
 }
