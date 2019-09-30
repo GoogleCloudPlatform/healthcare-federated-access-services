@@ -49,6 +49,8 @@ const (
 	PassportBroker0
 	// PassportBroker1 is a Passport Broker.
 	PassportBroker1
+	// PersonaBroker is a Passport Broker/Visa Issuer for Personas.
+	PersonaBroker
 )
 
 // Keys contains fake keys.
@@ -58,6 +60,7 @@ var Keys = map[Component]Key{
 	VisaIssuer1:     keyFromPEM(pems[2]),
 	PassportBroker0: keyFromPEM(pems[3]),
 	PassportBroker1: keyFromPEM(pems[4]),
+	PersonaBroker:   keyFromPEM(pems[5]),
 }
 
 type pem struct {
