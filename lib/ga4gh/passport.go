@@ -16,9 +16,9 @@ package ga4gh
 
 import (
 	"crypto/rsa"
+	"fmt"
 
 	glog "github.com/golang/glog"
-	"google3/third_party/golang/errors/errors"
 	"github.com/dgrijalva/jwt-go"
 )
 
@@ -108,7 +108,7 @@ func passportJWTFromData(d *PassportData, method SigningMethod, key *rsa.Private
 	t := jwt.NewWithClaims(method, toPassportDataWithVisaJWT(d))
 	signed, err := t.SignedString(key)
 	if err != nil {
-		err = errors.Wrap(err, "SignedString() failed:")
+		err = fmt.Errorf("SignedString() failed: %v", err)
 		glog.V(1).Info(err)
 		return "", err
 	}
@@ -129,7 +129,7 @@ func toPassportDataWithVisaJWT(d *PassportData) *passportDataVisaJWT {
 func passportDataFromJWT(j PassportJWT) (*PassportData, error) {
 	m := &passportDataVisaJWT{}
 	if _, _, err := (&jwt.Parser{}).ParseUnverified(string(j), m); err != nil {
-		err = errors.Wrapf(err, "ParseUnverified(%v) failed:", j)
+		err = fmt.Errorf("ParseUnverified(%v) failed: %v", j, err)
 		glog.V(1).Info(err)
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func toPassportData(m *passportDataVisaJWT) (*PassportData, error) {
 	for _, j := range m.Visas {
 		v, err := NewVisaFromJWT(VisaJWT(j))
 		if err != nil {
-			err = errors.Wrapf(err, "NewVisaFromJWT(%v) failed:", j)
+			err = fmt.Errorf("NewVisaFromJWT(%v) failed: %v", j, err)
 			glog.V(1).Info(err)
 			return nil, err
 		}
