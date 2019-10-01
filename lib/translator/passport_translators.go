@@ -57,7 +57,7 @@ func GetPassportTranslators() *dampb.PassportTranslatorsResponse {
 }
 
 // CreateTranslator creates a Translator for a particular token issuer.
-func CreateTranslator(ctx context.Context, iss, translateUsing, clientID, publicKey string) (Translator, error) {
+func CreateTranslator(ctx context.Context, iss, translateUsing, clientID, publicKey, selfIssuer, selfSigningKey string) (Translator, error) {
 	var s Translator
 	var err error
 	if translateUsing == "" {
@@ -70,7 +70,7 @@ func CreateTranslator(ctx context.Context, iss, translateUsing, clientID, public
 		case ElixirTranslatorName:
 			s, err = NewElixirTranslator(ctx, clientID)
 		case DbGapTranslatorName:
-			s, err = NewDbGapTranslator(publicKey)
+			s, err = NewDbGapTranslator(publicKey, selfIssuer, selfSigningKey)
 		default:
 			return nil, fmt.Errorf("invalid translator: %q", translateUsing)
 		}

@@ -3605,7 +3605,15 @@ func (s *Service) createIssuerTranslator(ctx context.Context, cfgIdp *pb.Identit
 	if ok {
 		publicKey = k.PublicKey
 	}
-	return translator.CreateTranslator(ctx, iss, cfgIdp.TranslateUsing, cfgIdp.ClientId, publicKey)
+
+	selfIssuer := s.getIssuerString()
+	signingPrivateKey := ""
+	k, ok = secrets.TokenKeys[selfIssuer]
+	if ok {
+		signingPrivateKey = k.PrivateKey
+	}
+
+	return translator.CreateTranslator(ctx, iss, cfgIdp.TranslateUsing, cfgIdp.ClientId, publicKey, selfIssuer, signingPrivateKey)
 }
 
 func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {

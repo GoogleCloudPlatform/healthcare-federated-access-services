@@ -39,11 +39,16 @@ const (
 	dbGapUserInfoURL    = "https://dbgap.ncbi.nlm.nih.gov/aa/jwt/user_info.cgi?${TOKEN}"
 	dbGapPassportURL    = "https://dbgap.ncbi.nlm.nih.gov/aa/jwt/user_passport.cgi?${TOKEN}"
 	eraCommonsAuthority = "eRA"
+	visaScope           = "openid"
+	fixedKeyID          = "kid"
 )
 
 // DbGapTranslator is a ga4gh.Translator that converts dbGap identities into GA4GH identities.
 type DbGapTranslator struct {
 	publicKey *rsa.PublicKey
+
+	visaIssuer        string
+	signingPrivateKey *rsa.PrivateKey
 }
 
 type dbGapStudy struct {
@@ -52,8 +57,8 @@ type dbGapStudy struct {
 
 type dbGapAccess struct {
 	Study   dbGapStudy `json:"study"`
-	Expires float64    `json:"expires"`
-	Issued  float64    `json:"issued"`
+	Expires int64      `json:"expires"`
+	Issued  int64      `json:"issued"`
 }
 
 type dbGapPassport struct {
@@ -114,16 +119,34 @@ func convertToOIDCIDToken(token dbGapIdToken) *oidc.IDToken {
 // NewDbGapTranslator creates a new DbGapTranslator with the provided public key. If the tokens
 // passed to this translator do not have an audience claim with a value equal to the
 // clientID value then they will be rejected.
-func NewDbGapTranslator(publicKey string) (*DbGapTranslator, error) {
-	block, _ := pem.Decode([]byte(publicKey))
-	if block == nil {
-		return &DbGapTranslator{}, nil
+func NewDbGapTranslator(publicKey, selfIssuer, signingPrivateKey string) (*DbGapTranslator, error) {
+	if len(selfIssuer) == 0 || len(signingPrivateKey) == 0 {
+		return nil, fmt.Errorf("NewDbGapTranslator failed, selfIssuer or signingPrivateKey is empty")
 	}
-	k, err := x509.ParsePKCS1PublicKey(block.Bytes)
+
+	t := &DbGapTranslator{visaIssuer: selfIssuer}
+
+	block, _ := pem.Decode([]byte(signingPrivateKey))
+	if block == nil {
+		return nil, fmt.Errorf("decode private key failed")
+	}
+	pri, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("parsing private key: %v", err)
+	}
+	t.signingPrivateKey = pri
+
+	block, _ = pem.Decode([]byte(publicKey))
+	if block == nil {
+		return t, nil
+	}
+	pub, err := x509.ParsePKCS1PublicKey(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("parsing public key: %v", err)
 	}
-	return &DbGapTranslator{publicKey: k}, nil
+	t.publicKey = pub
+
+	return t, nil
 }
 
 // TranslateToken implements the ga4gh.Translator interface.
@@ -192,11 +215,11 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		Issuer:     token.Issuer,
 		Subject:    token.Subject,
 		Expiry:     token.Expiry.Unix(),
-		GA4GH:      make(map[string][]ga4gh.OldClaim),
 		GivenName:  claims.Vcard.GivenName,
 		FamilyName: claims.Vcard.FamilyName,
 		Name:       common.JoinNonEmpty([]string{claims.Vcard.GivenName, claims.Vcard.FamilyName}, " "),
 		Email:      claims.Vcard.Email,
+		VisaJWTs:   []string{},
 	}
 	for _, ident := range claims.Identity {
 		if ident.Authority == eraCommonsAuthority {
@@ -257,38 +280,83 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 	}
 
 	currUnixTime := now.Unix()
-	affiliationAsserted := float64(currUnixTime)
+	affiliationAsserted := now.Unix()
 	for a, val := range accessions {
-		id.GA4GH[ga4gh.OldClaimControlledAccessGrants] = append(id.GA4GH[ga4gh.OldClaimControlledAccessGrants],
-			ga4gh.OldClaim{
-				Value:    "https://dac.nih.gov/datasets/" + a,
+		visa := ga4gh.VisaData{
+			JWT: ga4gh.JWT{
+				Subject:   token.Subject,
+				Issuer:    s.visaIssuer,
+				ExpiresAt: val.Expires,
+				IssuedAt:  val.Issued,
+			},
+			Assertion: ga4gh.Assertion{
+				Type:     ga4gh.ControlledAccessGrants,
+				Value:    ga4gh.Value("https://dac.nih.gov/datasets/" + a),
 				Source:   dbGapIssuer,
-				Asserted: val.Issued,
-				Expires:  val.Expires,
-				By:       "dac",
-			})
+				By:       ga4gh.DAC,
+				Asserted: affiliationAsserted,
+			},
+			Scope: visaScope,
+		}
+		v, err := ga4gh.NewVisaFromData(&visa, ga4gh.RS256, s.signingPrivateKey, fixedKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("sign ControlledAccessGrants claim failed: %s", err)
+		}
+
+		id.VisaJWTs = append(id.VisaJWTs, string(v.JWT()))
+
 		// Keep the oldest Issued accession for use as affiliationAsserted.
 		if val.Issued > 0 && val.Issued < affiliationAsserted {
 			affiliationAsserted = val.Issued
 		}
 	}
+
 	for a, src := range affiliations {
-		id.GA4GH[ga4gh.OldClaimAffiliationAndRole] = append(id.GA4GH[ga4gh.OldClaimAffiliationAndRole],
-			ga4gh.OldClaim{
-				Value:    a,
-				Source:   dbGapOrgURL + src.orgID,
-				Asserted: affiliationAsserted,
-				Expires:  float64(currUnixTime + validSec),
-				By:       src.by,
+		// Claim for dbGap
+		visa := ga4gh.VisaData{
+			JWT: ga4gh.JWT{
+				Issuer:    s.visaIssuer,
+				ExpiresAt: currUnixTime + validSec,
+				IssuedAt:  affiliationAsserted,
 			},
-			ga4gh.OldClaim{
-				Value:    a,
+			Assertion: ga4gh.Assertion{
+				Type:     ga4gh.AffiliationAndRole,
+				Value:    ga4gh.Value(a),
 				Source:   dbGapIssuer,
+				By:       ga4gh.System,
 				Asserted: affiliationAsserted,
-				Expires:  float64(currUnixTime + validSec),
-				By:       "system",
 			},
-		)
+			Scope: visaScope,
+		}
+		v, err := ga4gh.NewVisaFromData(&visa, ga4gh.RS256, s.signingPrivateKey, fixedKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("sign dbGap ClaimAffiliationAndRole claim failed: %s", err)
+		}
+
+		id.VisaJWTs = append(id.VisaJWTs, string(v.JWT()))
+
+		// Claim for org
+		visa = ga4gh.VisaData{
+			JWT: ga4gh.JWT{
+				Issuer:    s.visaIssuer,
+				ExpiresAt: currUnixTime + validSec,
+				IssuedAt:  affiliationAsserted,
+			},
+			Assertion: ga4gh.Assertion{
+				Type:     ga4gh.AffiliationAndRole,
+				Value:    ga4gh.Value(a),
+				Source:   ga4gh.Source(dbGapOrgURL + src.orgID),
+				By:       ga4gh.By(src.by),
+				Asserted: affiliationAsserted,
+			},
+			Scope: visaScope,
+		}
+		v, err = ga4gh.NewVisaFromData(&visa, ga4gh.RS256, s.signingPrivateKey, fixedKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("sign org ClaimAffiliationAndRole claim failed: %s", err)
+		}
+
+		id.VisaJWTs = append(id.VisaJWTs, string(v.JWT()))
 	}
 	return &id, nil
 }

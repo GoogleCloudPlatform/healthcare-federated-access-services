@@ -21,6 +21,7 @@ import (
 
 	"github.com/coreos/go-oidc"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 )
 
 const (
@@ -36,7 +37,7 @@ func (s *DbGapTranslator) TestTranslator(token *oidc.IDToken, payload []byte) (*
 }
 
 func TestDbGap(t *testing.T) {
-	translator, err := NewDbGapTranslator("")
+	translator, err := NewDbGapTranslator("", "http://example.com/oidc", testkeys.Keys[testkeys.VisaIssuer0].PrivateStr)
 	if err != nil {
 		t.Fatalf("failed to create a new dbGap translator: %v", err)
 	}

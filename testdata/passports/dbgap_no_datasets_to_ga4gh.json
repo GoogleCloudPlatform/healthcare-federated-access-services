@@ -1,37 +1,11 @@
 {
-  "ga4gh": {
-    "AffiliationAndRole": [
-      {
-        "value": "member@GOOGLE-INC.orgs.nih.gov",
-        "source": "https://orgs.nih.gov/orgs/060909998",
-        "expires": 1565184000,
-        "asserted": 1560000000,
-        "by": "self"
-      },
-      {
-        "value": "member@GOOGLE-INC.orgs.nih.gov",
-        "source": "https://dbgap.nlm.nih.gov/aa",
-        "expires": 1565184000,
-        "asserted": 1560000000,
-        "by": "system"
-      },
-      {
-        "value": "nih.researcher@ACME-INC.orgs.nih.gov",
-        "source": "https://orgs.nih.gov/orgs/060909999",
-        "expires": 1565184000,
-        "asserted": 1560000000,
-        "by": "so"
-      },
-      {
-        "value": "nih.researcher@ACME-INC.orgs.nih.gov",
-        "source": "https://dbgap.nlm.nih.gov/aa",
-        "expires": 1565184000,
-        "asserted": 1560000000,
-        "by": "system"
-      }
-    ]
-  },
-  "exp": 1553870302,
-  "iss": "https://dbgap.nlm.nih.gov/aa",
-  "sub": "999999"
+  "sub":"999999",
+  "iss":"https://dbgap.nlm.nih.gov/aa",
+  "exp":1553870302,
+  "ga4gh_passport_v1":[
+    "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NjUxODQwMDAsImlhdCI6MTU2MDAwMDAwMCwiaXNzIjoiaHR0cDovL2V4YW1wbGUuY29tL29pZGMiLCJzY29wZSI6Im9wZW5pZCIsImdhNGdoX3Zpc2FfdjEiOnsidHlwZSI6IkFmZmlsaWF0aW9uQW5kUm9sZSIsInZhbHVlIjoibWVtYmVyQEdPT0dMRS1JTkMub3Jncy5uaWguZ292Iiwic291cmNlIjoiaHR0cHM6Ly9kYmdhcC5ubG0ubmloLmdvdi9hYSIsImJ5Ijoic3lzdGVtIiwiYXNzZXJ0ZWQiOjE1NjAwMDAwMDB9fQ.R8iIzQGDI9HAbYkxtpIEXY85xGdHOYYOJVhQsNVb7T-ZrEFjvZXOkwnvFUz0v90eVJ7S6C_P-D0n2ifvFFelykeAUr57abuW_V8c7hEkD87v1k06D5ZycHdGF9WUGw8AC32vWTv_6fLuLr-zB7yyehkvMwBiS6pQOlOYUgHjX-4",
+    "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NjUxODQwMDAsImlhdCI6MTU2MDAwMDAwMCwiaXNzIjoiaHR0cDovL2V4YW1wbGUuY29tL29pZGMiLCJzY29wZSI6Im9wZW5pZCIsImdhNGdoX3Zpc2FfdjEiOnsidHlwZSI6IkFmZmlsaWF0aW9uQW5kUm9sZSIsInZhbHVlIjoibWVtYmVyQEdPT0dMRS1JTkMub3Jncy5uaWguZ292Iiwic291cmNlIjoiaHR0cHM6Ly9vcmdzLm5paC5nb3Yvb3Jncy8wNjA5MDk5OTgiLCJieSI6InNlbGYiLCJhc3NlcnRlZCI6MTU2MDAwMDAwMH19.VRO7UFg1GOOJTo1dFyigOlgGzCoNJVNhpgcWQ-OzUH8hSeJ6KU3KLFPYZ--4cDjacZNDVMOpQhbaTHp3JbfkVk-BzBnye9f-CXTVge2Aghj0Kkvm5KkpT_yrUkHUWap43d1L2Ggf6nFRnwCHS_VZEKIuxQFc-NoEjdLlJBMu0HM",
+    "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NjUxODQwMDAsImlhdCI6MTU2MDAwMDAwMCwiaXNzIjoiaHR0cDovL2V4YW1wbGUuY29tL29pZGMiLCJzY29wZSI6Im9wZW5pZCIsImdhNGdoX3Zpc2FfdjEiOnsidHlwZSI6IkFmZmlsaWF0aW9uQW5kUm9sZSIsInZhbHVlIjoibmloLnJlc2VhcmNoZXJAQUNNRS1JTkMub3Jncy5uaWguZ292Iiwic291cmNlIjoiaHR0cHM6Ly9kYmdhcC5ubG0ubmloLmdvdi9hYSIsImJ5Ijoic3lzdGVtIiwiYXNzZXJ0ZWQiOjE1NjAwMDAwMDB9fQ.UE-odvLG8dIZfBa_OZix2c0vwKzHqeL3DvpSvWWEaF0B2CWAic0iyXymFEcBkQ5cpLxblZ_7YslidEdnP8-mo1r2KXfw2L2JbyUEKJPgL8z9PnqxBwPvqMBqJ4aBjMTSiRsqGmn_TJ3BCybbSb50yoGdT-09amIk1jAtGZ9iJn4",
+    "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NjUxODQwMDAsImlhdCI6MTU2MDAwMDAwMCwiaXNzIjoiaHR0cDovL2V4YW1wbGUuY29tL29pZGMiLCJzY29wZSI6Im9wZW5pZCIsImdhNGdoX3Zpc2FfdjEiOnsidHlwZSI6IkFmZmlsaWF0aW9uQW5kUm9sZSIsInZhbHVlIjoibmloLnJlc2VhcmNoZXJAQUNNRS1JTkMub3Jncy5uaWguZ292Iiwic291cmNlIjoiaHR0cHM6Ly9vcmdzLm5paC5nb3Yvb3Jncy8wNjA5MDk5OTkiLCJieSI6InNvIiwiYXNzZXJ0ZWQiOjE1NjAwMDAwMDB9fQ.ZMG4Bt0xXf0CMDY54bqp8_JICBhzvoTFFniyuk7UqZSH04V8Q1iFBoRD15CLWME3sqspYRJAgVp6-ZIPFkCbum-A3SmX2cZvBMdVDMlKoOfDFcghQrPCu-HLA9-zpNjgEYzjJSWYz11iffx0vDrDlU90q5wkLCHX278qBSmNYvE"
+  ]
 }

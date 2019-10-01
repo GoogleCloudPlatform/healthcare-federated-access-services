@@ -31,8 +31,10 @@ var (
 
 // Key is a pair of RSA private/public keys.
 type Key struct {
-	Private *rsa.PrivateKey
-	Public  *rsa.PublicKey
+	Private    *rsa.PrivateKey
+	Public     *rsa.PublicKey
+	PrivateStr string
+	PublicStr  string
 }
 
 // Component is the type of components in the GA4GH Passport ecosystem.
@@ -72,8 +74,10 @@ func keyFromPEM(in pem) Key {
 	private, _ := jwt.ParseRSAPrivateKeyFromPEM(in.Private)
 	public, _ := jwt.ParseRSAPublicKeyFromPEM(in.Public)
 	return Key{
-		Private: private,
-		Public:  public,
+		Private:    private,
+		Public:     public,
+		PrivateStr: string(in.Private),
+		PublicStr:  string(in.Public),
 	}
 }
 
