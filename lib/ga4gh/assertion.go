@@ -14,22 +14,24 @@
 
 package ga4gh
 
-// Conditions represent a GA4GH Passport Visa condition field sub-object.
-// https://docs.google.com/document/d/1NySsYM1V9ssxk_k4RH37fU4tJK8x37YMmDxnn_45FvQ/
-type Conditions [][]Condition
-
-// Condition represnet a GA4GH Passport Visa Condition.
-// http://bit.ly/ga4gh-passport-v1#conditions
-type Condition struct {
+// Assertion represents a GA4GH Passport Visa Object.
+// http://bit.ly/ga4gh-passport-v1#passport-visa-object
+type Assertion struct {
 	// Type http://bit.ly/ga4gh-passport-v1#type
 	Type Type `json:"type,omitempty"`
 
-	// Value http://bit.ly/ga4gh-passport-v1#pattern-matching
-	Value Pattern `json:"value,omitempty"`
+	// Value http://bit.ly/ga4gh-passport-v1#value
+	Value Value `json:"value,omitempty"`
 
 	// Source http://bit.ly/ga4gh-passport-v1#source
 	Source Source `json:"source,omitempty"`
 
 	// By http://bit.ly/ga4gh-passport-v1#by
 	By By `json:"by,omitempty"`
+
+	// Asserted http://bit.ly/ga4gh-passport-v1#asserted
+	Asserted Timestamp `json:"asserted,omitempty"`
+
+	// Conditions http://bit.ly/ga4gh-passport-v1#conditions
+	Conditions Conditions `json:"conditions,omitempty"`
 }

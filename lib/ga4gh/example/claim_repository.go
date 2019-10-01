@@ -20,10 +20,10 @@ import (
 
 // ClaimRepository (R)
 type ClaimRepository struct {
-	Claim ga4gh.Claim
+	Assertion ga4gh.Assertion
 }
 
 // FetchClaim returns the requested claim.
-func (r *ClaimRepository) FetchClaim(t Token) (ga4gh.Claim, error) {
-	return r.Claim, nil
+func (r *ClaimRepository) FetchClaim(t Token) (ga4gh.Assertion, error) {
+	return r.Assertion, nil
 }

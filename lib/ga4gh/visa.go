@@ -39,22 +39,12 @@ type VisaData struct {
 	// JWT is embeded for standard JWT fields.
 	JWT
 
-	// Scope ...
-	Scope string `json:"scope,omitempty"`
+	// Scope for the Visa.
+	// http://bit.ly/ga4gh-aai-profile#ga4gh-jwt-format
+	Scope Scope `json:"scope,omitempty"`
 
-	// Claim contains the Visa Claim.
-	Claim Claim `json:"ga4gh_visa_v1,omitempty"`
-}
-
-// Claim represents a GA4GH Passport Visa Object.
-// A Claim is an "Assertion".
-type Claim struct {
-	Type       string     `json:"type,omitempty"`
-	Value      string     `json:"value,omitempty"`
-	Source     string     `json:"source,omitempty"`
-	Asserted   int64      `json:"asserted,omitempty"`
-	By         string     `json:"by,omitempty"`
-	Conditions Conditions `json:"conditions,omitempty"`
+	// Assertion contains the Visa Assertion.
+	Assertion Assertion `json:"ga4gh_visa_v1,omitempty"`
 }
 
 // NewVisaFromJWT creates a new Visa from a given JWT.

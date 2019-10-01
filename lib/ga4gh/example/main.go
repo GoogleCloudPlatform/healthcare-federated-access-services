@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-	a := ga4gh.Claim{
+	a := ga4gh.Assertion{
 		Type:       "fake-claim-type",
 		Value:      "fake-claim-value",
 		Source:     "fake-claim-source",
@@ -32,7 +32,7 @@ func main() {
 		By:         "fake-claim-by",
 		Conditions: [][]ga4gh.Condition{},
 	}
-	r := ClaimRepository{Claim: a}
+	r := ClaimRepository{Assertion: a}
 	i := VisaIssuer{R: &r, Key: testkeys.Keys[testkeys.VisaIssuer0]}
 	b := PassportBroker{I: &i, Key: testkeys.Keys[testkeys.PassportBroker0]}
 	c := PassportClearinghouse{B: &b}

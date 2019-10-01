@@ -26,7 +26,6 @@ type Resource string
 // PassportClearinghouse (C)
 type PassportClearinghouse struct {
 	B      *PassportBroker
-	Policy ga4gh.Claim
 }
 
 // RequestAccess checks if the bearer has accesses to the requested resouce, if
