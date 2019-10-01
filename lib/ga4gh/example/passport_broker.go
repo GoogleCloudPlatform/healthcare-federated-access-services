@@ -61,7 +61,7 @@ func (b *PassportBroker) FetchPassport(t Token) (ga4gh.PassportJWT, error) {
 		Visas: []*ga4gh.Visa{v},
 	}
 
-	p, err := ga4gh.NewPassportFromData(d, ga4gh.RS256, b.Key.Private)
+	p, err := ga4gh.NewPassportFromData(d, ga4gh.RS256, b.Key.Private, "kid")
 	if err != nil {
 		return "", fmt.Errorf("NewPassportFromData(%v,%v,%v) failed:\n%v", d, ga4gh.RS256, b.Key.Private, err)
 	}

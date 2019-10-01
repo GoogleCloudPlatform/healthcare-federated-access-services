@@ -24,10 +24,14 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 )
 
+const (
+	fixedKeyID = "k"
+)
+
 func TestNewPassportFromData(t *testing.T) {
 	d, j := fakePassportDataAndJWT(t)
 
-	p, err := NewPassportFromData(d, RS256, testkeys.PrivateKey)
+	p, err := NewPassportFromData(d, RS256, testkeys.PrivateKey, fixedKeyID)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", err)
 	}
@@ -69,7 +73,7 @@ func TestPassportJSONFormat(t *testing.T) {
 func TestPassportVerify(t *testing.T) {
 	d, _ := fakePassportDataAndJWT(t)
 
-	p, err := NewPassportFromData(d, RS256, testkeys.PrivateKey)
+	p, err := NewPassportFromData(d, RS256, testkeys.PrivateKey, fixedKeyID)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
 	}
@@ -85,6 +89,7 @@ func fakePassportDataAndJWT(t *testing.T) (*PassportData, PassportJWT) {
 	d := fakePassportData()
 	m := toPassportDataWithVisaJWT(d)
 	token := jwt.NewWithClaims(RS256, m)
+	token.Header[jwtHeaderKeyID] = fixedKeyID
 	signed, err := token.SignedString(testkeys.PrivateKey)
 	if err != nil {
 		t.Fatalf("token.SignedString(_) failed: %v", err)
@@ -99,7 +104,7 @@ func fakePassportDataAndJWT(t *testing.T) (*PassportData, PassportJWT) {
 }
 
 func fakeVisa() *Visa {
-	v, err := NewVisaFromData(fakeVisaData(), RS256, testkeys.PrivateKey)
+	v, err := NewVisaFromData(fakeVisaData(), RS256, testkeys.PrivateKey, fixedKeyID)
 	if err != nil {
 		glog.Fatalf("NewVisaFromData(fakeVisaData,_,_) failed: %v", err)
 	}

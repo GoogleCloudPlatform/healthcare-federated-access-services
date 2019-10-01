@@ -22,6 +22,10 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
+const (
+	jwtHeaderKeyID = "kid"
+)
+
 // Passport represents a GA4GH Passport.
 type Passport struct {
 	// jwt for the passport.
@@ -62,9 +66,15 @@ func NewPassportFromJWT(j PassportJWT) (*Passport, error) {
 }
 
 // NewPassportFromData creates a new Passport.
-func NewPassportFromData(d *PassportData, method SigningMethod, key *rsa.PrivateKey) (*Passport, error) {
+//
+// keyID identifies the key used by issuer to sign the JWT.
+// Visit the issuer's JWKS endpoint to obtain the keys and find the public key corresponding to the keyID.
+// To find the issuer's JWKS endpoint:
+//   Visit "[issuer]/.well-known/openid-configuration"
+// "jku" in JWT header is not allowed for Passport.
+func NewPassportFromData(d *PassportData, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Passport, error) {
 	glog.V(1).Infof("NewPassportFromData(%+v,%T,%v)", d, key)
-	j, err := passportJWTFromData(d, method, key)
+	j, err := passportJWTFromData(d, method, key, keyID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +114,9 @@ type passportDataVisaJWT struct {
 	Visas []VisaJWT `json:"ga4gh_passport_v1,omitempty"`
 }
 
-func passportJWTFromData(d *PassportData, method SigningMethod, key *rsa.PrivateKey) (PassportJWT, error) {
+func passportJWTFromData(d *PassportData, method SigningMethod, key *rsa.PrivateKey, keyID string) (PassportJWT, error) {
 	t := jwt.NewWithClaims(method, toPassportDataWithVisaJWT(d))
+	t.Header[jwtHeaderKeyID] = keyID
 	signed, err := t.SignedString(key)
 	if err != nil {
 		err = fmt.Errorf("SignedString() failed: %v", err)

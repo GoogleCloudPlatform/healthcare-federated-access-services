@@ -27,7 +27,7 @@ import (
 func TestNewVisaFromData(t *testing.T) {
 	d, j := fakeVisaDataAndJWT(t)
 
-	v, err := NewVisaFromData(d, RS256, testkeys.PrivateKey)
+	v, err := NewVisaFromData(d, RS256, testkeys.PrivateKey, fixedKeyID)
 	if err != nil {
 		t.Fatalf("NewVisaFromData(%v) failed: %v", d, err)
 	}
@@ -69,7 +69,7 @@ func TestVisaJSONFormat(t *testing.T) {
 func TestVisaVerify(t *testing.T) {
 	d, _ := fakeVisaDataAndJWT(t)
 
-	p, err := NewVisaFromData(d, RS256, testkeys.PrivateKey)
+	p, err := NewVisaFromData(d, RS256, testkeys.PrivateKey, fixedKeyID)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
 	}
@@ -84,6 +84,7 @@ func fakeVisaDataAndJWT(t *testing.T) (*VisaData, VisaJWT) {
 
 	d := fakeVisaData()
 	token := jwt.NewWithClaims(RS256, d)
+	token.Header[jwtHeaderKeyID] = fixedKeyID
 	signed, err := token.SignedString(testkeys.PrivateKey)
 	if err != nil {
 		t.Fatalf("token.SignedString(_) failed: %v", err)

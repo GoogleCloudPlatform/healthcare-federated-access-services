@@ -63,9 +63,17 @@ func NewVisaFromJWT(j VisaJWT) (*Visa, error) {
 }
 
 // NewVisaFromData creates a new Visa.
-func NewVisaFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey) (*Visa, error) {
+//
+// keyID identifies the key used by issuer to sign the JWT.
+// Visit the issuer's JWKS endpoint to obtain the keys and find the public key corresponding to the keyID.
+// To find the issuer's JWKS endpoint:
+//   If openid scope exists in the Visa, visit "[issuer]/.well-known/openid-configuration"
+//   Else if "jku" exists in JWT header, use the "jku" value.
+//   Otherwise, the Visa cannot be verified.
+// See https://bit.ly/ga4gh-aai-profile#embedded-token-issued-by-embedded-token-issuer
+func NewVisaFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Visa, error) {
 	glog.V(1).Infof("NewVisaFromData(%+v,%T,%v)", d, method, key)
-	j, err := visaJWTFromData(d, method, key)
+	j, err := visaJWTFromData(d, method, key, keyID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +100,9 @@ func (v *Visa) Data() *VisaData {
 	return v.data
 }
 
-func visaJWTFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey) (VisaJWT, error) {
+func visaJWTFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey, keyID string) (VisaJWT, error) {
 	t := jwt.NewWithClaims(method, d)
+	t.Header[jwtHeaderKeyID] = keyID
 	signed, err := t.SignedString(key)
 	if err != nil {
 		return "", err
