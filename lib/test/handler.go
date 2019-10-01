@@ -23,6 +23,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 const (
@@ -38,14 +40,15 @@ var (
 
 // HandlerTest holds the test variables for a service handler test.
 type HandlerTest struct {
-	Name    string
-	Method  string
-	Path    string
-	Input   string
-	IsForm  bool
-	Persona string
-	Output  string
-	Status  int
+	Name       string
+	Method     string
+	Path       string
+	Input      string
+	IsForm     bool
+	Persona    string
+	Output     string
+	CmpOptions cmp.Options
+	Status     int
 }
 
 type serviceHandler interface {
@@ -103,9 +106,9 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest) {
 				hasError = true
 				t.Errorf("test %q returned unexpected body: got %q want regexp match of %q", name, Output, test.Output)
 			}
-		} else if Output != test.Output {
+		} else if diff := cmp.Diff(test.Output, Output, test.CmpOptions); diff != "" {
 			hasError = true
-			t.Errorf("test %q returned unexpected body: got %q want %q", name, Output, test.Output)
+			t.Errorf("test %q returned mismatching body (-want +got):\n%s", name, diff)
 		}
 		if hasError && varInput {
 			t.Logf("test %q Input value was: %s", name, InputStr)

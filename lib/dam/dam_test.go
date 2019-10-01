@@ -16,6 +16,7 @@ package dam
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,8 +29,20 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
 
+	"github.com/google/go-cmp/cmp"
+	"google3/third_party/golang/cmp/cmpopts/cmpopts"
 	. "github.com/golang/mock/gomock"
 )
+
+// transformJSON is a cmp.Option that transform strings into structured objects
+// for properly comparing JSON in a way that is agnostic towards the trivial
+// changes in the output.
+var transformJSON = cmpopts.AcyclicTransformer("ParseJSON", func(in string) (out interface{}) {
+	if err := json.Unmarshal([]byte(in), &out); err != nil {
+		return in
+	}
+	return out
+})
 
 func TestHandlers(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
@@ -39,7 +52,10 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam",
-			Output: `^{"name":"Data Access Manager","versions":\["v1alpha"\],"startTime":"[0-9]+","ui":{"description":"Test DAM","label":"Test DAM".*}}$`,
+			Output: `{"name":"Data Access Manager","versions":["v1alpha"],"ui":{"description":"Test DAM","label":"Test DAM"}}`,
+			CmpOptions: cmp.Options{transformJSON, cmpopts.IgnoreMapEntries(func(k string, v interface{}) bool {
+				return k == "startTime"
+			})},
 			Status: http.StatusOK,
 		},
 		{
