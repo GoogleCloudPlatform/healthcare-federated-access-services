@@ -30,7 +30,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
 
 	"github.com/google/go-cmp/cmp"
-	"google3/third_party/golang/cmp/cmpopts/cmpopts"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/golang/mock/gomock"
 )
 

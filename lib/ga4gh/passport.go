@@ -73,7 +73,6 @@ func NewPassportFromJWT(j PassportJWT) (*Passport, error) {
 //   Visit "[issuer]/.well-known/openid-configuration"
 // "jku" in JWT header is not allowed for Passport.
 func NewPassportFromData(d *PassportData, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Passport, error) {
-	glog.V(1).Infof("NewPassportFromData(%+v,%T,%v)", d, key)
 	j, err := passportJWTFromData(d, method, key, keyID)
 	if err != nil {
 		return nil, err

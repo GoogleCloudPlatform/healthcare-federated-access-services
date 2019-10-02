@@ -33,7 +33,7 @@ func TestNewPassportFromData(t *testing.T) {
 
 	p, err := NewPassportFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
 	if err != nil {
-		t.Fatalf("NewPassportFromData(%v) failed: %v", err)
+		t.Fatalf("NewPassportFromData(_) failed: %v", err)
 	}
 	got := p.JWT()
 
