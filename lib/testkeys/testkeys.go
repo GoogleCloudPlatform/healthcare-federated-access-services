@@ -21,59 +21,58 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-var (
-	// PrivateKey is a fake RSA private key.
-	PrivateKey, _ = jwt.ParseRSAPrivateKeyFromPEM([]byte(pems[0].Private))
-
-	// PublicKey is a fake RSA public key.
-	PublicKey, _ = jwt.ParseRSAPublicKeyFromPEM([]byte(pems[0].Public))
-)
-
 // Key is a pair of RSA private/public keys.
 type Key struct {
+	ID         string
 	Private    *rsa.PrivateKey
 	Public     *rsa.PublicKey
 	PrivateStr string
 	PublicStr  string
 }
 
-// Component is the type of components in the GA4GH Passport ecosystem.
-type Component int
+// Component identifies a component in the GA4GH Passport ecosystem.
+type Component string
 
 const (
 	// Unknown is an unkown component.
-	Unknown Component = iota
+	Unknown Component = "testkeys-unknown"
 	// VisaIssuer0 is a Visa Issuer.
-	VisaIssuer0
+	VisaIssuer0 Component = "testkeys-visa-issuer-0"
 	// VisaIssuer1 is a Visa Issuer.
-	VisaIssuer1
+	VisaIssuer1 Component = "testkeys-visa-issuer-1"
 	// PassportBroker0 is a Passport Broker.
-	PassportBroker0
+	PassportBroker0 Component = "testkeys-passport-broker-0"
 	// PassportBroker1 is a Passport Broker.
-	PassportBroker1
+	PassportBroker1 Component = "testkeys-passport-broker-1"
 	// PersonaBroker is a Passport Broker/Visa Issuer for Personas.
-	PersonaBroker
+	PersonaBroker Component = "testkeys-persona-broker"
 )
 
 // Keys contains fake keys.
 var Keys = map[Component]Key{
-	Unknown:         keyFromPEM(pems[0]),
-	VisaIssuer0:     keyFromPEM(pems[1]),
-	VisaIssuer1:     keyFromPEM(pems[2]),
-	PassportBroker0: keyFromPEM(pems[3]),
-	PassportBroker1: keyFromPEM(pems[4]),
-	PersonaBroker:   keyFromPEM(pems[5]),
+	Unknown:         keyFromPEM(pems[0], Unknown),
+	VisaIssuer0:     keyFromPEM(pems[1], VisaIssuer0),
+	VisaIssuer1:     keyFromPEM(pems[2], VisaIssuer1),
+	PassportBroker0: keyFromPEM(pems[3], PassportBroker0),
+	PassportBroker1: keyFromPEM(pems[4], PassportBroker1),
+	PersonaBroker:   keyFromPEM(pems[5], PersonaBroker),
 }
+
+var (
+	// Default is a fake RSA private/public key pair.
+	Default = Keys[Unknown]
+)
 
 type pem struct {
 	Private []byte
 	Public  []byte
 }
 
-func keyFromPEM(in pem) Key {
+func keyFromPEM(in pem, id Component) Key {
 	private, _ := jwt.ParseRSAPrivateKeyFromPEM(in.Private)
 	public, _ := jwt.ParseRSAPublicKeyFromPEM(in.Public)
 	return Key{
+		ID:         string(id),
 		Private:    private,
 		Public:     public,
 		PrivateStr: string(in.Private),

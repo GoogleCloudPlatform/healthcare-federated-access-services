@@ -31,7 +31,7 @@ const (
 func TestNewPassportFromData(t *testing.T) {
 	d, j := fakePassportDataAndJWT(t)
 
-	p, err := NewPassportFromData(d, RS256, testkeys.PrivateKey, fixedKeyID)
+	p, err := NewPassportFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", err)
 	}
@@ -73,12 +73,12 @@ func TestPassportJSONFormat(t *testing.T) {
 func TestPassportVerify(t *testing.T) {
 	d, _ := fakePassportDataAndJWT(t)
 
-	p, err := NewPassportFromData(d, RS256, testkeys.PrivateKey, fixedKeyID)
+	p, err := NewPassportFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
 	}
 
-	if err := p.Verify(testkeys.PublicKey); err != nil {
+	if err := p.Verify(testkeys.Default.Public); err != nil {
 		t.Fatalf("Verify(_) failed: %v", err)
 	}
 }
@@ -89,8 +89,8 @@ func fakePassportDataAndJWT(t *testing.T) (*PassportData, PassportJWT) {
 	d := fakePassportData()
 	m := toPassportDataWithVisaJWT(d)
 	token := jwt.NewWithClaims(RS256, m)
-	token.Header[jwtHeaderKeyID] = fixedKeyID
-	signed, err := token.SignedString(testkeys.PrivateKey)
+	token.Header[jwtHeaderKeyID] = testkeys.Default.ID
+	signed, err := token.SignedString(testkeys.Default.Private)
 	if err != nil {
 		t.Fatalf("token.SignedString(_) failed: %v", err)
 	}
@@ -104,7 +104,7 @@ func fakePassportDataAndJWT(t *testing.T) (*PassportData, PassportJWT) {
 }
 
 func fakeVisa() *Visa {
-	v, err := NewVisaFromData(fakeVisaData(), RS256, testkeys.PrivateKey, fixedKeyID)
+	v, err := NewVisaFromData(fakeVisaData(), RS256, testkeys.Default.Private, testkeys.Default.ID)
 	if err != nil {
 		glog.Fatalf("NewVisaFromData(fakeVisaData,_,_) failed: %v", err)
 	}
