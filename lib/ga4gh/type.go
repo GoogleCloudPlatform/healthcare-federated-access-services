@@ -23,16 +23,24 @@ type Type string
 
 const (
 	// AffiliationAndRole Assertion type.
+	// http://bit.ly/ga4gh-passport-v1#affiliationandrole
 	AffiliationAndRole Type = "AffiliationAndRole"
 
 	// AcceptedTermsAndPolicies Assertion type.
+	// http://bit.ly/ga4gh-passport-v1#acceptedtermsandpolicies
 	AcceptedTermsAndPolicies Type = "AcceptedTermsAndPolicies"
 
 	// ResearcherStatus Assertion type.
+	// http://bit.ly/ga4gh-passport-v1#researcherstatus
 	ResearcherStatus Type = "ResearcherStatus"
 
 	// ControlledAccessGrants Assertion type.
+	// http://bit.ly/ga4gh-passport-v1#controlledaccessgrants
 	ControlledAccessGrants Type = "ControlledAccessGrants"
+
+	// LinkedIdentities Assertion type.
+	// http://bit.ly/ga4gh-passport-v1#linkedidentities
+	LinkedIdentities Type = "LinkedIdentities"
 )
 
 // Value is the value of an Assertion.
