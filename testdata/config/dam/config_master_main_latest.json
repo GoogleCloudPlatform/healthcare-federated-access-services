@@ -100,6 +100,7 @@
       ],
       "claims": [
         "AcceptedTermsAndPolicies",
+        "AffiliationAndRole",
         "BonaFide"
       ],
       "ui": {
@@ -639,15 +640,15 @@
       "ui": {
         "label": "Dr. Joe (Elixir)"
       },
-      "idToken": {
+      "passport": {
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
           "sub": "dr_joe@faculty.example.edu",
           "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
         },
-        "ga4ghClaims": [
+        "ga4ghAssertions": [
           {
-            "claimName": "BonaFide",
+            "type": "BonaFide",
             "source": "https://example.edu",
             "value": "https://doi.org/10.1038/s41431-018-0219-y",
             "assertedDuration": "1d",
@@ -655,7 +656,7 @@
             "by": "peer"
           },
           {
-            "claimName": "AcceptedTermsAndPolicies",
+            "type": "AcceptedTermsAndPolicies",
             "source": "https://example.edu",
             "value": "https://doi.org/10.1038/s41431-018-0219-y",
             "assertedDuration": "1d",
@@ -674,15 +675,15 @@
       "ui": {
         "label": "Dr. Joe (eRA Commons)"
       },
-      "idToken": {
+      "passport": {
         "standardClaims": {
           "iss": "https://login.nih.gov/oidc/",
           "sub": "dr_joe@era.nih.gov",
           "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
         },
-        "ga4ghClaims": [
+        "ga4ghAssertions": [
           {
-            "claimName": "AffiliationAndRole",
+            "type": "AffiliationAndRole",
             "source": "https://example.edu",
             "value": "faculty@example.edu",
             "assertedDuration": "1d",
@@ -690,18 +691,23 @@
             "by": "so"
           },
           {
-            "claimName": "ControlledAccessGrants",
+            "type": "ControlledAccessGrants",
             "source": "https://dbgap.nlm.nih.gov/aa",
             "value": "https://dac.nih.gov/datasets/phs000710",
             "assertedDuration": "1d",
             "expiresDuration": "30d",
             "by": "dac",
-            "condition": {
-              "AffiliationAndRole": {
-                "value": ["faculty@example.edu"],
-                "by": ["so"]
+            "conditions": [
+              {
+                "clauses": [
+                  {
+                    "type": "AffiliationAndRole",
+                    "value": "const:faculty@example.edu",
+                    "by": "const:so"
+                  }
+                ]
               }
-            }
+            ]
           }
         ]
       },

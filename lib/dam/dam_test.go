@@ -498,7 +498,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/config/testPersonas/dr_joe_elixir",
-			Output: `^.*"idToken"`,
+			Output: `^.*"passport"`,
 			Status: http.StatusOK,
 		},
 		{
@@ -566,15 +566,15 @@ func TestHandlers(t *testing.T) {
 					"ui": {
 						"label": "dr_joe_era_commons test"
 					},
-					"idToken": {
+					"passport": {
 						"standardClaims": {
 							"iss": "https://login.nih.gov/oidc/",
 							"sub": "dr_joe@era.nih.gov",
 							"picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
 						},
-						"ga4ghClaims": [
+						"ga4ghAssertions": [
 							{
-								"claimName": "AffiliationAndRole",
+								"type": "AffiliationAndRole",
 								"source": "https://example.edu",
 								"value": "student@example.edu",
 								"assertedDuration": "1d",
@@ -582,18 +582,23 @@ func TestHandlers(t *testing.T) {
 								"by": "so"
 							},
 							{
-								"claimName": "ControlledAccessGrants",
+								"type": "ControlledAccessGrants",
 								"source": "https://dbgap.nlm.nih.gov/aa",
 								"value": "https://dac.nih.gov/datasets/phs000710",
 								"assertedDuration": "1d",
 								"expiresDuration": "30d",
 								"by": "dac",
-								"condition": {
-									"AffiliationAndRole": {
-										"value": ["faculty@example.edu"],
-										"by": ["so"]
-									}
-								}
+								"conditions": [
+       		      	{
+                		"clauses": [
+                  		{
+                    		"type": "AffiliationAndRole",
+                    		"value": "const:faculty@example.edu",
+                    		"by": "const:so"
+                  		}
+                		]
+              		}
+            		]
 							}
 						]
 					},
@@ -619,15 +624,15 @@ func TestHandlers(t *testing.T) {
 					"ui": {
 						"label": "dr_joe_era_commons test"
 					},
-					"idToken": {
+					"passport": {
 						"standardClaims": {
 							"iss": "https://login.nih.gov/oidc/",
 							"sub": "dr_joe@era.nih.gov",
 							"picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
 						},
-						"ga4ghClaims": [
+						"ga4ghAssertions": [
 							{
-								"claimName": "AffiliationAndRole",
+								"type": "AffiliationAndRole",
 								"source": "https://example.edu",
 								"value": "faculty@example.edu",
 								"assertedDuration": "30d",
@@ -635,18 +640,23 @@ func TestHandlers(t *testing.T) {
 								"by": "so"
 							},
 							{
-								"claimName": "ControlledAccessGrants",
+								"type": "ControlledAccessGrants",
 								"source": "https://dbgap.nlm.nih.gov/aa",
 								"value": "https://dac.nih.gov/datasets/phs000710",
 								"assertedDuration": "1d",
 								"expiresDuration": "30d",
 								"by": "dac",
-								"condition": {
-									"AffiliationAndRole": {
-										"value": ["faculty@example.edu"],
-										"by": ["so"]
-									}
-								}
+								"conditions": [
+       		      	{
+                		"clauses": [
+                  		{
+                    		"type": "AffiliationAndRole",
+                    		"value": "const:faculty@example.edu",
+                    		"by": "const:so"
+                  		}
+                		]
+              		}
+            		]
 							}
 						]
 					},
@@ -672,15 +682,15 @@ func TestHandlers(t *testing.T) {
 					"ui": {
 						"label": "Dr. Joe (Elixir)"
 					},
-					"idToken": {
+					"passport": {
 						"standardClaims": {
 							"iss": "https://login.elixir-czech.org/oidc/",
 							"sub": "dr_joe@faculty.example.edu",
 							"picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
 						},
-						"ga4ghClaims": [
+						"ga4ghAssertions": [
 							{
-								"claimName": "BonaFide",
+								"type": "BonaFide",
 								"source": "https://example.edu",
 								"value": "https://www.nature.com/articles/s41431-018-0219-y",
 								"assertedDuration": "1d",
@@ -688,7 +698,7 @@ func TestHandlers(t *testing.T) {
 								"by": "peer"
 							},
 							{
-								"claimName": "AcceptedTermsAndPolicies",
+								"type": "AcceptedTermsAndPolicies",
 								"source": "https://example.edu",
 								"value": "https://www.nature.com/articles/s41431-018-0219-y",
 								"assertedDuration": "1d",

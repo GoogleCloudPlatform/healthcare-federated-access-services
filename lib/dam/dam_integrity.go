@@ -174,8 +174,8 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		if err := checkName(n); err != nil {
 			return fmt.Errorf("test persona name %q: %v", n, err)
 		}
-		if tp.IdToken == nil {
-			return fmt.Errorf("test persona %q requires an ID token", n)
+		if tp.Passport == nil {
+			return fmt.Errorf("test persona %q requires a Passport", n)
 		}
 		tid, err := playground.PersonaToIdentity(n, tp, defaultPersonaScope)
 		if err != nil {
@@ -657,7 +657,7 @@ func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestRes
 	for pname, p := range cfg.TestPersonas {
 		tc++
 		personas[pname] = &pb.TestPersona{
-			IdToken:   p.IdToken,
+			Passport:  p.Passport,
 			Resources: p.Resources,
 		}
 		status, got, err := s.testPersona(pname, resources, cfg, vm)

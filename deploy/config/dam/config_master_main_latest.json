@@ -326,7 +326,7 @@
             "ui": {
                "label": "Administrator"
             },
-            "idToken": {
+            "passport": {
                "standardClaims": {
                   "iss": "https://${Your-IC-Domain}/oidc",
                   "sub": "admin@example.org"
@@ -337,14 +337,14 @@
             "ui": {
                "label": "NCI Researcher"
             },
-            "idToken": {
+            "passport": {
                "standardClaims": {
                   "iss": "https://login.elixir-czech.org/oidc/",
                   "sub": "nci_researcher@example.org"
                },
-               "ga4ghClaims": [
+               "ga4ghAssertions": [
                   {
-                     "claimName": "ResearcherStatus",
+                     "type": "ResearcherStatus",
                      "source": "https://ga4gh.org/duri/no_org",
                      "value": "https://doi.org/10.1038/s41431-018-0219-y",
                      "assertedDuration": "1d",
@@ -352,7 +352,7 @@
                      "by": "peer"
                   },
                   {
-                     "claimName": "AcceptedTermsAndPolicies",
+                     "type": "AcceptedTermsAndPolicies",
                      "source": "https://example.edu",
                      "value": "https://doi.org/10.1038/s41431-018-0219-y",
                      "assertedDuration": "1d",
@@ -374,14 +374,14 @@
             "ui": {
                "label": "EU Researcher"
             },
-            "idToken": {
+            "passport": {
                "standardClaims": {
                   "iss": "https://login.elixir-czech.org/oidc/",
                   "sub": "eu_researcher@example.org"
                },
-               "ga4ghClaims": [
+               "ga4ghAssertions": [
                   {
-                     "claimName": "ControlledAccessGrants",
+                     "type": "ControlledAccessGrants",
                      "source": "https://ga4gh.org/duri/no_org",
                      "value": "https://dac.example.org/datasets/ds123",
                      "assertedDuration": "1d",
@@ -402,7 +402,7 @@
             "ui": {
                "label": "Undergrad Candice"
             },
-            "idToken": {
+            "passport": {
                "standardClaims": {
                   "iss": "https://login.elixir-czech.org/oidc/",
                   "sub": "undergrad_candice@example.org"

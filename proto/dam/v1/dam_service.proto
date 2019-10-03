@@ -168,25 +168,29 @@ message AccessList {
 }
 
 message TestPersona {
-  message GA4GHClaim {
-    message Condition {
-      repeated string source = 1;
-      repeated string value = 2;
-      repeated string by = 3;
+  message TestAssertion {
+    message ConditionClause {
+      string type = 1;
+      string source = 2;
+      string value = 3;
+      string by = 4;
     }
-    string claim_name = 1;
+    message Condition {
+      repeated ConditionClause clauses = 1;
+    }
+    string type = 1;
     string source = 2;
     string value = 3;
     string asserted_duration = 4;
     string expires_duration = 5;
-    map<string, Condition> condition = 6;
+    repeated Condition conditions = 6;
     string by = 7;
   }
-  message TestIdentityToken {
+  message TestPassport {
     map<string, string> standard_claims = 1;
-    repeated GA4GHClaim ga4gh_claims = 2;
+    repeated TestAssertion ga4gh_assertions = 2;
   }
-  TestIdentityToken id_token = 1;
+  TestPassport passport = 1;
   map<string, AccessList> resources = 2;
   map<string, string> ui = 3;
 }

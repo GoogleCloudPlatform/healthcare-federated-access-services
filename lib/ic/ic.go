@@ -772,10 +772,10 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func personaSubject(pName string, p *dampb.TestPersona) string {
-	if p.IdToken == nil || p.IdToken.StandardClaims == nil {
+	if p.Passport == nil || p.Passport.StandardClaims == nil {
 		return pName
 	}
-	if sub, ok := p.IdToken.StandardClaims["sub"]; ok {
+	if sub, ok := p.Passport.StandardClaims["sub"]; ok {
 		return sub
 	}
 	return pName

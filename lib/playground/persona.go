@@ -21,6 +21,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
@@ -47,10 +48,12 @@ var (
 	// minPersonaFutureExpiry prevents users from setting expiries too close to now() that execution
 	// time across many personas may cause a test to accidently fail.
 	minPersonaFutureExpiry = 5 * time.Second
+
+	personaKey = testkeys.Keys[testkeys.PersonaBroker]
 )
 
 func PersonaToIdentity(name string, persona *dampb.TestPersona, scope string) (*ga4gh.Identity, error) {
-	if persona.IdToken == nil {
+	if persona.Passport == nil {
 		return nil, fmt.Errorf("persona %q has not configured a test identity token", name)
 	}
 	sub := getStandardClaim(persona, "sub")
@@ -133,10 +136,10 @@ func PersonaToIdentity(name string, persona *dampb.TestPersona, scope string) (*
 		Picture:         getStandardClaim(persona, "picture"),
 		Profile:         getStandardClaim(persona, "profile"),
 	}
-	if persona.IdToken.Ga4GhClaims == nil || len(persona.IdToken.Ga4GhClaims) == 0 {
+	if persona.Passport.Ga4GhAssertions == nil || len(persona.Passport.Ga4GhAssertions) == 0 {
 		return &identity, nil
 	}
-	return populatePersonaClaims(name, persona.IdToken.Ga4GhClaims, &identity)
+	return populatePersonaVisas(name, persona.Passport.Ga4GhAssertions, &identity)
 }
 
 func toName(input string) string {
@@ -148,67 +151,140 @@ func nameSplit(r rune) bool {
 }
 
 func getStandardClaim(persona *dampb.TestPersona, claim string) string {
-	if persona.IdToken.StandardClaims == nil || len(persona.IdToken.StandardClaims[claim]) == 0 {
+	if persona.Passport.StandardClaims == nil || len(persona.Passport.StandardClaims[claim]) == 0 {
 		return ""
 	}
-	return persona.IdToken.StandardClaims[claim]
+	return persona.Passport.StandardClaims[claim]
 }
 
-func populatePersonaClaims(pname string, claims []*dampb.TestPersona_GA4GHClaim, id *ga4gh.Identity) (*ga4gh.Identity, error) {
+func populatePersonaVisas(pname string, assertions []*dampb.TestPersona_TestAssertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
+	id.VisaJWTs = make([]string, len(assertions))
 	now := float64(time.Now().Unix())
 
-	for i, claim := range claims {
-		cname := claim.ClaimName
-		if len(cname) == 0 {
-			return nil, fmt.Errorf("persona %q claim %d missing claim name", pname, i+1)
+	for i, assert := range assertions {
+		typ := ga4gh.Type(assert.Type)
+		if len(typ) == 0 {
+			return nil, fmt.Errorf("persona %q visa %d missing assertion type", pname, i+1)
 		}
-		if len(claim.Value) == 0 {
-			return nil, fmt.Errorf("persona %q claim %d missing claim value", pname, i+1)
-		}
-		src := issuer
-		if len(claim.Source) > 0 {
-			src = claim.Source
-		}
-		_, ok := id.GA4GH[cname]
+		_, ok := id.GA4GH[assert.Type]
 		if !ok {
-			id.GA4GH[cname] = make([]ga4gh.OldClaim, 0)
+			id.GA4GH[assert.Type] = make([]ga4gh.OldClaim, 0)
 		}
-		// claim.AssertedDuration cannot be negative and is assumed to be a duration in the past.
-		a, err := common.ParseDuration(claim.AssertedDuration, 120*time.Second)
-		if err != nil {
-			return nil, fmt.Errorf("persona %q claim %d asserted duration %q: %v", pname, i+1, claim.AssertedDuration, err)
+		if len(assert.Value) == 0 {
+			return nil, fmt.Errorf("persona %q visa %d missing assertion value", pname, i+1)
 		}
-		asserted := now - a.Seconds()
-		// claim.ExpiresDuration may be negative or positive where a negative value represents the past.
-		e, err := common.ParseNegDuration(claim.ExpiresDuration, 30*24*time.Hour)
+		src := ga4gh.Source(issuer)
+		if len(assert.Source) > 0 {
+			src = ga4gh.Source(assert.Source)
+		}
+		// assert.AssertedDuration cannot be negative and is assumed to be a duration in the past.
+		a, err := common.ParseDuration(assert.AssertedDuration, 120*time.Second)
 		if err != nil {
-			return nil, fmt.Errorf("persona %q claim %d expires duration %q: %v", pname, i+1, claim.ExpiresDuration, err)
+			return nil, fmt.Errorf("persona %q visa %d asserted duration %q: %v", pname, i+1, assert.AssertedDuration, err)
+		}
+		asserted := int64(now - a.Seconds())
+		// assert.ExpiresDuration may be negative or positive where a negative value represents the past.
+		e, err := common.ParseNegDuration(assert.ExpiresDuration, 30*24*time.Hour)
+		if err != nil {
+			return nil, fmt.Errorf("persona %q visa %d expires duration %q: %v", pname, i+1, assert.ExpiresDuration, err)
 		}
 		if e > 0 && e < minPersonaFutureExpiry {
 			e = minPersonaFutureExpiry
 		}
-		expires := now + e.Seconds()
-		c := ga4gh.OldClaim{
-			Value:    claim.Value,
-			Source:   src,
-			Asserted: asserted,
-			Expires:  expires,
-			By:       claim.By,
+		expires := int64(now + e.Seconds())
+		visa := ga4gh.VisaData{
+			JWT: ga4gh.JWT{
+				Subject:   id.Subject,
+				Issuer:    id.Issuer,
+				ExpiresAt: expires,
+				IssuedAt:  int64(now),
+			},
+			Assertion: ga4gh.Assertion{
+				Type:     typ,
+				Value:    ga4gh.Value(assert.Value),
+				Source:   src,
+				Asserted: asserted,
+				By:       ga4gh.By(assert.By),
+			},
 		}
-		if claim.Condition != nil {
-			c.Condition = make(map[string]ga4gh.OldClaimCondition)
-			for k, v := range claim.Condition {
-				c.Condition[k] = ga4gh.OldClaimCondition{
-					Value:  v.Value,
-					Source: v.Source,
-					By:     v.By,
+		if len(assert.Conditions) > 0 {
+			visa.Assertion.Conditions = make(ga4gh.Conditions, 0)
+			for _, cond := range assert.Conditions {
+				clauses := []ga4gh.Condition{}
+				for _, clause := range cond.Clauses {
+					c := ga4gh.Condition{
+						Type:   ga4gh.Type(clause.Type),
+						Value:  ga4gh.Pattern(clause.Value),
+						Source: ga4gh.Source(clause.Source),
+						By:     ga4gh.By(clause.By),
+					}
+					clauses = append(clauses, c)
 				}
+				visa.Assertion.Conditions = append(visa.Assertion.Conditions, clauses)
 			}
 		}
 
-		id.GA4GH[cname] = append(id.GA4GH[cname], c)
+		v, err := ga4gh.NewVisaFromData(&visa, ga4gh.RS256, personaKey.Private, personaKey.ID)
+		if err != nil {
+			return nil, fmt.Errorf("signing persona %q visa %d failed: %s", pname, i+1, err)
+		}
+		id.VisaJWTs[i] = string(v.JWT())
+
+		// Populate old claims.
+		c := ga4gh.OldClaim{
+			Value:    assert.Value,
+			Source:   string(src),
+			Asserted: float64(asserted),
+			Expires:  float64(expires),
+			By:       assert.By,
+		}
+		if len(assert.Conditions) > 0 {
+			c.Condition = make(map[string]ga4gh.OldClaimCondition)
+			cType := ""
+			cValue := []string{}
+			cSource := []string{}
+			cBy := []string{}
+			for _, cond := range assert.Conditions {
+				for _, clause := range cond.Clauses {
+					cType = clause.Type
+					clValue := clause.Value
+					if clValues := strings.SplitN(clause.Value, ":", 2); len(clValues) > 1 {
+						clValue = clValues[1]
+					}
+					clSource := clause.Source
+					if clSources := strings.SplitN(clause.Source, ":", 2); len(clSources) > 1 {
+						clSource = clSources[1]
+					}
+					clBy := clause.By
+					if clBys := strings.SplitN(clause.By, ":", 2); len(clBys) > 1 {
+						clBy = clBys[1]
+					}
+					if len(clValue) > 0 {
+						cValue = append(cValue, clValue)
+					}
+					if len(clSource) > 0 {
+						cSource = append(cSource, clSource)
+					}
+					if len(clBy) > 0 {
+						cBy = append(cBy, clBy)
+					}
+				}
+			}
+			oldC := ga4gh.OldClaimCondition{}
+			if len(cValue) > 0 {
+				oldC.Value = cValue
+			}
+			if len(cSource) > 0 {
+				oldC.Source = cSource
+			}
+			if len(cBy) > 0 {
+				oldC.By = cBy
+			}
+			c.Condition[cType] = oldC
+		}
+		id.GA4GH[assert.Type] = append(id.GA4GH[assert.Type], c)
 	}
 	return id, nil
 }

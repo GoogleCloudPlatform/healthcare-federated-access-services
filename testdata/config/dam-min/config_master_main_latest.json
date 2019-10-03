@@ -124,12 +124,12 @@
       "ui": {
         "label": "Non Admin"
       },
-      "idToken": {
+      "passport": {
         "standardClaims": {
           "iss": "https://ic-dot-example.appspot.com/oidc",
           "sub": "non-admin@faculty.example.edu"
         },
-        "ga4ghClaims": []
+        "ga4ghAssertions": []
       },
       "resources": {
       }
@@ -138,12 +138,12 @@
       "ui": {
         "label": "Admin"
       },
-      "idToken": {
+      "passport": {
         "standardClaims": {
           "iss": "https://ic-dot-example.appspot.com/oidc",
           "sub": "admin@faculty.example.edu"
         },
-        "ga4ghClaims": []
+        "ga4ghAssertions": []
       },
       "resources": {
       }
@@ -152,14 +152,14 @@
       "ui": {
         "label": "Dr. Joe"
       },
-      "idToken": {
+      "passport": {
         "standardClaims": {
           "iss": "https://ic-dot-example.appspot.com/oidc",
           "sub": "dr_joe@faculty.example.edu"
         },
-        "ga4ghClaims": [
+        "ga4ghAssertions": [
           {
-            "claimName": "BonaFide",
+            "type": "BonaFide",
             "source": "https://ga4gh.broadinstitute.org",
             "value": "https://doi.org/10.1038/s41431-018-0219-y",
             "assertedDuration": "1d",

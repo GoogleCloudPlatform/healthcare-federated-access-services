@@ -1199,11 +1199,11 @@ func (h *configPersonaHandler) NormalizeInput(name string, vars map[string]strin
 	if h.input.Item == nil {
 		h.input.Item = &pb.TestPersona{}
 	}
-	if h.input.Item.IdToken == nil {
-		h.input.Item.IdToken = &pb.TestPersona_TestIdentityToken{}
+	if h.input.Item.Passport == nil {
+		h.input.Item.Passport = &pb.TestPersona_TestPassport{}
 	}
-	if h.input.Item.IdToken.StandardClaims == nil {
-		h.input.Item.IdToken.StandardClaims = make(map[string]string)
+	if h.input.Item.Passport.StandardClaims == nil {
+		h.input.Item.Passport.StandardClaims = make(map[string]string)
 	}
 	if h.input.Item.Resources == nil {
 		h.input.Item.Resources = make(map[string]*pb.AccessList)
@@ -1229,7 +1229,7 @@ func (h *configPersonaHandler) Put(name string) error {
 }
 func (h *configPersonaHandler) Patch(name string) error {
 	proto.Merge(h.item, h.input.Item)
-	h.item.IdToken = h.input.Item.IdToken
+	h.item.Passport = h.input.Item.Passport
 	h.item.Resources = h.input.Item.Resources
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
