@@ -25,7 +25,7 @@ type Resource string
 
 // PassportClearinghouse (C)
 type PassportClearinghouse struct {
-	B      *PassportBroker
+	B *PassportBroker
 }
 
 // RequestAccess checks if the bearer has accesses to the requested resouce, if
@@ -34,24 +34,36 @@ func (c *PassportClearinghouse) RequestAccess(r Resource, t Token) (Token, error
 	// VerifyToken(t)
 	// B := ExtractPassportBroker(t)
 
-	j, err := c.B.FetchPassport(t)
+	j, err := c.B.FetchAccess(t)
 	if err != nil {
-		return "", fmt.Errorf("FetchPassport(%v) failed:\n%v", t, err)
+		return "", fmt.Errorf("FetchAccess(%v) failed:\n%v", t, err)
 	}
 
-	p, err := ga4gh.NewPassportFromJWT(j)
+	a, err := ga4gh.NewAccessFromJWT(j)
 	if err != nil {
-		return "", fmt.Errorf("NewPassportFromJWT(%v) failed:\n%v", j, err)
+		return "", fmt.Errorf("NewAccessFromJWT(%v) failed:\n%v", j, err)
 	}
 
-	if err := p.Verify(c.B.Key.Public); err != nil {
-		return "", fmt.Errorf("Passport(%v).Verify(%v) failed:\n%v", p, c.B.Key.Public, err)
+	if err := a.Verify(c.B.Key.Public); err != nil {
+		return "", fmt.Errorf("Access(%v).Verify(%v) failed:\n%v", a, c.B.Key.Public, err)
 	}
 
-	for _, v := range p.Data().Visas {
+	p := ga4gh.Passport{Access: a}
+
+	js, err := c.B.FetchVisas(t)
+	if err != nil {
+		return "", fmt.Errorf("FetchVisas(%v) failed:\n%v", j, err)
+	}
+
+	for _, j := range js {
+		v, err := ga4gh.NewVisaFromJWT(j)
+		if err != nil {
+			return "", fmt.Errorf("NewVisaFromJWT(%v) failed:\n%v", j, err)
+		}
 		if err := v.Verify(c.B.I.Key.Public); err != nil {
 			return "", fmt.Errorf("Visa(%v).Verify(%v) failed:\n%v", v, c.B.I.Key.Public, err)
 		}
+		p.Visas = append(p.Visas, v)
 	}
 
 	// Evaluate the Claims agains the Policy.

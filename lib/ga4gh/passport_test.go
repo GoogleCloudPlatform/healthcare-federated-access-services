@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	glog "github.com/golang/glog"
+	_ "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
@@ -28,25 +28,25 @@ const (
 	fixedKeyID = "k"
 )
 
-func TestNewPassportFromData(t *testing.T) {
-	d, j := fakePassportDataAndJWT(t)
+func TestNewAccessFromData(t *testing.T) {
+	d, j := fakeAccessDataAndJWT(t)
 
-	p, err := NewPassportFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	p, err := NewAccessFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
 	if err != nil {
-		t.Fatalf("NewPassportFromData(_) failed: %v", err)
+		t.Fatalf("NewAccessFromData(_) failed: %v", err)
 	}
 	got := p.JWT()
 
 	want := j
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("NewPassportFromData(%v) returned diff (-want +got):\n%s", d, diff)
+		t.Fatalf("NewAccessFromData(%v) returned diff (-want +got):\n%s", d, diff)
 	}
 }
 
-func TestNewPassportFromJWT(t *testing.T) {
-	d, j := fakePassportDataAndJWT(t)
+func TestNewAccessFromJWT(t *testing.T) {
+	d, j := fakeAccessDataAndJWT(t)
 
-	p, err := NewPassportFromJWT(j)
+	p, err := NewAccessFromJWT(j)
 	if err != nil {
 		t.Fatalf("NewVisaFromJWT(%v) failed: %v", j, err)
 	}
@@ -58,24 +58,24 @@ func TestNewPassportFromJWT(t *testing.T) {
 	}
 }
 
-func TestPassportJSONFormat(t *testing.T) {
-	_, j := fakePassportDataAndJWT(t)
+func TestAccessJSONFormat(t *testing.T) {
+	_, j := fakeAccessDataAndJWT(t)
 	got, err := payloadFromJWT(string(j))
 	if err != nil {
 		t.Fatalf("payloadFromJWT(%v) failed: %v", j, err)
 	}
-	want := fakePassportDataJSON()
+	want := fakeAccessDataJSON()
 	if diff := cmp.Diff(jsontxt(want), jsontxt(got), cmp.Transformer("", jsontxtCanonical)); diff != "" {
 		t.Fatalf("JSON(%v) returned diff (-want +got):\n%s", j, diff)
 	}
 }
 
-func TestPassportVerify(t *testing.T) {
-	d, _ := fakePassportDataAndJWT(t)
+func TestAccessVerify(t *testing.T) {
+	d, _ := fakeAccessDataAndJWT(t)
 
-	p, err := NewPassportFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	p, err := NewAccessFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
 	if err != nil {
-		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
+		t.Fatalf("NewAccessFromData(%v) failed: %v", d, err)
 	}
 
 	if err := p.Verify(testkeys.Default.Public); err != nil {
@@ -83,18 +83,18 @@ func TestPassportVerify(t *testing.T) {
 	}
 }
 
-func fakePassportDataAndJWT(t *testing.T) (*PassportData, PassportJWT) {
+func fakeAccessDataAndJWT(t *testing.T) (*AccessData, AccessJWT) {
 	t.Helper()
 
-	d := fakePassportData()
-	m := toPassportDataWithVisaJWT(d)
+	d := fakeAccessData()
+	m := toAccessDataWithVisaJWT(d)
 	token := jwt.NewWithClaims(RS256, m)
 	token.Header[jwtHeaderKeyID] = testkeys.Default.ID
 	signed, err := token.SignedString(testkeys.Default.Private)
 	if err != nil {
 		t.Fatalf("token.SignedString(_) failed: %v", err)
 	}
-	j := PassportJWT(signed)
+	j := AccessJWT(signed)
 
 	t.Logf("Data: %v", d)
 	t.Logf("JWT: %v", j)
@@ -103,16 +103,8 @@ func fakePassportDataAndJWT(t *testing.T) (*PassportData, PassportJWT) {
 	return d, j
 }
 
-func fakeVisa() *Visa {
-	v, err := NewVisaFromData(fakeVisaData(), RS256, testkeys.Default.Private, testkeys.Default.ID)
-	if err != nil {
-		glog.Fatalf("NewVisaFromData(fakeVisaData,_,_) failed: %v", err)
-	}
-	return v
-}
-
-func fakePassportData() *PassportData {
-	return &PassportData{
+func fakeAccessData() *AccessData {
+	return &AccessData{
 		StdClaims: StdClaims{
 			Id:        "fake-passport-id",
 			Subject:   "fake-passport-subject",
@@ -121,20 +113,16 @@ func fakePassportData() *PassportData {
 			ExpiresAt: fakeEnd(),
 		},
 		Scope: "openid fake-passport-scope",
-		Visas: []*Visa{fakeVisa()},
 	}
 }
 
-func fakePassportDataJSON() string {
+func fakeAccessDataJSON() string {
 	return `{
     "exp": ` + fmt.Sprintf("%v", fakeEnd()) + `,
     "jti": "fake-passport-id",
     "iat": ` + fmt.Sprintf("%v", fakeStart()) + `,
     "iss": "fake-passport-issuer",
     "sub": "fake-passport-subject",
-    "scope": "openid fake-passport-scope",
-    "ga4gh_passport_v1": [
-    "` + string(fakeVisa().JWT()) + `"
-    ]
+    "scope": "openid fake-passport-scope"
   }`
 }

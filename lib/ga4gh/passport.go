@@ -29,93 +29,96 @@ const (
 // Passport represents a GA4GH Passport.
 // http://bit.ly/ga4gh-passport-v1#overview
 type Passport struct {
-	// jwt for the passport.
-	jwt PassportJWT
-
-	// data is unmarhsalled data contained in passport jwt.
-	data *PassportData
-}
-
-// PassportJWT is a string containing a JWT Passport object.
-type PassportJWT string
-
-// PassportData is used to create a new Passport.
-type PassportData struct {
-	// StdClaims is embeded for standard JWT claims.
-	StdClaims
-
-	// Scope ...
-	Scope string `json:"scope,omitempty"`
+	// Access is the Access Token for the Passport.
+	Access *Access
 
 	// Visas contains the list of Visas for the Passport.
 	Visas []*Visa `json:"ga4gh_passport_v1,omitempty"`
 }
 
-// NewPassportFromJWT creates a new Passport from a given JWT.
-// Returns error if the JWT is not the JWT of a Passport.
-// Does not verify the signature on the JWT.
-func NewPassportFromJWT(j PassportJWT) (*Passport, error) {
-	glog.V(1).Infof("NewPassportFromJWT(%+v)", j)
-	d, err := passportDataFromJWT(j)
-	if err != nil {
-		return nil, err
-	}
-	return &Passport{
-		jwt:  j,
-		data: d,
-	}, nil
+// Access represents a GA4GH Access Token.
+// http://bit.ly/ga4gh-passport-v1#overview
+type Access struct {
+	// jwt for the Access.
+	jwt AccessJWT
+
+	// data is unmarhsalled data contained in access jwt.
+	data *AccessData
 }
 
-// NewPassportFromData creates a new Passport.
-//
-// keyID identifies the key used by issuer to sign the JWT.
-// Visit the issuer's JWKS endpoint to obtain the keys and find the public key corresponding to the keyID.
-// To find the issuer's JWKS endpoint:
-//   Visit "[issuer]/.well-known/openid-configuration"
-// "jku" in JWT header is not allowed for Passport.
-func NewPassportFromData(d *PassportData, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Passport, error) {
-	j, err := passportJWTFromData(d, method, key, keyID)
-	if err != nil {
-		return nil, err
-	}
-	return &Passport{
-		jwt:  j,
-		data: d,
-	}, nil
-}
+// AccessJWT is a string containing a JWT Access object.
+type AccessJWT string
 
-// Verify verifies the signature of the Passport using the provided public key.
-// It does not verify the Visas in the passport.
-func (p *Passport) Verify(key *rsa.PublicKey) error {
-	f := func(token *jwt.Token) (interface{}, error) { return key, nil }
-	_, err := jwt.Parse(string(p.jwt), f)
-	return err
-}
-
-// JWT returns the JWT of a Passport.
-func (p *Passport) JWT() PassportJWT {
-	return p.jwt
-}
-
-// Data returns the data of a Passport.
-func (p *Passport) Data() *PassportData {
-	return p.data
-}
-
-// passportDataVisaJWT is internally used for marshaling and unmarshalling.
-type passportDataVisaJWT struct {
+// AccessData is used to create a new Access.
+type AccessData struct {
 	// StdClaims is embeded for standard JWT claims.
 	StdClaims
 
 	// Scope ...
 	Scope string `json:"scope,omitempty"`
-
-	// Visas contains the list of Visas for the Passport.
-	Visas []VisaJWT `json:"ga4gh_passport_v1,omitempty"`
 }
 
-func passportJWTFromData(d *PassportData, method SigningMethod, key *rsa.PrivateKey, keyID string) (PassportJWT, error) {
-	t := jwt.NewWithClaims(method, toPassportDataWithVisaJWT(d))
+// NewAccessFromJWT creates a new Access from a given JWT.
+// Returns error if the JWT is not the JWT of a Access.
+// Does not verify the signature on the JWT.
+func NewAccessFromJWT(j AccessJWT) (*Access, error) {
+	glog.V(1).Info("NewAccessFromJWT()")
+	d, err := accessDataFromJWT(j)
+	if err != nil {
+		return nil, err
+	}
+	return &Access{
+		jwt:  j,
+		data: d,
+	}, nil
+}
+
+// NewAccessFromData creates a new Access.
+//
+// keyID identifies the key used by issuer to sign the JWT.
+// Visit the issuer's JWKS endpoint to obtain the keys and find the public key corresponding to the keyID.
+// To find the issuer's JWKS endpoint, visit "[issuer]/.well-known/openid-configuration"
+// "jku" in JWT header is not allowed for Access.
+func NewAccessFromData(d *AccessData, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Access, error) {
+	glog.V(1).Info("NewAccessFromData()")
+	j, err := accessJWTFromData(d, method, key, keyID)
+	if err != nil {
+		return nil, err
+	}
+	return &Access{
+		jwt:  j,
+		data: d,
+	}, nil
+}
+
+// Verify verifies the signature of the Access using the provided public key.
+func (p *Access) Verify(key *rsa.PublicKey) error {
+	f := func(token *jwt.Token) (interface{}, error) { return key, nil }
+	_, err := jwt.Parse(string(p.jwt), f)
+	return err
+}
+
+// JWT returns the JWT of a Access.
+func (p *Access) JWT() AccessJWT {
+	return p.jwt
+}
+
+// Data returns the data of a Access.
+func (p *Access) Data() *AccessData {
+	return p.data
+}
+
+// accessDataVisaJWT is internally used for marshaling and unmarshalling.
+type accessDataVisaJWT struct {
+	// StdClaims is embeded for standard JWT claims.
+	StdClaims
+
+	// Scope ...
+	Scope string `json:"scope,omitempty"`
+}
+
+func accessJWTFromData(d *AccessData, method SigningMethod, key *rsa.PrivateKey, keyID string) (AccessJWT, error) {
+	t := jwt.NewWithClaims(method, toAccessDataWithVisaJWT(d))
 	t.Header[jwtHeaderKeyID] = keyID
 	signed, err := t.SignedString(key)
 	if err != nil {
@@ -123,47 +126,35 @@ func passportJWTFromData(d *PassportData, method SigningMethod, key *rsa.Private
 		glog.V(1).Info(err)
 		return "", err
 	}
-	return PassportJWT(signed), nil
+	return AccessJWT(signed), nil
 }
 
-func toPassportDataWithVisaJWT(d *PassportData) *passportDataVisaJWT {
-	m := &passportDataVisaJWT{
+func toAccessDataWithVisaJWT(d *AccessData) *accessDataVisaJWT {
+	m := &accessDataVisaJWT{
 		StdClaims: d.StdClaims,
 		Scope:     d.Scope,
-	}
-	for _, v := range d.Visas {
-		m.Visas = append(m.Visas, v.jwt)
 	}
 	return m
 }
 
-func passportDataFromJWT(j PassportJWT) (*PassportData, error) {
-	m := &passportDataVisaJWT{}
+func accessDataFromJWT(j AccessJWT) (*AccessData, error) {
+	m := &accessDataVisaJWT{}
 	if _, _, err := (&jwt.Parser{}).ParseUnverified(string(j), m); err != nil {
 		err = fmt.Errorf("ParseUnverified(%v) failed: %v", j, err)
 		glog.V(1).Info(err)
 		return nil, err
 	}
-	d, err := toPassportData(m)
+	d, err := toAccessData(m)
 	if err != nil {
 		return nil, err
 	}
 	return d, nil
 }
 
-func toPassportData(m *passportDataVisaJWT) (*PassportData, error) {
-	d := &PassportData{
+func toAccessData(m *accessDataVisaJWT) (*AccessData, error) {
+	d := &AccessData{
 		StdClaims: m.StdClaims,
 		Scope:     m.Scope,
-	}
-	for _, j := range m.Visas {
-		v, err := NewVisaFromJWT(VisaJWT(j))
-		if err != nil {
-			err = fmt.Errorf("NewVisaFromJWT(%v) failed: %v", j, err)
-			glog.V(1).Info(err)
-			return nil, err
-		}
-		d.Visas = append(d.Visas, v)
 	}
 	return d, nil
 }

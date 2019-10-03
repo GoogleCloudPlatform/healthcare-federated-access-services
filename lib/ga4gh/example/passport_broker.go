@@ -29,27 +29,12 @@ type PassportBroker struct {
 	Key testkeys.Key
 }
 
-// FetchPassport fetches the requested Passport.
-func (b *PassportBroker) FetchPassport(t Token) (ga4gh.PassportJWT, error) {
+// FetchAccess fetches the requested Access.
+func (b *PassportBroker) FetchAccess(t Token) (ga4gh.AccessJWT, error) {
 	// VerifyToken(t)
 	// I := ExtractVisaIssuer(t)
 
-	j, err := b.I.FetchVisa(t)
-	if err != nil {
-		return "", fmt.Errorf("FetchPassport(%v) failed:\n%v", t, err)
-	}
-
-	v, err := ga4gh.NewVisaFromJWT(j)
-	if err != nil {
-		return "", fmt.Errorf("NewVisaFromJWT(%v) failed:\n%v", j, err)
-	}
-
-	// Optional
-	if err := v.Verify(b.I.Key.Public); err != nil {
-		return "", fmt.Errorf("Visa(%v).Verify(%v) failed:\n%v", v, b.I.Key.Public, err)
-	}
-
-	d := &ga4gh.PassportData{
+	d := &ga4gh.AccessData{
 		StdClaims: ga4gh.StdClaims{
 			Id:        uuid.New(),
 			Issuer:    "B",
@@ -58,12 +43,34 @@ func (b *PassportBroker) FetchPassport(t Token) (ga4gh.PassportJWT, error) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 			Audience:  "C",
 		},
-		Visas: []*ga4gh.Visa{v},
 	}
 
-	p, err := ga4gh.NewPassportFromData(d, ga4gh.RS256, b.Key.Private, "kid")
+	p, err := ga4gh.NewAccessFromData(d, ga4gh.RS256, b.Key.Private, "kid")
 	if err != nil {
-		return "", fmt.Errorf("NewPassportFromData(%v,%v,%v) failed:\n%v", d, ga4gh.RS256, b.Key.Private, err)
+		return "", fmt.Errorf("NewAccessFromData(%v,%v,%v) failed:\n%v", d, ga4gh.RS256, b.Key.Private, err)
 	}
 	return p.JWT(), nil
+}
+
+// FetchVisas fetches the request Visas.
+func (b *PassportBroker) FetchVisas(t Token) ([]ga4gh.VisaJWT, error) {
+	// VerifyToken(t)
+	// I := ExtractVisaIssuer(t)
+
+	j, err := b.I.FetchVisa(t)
+	if err != nil {
+		return nil, fmt.Errorf("FetchVisa(%v) failed:\n%v", t, err)
+	}
+
+	v, err := ga4gh.NewVisaFromJWT(j)
+	if err != nil {
+		return nil, fmt.Errorf("NewVisaFromJWT(%v) failed:\n%v", j, err)
+	}
+
+	// Optional
+	if err := v.Verify(b.I.Key.Public); err != nil {
+		return nil, fmt.Errorf("Visa(%v).Verify(%v) failed:\n%v", v, b.I.Key.Public, err)
+	}
+
+	return []ga4gh.VisaJWT{v.JWT()}, nil
 }
