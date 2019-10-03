@@ -130,8 +130,6 @@
           "sub": "non-admin@faculty.example.edu"
         },
         "ga4ghAssertions": []
-      },
-      "resources": {
       }
     },
     "admin": {
@@ -144,8 +142,6 @@
           "sub": "admin@faculty.example.edu"
         },
         "ga4ghAssertions": []
-      },
-      "resources": {
       }
     },
     "dr_joe_elixir": {
@@ -168,11 +164,7 @@
           }
         ]
       },
-      "resources": {
-        "ga4gh-apis" : {
-          "access" : ["files/viewer"]
-        }
-      }
+      "access" : ["ga4gh-apis/files/viewer"]
     }
   },
   "clients": {

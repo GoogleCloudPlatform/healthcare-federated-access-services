@@ -247,13 +247,13 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/resources/new-resource",
-			Input:  `{"item": $(GET /dam/v1alpha/test/config/resources/ga4gh-apis), "modification": {"testPersonas":{"dr_joe_elixir":{"resources":{"ga4gh-apis":{"access":["beacon/discovery","gcs_read/viewer"]},"new-resource":{"access":["beacon/discovery","gcs_read/viewer"]}},"addResources":{"new-resource":{"access":["beacon/discovery","gcs_read/viewer"]}},"removeResources":{}}}}}`,
+			Input:  `{"item": $(GET /dam/v1alpha/test/config/resources/ga4gh-apis), "modification": {"testPersonas":{"dr_joe_elixir":{"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer","new-resource/beacon/discovery","new-resource/gcs_read/viewer"]}}}}`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/resources/new-resource",
-			Input:  `{"item": {"ui":{"label":"foo","description":"bar"}}, "modification": {"testPersonas":{"dr_joe_elixir":{"resources":{"ga4gh-apis":{"access":["beacon/discovery","gcs_read/viewer"]}}}}}}`,
+			Input:  `{"item": {"ui":{"label":"foo","description":"bar"}}, "modification": {"testPersonas":{"dr_joe_elixir":{"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer"]}}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -271,7 +271,7 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/resources/ga4gh-apis/views/gcs_read2",
-			Input:  `{"item":$(GET /dam/v1alpha/test/config/resources/ga4gh-apis/views/gcs_read), "modification": {"testPersonas":{"dr_joe_elixir":{"resources":{"ga4gh-apis":{"access":["beacon/discovery","gcs_read/viewer","gcs_read2/viewer"]}}}}}}`,
+			Input:  `{"item":$(GET /dam/v1alpha/test/config/resources/ga4gh-apis/views/gcs_read), "modification": {"testPersonas":{"dr_joe_elixir":{"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer","ga4gh-apis/gcs_read2/viewer"]}}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
@@ -602,17 +602,14 @@ func TestHandlers(t *testing.T) {
 							}
 						]
 					},
-					"resources": {
-						"dataset_example" : {
-							"access": ["bq_read/viewer", "gcs_read/viewer"]
-						},
-						"thousand-genomes" : {
-							"access" : ["gcs-file-access/viewer"]
-						}
-					}
+					"access": [
+						"dataset_example/bq_read/viewer",
+						"dataset_example/gcs_read/viewer",
+						"thousand-genomes/gcs-file-access/viewer"
+					]
 				}
 			}`,
-			Output: `^.*"dataset_example":\{\}`,
+			Output: `^.*"removeAccess":\["dataset_example/`,
 			Status: http.StatusFailedDependency,
 		},
 		{
@@ -660,17 +657,14 @@ func TestHandlers(t *testing.T) {
 							}
 						]
 					},
-					"resources": {
-						"dataset_example" : {
-							"access": ["bq_read/viewer", "gcs_read/viewer"]
-						},
-						"thousand-genomes" : {
-							"access" : ["gcs-file-access/viewer"]
-						}
-					}
+					"access": [
+					  "dataset_example/bq_read/viewer",
+						"dataset_example/gcs_read/viewer",
+						"thousand-genomes/gcs-file-access/viewer"
+					]
 				}
 			}`,
-			Output: `^.*"dataset_example":\{\}`,
+			Output: `^.*"removeAccess":\["dataset_example/`,
 			Status: http.StatusFailedDependency,
 		},
 		{
@@ -707,14 +701,13 @@ func TestHandlers(t *testing.T) {
 							}
 						]
 					},
-					"resources": {
-						"ga4gh-apis" : {
-							"access" : ["beacon/discovery", "gcs_read/viewer"]
-						}
-					}
+					"access" : [
+						"ga4gh-apis/beacon/discovery",
+						"ga4gh-apis/gcs_read/viewer"
+					]
 				}
 			},`,
-			Output: `^.*"ga4gh-apis":\{\}`,
+			Output: `^.*"removeAccess":\["ga4gh-apis/`,
 			Status: http.StatusFailedDependency,
 		},
 		{

@@ -61,3 +61,14 @@ func JoinNonEmpty(in []string, separator string) string {
 	}
 	return strings.Join(out, separator)
 }
+
+// FilterStringsByPrefix filters returns only strings that do NOT have a given prefix.
+func FilterStringsByPrefix(in []string, prefix string) []string {
+	var out []string
+	for _, v := range in {
+		if !strings.HasPrefix(v, prefix) {
+			out = append(out, v)
+		}
+	}
+	return out
+}

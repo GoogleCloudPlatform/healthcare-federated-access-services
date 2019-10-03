@@ -191,7 +191,7 @@ message TestPersona {
     repeated TestAssertion ga4gh_assertions = 2;
   }
   TestPassport passport = 1;
-  map<string, AccessList> resources = 2;
+  repeated string access = 2;
   map<string, string> ui = 3;
 }
 
@@ -410,8 +410,10 @@ message GetTestResultsResponse {
   message TestResult {
     string name = 1;
     string result = 2;
-    map<string, AccessList> resources = 3;
-    string error = 4;
+    repeated string access = 3;
+    map<string, string> no_access = 4;
+    map<string, string> rejected_visas = 5;
+    string error = 6;
   }
 
   string version = 1;
@@ -489,11 +491,9 @@ message TokenResponse {
 
 message ConfigModification {
   message PersonaModification {
-    map<string, AccessList> resources = 1;
-    // TODO: remove add_resources and remove_resources when DDAP no
-    // longer needs them.
-    map<string, AccessList> add_resources = 2;
-    map<string, AccessList> remove_resources = 3;
+    repeated string access = 1;
+    repeated string add_access = 2;
+    repeated string remove_access = 3;
   }
 
   int64 revision = 1;

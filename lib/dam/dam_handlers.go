@@ -1205,9 +1205,6 @@ func (h *configPersonaHandler) NormalizeInput(name string, vars map[string]strin
 	if h.input.Item.Passport.StandardClaims == nil {
 		h.input.Item.Passport.StandardClaims = make(map[string]string)
 	}
-	if h.input.Item.Resources == nil {
-		h.input.Item.Resources = make(map[string]*pb.AccessList)
-	}
 	if h.input.Item.Ui == nil {
 		h.input.Item.Ui = make(map[string]string)
 	}
@@ -1230,7 +1227,7 @@ func (h *configPersonaHandler) Put(name string) error {
 func (h *configPersonaHandler) Patch(name string) error {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Passport = h.input.Item.Passport
-	h.item.Resources = h.input.Item.Resources
+	h.item.Access = h.input.Item.Access
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
 	return nil

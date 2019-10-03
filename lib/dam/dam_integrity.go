@@ -211,29 +211,28 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 
 func (s *Service) checkExtraIntegrity(cfg *pb.DamConfig) error {
 	for n, tp := range cfg.TestPersonas {
-		for tr, alist := range tp.Resources {
-			res, ok := cfg.Resources[tr]
-			if !ok {
-				return fmt.Errorf("test persona %q resource %q not found", n, tr)
+		for _, access := range tp.Access {
+			aparts := strings.Split(access, "/")
+			if len(aparts) != 3 {
+				return fmt.Errorf("test persona %q access %q: invalid format (expecting 'resourceName/viewName/roleName')", n, access)
 			}
-			for _, a := range alist.Access {
-				aparts := strings.Split(a, "/")
-				if len(aparts) != 2 {
-					return fmt.Errorf("test persona %q resource %q access %q: invalid format (expecting 'viewName/roleName')", n, tr, a)
-				}
-				vname := aparts[0]
-				rname := aparts[1]
-				view, ok := res.Views[vname]
-				if !ok {
-					return fmt.Errorf("test persona %q resource %q access %q: view %q not found", n, tr, a, vname)
-				}
-				roleView := s.makeView(vname, view, res, cfg)
-				if roleView.AccessRoles == nil {
-					return fmt.Errorf("test persona %q resource %q access %q: no roles defined", n, tr, a)
-				}
-				if _, ok := roleView.AccessRoles[rname]; !ok {
-					return fmt.Errorf("test persona %q resource %q access %q: role %q not defined", n, tr, a, rname)
-				}
+			rn := aparts[0]
+			vn := aparts[1]
+			rolename := aparts[2]
+			res, ok := cfg.Resources[rn]
+			if !ok {
+				return fmt.Errorf("test persona %q access %q resource %q not found", n, access, rn)
+			}
+			view, ok := res.Views[vn]
+			if !ok {
+				return fmt.Errorf("test persona %q access %q: view %q not found", n, access, vn)
+			}
+			roleView := s.makeView(vn, view, res, cfg)
+			if roleView.AccessRoles == nil {
+				return fmt.Errorf("test persona %q access %q: no roles defined", n, access)
+			}
+			if _, ok := roleView.AccessRoles[rolename]; !ok {
+				return fmt.Errorf("test persona %q access %q: role %q not defined", n, access, rolename)
 			}
 		}
 	}
@@ -541,31 +540,16 @@ func (s *Service) checkTrustedIssuer(iss string, cfg *pb.DamConfig) error {
 }
 
 func rmTestResource(cfg *pb.DamConfig, name string) {
+	prefix := name + "/"
 	for _, p := range cfg.TestPersonas {
-		if _, ok := p.Resources[name]; ok {
-			delete(p.Resources, name)
-		}
+		p.Access = common.FilterStringsByPrefix(p.Access, prefix)
 	}
 }
 
 func rmTestView(cfg *pb.DamConfig, resName, viewName string) {
+	prefix := resName + "/" + viewName + "/"
 	for _, p := range cfg.TestPersonas {
-		alist, ok := p.Resources[resName]
-		if !ok {
-			continue
-		}
-		access := []string{}
-		prefix := viewName + "/"
-		for _, a := range alist.Access {
-			if !strings.HasPrefix(a, prefix) {
-				access = append(access, a)
-			}
-		}
-		if len(access) == 0 {
-			delete(p.Resources, resName)
-		} else {
-			alist.Access = access
-		}
+		p.Access = common.FilterStringsByPrefix(p.Access, prefix)
 	}
 }
 
@@ -578,54 +562,8 @@ func (s *Service) updateTests(cfg *pb.DamConfig, modification *pb.ConfigModifica
 		if !ok {
 			return fmt.Errorf("test persona %q not found", name)
 		}
-		if td.Resources != nil {
-			p.Resources = make(map[string]*pb.AccessList)
-			for r, ra := range td.Resources {
-				if ra == nil || len(ra.Access) == 0 {
-					continue
-				}
-				p.Resources[r] = ra
-			}
-			continue
-		}
-		// TODO: remove this when removing AddResource/RemoveResource model.
-		m := make(map[string]map[string]bool)
-		for r, alist := range p.Resources {
-			m[r] = make(map[string]bool)
-			for _, a := range alist.Access {
-				m[r][a] = true
-			}
-		}
-		for r, ra := range td.AddResources {
-			if _, ok := cfg.Resources[r]; !ok {
-				return fmt.Errorf("test persona %q: add resource %q not found", name, r)
-			}
-			if _, ok := m[r]; !ok {
-				m[r] = make(map[string]bool)
-			}
-			for _, a := range ra.Access {
-				m[r][a] = true
-			}
-		}
-		for r, ra := range td.RemoveResources {
-			if _, ok := cfg.Resources[r]; !ok {
-				return fmt.Errorf("test persona %q: remove resource %q not found", name, r)
-			}
-			if _, ok := m[r]; !ok {
-				continue
-			}
-			for _, a := range ra.Access {
-				delete(m[r], a)
-			}
-		}
-		p.Resources = make(map[string]*pb.AccessList)
-		for r, ra := range m {
-			p.Resources[r] = &pb.AccessList{Access: []string{}}
-			for a := range ra {
-				p.Resources[r].Access = append(p.Resources[r].Access, a)
-			}
-			sort.Strings(p.Resources[r].Access)
-		}
+		p.Access = td.Access
+		sort.Strings(p.Access)
 	}
 	return nil
 }
@@ -657,8 +595,8 @@ func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestRes
 	for pname, p := range cfg.TestPersonas {
 		tc++
 		personas[pname] = &pb.TestPersona{
-			Passport:  p.Passport,
-			Resources: p.Resources,
+			Passport: p.Passport,
+			Access:   p.Access,
 		}
 		status, got, err := s.testPersona(pname, resources, cfg, vm)
 		e := ""
@@ -668,12 +606,12 @@ func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestRes
 			e = err.Error()
 		}
 		results = append(results, &pb.GetTestResultsResponse_TestResult{
-			Name:      pname,
-			Result:    status,
-			Resources: got,
-			Error:     e,
+			Name:   pname,
+			Result: status,
+			Access: got,
+			Error:  e,
 		})
-		s.calculateModification(pname, resources, p.Resources, got, modification)
+		s.calculateModification(pname, p.Access, got, modification)
 	}
 
 	e := ""
@@ -697,34 +635,23 @@ func hasTestError(tr *pb.GetTestResultsResponse) bool {
 	return len(tr.Error) > 0
 }
 
-func (s *Service) calculateModification(name string, resources []string, want map[string]*pb.AccessList, got map[string]*pb.AccessList, modification *pb.ConfigModification) {
+func (s *Service) calculateModification(name string, want []string, got []string, modification *pb.ConfigModification) {
 	entry, ok := modification.TestPersonas[name]
 	if !ok {
 		entry = &pb.ConfigModification_PersonaModification{
-			Resources:       make(map[string]*pb.AccessList),
-			AddResources:    make(map[string]*pb.AccessList),
-			RemoveResources: make(map[string]*pb.AccessList),
+			Access:       got,
+			AddAccess:    []string{},
+			RemoveAccess: []string{},
 		}
 		modification.TestPersonas[name] = entry
 	}
-
-	for _, r := range resources {
-		// TODO: remove deltaResourceModification or move setting Resources inside of it.
-		hasDelta := s.deltaResourceModification(entry, r, want[r], got[r])
-		if hasDelta {
-			g := got[r]
-			if g == nil {
-				g = &pb.AccessList{}
-			}
-			entry.Resources[r] = g
-		}
-	}
-	if len(entry.AddResources) == 0 && len(entry.RemoveResources) == 0 {
+	s.deltaResourceModification(entry, want, got)
+	if len(entry.AddAccess) == 0 && len(entry.RemoveAccess) == 0 {
 		delete(modification.TestPersonas, name)
 	}
 }
 
-func (s *Service) deltaResourceModification(entry *pb.ConfigModification_PersonaModification, resource string, want *pb.AccessList, got *pb.AccessList) bool {
+func (s *Service) deltaResourceModification(entry *pb.ConfigModification_PersonaModification, want []string, got []string) bool {
 	// Assumes view list entries are sorted on both |want| and |got|.
 	var add []string
 	var rm []string
@@ -732,29 +659,29 @@ func (s *Service) deltaResourceModification(entry *pb.ConfigModification_Persona
 	g := 0
 	wl := 0
 	if want != nil {
-		wl = len(want.Access)
+		wl = len(want)
 	}
 	gl := 0
 	if got != nil {
-		gl = len(got.Access)
+		gl = len(got)
 	}
 	for w < wl || g < gl {
 		if w >= wl {
-			add = append(add, got.Access[g:]...)
+			add = append(add, got[g:]...)
 			break
 		}
 		if g >= gl {
-			rm = append(rm, want.Access[w:]...)
+			rm = append(rm, want[w:]...)
 			break
 		}
-		if c := strings.Compare(want.Access[w], got.Access[g]); c == 0 {
+		if c := strings.Compare(want[w], got[g]); c == 0 {
 			w++
 			g++
 		} else if c < 0 {
-			rm = append(rm, want.Access[w])
+			rm = append(rm, want[w])
 			w++
 		} else {
-			add = append(add, got.Access[g])
+			add = append(add, got[g])
 			g++
 		}
 	}
@@ -762,14 +689,10 @@ func (s *Service) deltaResourceModification(entry *pb.ConfigModification_Persona
 		return false
 	}
 	if len(add) > 0 {
-		entry.AddResources[resource] = &pb.AccessList{
-			Access: add,
-		}
+		entry.AddAccess = append(entry.AddAccess, add...)
 	}
 	if len(rm) > 0 {
-		entry.RemoveResources[resource] = &pb.AccessList{
-			Access: rm,
-		}
+		entry.RemoveAccess = append(entry.RemoveAccess, rm...)
 	}
 	return true
 }

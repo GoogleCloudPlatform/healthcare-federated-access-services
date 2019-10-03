@@ -432,7 +432,7 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 	return id, http.StatusOK, nil
 }
 
-func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, map[string]*pb.AccessList, error) {
+func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, []string, error) {
 	persona := cfg.TestPersonas[personaName]
 	id, err := playground.PersonaToIdentity(personaName, persona, defaultPersonaScope)
 	if err != nil {
@@ -442,20 +442,20 @@ func (s *Service) testPersona(personaName string, resources []string, cfg *pb.Da
 	if err != nil {
 		return state, got, err
 	}
-	if reflect.DeepEqual(persona.Resources, got) || (len(persona.Resources) == 0 && len(got) == 0) {
+	if reflect.DeepEqual(persona.Access, got) || (len(persona.Access) == 0 && len(got) == 0) {
 		return "PASSED", got, nil
 	}
 	return "FAILED", got, fmt.Errorf("access does not match expectations")
 }
 
-func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, map[string]*pb.AccessList, error) {
-	got := make(map[string]*pb.AccessList)
+func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, []string, error) {
+	var got []string
 	for _, rn := range resources {
 		r, ok := cfg.Resources[rn]
 		if !ok {
+			sort.Strings(got)
 			return "FAILED", got, fmt.Errorf("resource %q not found", rn)
 		}
-		got[rn] = &pb.AccessList{Access: []string{}}
 		for vn, v := range r.Views {
 			if len(views) > 0 && !common.ListContains(views, vn) {
 				continue
@@ -470,37 +470,28 @@ func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles 
 				if _, err := s.checkAuthorization(id, 0, rn, vn, rname, cfg, noClientID, vm); err != nil {
 					continue
 				}
-				got[rn].Access = mergeLists(got[rn].Access, []string{vn + "/" + rname})
+				got = append(got, rn+"/"+vn+"/"+rname)
 			}
 		}
-		sort.Strings(got[rn].Access)
-		if len(got[rn].Access) == 0 {
-			delete(got, rn)
-		}
 	}
+	sort.Strings(got)
 	return "OK", got, nil
 }
 
 func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, r *http.Request) []string {
-	out := []string{}
 	vm, err := s.buildValidatorMap(cfg)
 	if err != nil {
-		return out
+		return nil
 	}
 	if id == nil {
 		id, _, err = s.getPassportIdentity(cfg, nil, r)
 		if err != nil {
-			return out
+			return nil
 		}
 	}
-	_, got, err := s.resolveAccessList(id, resources, views, roles, cfg, vm)
-	if err != nil {
-		return out
-	}
-	for _, v := range got {
-		out = mergeLists(out, v.Access)
-	}
-	return out
+	// Ignore errors as the goal of makeAccessList is to show what is accessible despite any errors.
+	_, got, _ := s.resolveAccessList(id, resources, views, roles, cfg, vm)
+	return got
 }
 
 func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vm map[string]*validator.Policy) (int, error) {
@@ -1818,16 +1809,7 @@ func normalizeConfig(cfg *pb.DamConfig) error {
 		cfg.Clients = make(map[string]*pb.Client)
 	}
 	for _, p := range cfg.TestPersonas {
-		for aname, alist := range p.Resources {
-			if alist == nil {
-				alist = &pb.AccessList{}
-				p.Resources[aname] = alist
-			}
-			if alist.Access == nil {
-				alist.Access = []string{}
-			}
-			sort.Strings(alist.Access)
-		}
+		sort.Strings(p.Access)
 	}
 	return nil
 }

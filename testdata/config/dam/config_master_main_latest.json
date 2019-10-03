@@ -665,11 +665,10 @@
           }
         ]
       },
-      "resources": {
-        "ga4gh-apis" : {
-          "access" : ["beacon/discovery", "gcs_read/viewer"]
-        }
-      }
+      "access" : [
+        "ga4gh-apis/beacon/discovery",
+        "ga4gh-apis/gcs_read/viewer"
+      ]
     },
     "dr_joe_era_commons": {
       "ui": {
@@ -711,11 +710,11 @@
           }
         ]
       },
-      "resources": {
-        "dataset_example" : {
-          "access": ["bq_read/viewer", "gcp/viewer", "gcs_read/viewer"]
-        }
-      }
+      "access": [
+        "dataset_example/bq_read/viewer",
+        "dataset_example/gcp/viewer",
+        "dataset_example/gcs_read/viewer"
+      ]
     }
   },
   "clients": {
