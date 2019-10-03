@@ -260,6 +260,7 @@ type Service struct {
 	accountDomain         string
 	module                module.Module
 	translators           sync.Map
+	encryption            Encryption
 }
 
 type ServiceHandler struct {
@@ -267,12 +268,19 @@ type ServiceHandler struct {
 	s       *Service
 }
 
+// Encryption abstracts a encryption service for storing visa.
+type Encryption interface {
+	Encrypt(ctx context.Context, data []byte, additionalAuthData string) ([]byte, error)
+	Decrypt(ctx context.Context, encrypted []byte, additionalAuthData string) ([]byte, error)
+}
+
 // NewService create new IC service.
 // - domain: domain used to host ic service
 // - accountDomain: domain used to host service account warehouse
 // - store: data storage and configuration storage
 // - module: the extended functionality for this environment
-func NewService(domain, accountDomain string, store storage.Store, module module.Module) *Service {
+// - encryption: the encryption use for storing tokens safely in database
+func NewService(domain, accountDomain string, store storage.Store, module module.Module, encryption Encryption) *Service {
 	ctx := context.Background()
 	sh := &ServiceHandler{}
 	lp, err := loadFile(loginPageFile)
@@ -314,6 +322,7 @@ func NewService(domain, accountDomain string, store storage.Store, module module
 		domain:                domain,
 		accountDomain:         accountDomain,
 		module:                module,
+		encryption:            encryption,
 	}
 
 	if err := validateURLs(map[string]string{
@@ -1320,10 +1329,17 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
-		claims := s.accountLinkToClaims(acct, id.Subject, cfg)
+		claims, err := s.accountLinkToClaims(r.Context(), acct, id.Subject, cfg)
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
 		if !claimsAreEqual(claims, id.GA4GH) {
 			// Refresh the claims in the storage layer.
-			populateAccountClaims(acct, id, provider)
+			if err := s.populateAccountClaims(r.Context(), acct, id, provider); err != nil {
+				common.HandleError(http.StatusServiceUnavailable, err, w)
+				return
+			}
 			err := s.saveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
 			if err != nil {
 				common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -1331,8 +1347,13 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 			}
 		}
 	} else {
-		// Create an account for a persona automatically.
-		acct := newAccountWithLink(id, provider, cfg)
+		// Create an account for the identity automatically.
+		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+
 		if err = s.saveNewLinkedAccount(acct, id, "New Persona Account", r, tx, lookup); err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
@@ -2889,7 +2910,7 @@ func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcCon
 		IdentityProvider: tokenMetadata.IdentityProvider,
 		Nonce:            tokenMetadata.Nonce,
 	}
-	return s.getTokenAccountIdentity(id, realm, cfg, tx)
+	return s.getTokenAccountIdentity(r.Context(), id, realm, cfg, tx)
 }
 
 func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
@@ -2912,7 +2933,7 @@ func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (
 	return &token, http.StatusOK, nil
 }
 
-func (s *Service) getTokenAccountIdentity(token *ga4gh.Identity, realm string, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
+func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Identity, realm string, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	acct, status, err := s.loadAccount(token.Subject, realm, tx)
 	if err != nil {
 		if status == http.StatusNotFound {
@@ -2920,7 +2941,11 @@ func (s *Service) getTokenAccountIdentity(token *ga4gh.Identity, realm string, c
 		}
 		return nil, http.StatusServiceUnavailable, err
 	}
-	id := s.accountToIdentity(acct, cfg)
+	id, err := s.accountToIdentity(ctx, acct, cfg)
+	if err != nil {
+		return nil, http.StatusServiceUnavailable, err
+	}
+
 	id.ID = token.ID
 	id.Scope = token.Scope
 	id.Expiry = token.Expiry
@@ -2934,7 +2959,7 @@ func (s *Service) tokenToIdentity(tok string, r *http.Request, scope string, cfg
 	if err != nil {
 		return token, status, err
 	}
-	return s.getTokenAccountIdentity(token, getRealm(r), cfg, tx)
+	return s.getTokenAccountIdentity(r.Context(), token, getRealm(r), cfg, tx)
 }
 
 func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
@@ -2949,10 +2974,10 @@ func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.Ic
 		}
 		return nil, http.StatusServiceUnavailable, err
 	}
-	return s.getTokenAccountIdentity(id, getRealm(r), cfg, tx)
+	return s.getTokenAccountIdentity(r.Context(), id, getRealm(r), cfg, tx)
 }
 
-func (s *Service) accountToIdentity(acct *pb.Account, cfg *pb.IcConfig) *ga4gh.Identity {
+func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *pb.IcConfig) (*ga4gh.Identity, error) {
 	email := acct.Properties.Subject + "@" + s.accountDomain
 	id := &ga4gh.Identity{
 		Subject: acct.Properties.Subject,
@@ -2980,12 +3005,14 @@ func (s *Service) accountToIdentity(acct *pb.Account, cfg *pb.IcConfig) *ga4gh.I
 			identities[subject] = tags
 		}
 		// TODO: consider skipping claims if idp=cfg.IdProvider[link.Provider] is missing (not <persona>) or idp.State != "ACTIVE".
-		populateLinkClaims(id, link, ttl)
+		if err := s.populateLinkClaims(ctx, id, link, ttl); err != nil {
+			return nil, err
+		}
 	}
 	if len(identities) > 0 {
 		id.Identities = identities
 	}
-	return id
+	return id, nil
 }
 
 func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
@@ -3013,20 +3040,23 @@ func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *
 	return id, http.StatusOK, nil
 }
 
-func (s *Service) accountLinkToClaims(acct *pb.Account, subject string, cfg *pb.IcConfig) map[string][]ga4gh.OldClaim {
+func (s *Service) accountLinkToClaims(ctx context.Context, acct *pb.Account, subject string, cfg *pb.IcConfig) (map[string][]ga4gh.OldClaim, error) {
 	id := &ga4gh.Identity{
 		GA4GH: make(map[string][]ga4gh.OldClaim),
 	}
 	link, _ := findLinkedAccount(acct, subject)
 	if link == nil {
-		return id.GA4GH
+		return id.GA4GH, nil
 	}
 	ttl := getDurationOption(cfg.Options.ClaimTtlCap, descClaimTtlCap)
-	populateLinkClaims(id, link, ttl)
-	return id.GA4GH
+	if err := s.populateLinkClaims(ctx, id, link, ttl); err != nil {
+		return nil, err
+	}
+
+	return id.GA4GH, nil
 }
 
-func populateLinkClaims(id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.Duration) {
+func (s *Service) populateLinkClaims(ctx context.Context, id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.Duration) error {
 	for cname, cl := range link.Claims {
 		if cl == nil || cl.List == nil {
 			continue
@@ -3036,7 +3066,13 @@ func populateLinkClaims(id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.
 		}
 	}
 
-	id.VisaJWTs = decryptEmbeddedTokens(link.EcryptedTokens)
+	jwts, err := s.decryptEmbeddedTokens(ctx, link.EcryptedTokens)
+	if err != nil {
+		return err
+	}
+
+	id.VisaJWTs = jwts
+	return nil
 }
 
 func populateIdentityClaim(id *ga4gh.Identity, cname string, claim *pb.AccountClaim, ttl time.Duration) {
@@ -3391,7 +3427,7 @@ func matchRedirect(client *pb.Client, redirect string) bool {
 	return false
 }
 
-func newAccountWithLink(linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) *pb.Account {
+func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) (*pb.Account, error) {
 	now := common.GetNowInUnixNano()
 	genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
 	accountPrefix := "ic_"
@@ -3406,34 +3442,48 @@ func newAccountWithLink(linkID *ga4gh.Identity, provider string, cfg *pb.IcConfi
 		State:             "ACTIVE",
 		Ui:                make(map[string]string),
 	}
-	populateAccountClaims(acct, linkID, provider)
-	return acct
+	err := s.populateAccountClaims(ctx, acct, linkID, provider)
+	if err != nil {
+		return nil, err
+	}
+	return acct, nil
 }
 
-func encryptEmbeddedTokens(tokens []string) [][]byte {
-	res := make([][]byte, len(tokens))
-	// TODO encrypt data
-	for i, tok := range tokens {
-		res[i] = []byte(tok)
+func (s *Service) encryptEmbeddedTokens(ctx context.Context, tokens []string) ([][]byte, error) {
+	var res [][]byte
+	for _, tok := range tokens {
+		encrypted, err := s.encryption.Encrypt(ctx, []byte(tok), "")
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, encrypted)
 	}
 
-	return res
+	return res, nil
 }
 
-func decryptEmbeddedTokens(tokens [][]byte) []string {
-	res := make([]string, len(tokens))
-	// TODO decrypt data
-	for i, tok := range tokens {
-		res[i] = string(tok)
+func (s *Service) decryptEmbeddedTokens(ctx context.Context, tokens [][]byte) ([]string, error) {
+	var res []string
+	for _, t := range tokens {
+		tok, err := s.encryption.Decrypt(ctx, t, "")
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, string(tok))
 	}
 
-	return res
+	return res, nil
 }
 
-func populateAccountClaims(acct *pb.Account, id *ga4gh.Identity, provider string) {
+func (s *Service) populateAccountClaims(ctx context.Context, acct *pb.Account, id *ga4gh.Identity, provider string) error {
 	link, _ := findLinkedAccount(acct, id.Subject)
 	now := common.GetNowInUnixNano()
 	if link == nil {
+		tokens, err := s.encryptEmbeddedTokens(ctx, id.VisaJWTs)
+		if err != nil {
+			return err
+		}
+
 		link = &pb.ConnectedAccount{
 			Profile:        setupAccountProfile(id),
 			Properties:     setupAccountProperties(id, id.Subject, now, now),
@@ -3441,7 +3491,7 @@ func populateAccountClaims(acct *pb.Account, id *ga4gh.Identity, provider string
 			Refreshed:      now,
 			Revision:       1,
 			LinkRevision:   1,
-			EcryptedTokens: encryptEmbeddedTokens(id.VisaJWTs),
+			EcryptedTokens: tokens,
 		}
 		acct.ConnectedAccounts = append(acct.ConnectedAccounts, link)
 	} else {
@@ -3467,6 +3517,8 @@ func populateAccountClaims(acct *pb.Account, id *ga4gh.Identity, provider string
 			List: cl,
 		}
 	}
+
+	return nil
 }
 
 func accountClaimCondition(cond map[string]ga4gh.OldClaimCondition) map[string]*pb.AccountClaim_Condition {
