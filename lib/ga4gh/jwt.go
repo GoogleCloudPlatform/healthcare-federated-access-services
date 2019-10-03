@@ -22,9 +22,9 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-// JWT contains the standard claims.
+// StdClaims contains the standard claims.
 // TODO: check that []string for audiance works or we don't need it.
-type JWT = jwt.StandardClaims
+type StdClaims = jwt.StandardClaims
 
 // SigningMethod for JWT.
 type SigningMethod = jwt.SigningMethod
@@ -41,7 +41,7 @@ var indent = "  "
 // Useful for logging and testing JSON format of payload.
 // The JSON string uses "indent" for indention.
 func payloadFromJWT(j string) (string, error) {
-	_, parts, err := (&jwt.Parser{}).ParseUnverified(j, &JWT{})
+	_, parts, err := (&jwt.Parser{}).ParseUnverified(j, &StdClaims{})
 	if err != nil {
 		return "", err
 	}

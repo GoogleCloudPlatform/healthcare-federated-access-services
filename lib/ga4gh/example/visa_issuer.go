@@ -40,7 +40,7 @@ func (i *VisaIssuer) FetchVisa(t Token) (ga4gh.VisaJWT, error) {
 	}
 
 	d := &ga4gh.VisaData{
-		JWT: ga4gh.JWT{
+		StdClaims: ga4gh.StdClaims{
 			Id:        uuid.New(),
 			Issuer:    "I",
 			Subject:   string(t),

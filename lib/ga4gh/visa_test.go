@@ -104,7 +104,7 @@ func fakeEnd() int64 { return time.Date(9999, 8, 7, 6, 5, 4, 3, time.UTC).Unix()
 
 func fakeVisaData() *VisaData {
 	return &VisaData{
-		JWT: JWT{
+		StdClaims: StdClaims{
 			Issuer:    "fake-visa-issuer",
 			ExpiresAt: fakeEnd(),
 		},

@@ -195,7 +195,7 @@ func populatePersonaVisas(pname string, assertions []*dampb.TestPersona_TestAsse
 		}
 		expires := int64(now + e.Seconds())
 		visa := ga4gh.VisaData{
-			JWT: ga4gh.JWT{
+			StdClaims: ga4gh.StdClaims{
 				Subject:   id.Subject,
 				Issuer:    id.Issuer,
 				ExpiresAt: expires,

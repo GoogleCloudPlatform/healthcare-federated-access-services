@@ -50,7 +50,7 @@ func (b *PassportBroker) FetchPassport(t Token) (ga4gh.PassportJWT, error) {
 	}
 
 	d := &ga4gh.PassportData{
-		JWT: ga4gh.JWT{
+		StdClaims: ga4gh.StdClaims{
 			Id:        uuid.New(),
 			Issuer:    "B",
 			Subject:   string(t),

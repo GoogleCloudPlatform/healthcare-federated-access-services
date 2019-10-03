@@ -27,6 +27,7 @@ const (
 )
 
 // Passport represents a GA4GH Passport.
+// http://bit.ly/ga4gh-passport-v1#overview
 type Passport struct {
 	// jwt for the passport.
 	jwt PassportJWT
@@ -40,8 +41,8 @@ type PassportJWT string
 
 // PassportData is used to create a new Passport.
 type PassportData struct {
-	// JWT is embeded for standard JWT fields.
-	JWT
+	// StdClaims is embeded for standard JWT claims.
+	StdClaims
 
 	// Scope ...
 	Scope string `json:"scope,omitempty"`
@@ -103,8 +104,8 @@ func (p *Passport) Data() *PassportData {
 
 // passportDataVisaJWT is internally used for marshaling and unmarshalling.
 type passportDataVisaJWT struct {
-	// JWT is embeded for standard JWT fields.
-	JWT
+	// StdClaims is embeded for standard JWT claims.
+	StdClaims
 
 	// Scope ...
 	Scope string `json:"scope,omitempty"`
@@ -127,8 +128,8 @@ func passportJWTFromData(d *PassportData, method SigningMethod, key *rsa.Private
 
 func toPassportDataWithVisaJWT(d *PassportData) *passportDataVisaJWT {
 	m := &passportDataVisaJWT{
-		JWT:   d.JWT,
-		Scope: d.Scope,
+		StdClaims: d.StdClaims,
+		Scope:     d.Scope,
 	}
 	for _, v := range d.Visas {
 		m.Visas = append(m.Visas, v.jwt)
@@ -152,8 +153,8 @@ func passportDataFromJWT(j PassportJWT) (*PassportData, error) {
 
 func toPassportData(m *passportDataVisaJWT) (*PassportData, error) {
 	d := &PassportData{
-		JWT:   m.JWT,
-		Scope: m.Scope,
+		StdClaims: m.StdClaims,
+		Scope:     m.Scope,
 	}
 	for _, j := range m.Visas {
 		v, err := NewVisaFromJWT(VisaJWT(j))

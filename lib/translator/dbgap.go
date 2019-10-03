@@ -283,7 +283,7 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 	affiliationAsserted := now.Unix()
 	for a, val := range accessions {
 		visa := ga4gh.VisaData{
-			JWT: ga4gh.JWT{
+			StdClaims: ga4gh.StdClaims{
 				Subject:   token.Subject,
 				Issuer:    s.visaIssuer,
 				ExpiresAt: val.Expires,
@@ -314,7 +314,7 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 	for a, src := range affiliations {
 		// Claim for dbGap
 		visa := ga4gh.VisaData{
-			JWT: ga4gh.JWT{
+			StdClaims: ga4gh.StdClaims{
 				Issuer:    s.visaIssuer,
 				ExpiresAt: currUnixTime + validSec,
 				IssuedAt:  affiliationAsserted,
@@ -337,7 +337,7 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 
 		// Claim for org
 		visa = ga4gh.VisaData{
-			JWT: ga4gh.JWT{
+			StdClaims: ga4gh.StdClaims{
 				Issuer:    s.visaIssuer,
 				ExpiresAt: currUnixTime + validSec,
 				IssuedAt:  affiliationAsserted,

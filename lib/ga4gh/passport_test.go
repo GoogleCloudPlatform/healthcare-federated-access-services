@@ -113,7 +113,7 @@ func fakeVisa() *Visa {
 
 func fakePassportData() *PassportData {
 	return &PassportData{
-		JWT: JWT{
+		StdClaims: StdClaims{
 			Id:        "fake-passport-id",
 			Subject:   "fake-passport-subject",
 			Issuer:    "fake-passport-issuer",

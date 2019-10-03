@@ -36,8 +36,8 @@ type VisaJWT string
 
 // VisaData is used for creating a new visa.
 type VisaData struct {
-	// JWT is embeded for standard JWT fields.
-	JWT
+	// StdClaims is embeded for standard JWT claims.
+	StdClaims
 
 	// Scope for the Visa.
 	// http://bit.ly/ga4gh-aai-profile#ga4gh-jwt-format
