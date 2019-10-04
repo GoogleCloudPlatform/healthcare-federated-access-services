@@ -30,6 +30,10 @@ import (
 
 // IsAudience returns true if the token's "azp" or "aud" contains the self string or clientID.
 func IsAudience(token *ga4gh.Identity, clientID, self string) bool {
+	if len(token.AuthorizedParty) == 0 && len(token.Audiences.Audiences) == 0 {
+		// Is a public token.
+		return true
+	}
 	if clientID == "" {
 		return false
 	}

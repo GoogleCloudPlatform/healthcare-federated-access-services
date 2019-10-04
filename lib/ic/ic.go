@@ -382,6 +382,11 @@ func getNonce(r *http.Request) (string, error) {
 	return "no-nonce", nil
 }
 
+func isUserInfo(r *http.Request) bool {
+	path := common.RequestAbstractPath(r)
+	return path == oidcUserInfoPath
+}
+
 func extractState(r *http.Request) (string, error) {
 	n := common.GetParam(r, "state")
 	if len(n) > 0 {
@@ -2892,7 +2897,7 @@ func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcCon
 	return s.getTokenAccountIdentity(r.Context(), id, realm, cfg, tx)
 }
 
-func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
+func (s *Service) getTokenIdentity(tok, scope, clientID string, anyAudience bool, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
@@ -2906,7 +2911,7 @@ func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for issuer %q", id.Issuer)
 	} else if len(scope) > 0 && !hasScopes(scope, id.Scope, matchFullScope) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for scope %q", scope)
-	} else if !common.IsAudience(id, clientID, iss) {
+	} else if !anyAudience && !common.IsAudience(id, clientID, iss) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized party")
 	}
 	return id, http.StatusOK, nil
@@ -2934,7 +2939,7 @@ func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Iden
 }
 
 func (s *Service) tokenToIdentity(tok string, r *http.Request, scope string, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	token, status, err := s.getTokenIdentity(tok, scope, getClientID(r), tx)
+	token, status, err := s.getTokenIdentity(tok, scope, getClientID(r), isUserInfo(r), tx)
 	if err != nil {
 		return token, status, err
 	}
@@ -2942,7 +2947,7 @@ func (s *Service) tokenToIdentity(tok string, r *http.Request, scope string, cfg
 }
 
 func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, status, err := s.getTokenIdentity(tok, "", getClientID(r), tx)
+	id, status, err := s.getTokenIdentity(tok, "", getClientID(r), isUserInfo(r), tx)
 	if err != nil {
 		return nil, status, fmt.Errorf("inspecting token: %v", err)
 	}

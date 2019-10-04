@@ -37,6 +37,7 @@ type Translator interface {
 func FetchUserinfoClaims(ctx context.Context, acTok string, id *ga4gh.Identity, translator Translator) (*ga4gh.Identity, error) {
 	// Issue a Get request to the issuer's /userinfo endpoint.
 	iss := id.Issuer
+	// TODO: use JWKS to discover the /userinfo endpoint.
 	contentType, userInfo, err := issueGetRequest(ctx, strings.TrimSuffix(iss, "/")+"/userinfo", acTok)
 	if err != nil {
 		return nil, err
