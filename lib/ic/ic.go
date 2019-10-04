@@ -2827,27 +2827,6 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 }
 
 func (s *Service) getIdentity(r *http.Request, scope string, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	// TODO: move playground persona processing to a plug-in of some sort.
-	if pname := common.GetParam(r, "persona"); len(pname) > 0 {
-		personas, err := s.module.LoadPersonas(getRealm(r))
-		if err != nil {
-			return nil, http.StatusServiceUnavailable, err
-		}
-		p, ok := personas[pname]
-		if !ok || p == nil {
-			return nil, http.StatusUnauthorized, fmt.Errorf("test persona not found")
-		}
-		id, err := playground.PersonaToIdentity(pname, p, scope, s.getIssuerString())
-		if err != nil {
-			return nil, http.StatusUnauthorized, err
-		}
-		email := id.Email
-		if len(email) == 0 {
-			email = id.Subject
-		}
-		return id, http.StatusOK, nil
-	}
-
 	tok, status, err := getAuthCode(r)
 	if err != nil {
 		return nil, status, err
