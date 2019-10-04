@@ -25,6 +25,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
+	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
 const (
@@ -32,6 +34,8 @@ const (
 	TestClientID = "00000000-0000-0000-0000-000000000000"
 	// TestClientSecret is the client secret for test client.
 	TestClientSecret = "00000000-0000-0000-0000-000000000001"
+	// TestIssuerURL is the URL of the fake OIDC Issuer service.
+	TestIssuerURL = "https://example.org/oidc"
 )
 
 var (
@@ -56,18 +60,26 @@ type serviceHandler interface {
 }
 
 // HandlerTests run tests on a service handler.
-func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest) {
+func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL string, cfg *dampb.DamConfig) {
 	testOutput := make(map[string]string)
 	for _, test := range tests {
 		name := test.Name
 		if len(name) == 0 {
 			name = test.Method + " " + test.Path
 		}
-		persona := "dr_joe_elixir"
+		pname := "dr_joe_elixir"
 		if len(test.Persona) > 0 {
-			persona = test.Persona
+			pname = test.Persona
 		}
-		target := fmt.Sprintf("%s?persona=%s&client_id=%s&client_secret=%s", test.Path, persona, TestClientID, TestClientSecret)
+		var persona *dampb.TestPersona
+		if cfg != nil {
+			persona = cfg.TestPersonas[pname]
+		}
+		acTok, _, err := playground.PersonaAccessToken(pname, issuerURL, TestClientID, persona)
+		if err != nil {
+			t.Fatalf("playground.PersonaAccessToken(%q, %q, _, _) failed: %v", pname, issuerURL, err)
+		}
+		target := fmt.Sprintf("%s?client_id=%s&client_secret=%s", test.Path, TestClientID, TestClientSecret)
 		var Input io.Reader
 		varInput := false
 		InputStr := test.Input
@@ -86,7 +98,7 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest) {
 		if test.IsForm {
 			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
-		r.Header.Set("Authorization", "Bearer abc123")
+		r.Header.Set("Authorization", "Bearer "+string(acTok))
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		Output := w.Body.String()

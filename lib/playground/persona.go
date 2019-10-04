@@ -52,13 +52,56 @@ var (
 	personaKey = testkeys.Keys[testkeys.PersonaBroker]
 )
 
-func PersonaToIdentity(name string, persona *dampb.TestPersona, scope string) (*ga4gh.Identity, error) {
+// PersonaAccessToken returns an access token for a persona at a given issuer.
+// The persona parameter may be nil.
+func PersonaAccessToken(name, issuer, clientID string, persona *dampb.TestPersona) (ga4gh.AccessJWT, string, error) {
+	now := common.GetNowInUnix()
+	sub := name
+	email := name
+	if persona != nil {
+		if s := getStandardClaim(persona, "sub"); len(s) > 0 {
+			sub = s
+			email = s
+		}
+		if e := getStandardClaim(persona, "email"); len(e) > 0 {
+			email = e
+		}
+	}
+	d := &ga4gh.AccessData{
+		StdClaims: ga4gh.StdClaims{
+			Issuer:    issuer,
+			Subject:   sub,
+			IssuedAt:  now,
+			ExpiresAt: now + 10000,
+			Audience:  clientID,
+			Id:        "token-id-" + name,
+		},
+		Scope: "openid ga4gh ga4gh_passport_v1",
+		Identities: map[string][]string{
+			email: []string{"IC", "DAM"},
+		},
+	}
+	access, err := ga4gh.NewAccessFromData(d, ga4gh.RS256, personaKey.Private, personaKey.ID)
+	if err != nil {
+		return "", "", err
+	}
+	return access.JWT(), sub, nil
+}
+
+// PersonaToIdentity retuns an Identity from persona configuration settings.
+func PersonaToIdentity(name string, persona *dampb.TestPersona, scope, visaIssuer string) (*ga4gh.Identity, error) {
 	if persona.Passport == nil {
 		return nil, fmt.Errorf("persona %q has not configured a test identity token", name)
 	}
 	sub := getStandardClaim(persona, "sub")
 	if len(sub) == 0 {
 		sub = name
+	}
+
+	iss := visaIssuer
+	if len(iss) == 0 {
+		iss = getStandardClaim(persona, "iss")
+		visaIssuer = iss
 	}
 	firstName := getStandardClaim(persona, "firstName")
 	lastName := getStandardClaim(persona, "lastName")
@@ -120,12 +163,12 @@ func PersonaToIdentity(name string, persona *dampb.TestPersona, scope string) (*
 	identity := ga4gh.Identity{
 		Subject:         sub,
 		Email:           getStandardClaim(persona, "email"),
-		Issuer:          getStandardClaim(persona, "iss"),
+		Issuer:          iss,
 		Expiry:          time.Now().Add(180 * 24 * time.Hour).Unix(),
 		Scope:           scope,
 		AuthorizedParty: getStandardClaim(persona, "azp"),
 		Username:        name,
-		EmailVerified:   getStandardClaim(persona, "email_verified") != "false",
+		EmailVerified:   strings.ToLower(getStandardClaim(persona, "email_verified")) == "true",
 		Name:            toName(fullName),
 		Nickname:        nickname,
 		GivenName:       toName(firstName),
@@ -139,7 +182,7 @@ func PersonaToIdentity(name string, persona *dampb.TestPersona, scope string) (*
 	if persona.Passport.Ga4GhAssertions == nil || len(persona.Passport.Ga4GhAssertions) == 0 {
 		return &identity, nil
 	}
-	return populatePersonaVisas(name, persona.Passport.Ga4GhAssertions, &identity)
+	return populatePersonaVisas(name, visaIssuer, persona.Passport.Ga4GhAssertions, &identity)
 }
 
 func toName(input string) string {
@@ -157,7 +200,7 @@ func getStandardClaim(persona *dampb.TestPersona, claim string) string {
 	return persona.Passport.StandardClaims[claim]
 }
 
-func populatePersonaVisas(pname string, assertions []*dampb.TestPersona_TestAssertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
+func populatePersonaVisas(pname, visaIssuer string, assertions []*dampb.TestPersona_TestAssertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	id.VisaJWTs = make([]string, len(assertions))
@@ -197,7 +240,7 @@ func populatePersonaVisas(pname string, assertions []*dampb.TestPersona_TestAsse
 		visa := ga4gh.VisaData{
 			StdClaims: ga4gh.StdClaims{
 				Subject:   id.Subject,
-				Issuer:    id.Issuer,
+				Issuer:    visaIssuer,
 				ExpiresAt: expires,
 				IssuedAt:  int64(now),
 			},

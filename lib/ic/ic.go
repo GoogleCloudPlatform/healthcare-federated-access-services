@@ -50,7 +50,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
 
-	josejwt "gopkg.in/square/go-jose.v2/jwt"
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
@@ -280,8 +279,7 @@ type Encryption interface {
 // - store: data storage and configuration storage
 // - module: the extended functionality for this environment
 // - encryption: the encryption use for storing tokens safely in database
-func NewService(domain, accountDomain string, store storage.Store, module module.Module, encryption Encryption) *Service {
-	ctx := context.Background()
+func NewService(ctx context.Context, domain, accountDomain string, store storage.Store, module module.Module, encryption Encryption) *Service {
 	sh := &ServiceHandler{}
 	lp, err := loadFile(loginPageFile)
 	if err != nil {
@@ -1203,7 +1201,7 @@ func (s *Service) Personas(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make(map[string]*pb.GetPersonasResponse_Meta)
 	for pname, p := range personas {
-		pid, err := playground.PersonaToIdentity(pname, p, noScope)
+		pid, err := playground.PersonaToIdentity(pname, p, noScope, s.getIssuerString())
 		if err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
@@ -1271,7 +1269,7 @@ func (s *Service) personaLogin(pName string, p *dampb.TestPersona, cfg *pb.IcCon
 		return
 	}
 
-	id, err := playground.PersonaToIdentity(pName, p, scope)
+	id, err := playground.PersonaToIdentity(pName, p, scope, s.getIssuerString())
 	if err != nil {
 		common.HandleError(http.StatusUnauthorized, err, w)
 		return
@@ -2834,7 +2832,7 @@ func (s *Service) getIdentity(r *http.Request, scope string, cfg *pb.IcConfig, t
 		if !ok || p == nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("test persona not found")
 		}
-		id, err := playground.PersonaToIdentity(pname, p, scope)
+		id, err := playground.PersonaToIdentity(pname, p, scope, s.getIssuerString())
 		if err != nil {
 			return nil, http.StatusUnauthorized, err
 		}
@@ -2867,70 +2865,51 @@ func getAuthCode(r *http.Request) (string, int, error) {
 	return tok, http.StatusOK, nil
 }
 
-func (s *Service) parseToken(tok string, tx storage.Tx, out interface{}) (int, error) {
-	parsed, err := josejwt.ParseSigned(tok)
-	if err != nil {
-		return http.StatusUnauthorized, err
-	}
-	pub, err := s.getIssuerPublicKey(s.getIssuerString(), tx)
-	if err != nil {
-		return http.StatusUnauthorized, err
-	}
-	if err := parsed.Claims(pub, out); err != nil {
-		return http.StatusUnauthorized, fmt.Errorf("cannot inspect auth code contents: %v", err)
-	}
-	return http.StatusOK, nil
-}
-
 func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	var token authToken
-	if status, err := s.parseToken(code, tx, &token); err != nil {
-		return nil, status, err
+	id, err := common.ConvertTokenToIdentityUnsafe(code)
+	if err != nil {
+		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
 	}
-	if err := token.Valid(); err != nil {
+	if err := id.Valid(); err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 	realm := getRealm(r)
 	var tokenMetadata pb.TokenMetadata
-	if err := s.store.ReadTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, &tokenMetadata, tx); err != nil {
+	if err := s.store.ReadTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, id.ID, storage.LatestRev, &tokenMetadata, tx); err != nil {
 		if storage.ErrNotFound(err) {
 			return nil, http.StatusUnauthorized, fmt.Errorf("auth code invalid or has already been exchanged")
 		}
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("reading auth code metadata from storage: %v", err)
 	}
-	if err := s.store.DeleteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, tx); err != nil {
+	if err := s.store.DeleteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, id.ID, storage.LatestRev, tx); err != nil {
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("removing auth code metadata from storage: %v", err)
 	}
 
-	id := &ga4gh.Identity{
-		ID:               token.ID,
-		Expiry:           token.Expiry,
-		Subject:          tokenMetadata.Subject,
-		Scope:            tokenMetadata.Scope,
-		IdentityProvider: tokenMetadata.IdentityProvider,
-		Nonce:            tokenMetadata.Nonce,
-	}
+	id.Subject = tokenMetadata.Subject
+	id.Scope = tokenMetadata.Scope
+	id.IdentityProvider = tokenMetadata.IdentityProvider
+	id.Nonce = tokenMetadata.Nonce
 	return s.getTokenAccountIdentity(r.Context(), id, realm, cfg, tx)
 }
 
 func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	var token ga4gh.Identity
-	status, err := s.parseToken(tok, tx, &token)
+	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
-		return nil, status, err
+		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
 	}
+
 	// TODO: add more checks here as appropriate.
 	iss := s.getIssuerString()
-	if err = token.Valid(); err != nil {
+	if err = id.Valid(); err != nil {
 		return nil, http.StatusUnauthorized, err
-	} else if token.Issuer != iss {
-		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for issuer %q", token.Issuer)
-	} else if len(scope) > 0 && !hasScopes(scope, token.Scope, matchFullScope) {
+	} else if id.Issuer != iss {
+		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for issuer %q", id.Issuer)
+	} else if len(scope) > 0 && !hasScopes(scope, id.Scope, matchFullScope) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for scope %q", scope)
-	} else if !common.IsAudience(&token, clientID, iss) {
+	} else if !common.IsAudience(id, clientID, iss) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized party")
 	}
-	return &token, http.StatusOK, nil
+	return id, http.StatusOK, nil
 }
 
 func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Identity, realm string, cfg *pb.IcConfig, tx storage.Tx) (*ga4gh.Identity, int, error) {
@@ -3016,19 +2995,25 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 }
 
 func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
-	t, err := s.getIssuerTranslator(s.ctx, idp.Issuer, cfg, secrets)
+	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	if err != nil {
+		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
+	}
+
+	iss := id.Issuer
+	t, err := s.getIssuerTranslator(s.ctx, iss, cfg, secrets)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 
-	id, err := t.TranslateToken(s.ctx, tok)
+	id, err = t.TranslateToken(s.ctx, tok)
 	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("translating token from issuer %q: %v", idp.Issuer, err)
+		return nil, http.StatusUnauthorized, fmt.Errorf("translating token from issuer %q: %v", iss, err)
 	}
-	if idp.GetUsePassportVisa() || common.HasUserinfoClaims(id.UserinfoClaims) {
+	if idp.GetUsePassportVisa() || common.HasUserinfoClaims(id) {
 		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
 		if err != nil {
-			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
+			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
 		}
 	}
 

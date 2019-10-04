@@ -376,6 +376,7 @@ func (s *Service) tokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok,
 	if err != nil {
 		return nil, fmt.Errorf("inspecting token: %v", err)
 	}
+	identities := id.Identities
 
 	iss := id.Issuer
 	t, err := s.getIssuerTranslator(s.ctx, iss, cfg, nil, tx)
@@ -387,39 +388,24 @@ func (s *Service) tokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok,
 	if err != nil {
 		return nil, fmt.Errorf("translating token from issuer %q: %v", iss, err)
 	}
-	if common.HasUserinfoClaims(id.UserinfoClaims) {
+	if common.HasUserinfoClaims(id) {
 		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
 		if err != nil {
 			return nil, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
 		}
 	}
 
-	// DAM will only accept tokens designated for use by the requestor's client ID.
-	if len(id.AuthorizedParty) == 0 || id.AuthorizedParty != clientID {
-		return nil, fmt.Errorf("mismatched authorized party")
-	}
-	if err := id.Valid(); err != nil {
+	if err := id.Validate(clientID); err != nil {
 		return nil, err
 	}
+
+	// Retain identities from access token.
+	id.Identities = identities
 
 	return id, nil
 }
 
 func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
-	// TODO: remove the persona query parameter feature.
-	pname := r.URL.Query().Get("persona")
-	if len(pname) > 0 {
-		p, ok := cfg.TestPersonas[pname]
-		if !ok || p == nil {
-			return nil, http.StatusUnauthorized, fmt.Errorf("unauthorized")
-		}
-		id, err := playground.PersonaToIdentity(pname, p, defaultPersonaScope)
-		if err != nil {
-			return nil, http.StatusInternalServerError, err
-		}
-		return id, http.StatusOK, nil
-	}
-
 	tok, err := extractBearerToken(r)
 	if err != nil {
 		return nil, http.StatusBadRequest, err
@@ -434,7 +420,7 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 
 func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, []string, error) {
 	persona := cfg.TestPersonas[personaName]
-	id, err := playground.PersonaToIdentity(personaName, persona, defaultPersonaScope)
+	id, err := playground.PersonaToIdentity(personaName, persona, defaultPersonaScope, "")
 	if err != nil {
 		return "INVALID", nil, err
 	}

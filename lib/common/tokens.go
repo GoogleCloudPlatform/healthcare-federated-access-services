@@ -100,12 +100,10 @@ func ConvertTokenToIdentityUnsafe(tok string) (*ga4gh.Identity, error) {
 
 // HasUserinfoClaims checks if /userinfo endpoint needs to be called to fetch additional claims for
 // a particular identity.
-func HasUserinfoClaims(userinfoClaims []string) bool {
-	if len(userinfoClaims) == 0 {
-		return false
-	}
-	for _, name := range userinfoClaims {
-		if strings.HasPrefix(name, "ga4gh.") {
+func HasUserinfoClaims(id *ga4gh.Identity) bool {
+	scopes := strings.Split(id.Scope, " ")
+	for _, scope := range scopes {
+		if scope == "ga4gh" || scope == "ga4gh_passport_v1" {
 			return true
 		}
 	}

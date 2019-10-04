@@ -21,16 +21,20 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/coreos/go-oidc"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
 )
 
 func TestServer(t *testing.T) {
 	const (
 		issuerURL = "https://example.com/oidc"
-		aud = "test"
+		aud       = "test"
 	)
 	now := time.Now().Unix()
 
-	server, err := New(issuerURL)
+	server, err := New(issuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(issuerURL) failed: %v", err)
 	}
@@ -41,7 +45,7 @@ func TestServer(t *testing.T) {
 		ExpiresAt: now + 10000,
 		Audience:  aud,
 	}
-	header := map[string]string{"kid": "kid"}
+	header := map[string]string{"kid": testkeys.PersonaBrokerKey.ID}
 
 	jwt, err := server.Sign(header, claim)
 	if err != nil {
@@ -58,5 +62,30 @@ func TestServer(t *testing.T) {
 
 	if _, err = verifier.Verify(ctx, jwt); err != nil {
 		t.Fatalf("verifier.Verify(ctx, jwt) failed: %v", err)
+	}
+
+	pname := "dr_joe_elixir"
+	persona, ok := server.cfg.TestPersonas[pname]
+	if !ok {
+		t.Fatalf("test persona %q not found in config", pname)
+	}
+	acTok, sub, err := playground.PersonaAccessToken(pname, issuerURL, aud, persona)
+	if err != nil {
+		t.Fatalf("playground.PersonaAccessToken(%q, %q, _) failed: %v", pname, issuerURL, err)
+	}
+	user := &ga4gh.Identity{
+		Issuer:  issuerURL,
+		Subject: sub,
+	}
+	trans, err := translator.NewOIDCIdentityTranslator(ctx, issuerURL, "")
+	if err != nil {
+		t.Fatalf("translator.NewOIDCIdentityTranslator(ctx, %q, _) failed: %v", issuerURL, err)
+	}
+	id, err := translator.FetchUserinfoClaims(ctx, string(acTok), user, trans)
+	if err != nil {
+		t.Fatalf("translator.FetchUserinfoClaims(ctx, tok, user, trans) failed: %v", err)
+	}
+	if len(id.VisaJWTs) == 0 {
+		t.Errorf("id.VisaJWTs: wanted more than zero, got none")
 	}
 }

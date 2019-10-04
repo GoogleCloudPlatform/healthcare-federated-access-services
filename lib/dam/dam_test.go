@@ -17,7 +17,6 @@ package dam
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -25,8 +24,11 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
 
 	"github.com/google/go-cmp/cmp"
@@ -47,7 +49,12 @@ var transformJSON = cmpopts.AcyclicTransformer("ParseJSON", func(in string) (out
 func TestHandlers(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockTokenCreator(false)
-	s := NewService(context.Background(), "test.org", "no-broker", store, wh)
+	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
+	}
+	ctx := server.ContextWithClient(context.Background())
+	s := NewService(ctx, "test.org", "no-broker", store, wh)
 	tests := []test.HandlerTest{
 		{
 			Method: "GET",
@@ -826,18 +833,24 @@ func TestHandlers(t *testing.T) {
 			Status: http.StatusNotFound,
 		},
 	}
-	test.HandlerTests(t, s.Handler, tests)
+	test.HandlerTests(t, s.Handler, tests, test.TestIssuerURL, server.Config())
 }
 
 func TestMinConfig(t *testing.T) {
 	store := storage.NewMemoryStorage("dam-min", "testdata/config")
-	s := NewService(context.Background(), "test.org", "no-broker", store, nil)
+	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
+	}
+	ctx := server.ContextWithClient(context.Background())
+	s := NewService(ctx, "test.org", "no-broker", store, nil)
 	tests := []test.HandlerTest{
 		{
 			Name:    "restricted access of 'dr_joe_elixir' (which only exists in min config subdirectory)",
 			Method:  "GET",
 			Path:    "/dam/v1alpha/test/config/testPersonas/dr_joe_elixir",
 			Persona: "admin",
+			Output:  `^.*"passport"`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -845,19 +858,11 @@ func TestMinConfig(t *testing.T) {
 			Method:  "GET",
 			Path:    "/dam/v1alpha/test/config/testPersonas/min_joes",
 			Persona: "admin",
+			Output:  `^.*not found`,
 			Status:  http.StatusNotFound,
 		},
 	}
-	for _, te := range tests {
-		target := fmt.Sprintf("%s?persona=%s&client_id=%s&client_secret=%s", te.Path, te.Persona, test.TestClientID, test.TestClientSecret)
-		var input io.Reader
-		r := httptest.NewRequest(te.Method, target, input)
-		w := httptest.NewRecorder()
-		s.Handler.ServeHTTP(w, r)
-		if w.Code != te.Status {
-			t.Errorf("test %q returned wrong status code: got %d want %d", te.Name, w.Code, te.Status)
-		}
-	}
+	test.HandlerTests(t, s.Handler, tests, test.TestIssuerURL, server.Config())
 }
 
 type contextMatcher struct{}
@@ -881,22 +886,35 @@ func (contextMatcher) String() string {
 
 func TestCheckAuthorization(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	s := NewService(context.Background(), "test.org", "no-broker", store, nil)
+	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
+	}
+	ctx := server.ContextWithClient(context.Background())
+	s := NewService(ctx, "test.org", "no-broker", store, nil)
 
-	// Ensure pass context with TTL in validator
-	var input io.Reader
-	r := httptest.NewRequest("GET", "/dam/v1alpha/master/resources/ga4gh-apis/views/gcs_read/roles/viewer/token?persona=dr_joe_elixir", input)
-
-	resName := "ga4gh-apis"
-	viewName := "gcs_read"
-	role := "viewer"
 	realm := "master"
-	ttl := time.Hour
-
 	cfg, err := s.loadConfig(nil, realm)
 	if err != nil {
 		t.Fatalf("cannot load config, %v", err)
 	}
+
+	pname := "dr_joe_elixir"
+	persona := cfg.TestPersonas[pname]
+	acTok, _, err := playground.PersonaAccessToken(pname, test.TestIssuerURL, test.TestClientID, persona)
+	if err != nil {
+		t.Fatalf("playground.PersonaAccessToken(%q, %q, _, _) failed: %v", pname, test.TestIssuerURL, err)
+	}
+
+	// Ensure pass context with TTL in validator
+	var input io.Reader
+	r := httptest.NewRequest("GET", "/dam/v1alpha/master/resources/ga4gh-apis/views/gcs_read/roles/viewer/token?client_id="+test.TestClientID+"&client_secret="+test.TestClientSecret, input)
+	r.Header.Set("Authorization", "Bearer "+string(acTok))
+
+	resName := "ga4gh-apis"
+	viewName := "gcs_read"
+	role := "viewer"
+	ttl := time.Hour
 
 	id, _, err := s.getPassportIdentity(cfg, nil, r)
 	if err != nil {

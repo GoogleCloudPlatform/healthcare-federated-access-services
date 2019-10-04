@@ -7,6 +7,14 @@
     "description": "Minimum Test DAM"
   },
   "trustedPassportIssuers": {
+    "test": {
+      "issuer": "https://example.org/oidc",
+      "clientId": "00000000-0000-0000-0000-000000000000",
+      "ui": {
+        "label": "Test",
+        "description": "Fake OIDC Issuer for testing"
+      }
+    },
     "ic_dev": {
       "issuer": "https://ic-dot-example.appspot.com/oidc",
       "ui": {
@@ -127,7 +135,7 @@
       "passport": {
         "standardClaims": {
           "iss": "https://ic-dot-example.appspot.com/oidc",
-          "sub": "non-admin@faculty.example.edu"
+          "email": "non-admin@faculty.example.edu"
         },
         "ga4ghAssertions": []
       }
@@ -139,7 +147,7 @@
       "passport": {
         "standardClaims": {
           "iss": "https://ic-dot-example.appspot.com/oidc",
-          "sub": "admin@faculty.example.edu"
+          "email": "admin@faculty.example.edu"
         },
         "ga4ghAssertions": []
       }
@@ -151,7 +159,7 @@
       "passport": {
         "standardClaims": {
           "iss": "https://ic-dot-example.appspot.com/oidc",
-          "sub": "dr_joe@faculty.example.edu"
+          "email": "dr_joe@faculty.example.edu"
         },
         "ga4ghAssertions": [
           {

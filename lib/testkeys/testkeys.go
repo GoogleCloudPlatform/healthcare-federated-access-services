@@ -61,6 +61,8 @@ var Keys = map[Component]Key{
 var (
 	// Default is a fake RSA private/public key pair.
 	Default = Keys[Unknown]
+	// PersonaBrokerKey provides Persona Broker private/public key pair.
+	PersonaBrokerKey = Keys[PersonaBroker]
 )
 
 type pem struct {

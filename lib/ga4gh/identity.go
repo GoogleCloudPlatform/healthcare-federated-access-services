@@ -97,6 +97,11 @@ type Identity struct {
 // Valid implements dgrijalva/jwt-go Claims interface. This will be called when using
 // dgrijalva/jwt-go parse. This validates exp, iat, nbf in token.
 func (t *Identity) Valid() error {
+	return t.Validate("")
+}
+
+// Validate returns an error if the Identity does not pass basic checks.
+func (t *Identity) Validate(clientID string) error {
 	now := time.Now().Unix()
 
 	if now > t.Expiry {
@@ -110,6 +115,8 @@ func (t *Identity) Valid() error {
 	if now < t.NotBefore {
 		return fmt.Errorf("token is not valid yet")
 	}
+
+	// TODO: check non-empty clientID against t.Audiences
 
 	return nil
 }

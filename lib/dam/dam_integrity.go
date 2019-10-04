@@ -177,7 +177,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		if tp.Passport == nil {
 			return fmt.Errorf("test persona %q requires a Passport", n)
 		}
-		tid, err := playground.PersonaToIdentity(n, tp, defaultPersonaScope)
+		tid, err := playground.PersonaToIdentity(n, tp, defaultPersonaScope, "")
 		if err != nil {
 			return err
 		}

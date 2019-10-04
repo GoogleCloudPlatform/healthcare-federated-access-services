@@ -1,0 +1,21 @@
+{
+  "revision": "1",
+  "profile": {
+    "username": "admin",
+    "name": "Administrator"
+  },
+  "properties": {
+    "subject": "admin",
+    "created": 1561210190,
+    "modified": 1561226850
+  },
+  "connectedAccounts": [
+    {
+      "properties": {
+        "subject": "admin@faculty.example.edu"
+      },
+      "tags": ["IC", "DAM"]
+    }
+  ],
+  "state": "ACTIVE"
+}

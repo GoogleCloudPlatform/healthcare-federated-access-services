@@ -56,6 +56,9 @@ type AccessData struct {
 
 	// Scope ...
 	Scope string `json:"scope,omitempty"`
+
+	// TODO: Replace identities with LinkedIdentities visas.
+	Identities map[string][]string `json:"identities,omitempty"`
 }
 
 // NewAccessFromJWT creates a new Access from a given JWT.
@@ -115,6 +118,9 @@ type accessDataVisaJWT struct {
 
 	// Scope ...
 	Scope string `json:"scope,omitempty"`
+
+	// TODO: Replace identities with LinkedIdentities visas.
+	Identities map[string][]string `json:"identities,omitempty"`
 }
 
 func accessJWTFromData(d *AccessData, method SigningMethod, key *rsa.PrivateKey, keyID string) (AccessJWT, error) {
@@ -131,8 +137,9 @@ func accessJWTFromData(d *AccessData, method SigningMethod, key *rsa.PrivateKey,
 
 func toAccessDataWithVisaJWT(d *AccessData) *accessDataVisaJWT {
 	m := &accessDataVisaJWT{
-		StdClaims: d.StdClaims,
-		Scope:     d.Scope,
+		StdClaims:  d.StdClaims,
+		Scope:      d.Scope,
+		Identities: d.Identities,
 	}
 	return m
 }
@@ -153,8 +160,9 @@ func accessDataFromJWT(j AccessJWT) (*AccessData, error) {
 
 func toAccessData(m *accessDataVisaJWT) (*AccessData, error) {
 	d := &AccessData{
-		StdClaims: m.StdClaims,
-		Scope:     m.Scope,
+		StdClaims:  m.StdClaims,
+		Scope:      m.Scope,
+		Identities: m.Identities,
 	}
 	return d, nil
 }

@@ -1,0 +1,14 @@
+{
+  "revision": "1",
+  "profile": {
+    "username": "non-admin",
+    "name": "Non Administrator"
+  },
+  "properties": {
+    "subject": "non-admin",
+    "created": 1561210199,
+    "modified": 1561226899
+  },
+  "connectedAccounts": [],
+  "state": "ACTIVE"
+}

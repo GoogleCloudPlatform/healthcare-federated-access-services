@@ -34,8 +34,10 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/fakeencryption"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 )
 
@@ -55,7 +57,7 @@ func init() {
 
 func TestOidcEndpoints(t *testing.T) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(domain, domain, store, module.NewBasicModule(), fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, store, module.NewBasicModule(), fakeencryption.New())
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -90,7 +92,7 @@ func TestOidcEndpoints(t *testing.T) {
 func TestUserinfoClaims(t *testing.T) {
 	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -135,7 +137,12 @@ func TestUserinfoClaims(t *testing.T) {
 func TestHandlers(t *testing.T) {
 	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", oidcIssuer, err)
+	}
+	ctx := server.ContextWithClient(context.Background())
+	s := NewService(ctx, domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -244,7 +251,7 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 	}
-	test.HandlerTests(t, s.Handler, tests)
+	test.HandlerTests(t, s.Handler, tests, oidcIssuer, server.Config())
 }
 
 func createTestToken(t *testing.T, s *Service, id *ga4gh.Identity, scope string, cfg *pb.IcConfig) string {
@@ -258,7 +265,13 @@ func createTestToken(t *testing.T, s *Service, id *ga4gh.Identity, scope string,
 func TestAdminHandlers(t *testing.T) {
 	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", oidcIssuer, err)
+	}
+	ctx := server.ContextWithClient(context.Background())
+
+	s := NewService(ctx, domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
 	tests := []test.HandlerTest{
 		{
 			Name:    "List all tokens of all users as a non-admin",
@@ -301,14 +314,14 @@ func TestAdminHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 	}
-	test.HandlerTests(t, s.Handler, tests)
+	test.HandlerTests(t, s.Handler, tests, oidcIssuer, server.Config())
 }
 
 func TestNonce(t *testing.T) {
 	nonce := "nonce-for-test"
 	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)

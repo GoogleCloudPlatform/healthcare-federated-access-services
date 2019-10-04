@@ -7,6 +7,14 @@
     "description": "Test DAM"
   },
   "trustedPassportIssuers": {
+    "test": {
+      "issuer": "https://example.org/oidc",
+      "clientId": "00000000-0000-0000-0000-000000000000",
+      "ui": {
+        "label": "Test",
+        "description": "Fake OIDC Issuer for testing"
+      }
+    },
     "ic_dev": {
       "issuer": "https://ic-dev-dot-hcls-data-connect-demo.appspot.com/oidc",
       "ui": {
@@ -56,6 +64,7 @@
   "trustedSources": {
     "nih_institutes": {
       "sources": [
+        "https://example.org/oidc",
         "https://dbgap.nlm.nih.gov/aa",
         "https://nci.nih.gov",
         "https://institute1.nih.gov",
@@ -74,6 +83,7 @@
     },
     "the_broad": {
       "sources": [
+        "https://example.org/oidc",
         "https://ga4gh.broadinstitute.org"
       ],
       "ui": {
@@ -83,6 +93,7 @@
     },
     "elixir_institutes": {
       "sources": [
+        "https://example.org/oidc",
         "https://ga4gh.elixir-czech.org/claims"
       ],
       "claims": [
@@ -96,6 +107,7 @@
     },
     "eu_universities": {
       "sources": [
+        "https://example.org/oidc",
         "https://example.edu"
       ],
       "claims": [
@@ -110,6 +122,7 @@
     },
     "us_universities": {
       "sources": [
+        "https://example.org/oidc",
         "https://ga4gh.stanford.edu/claims"
       ],
       "claims": [
@@ -123,6 +136,7 @@
     },
     "research_companies": {
       "sources": [
+        "https://example.org/oidc",
         "https://ga4gh.google.com/claims",
         "https://ga4gh.dnastack.com/claims"
       ],
@@ -643,7 +657,7 @@
       "passport": {
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
-          "sub": "dr_joe@faculty.example.edu",
+          "email": "dr_joe@faculty.example.edu",
           "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
         },
         "ga4ghAssertions": [
@@ -677,7 +691,7 @@
       "passport": {
         "standardClaims": {
           "iss": "https://login.nih.gov/oidc/",
-          "sub": "dr_joe@era.nih.gov",
+          "email": "dr_joe@era.nih.gov",
           "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
         },
         "ga4ghAssertions": [

@@ -84,7 +84,7 @@ func main() {
 		log.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
 	}
 
-	s := ic.NewService(domain, acctDomain, store, module, gcpkms)
+	s := ic.NewService(ctx, domain, acctDomain, store, module, gcpkms)
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"
