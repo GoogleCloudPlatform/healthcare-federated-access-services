@@ -20,17 +20,6 @@ import (
 	"time"
 )
 
-const (
-	// OldClaimAffiliationAndRole as per the Researcher Identity RFC.
-	OldClaimAffiliationAndRole = "AffiliationAndRole"
-	// OldClaimAcceptedTermsAndPolicies as per the Researcher Identity RFC.
-	OldClaimAcceptedTermsAndPolicies = "AcceptedTermsAndPolicies"
-	// OldClaimResearcherStatus as per the Researcher Identity RFC.
-	OldClaimResearcherStatus = "ResearcherStatus"
-	// OldClaimControlledAccessGrants as per the Researcher Identity RFC.
-	OldClaimControlledAccessGrants = "ControlledAccessGrants"
-)
-
 // OldClaim represents a claim object as defined by GA4GH.
 type OldClaim struct {
 	Value     string                       `json:"value"`

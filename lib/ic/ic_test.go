@@ -101,10 +101,10 @@ func TestUserinfoClaims(t *testing.T) {
 	identity := &ga4gh.Identity{
 		Subject: "sub",
 		GA4GH: map[string][]ga4gh.OldClaim{
-			ga4gh.OldClaimResearcherStatus: {{
+			string(ga4gh.ResearcherStatus): {{
 				Value: longStr,
 			}},
-			ga4gh.OldClaimAcceptedTermsAndPolicies: {{
+			string(ga4gh.AcceptedTermsAndPolicies): {{
 				Value: longStr,
 			}},
 		},
@@ -121,8 +121,8 @@ func TestUserinfoClaims(t *testing.T) {
 	}
 
 	expectUserinfoClaims := []string{
-		ga4ghClaimNamePrefix + ga4gh.OldClaimAcceptedTermsAndPolicies,
-		ga4ghClaimNamePrefix + ga4gh.OldClaimResearcherStatus,
+		ga4ghClaimNamePrefix + string(ga4gh.AcceptedTermsAndPolicies),
+		ga4ghClaimNamePrefix + string(ga4gh.ResearcherStatus),
 	}
 	sort.Strings(expectUserinfoClaims)
 	sort.Strings(id.UserinfoClaims)
