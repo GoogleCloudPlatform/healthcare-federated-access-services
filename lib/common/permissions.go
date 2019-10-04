@@ -18,10 +18,12 @@ package common
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
+	glog "github.com/golang/glog"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
@@ -66,6 +68,38 @@ func (p *Permissions) CheckSubjectOrAdmin(id *ga4gh.Identity, sub string) (int, 
 	return http.StatusOK, nil
 }
 
+func extractIdentitiesFromVisas(id *ga4gh.Identity) []string {
+	var subjects []string
+
+	for _, j := range id.VisaJWTs {
+		v, err := ga4gh.NewVisaFromJWT(ga4gh.VisaJWT(j))
+		if err != nil {
+			glog.Warning("ga4gh.NewVisaFromJWT failed: %v", err)
+			continue
+		}
+
+		if v.Data().Assertion.Type != ga4gh.LinkedIdentities {
+			continue
+		}
+
+		// TODO Need to verify JWT before use.
+		// TODO Need to verify JWT from trust issuer and source.
+
+		subjects = append(subjects, v.Data().Subject)
+		for _, s := range strings.Split(string(v.Data().Assertion.Value), ";") {
+			ss := strings.Split(s, ",")
+			if len(ss) != 2 {
+				glog.Warning("LinkedIdentities in wrong format")
+				continue
+			}
+
+			subjects = append(subjects, ss[0])
+		}
+	}
+
+	return subjects
+}
+
 func (p *Permissions) isAdmin(id *ga4gh.Identity) bool {
 	now := GetNowInUnixNano()
 	if p.isAdminUser(id.Subject, now) {
@@ -76,10 +110,23 @@ func (p *Permissions) isAdmin(id *ga4gh.Identity) bool {
 			return true
 		}
 	}
+
+	for _, sub := range extractIdentitiesFromVisas(id) {
+		if p.isAdminUser(sub, now) {
+			return true
+		}
+	}
+
 	return false
 }
 
 func (p *Permissions) isAdminUser(user string, now float64) bool {
+	// Only allowing "sub" that contain an "@" symbol. We don't want
+	// to allow admins to try to trigger on a raw account number
+	// without knowing where it came from.
+	if !strings.Contains(user, "@") {
+		return false
+	}
 	u, ok := p.perm.Users[user]
 	if !ok {
 		return false
