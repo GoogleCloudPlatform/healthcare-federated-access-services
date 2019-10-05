@@ -14,9 +14,68 @@
 
 package ga4gh
 
+import (
+	"context"
+	"fmt"
+
+	glog "github.com/golang/glog"
+)
+
 // Conditions represent a GA4GH Passport Visa condition field sub-object.
 // https://docs.google.com/document/d/1NySsYM1V9ssxk_k4RH37fU4tJK8x37YMmDxnn_45FvQ/
 type Conditions [][]Condition
+
+// CheckConditions checks if the given list of Assertions satisfies the
+// given Conditions.
+// Conditions is a DNF, an OR of Clauses, each Clause an AND of Literals,
+// each Literal a Condition.
+// A list of Assertions satisfies a Condition if at least one of Assertions
+// makes the Condition true.
+// Visas which cannot be verified will be ignored.
+func CheckConditions(ctx context.Context, c Conditions, vs []*Visa, f JWTVerifier) error {
+	glog.V(1).Info("CheckConditions")
+	if len(c) == 0 {
+		return nil
+	}
+	for _, clause := range c {
+		if err := checkClause(ctx, clause, vs, f); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("insufficient visas")
+}
+
+// Clause is an AND of Literals.
+type Clause []Condition
+
+// Literal is a Condition.
+type Literal = Condition
+
+func checkClause(ctx context.Context, c Clause, vs []*Visa, f JWTVerifier) error {
+	glog.V(1).Info("checkClause")
+	for _, literal := range c {
+		if err := checkLiteral(ctx, literal, vs, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkLiteral(ctx context.Context, l Literal, vs []*Visa, f JWTVerifier) error {
+	glog.V(1).Info("checkLiteral")
+	for _, v := range vs {
+		if err := CheckCondition(l, v.Data().Assertion); err != nil {
+			glog.V(1).Infof("CheckCondition failed: %v", err)
+			continue
+		}
+		if ok, err := f(ctx, string(v.JWT())); err != nil || !ok {
+			glog.V(1).Infof("JWT verification failed: %v", err)
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("insufficient visas")
+}
 
 // Condition represnet a GA4GH Passport Visa Condition.
 // http://bit.ly/ga4gh-passport-v1#conditions
@@ -28,8 +87,37 @@ type Condition struct {
 	Value Pattern `json:"value,omitempty"`
 
 	// Source http://bit.ly/ga4gh-passport-v1#source
-	Source Source `json:"source,omitempty"`
+	Source Pattern `json:"source,omitempty"`
 
 	// By http://bit.ly/ga4gh-passport-v1#by
-	By By `json:"by,omitempty"`
+	By Pattern `json:"by,omitempty"`
 }
+
+// CheckCondition checks if a Visa satisfies a Condition.
+// We use Visa because we would also need to verify the Visa.
+// https://bit.ly/ga4gh-passport-v1#conditions
+func CheckCondition(c Condition, a Assertion) error {
+	glog.V(1).Info("CheckCondition")
+	if c.Type == "" {
+		return fmt.Errorf("Condition must specifiy Type")
+	}
+	if c.Type != a.Type {
+		return fmt.Errorf("Type mismatch: %q %q", c.Type, a.Type)
+	}
+
+	if err := MatchPatterns(Pattern(c.By), string(a.By)); err != nil {
+		return fmt.Errorf("By mismatch: %v", err)
+	}
+
+	if err := MatchPatterns(c.Source, string(a.Source)); err != nil {
+		return fmt.Errorf("Source mismatch: %v", err)
+	}
+
+	if err := MatchPatterns(c.Value, string(a.Value)); err != nil {
+		return fmt.Errorf("Value mismatch: %v", err)
+	}
+
+	return nil
+}
+
+// TODO: add tests for this file.

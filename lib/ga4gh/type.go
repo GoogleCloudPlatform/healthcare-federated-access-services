@@ -14,6 +14,12 @@
 
 package ga4gh
 
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
+
 // Timestamp is the number of seconds since epoch.
 type Timestamp = int64
 
@@ -42,6 +48,28 @@ const (
 	// http://bit.ly/ga4gh-passport-v1#linkedidentities
 	LinkedIdentities Type = "LinkedIdentities"
 )
+
+// ValidType checks the Type of an Assertion is valid.
+func ValidType(t Type) bool {
+	return StandardType(t) || CustomType(t)
+}
+
+// StandardType checks if the Type of an Assertion is one of the standard ones.
+// http://bit.ly/ga4gh-passport-v1#ga4gh-standard-passport-visa-type-definitions
+func StandardType(t Type) bool {
+	switch t {
+	case AffiliationAndRole, AcceptedTermsAndPolicies, ResearcherStatus, ControlledAccessGrants, LinkedIdentities:
+		return true
+	}
+	return false
+}
+
+// CustomType checks if the Type of an Assertion is a custom.
+// http://bit.ly/ga4gh-passport-v1#custom-passport-visa-types
+func CustomType(t Type) bool {
+	// TODO: check that it is a valid URL.
+	return true
+}
 
 // Value is the value of an Assertion.
 // http://bit.ly/ga4gh-passport-v1#value
@@ -73,11 +101,90 @@ const (
 type Source string
 
 // Pattern for a string from Pattern Matching section of GA4GH Passport sepcification.
-// Is a string that can contain wildchars ? and *.
+// Pattern should be of one of the following forms:
+// prefix = "const:": the field should be equal to the suffix
+// prefix = "pattern:": the field should match the suffix
+// prefix = "split_pattern": the field should match one of the parts of suffix after splitting by ;
+// The only wildchars for matching are ? and *.
 // ? is interpreted as any single character, * is interpretted as any string.
 // http://bit.ly/ga4gh-passport-v1#pattern-matching
 type Pattern string
 
+// MatchPatterns checks if a given string matches a Pattern.
+func MatchPatterns(p Pattern, v string) error {
+	switch {
+	case p == "": // No pattern is specified.
+		return nil
+
+	case strings.HasPrefix(string(p), "const:"):
+		w := string(p[len("const:"):])
+		if w != v {
+			return fmt.Errorf("const not matched: %q %q", p, v)
+		}
+		return nil
+
+	case strings.HasPrefix(string(p), "pattern:"):
+		w := string(p[len("pattern:"):])
+		if matchSuffix(w, v) != nil {
+			return fmt.Errorf("pattern not matched: %q %q", p, v)
+		}
+		return nil
+
+	case strings.HasPrefix(string(p), "split_pattern:"):
+		ws := strings.Split(string(p[len("split_pattern:"):]), ";")
+		for _, w := range ws {
+			if matchSuffix(w, v) == nil {
+				return nil
+			}
+		}
+		return fmt.Errorf("split_pattern not matched: %q %q", p, v)
+
+	}
+	return fmt.Errorf("unkown pattern")
+}
+
+// matchSuffix gets a suffix for a pattern and checks if v matches it.
+func matchSuffix(w string, v string) error {
+	all := regexp.QuoteMeta("*")
+	any := regexp.QuoteMeta("?")
+
+	q := regexp.QuoteMeta(w)
+	q = strings.ReplaceAll(q, all, "*")
+	q = strings.ReplaceAll(q, any, ".")
+	q = "^" + q + "$"
+
+	// TODO: use global regexp cache.
+	r, err := regexp.Compile(q)
+	if err != nil {
+		return fmt.Errorf("invalid pattern matching strings: %q", w)
+	}
+
+	if !r.MatchString(v) {
+		return fmt.Errorf("pattern not matched:%q %q", w, v)
+	}
+
+	return nil
+}
+
+// RegExp is a RE2 string.
+// https://golang.org/s/re2syntax
+type RegExp string
+
+// MatchRegExp checks if a value matches one of the given list of RE2s.
+func MatchRegExp(e RegExp, x Value) bool {
+	// TODO: add a (global) cache for r.
+	r, err := regexp.Compile(string(e))
+	if err != nil {
+		return false
+	}
+	if r.MatchString(string(x)) {
+		return true
+	}
+	return false
+}
+
 // Scope is the AAI Scope claim
 // http://bit.ly/ga4gh-aai-profile#ga4gh-jwt-format
 type Scope string
+
+// TODO: add tests for this file.

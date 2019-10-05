@@ -260,8 +260,8 @@ func populatePersonaVisas(pname, visaIssuer string, assertions []*dampb.TestPers
 					c := ga4gh.Condition{
 						Type:   ga4gh.Type(clause.Type),
 						Value:  ga4gh.Pattern(clause.Value),
-						Source: ga4gh.Source(clause.Source),
-						By:     ga4gh.By(clause.By),
+						Source: ga4gh.Pattern(clause.Source),
+						By:     ga4gh.Pattern(clause.By),
 					}
 					clauses = append(clauses, c)
 				}
