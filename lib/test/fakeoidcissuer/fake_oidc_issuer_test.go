@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
 )
 
+// TODO: consider moving this to be lib/persona/broker_test.go
 func TestServer(t *testing.T) {
 	const (
 		issuerURL = "https://example.com/oidc"
@@ -65,7 +66,7 @@ func TestServer(t *testing.T) {
 	}
 
 	pname := "dr_joe_elixir"
-	persona, ok := server.cfg.TestPersonas[pname]
+	persona, ok := server.Config().TestPersonas[pname]
 	if !ok {
 		t.Fatalf("test persona %q not found in config", pname)
 	}
