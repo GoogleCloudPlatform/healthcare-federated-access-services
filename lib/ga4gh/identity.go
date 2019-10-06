@@ -15,7 +15,6 @@
 package ga4gh
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -35,31 +34,6 @@ type OldClaimCondition struct {
 	Value  []string `json:"value,omitempty"`
 	Source []string `json:"source,omitempty"`
 	By     []string `json:"by,omitempty"`
-}
-
-// Audiences is "aud" field in jwt. In oidc spec, "aud" can be single string
-// or array of string.
-type Audiences struct {
-	Audiences []string
-}
-
-// MarshalJSON marshal Audiences to array of string in json.
-func (a *Audiences) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.Audiences)
-}
-
-// UnmarshalJSON unmarshal string or array of string in json to []string in go.
-func (a *Audiences) UnmarshalJSON(bytes []byte) error {
-	// Try string first.
-	var s string
-	err := json.Unmarshal(bytes, &s)
-	if err == nil {
-		a.Audiences = []string{s}
-		return nil
-	}
-
-	// Try []string if unmarshal to string failed.
-	return json.Unmarshal(bytes, &a.Audiences)
 }
 
 // Identity is a GA4GH identity as described by the Data Use and Researcher
