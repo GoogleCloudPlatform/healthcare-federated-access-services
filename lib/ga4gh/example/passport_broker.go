@@ -41,7 +41,7 @@ func (b *PassportBroker) FetchAccess(t Token) (ga4gh.AccessJWT, error) {
 			Subject:   string(t),
 			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-			Audience:  ga4gh.Audiences{"C"},
+			Audience:  ga4gh.NewAudience("C"),
 		},
 	}
 

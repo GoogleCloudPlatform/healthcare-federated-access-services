@@ -46,7 +46,7 @@ func (i *VisaIssuer) FetchVisa(t Token) (ga4gh.VisaJWT, error) {
 			Subject:   string(t),
 			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-			Audience:  ga4gh.Audiences{"B"},
+			Audience:  ga4gh.NewAudience("B"),
 		},
 		Assertion: c,
 	}

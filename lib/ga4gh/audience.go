@@ -23,6 +23,14 @@ import (
 // https://tools.ietf.org/html/rfc7519#section-4.1.3
 type Audiences []string
 
+// NewAudience returns Audiences based on a single string input.
+func NewAudience(aud string) Audiences {
+	if len(aud) == 0 {
+		return nil
+	}
+	return Audiences{aud}
+}
+
 // UnmarshalJSON unmarshal string or array of string in json to []string in go.
 func (a *Audiences) UnmarshalJSON(bytes []byte) error {
 	var s string

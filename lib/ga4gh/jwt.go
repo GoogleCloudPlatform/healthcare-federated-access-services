@@ -24,7 +24,7 @@ import (
 
 // StdClaims contains the standard claims.
 // We dupliacte this instead of just using jwt.StandardClaims because
-// Audiance can be a string array.
+// Audience can be a string array.
 type StdClaims struct {
 	Audience  Audiences `json:"aud,omitempty"`
 	ExpiresAt int64     `json:"exp,omitempty"`
