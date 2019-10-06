@@ -17,6 +17,7 @@ package common
 import (
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/pborman/uuid"
 )
@@ -71,4 +72,26 @@ func FilterStringsByPrefix(in []string, prefix string) []string {
 		}
 	}
 	return out
+}
+
+// ToTitle does some auto-formatting on camel-cased or snake-cased strings to make them look like titles.
+func ToTitle(str string) string {
+	out := ""
+	l := 0
+	for i, ch := range str {
+		if unicode.IsUpper(ch) && i > 0 && str[i-1] != ' ' {
+			out += " "
+			l++
+		} else if ch == '_' {
+			out += " "
+			l++
+			continue
+		}
+		if l > 0 && out[l-1] == ' ' {
+			ch = rune(unicode.ToUpper(rune(ch)))
+		}
+		out += string(ch)
+		l++
+	}
+	return strings.Title(out)
 }

@@ -22,7 +22,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -34,7 +33,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"golang.org/x/oauth2"
 
@@ -66,6 +64,7 @@ const (
 	maxClaimsLength = 1900
 
 	loginPageFile              = "pages/login.html"
+	loginPageInfoFile          = "pages/login-info.html"
 	clientLoginPageFile        = "pages/client_login.html"
 	informationReleasePageFile = "pages/information_release.html"
 	testPageFile               = "pages/test.html"
@@ -78,7 +77,8 @@ const (
 	realmPath        = basePath + "/" + version + "/" + common.RealmVariable
 	methodPrefix     = realmPath + "/"
 	acceptLoginPath  = basePath + "/loggedin"
-	staticFilePath   = basePath + "/static/"
+	assetPath        = basePath + "/static"
+	staticFilePath   = assetPath + "/"
 	configPathPrefix = methodPrefix + "config"
 
 	infoPath                    = basePath
@@ -115,6 +115,8 @@ const (
 	tokenFlowTestPath = methodPrefix + "new-flow-test"
 	authorizePath     = methodPrefix + "authorize"
 
+	serviceTitle         = "Identity Concentrator"
+	loginInfoTitle       = "Data Discovery and Access Platform"
 	ga4ghClaimNamePrefix = "ga4gh."
 	noClientID           = ""
 	noScope              = ""
@@ -281,23 +283,28 @@ type Encryption interface {
 // - encryption: the encryption use for storing tokens safely in database
 func NewService(ctx context.Context, domain, accountDomain string, store storage.Store, module module.Module, encryption Encryption) *Service {
 	sh := &ServiceHandler{}
-	lp, err := loadFile(loginPageFile)
+	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
 		log.Fatalf("cannot load login page: %v", err)
 	}
-	clp, err := loadFile(clientLoginPageFile)
+	lpi, err := common.LoadFile(loginPageInfoFile)
+	if err != nil {
+		log.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
+	}
+	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
+	clp, err := common.LoadFile(clientLoginPageFile)
 	if err != nil {
 		log.Fatalf("cannot load client login page: %v", err)
 	}
-	irp, err := loadFile(informationReleasePageFile)
+	irp, err := common.LoadFile(informationReleasePageFile)
 	if err != nil {
 		log.Fatalf("cannot load information release page: %v", err)
 	}
-	tp, err := loadFile(testPageFile)
+	tp, err := common.LoadFile(testPageFile)
 	if err != nil {
 		log.Fatalf("cannot load test page: %v", err)
 	}
-	tfp, err := loadFile(tokenFlowTestPageFile)
+	tfp, err := common.LoadFile(tokenFlowTestPageFile)
 	if err != nil {
 		log.Fatalf("cannot load token flow test page: %v", err)
 	}
@@ -766,7 +773,7 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 			ui = make(map[string]string)
 		}
 		if _, ok := ui[common.UILabel]; !ok {
-			ui[common.UILabel] = toTitle(pname)
+			ui[common.UILabel] = common.ToTitle(pname)
 		}
 		list.Personas[pname] = &pb.LoginPageProviders_ProviderEntry{
 			Url: buildPath(personaPath, pname, vars) + params,
@@ -780,7 +787,10 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := strings.Replace(s.loginPage, "${PROVIDER_LIST}", json, -1)
-	sendHTML(page, w)
+	page = strings.Replace(page, "${ASSET_DIR}", assetPath, -1)
+	page = strings.Replace(page, "${SERVICE_TITLE}", serviceTitle, -1)
+	page = strings.Replace(page, "${LOGIN_INFO_TITLE}", loginInfoTitle, -1)
+	common.SendHTML(page, w)
 }
 
 func personaSubject(pName string, p *dampb.TestPersona) string {
@@ -929,7 +939,7 @@ func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig
 	url := idpc.AuthCodeURL(state, options...)
 	url = strings.Replace(url, "${CLIENT_ID}", idp.ClientId, -1)
 	url = strings.Replace(url, "${REDIRECT_URI}", buildRedirectNonOIDC(idp, idpc, state), -1)
-	sendRedirect(url, r, w)
+	common.SendRedirect(url, r, w)
 }
 
 // Login login/{name} endpoint handler
@@ -965,7 +975,7 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		page := s.clientLoginPage
 		page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
 		page = pageVariableRE.ReplaceAllString(page, `""`)
-		sendHTML(page, w)
+		common.SendHTML(page, w)
 		return
 	}
 
@@ -993,7 +1003,7 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Form.Set("client_id", loginState.ClientId)
 	u.RawQuery = r.Form.Encode()
-	sendRedirect(u.String(), r, w)
+	common.SendRedirect(u.String(), r, w)
 }
 
 func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
@@ -1037,7 +1047,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		page := s.clientLoginPage
 		page = strings.Replace(page, "${INSTRUCTIONS}", instructions, -1)
 		page = pageVariableRE.ReplaceAllString(page, `""`)
-		sendHTML(page, w)
+		common.SendHTML(page, w)
 		return
 	}
 
@@ -1093,10 +1103,13 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid code: %v", err), w)
 			return
 		}
-		idToken, ok = tok.Extra("id_token").(string)
-		if !ok {
-			common.HandleError(http.StatusUnauthorized, fmt.Errorf("token does not contain a valid id_token field"), w)
-			return
+		accessToken = tok.AccessToken
+		if len(accessToken) == 0 && len(idToken) == 0 {
+			idToken, ok = tok.Extra("id_token").(string)
+			if !ok {
+				common.HandleError(http.StatusUnauthorized, fmt.Errorf("token does not contain a valid id_token field"), w)
+				return
+			}
 		}
 	}
 	if accessToken == "" {
@@ -1119,27 +1132,6 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.finishLogin(login, idpName, redirect, scope, clientID, state, tx, cfg, r, w)
-}
-
-func toTitle(str string) string {
-	out := ""
-	l := 0
-	for i, ch := range str {
-		if unicode.IsUpper(ch) && i > 0 && str[i-1] != ' ' {
-			out += " "
-			l++
-		} else if ch == '_' {
-			out += " "
-			l++
-			continue
-		}
-		if l > 0 && out[l-1] == ' ' {
-			ch = rune(unicode.ToUpper(rune(ch)))
-		}
-		out += string(ch)
-		l++
-	}
-	return strings.Title(out)
 }
 
 func (s *Service) Authorize(w http.ResponseWriter, r *http.Request) {
@@ -1417,7 +1409,7 @@ func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, re
 	q.Set("login_hint", loginHint)
 	q.Set("state", state)
 	url.RawQuery = q.Encode()
-	sendRedirect(url.String(), r, w)
+	common.SendRedirect(url.String(), r, w)
 }
 
 func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, clientID, scope, realm string, cfg *pb.IcConfig, w http.ResponseWriter) {
@@ -1467,7 +1459,7 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 	page = strings.Replace(page, "${STATE}", stateID, -1)
 	page = strings.Replace(page, "${PATH}", strings.Replace(acceptInformationReleasePath, "{realm}", realm, -1), -1)
 
-	sendHTML(page, w)
+	common.SendHTML(page, w)
 }
 
 func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Request) {
@@ -1527,7 +1519,7 @@ func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := strings.Replace(s.testPage, "${DAM_URL}", dam, -1)
-	sendHTML(page, w)
+	common.SendHTML(page, w)
 }
 
 // TokenFlowTest send token flow test page.
@@ -1546,7 +1538,7 @@ func (s *Service) TokenFlowTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := strings.Replace(s.tokenFlowTestPage, "${DAM_URL}", dam, -1)
-	sendHTML(page, w)
+	common.SendHTML(page, w)
 }
 
 //////////////////////////////////////////////////////////////////
@@ -2978,8 +2970,8 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 	return id, nil
 }
 
-func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+func (s *Service) loginTokenToIdentity(acTok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
+	id, err := common.ConvertTokenToIdentityUnsafe(acTok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
 	}
@@ -2990,12 +2982,12 @@ func (s *Service) loginTokenToIdentity(tok string, idp *pb.IdentityProvider, r *
 		return nil, http.StatusUnauthorized, err
 	}
 
-	id, err = t.TranslateToken(s.ctx, tok)
+	id, err = t.TranslateToken(s.ctx, acTok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("translating token from issuer %q: %v", iss, err)
 	}
 	if idp.GetUsePassportVisa() || common.HasUserinfoClaims(id) {
-		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
+		id, err = translator.FetchUserinfoClaims(s.ctx, acTok, id, t)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
 		}
@@ -3897,19 +3889,6 @@ func configRevision(mod *pb.ConfigModification, cfg *pb.IcConfig) error {
 
 //////////////////////////////////////////////////////////////////
 
-func sendHTML(html string, w http.ResponseWriter) {
-	common.AddCorsHeaders(w)
-	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
-}
-
-func sendRedirect(url string, r *http.Request, w http.ResponseWriter) {
-	common.AddCorsHeaders(w)
-	url = strings.Replace(url, "%2526", "&", -1)
-	url = strings.Replace(url, "%253F", "?", -1)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-}
-
 func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.IcConfig, error) {
 	cfg := &pb.IcConfig{}
 	_, err := s.realmReadTx(storage.ConfigDatatype, realm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg, tx)
@@ -4085,14 +4064,6 @@ type damArgs struct {
 	clientId     string
 	clientSecret string
 	persona      string
-}
-
-func loadFile(filename string) (string, error) {
-	bytes, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, filename))
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
 }
 
 func (s *Service) importFiles() error {

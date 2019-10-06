@@ -17,9 +17,12 @@ package common
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
@@ -262,6 +265,13 @@ func SendResponse(resp proto.Message, w http.ResponseWriter) error {
 	return ma.Marshal(w, resp)
 }
 
+// SendHTML writes a "text/html" type string to the ResponseWriter.
+func SendHTML(html string, w http.ResponseWriter) {
+	AddCorsHeaders(w)
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
 // SendJSONResponse sends headers and a response in string format.
 func SendJSONResponse(json string, w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -270,6 +280,14 @@ func SendJSONResponse(json string, w http.ResponseWriter) error {
 	AddCorsHeaders(w)
 	_, err := w.Write([]byte(json))
 	return err
+}
+
+// SendRedirect forwards user session to the URL provided.
+func SendRedirect(url string, r *http.Request, w http.ResponseWriter) {
+	AddCorsHeaders(w)
+	url = strings.Replace(url, "%2526", "&", -1)
+	url = strings.Replace(url, "%253F", "?", -1)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func CheckName(field, name string, rem map[string]*regexp.Regexp) error {
@@ -289,4 +307,13 @@ func CheckName(field, name string, rem map[string]*regexp.Regexp) error {
 		return fmt.Errorf("invalid %s: %q is too long, too short, or contains invalid characters", field, name)
 	}
 	return nil
+}
+
+// LoadFile reads a file in as a string from I/O.
+func LoadFile(filename string) (string, error) {
+	bytes, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, filename))
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }

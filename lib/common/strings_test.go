@@ -137,3 +137,44 @@ func TestRemoveStringsByPrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestToTitle(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "simple string",
+			input: "hello",
+			want:  "Hello",
+		},
+		{
+			name:  "two words",
+			input: "hello there",
+			want:  "Hello There",
+		},
+		{
+			name:  "camel case",
+			input: "camelCase",
+			want:  "Camel Case",
+		},
+		{
+			name:  "snake case",
+			input: "snake_case",
+			want:  "Snake Case",
+		},
+	}
+
+	for _, tc := range tests {
+		got := ToTitle(tc.input)
+		if got != tc.want {
+			t.Errorf("test case %q: ToTitle(%q) = %q, want %q", tc.name, tc.input, got, tc.want)
+		}
+	}
+}
