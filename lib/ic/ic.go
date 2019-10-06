@@ -65,12 +65,12 @@ const (
 
 	maxClaimsLength = 1900
 
-	loginPageFile              = "gcp/ic/fe/login.html"
-	clientLoginPageFile        = "gcp/ic/fe/client_login.html"
-	informationReleasePageFile = "gcp/ic/fe/information_release.html"
-	testPageFile               = "gcp/ic/fe/test.html"
-	tokenFlowTestPageFile      = "gcp/ic/fe/new-flow-test.html"
-	staticDirectory            = "gcp/ic/static/"
+	loginPageFile              = "pages/login.html"
+	clientLoginPageFile        = "pages/client_login.html"
+	informationReleasePageFile = "pages/information_release.html"
+	testPageFile               = "pages/test.html"
+	tokenFlowTestPageFile      = "pages/new-flow-test.html"
+	staticDirectory            = "assets/serve/"
 	version                    = "v1alpha"
 	requiresAdmin              = true
 
