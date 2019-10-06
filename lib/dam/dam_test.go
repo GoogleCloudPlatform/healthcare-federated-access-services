@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
@@ -900,10 +900,10 @@ func TestCheckAuthorization(t *testing.T) {
 	}
 
 	pname := "dr_joe_elixir"
-	persona := cfg.TestPersonas[pname]
-	acTok, _, err := playground.PersonaAccessToken(pname, test.TestIssuerURL, test.TestClientID, persona)
+	p := cfg.TestPersonas[pname]
+	acTok, _, err := persona.PersonaAccessToken(pname, test.TestIssuerURL, test.TestClientID, p)
 	if err != nil {
-		t.Fatalf("playground.PersonaAccessToken(%q, %q, _, _) failed: %v", pname, test.TestIssuerURL, err)
+		t.Fatalf("persona.PersonaAccessToken(%q, %q, _, _) failed: %v", pname, test.TestIssuerURL, err)
 	}
 
 	// Ensure pass context with TTL in validator

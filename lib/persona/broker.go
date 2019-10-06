@@ -29,7 +29,6 @@ import (
 	"gopkg.in/square/go-jose.v2"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
@@ -193,7 +192,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("persona %q not found", sub), w)
 		return
 	}
-	id, err := playground.PersonaToIdentity(pname, persona, "openid ga4gh_passport_v1", s.issuerURL)
+	id, err := PersonaToIdentity(pname, persona, "openid ga4gh_passport_v1", s.issuerURL)
 	if err != nil {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("preparing persona %q: %v", sub, err), w)
 		return
@@ -299,7 +298,7 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusNotFound, fmt.Errorf("persona %q not found", pname), w)
 		return
 	}
-	acTok, _, err := playground.PersonaAccessToken(pname, s.issuerURL, clientID, persona)
+	acTok, _, err := PersonaAccessToken(pname, s.issuerURL, clientID, persona)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("error creating access token for persona %q: %v", pname, err), w)
 		return

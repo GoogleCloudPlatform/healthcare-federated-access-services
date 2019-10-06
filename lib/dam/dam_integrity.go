@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
@@ -177,7 +177,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		if tp.Passport == nil {
 			return fmt.Errorf("test persona %q requires a Passport", n)
 		}
-		tid, err := playground.PersonaToIdentity(n, tp, defaultPersonaScope, "")
+		tid, err := persona.PersonaToIdentity(n, tp, defaultPersonaScope, "")
 		if err != nil {
 			return err
 		}

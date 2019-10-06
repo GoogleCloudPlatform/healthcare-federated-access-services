@@ -22,7 +22,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/coreos/go-oidc"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
 )
@@ -66,13 +66,13 @@ func TestServer(t *testing.T) {
 	}
 
 	pname := "dr_joe_elixir"
-	persona, ok := server.Config().TestPersonas[pname]
+	p, ok := server.Config().TestPersonas[pname]
 	if !ok {
 		t.Fatalf("test persona %q not found in config", pname)
 	}
-	acTok, sub, err := playground.PersonaAccessToken(pname, issuerURL, aud, persona)
+	acTok, sub, err := persona.PersonaAccessToken(pname, issuerURL, aud, p)
 	if err != nil {
-		t.Fatalf("playground.PersonaAccessToken(%q, %q, _) failed: %v", pname, issuerURL, err)
+		t.Fatalf("persona.PersonaAccessToken(%q, %q, _) failed: %v", pname, issuerURL, err)
 	}
 	user := &ga4gh.Identity{
 		Issuer:  issuerURL,

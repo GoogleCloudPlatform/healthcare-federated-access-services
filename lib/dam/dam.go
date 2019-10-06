@@ -39,7 +39,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
@@ -419,8 +419,8 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 }
 
 func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, []string, error) {
-	persona := cfg.TestPersonas[personaName]
-	id, err := playground.PersonaToIdentity(personaName, persona, defaultPersonaScope, "")
+	p := cfg.TestPersonas[personaName]
+	id, err := persona.PersonaToIdentity(personaName, p, defaultPersonaScope, "")
 	if err != nil {
 		return "INVALID", nil, err
 	}
@@ -428,7 +428,7 @@ func (s *Service) testPersona(personaName string, resources []string, cfg *pb.Da
 	if err != nil {
 		return state, got, err
 	}
-	if reflect.DeepEqual(persona.Access, got) || (len(persona.Access) == 0 && len(got) == 0) {
+	if reflect.DeepEqual(p.Access, got) || (len(p.Access) == 0 && len(got) == 0) {
 		return "PASSED", got, nil
 	}
 	return "FAILED", got, fmt.Errorf("access does not match expectations")
@@ -1304,7 +1304,7 @@ func (s *Service) GetTestPersonas(w http.ResponseWriter, r *http.Request) {
 	}
 	out := &pb.GetTestPersonasResponse{
 		Personas:       cfg.TestPersonas,
-		StandardClaims: playground.StandardClaims,
+		StandardClaims: persona.StandardClaims,
 	}
 	common.SendResponse(out, w)
 }

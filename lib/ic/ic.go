@@ -44,7 +44,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/module"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/playground"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
 
@@ -1198,7 +1198,7 @@ func (s *Service) Personas(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make(map[string]*pb.GetPersonasResponse_Meta)
 	for pname, p := range personas {
-		pid, err := playground.PersonaToIdentity(pname, p, noScope, s.getIssuerString())
+		pid, err := persona.PersonaToIdentity(pname, p, noScope, s.getIssuerString())
 		if err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
@@ -1266,7 +1266,7 @@ func (s *Service) personaLogin(pName string, p *dampb.TestPersona, cfg *pb.IcCon
 		return
 	}
 
-	id, err := playground.PersonaToIdentity(pName, p, scope, s.getIssuerString())
+	id, err := persona.PersonaToIdentity(pName, p, scope, s.getIssuerString())
 	if err != nil {
 		common.HandleError(http.StatusUnauthorized, err, w)
 		return
