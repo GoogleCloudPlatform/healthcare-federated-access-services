@@ -329,7 +329,7 @@
             "passport": {
                "standardClaims": {
                   "iss": "https://${Your-IC-Domain}/oidc",
-                  "sub": "admin@example.org"
+                  "email": "admin@example.org"
                }
             }
          },
@@ -340,7 +340,7 @@
             "passport": {
                "standardClaims": {
                   "iss": "https://login.elixir-czech.org/oidc/",
-                  "sub": "nci_researcher@example.org"
+                  "email": "nci_researcher@example.org"
                },
                "ga4ghAssertions": [
                   {
@@ -377,7 +377,7 @@
             "passport": {
                "standardClaims": {
                   "iss": "https://login.elixir-czech.org/oidc/",
-                  "sub": "eu_researcher@example.org"
+                  "email": "eu_researcher@example.org"
                },
                "ga4ghAssertions": [
                   {
@@ -405,7 +405,7 @@
             "passport": {
                "standardClaims": {
                   "iss": "https://login.elixir-czech.org/oidc/",
-                  "sub": "undergrad_candice@example.org"
+                  "email": "undergrad_candice@example.org"
                }
             },
             "resources": {}
