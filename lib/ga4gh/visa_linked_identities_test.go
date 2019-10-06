@@ -196,7 +196,7 @@ func newVisa(t *testing.T, key testkeys.Key, id ID, a Assertion) *Visa {
 	}
 	v, err := NewVisaFromData(d, RS256, key.Private, key.ID)
 	if err != nil {
-		t.Fatal("NewVisaFromData(%+v,%v,%v,%v) failed: %v", d, RS256, key.Private, key.ID, err)
+		t.Fatalf("NewVisaFromData(%+v,%v,%v,%v) failed: %v", d, RS256, key.Private, key.ID, err)
 	}
 	return v
 }

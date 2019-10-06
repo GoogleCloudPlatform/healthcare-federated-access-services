@@ -74,7 +74,7 @@ func extractIdentitiesFromVisas(id *ga4gh.Identity) []string {
 	for _, j := range id.VisaJWTs {
 		v, err := ga4gh.NewVisaFromJWT(ga4gh.VisaJWT(j))
 		if err != nil {
-			glog.Warning("ga4gh.NewVisaFromJWT failed: %v", err)
+			glog.Warningf("ga4gh.NewVisaFromJWT failed: %v", err)
 			continue
 		}
 
