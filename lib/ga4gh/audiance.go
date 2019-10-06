@@ -21,25 +21,19 @@ import (
 // Audiences is "aud" field in jwt. In oidc spec, "aud" can be single string
 // or array of string.
 // https://tools.ietf.org/html/rfc7519#section-4.1.3
-type Audiences struct {
-	Audiences []string
-}
-
-// MarshalJSON marshal Audiences to array of string in json.
-func (a *Audiences) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.Audiences)
-}
+type Audiences []string
 
 // UnmarshalJSON unmarshal string or array of string in json to []string in go.
 func (a *Audiences) UnmarshalJSON(bytes []byte) error {
-	// Try string first.
 	var s string
-	err := json.Unmarshal(bytes, &s)
-	if err == nil {
-		a.Audiences = []string{s}
+	if err := json.Unmarshal(bytes, &s); err == nil {
+		*a = []string{s}
 		return nil
 	}
-
-	// Try []string if unmarshal to string failed.
-	return json.Unmarshal(bytes, &a.Audiences)
+	var ss []string
+	if err := json.Unmarshal(bytes, &ss); err != nil {
+		*a = ss
+		return err
+	}
+	return nil
 }

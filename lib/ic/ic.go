@@ -3174,7 +3174,7 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 	claims := &ga4gh.Identity{
 		Issuer:           iss,
 		Subject:          subject,
-		Audiences:        ga4gh.Audiences{Audiences: aud},
+		Audiences:        ga4gh.Audiences(aud),
 		IssuedAt:         iat,
 		NotBefore:        nbf,
 		ID:               common.GenerateGUID(),

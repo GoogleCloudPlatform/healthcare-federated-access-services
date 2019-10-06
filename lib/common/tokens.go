@@ -30,7 +30,7 @@ import (
 
 // IsAudience returns true if the token's "azp" or "aud" contains the self string or clientID.
 func IsAudience(token *ga4gh.Identity, clientID, self string) bool {
-	if len(token.AuthorizedParty) == 0 && len(token.Audiences.Audiences) == 0 {
+	if len(token.AuthorizedParty) == 0 && len(token.Audiences) == 0 {
 		// Is a public token.
 		return true
 	}
@@ -38,11 +38,11 @@ func IsAudience(token *ga4gh.Identity, clientID, self string) bool {
 		return false
 	}
 	if len(self) > 0 {
-		if self == token.AuthorizedParty || ListContains(token.Audiences.Audiences, self) {
+		if self == token.AuthorizedParty || ListContains(token.Audiences, self) {
 			return true
 		}
 	}
-	return clientID == token.AuthorizedParty || ListContains(token.Audiences.Audiences, clientID)
+	return clientID == token.AuthorizedParty || ListContains(token.Audiences, clientID)
 }
 
 // UserID returns an user identifier that specifies a subject within an issuer.

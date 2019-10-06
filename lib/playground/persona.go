@@ -73,8 +73,8 @@ func PersonaAccessToken(name, issuer, clientID string, persona *dampb.TestPerson
 			Subject:   sub,
 			IssuedAt:  now,
 			ExpiresAt: now + 10000,
-			Audience:  clientID,
-			Id:        "token-id-" + name,
+			Audience:  ga4gh.Audiences{clientID},
+			ID:        "token-id-" + name,
 		},
 		Scope: "openid ga4gh ga4gh_passport_v1",
 		Identities: map[string][]string{

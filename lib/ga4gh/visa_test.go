@@ -91,7 +91,7 @@ func fakeVisaDataAndJWT(t *testing.T) (*VisaData, VisaJWT) {
 	}
 	j := VisaJWT(signed)
 
-	t.Logf("Data: %v", d)
+	t.Logf("Data: %#v", d)
 	t.Logf("JWT: %v", j)
 	t.Logf("You can verify the Data and JWT match on https://jwt.io/")
 

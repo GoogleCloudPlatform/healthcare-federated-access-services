@@ -36,12 +36,12 @@ func (b *PassportBroker) FetchAccess(t Token) (ga4gh.AccessJWT, error) {
 
 	d := &ga4gh.AccessData{
 		StdClaims: ga4gh.StdClaims{
-			Id:        uuid.New(),
+			ID:        uuid.New(),
 			Issuer:    "B",
 			Subject:   string(t),
 			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-			Audience:  "C",
+			Audience:  ga4gh.Audiences{"C"},
 		},
 	}
 

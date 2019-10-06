@@ -4,7 +4,6 @@
   "preferred_username": "johndoe",
   "given_name": "John",
   "family_name": "Doe",
-  "aud": "",
   "ga4gh": {
     "AffiliationAndRole": [
       {

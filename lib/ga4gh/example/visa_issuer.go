@@ -41,12 +41,12 @@ func (i *VisaIssuer) FetchVisa(t Token) (ga4gh.VisaJWT, error) {
 
 	d := &ga4gh.VisaData{
 		StdClaims: ga4gh.StdClaims{
-			Id:        uuid.New(),
+			ID:        uuid.New(),
 			Issuer:    "I",
 			Subject:   string(t),
 			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-			Audience:  "B",
+			Audience:  ga4gh.Audiences{"B"},
 		},
 		Assertion: c,
 	}

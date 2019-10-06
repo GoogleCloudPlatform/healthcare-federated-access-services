@@ -117,3 +117,16 @@ func visaDataFromJWT(j VisaJWT) (*VisaData, error) {
 	}
 	return d, nil
 }
+
+// MustVisaDataFromJWT converts a VisaJWT to VisaData.
+// Crashes if VisaJWT cannot be parsed.
+// Useful for writing tests: cmp.Transformer("", ga4gh.VisaJWTTransform)
+// DO NOT use in non-test code.
+// TODO: move to a testutil package.
+func MustVisaDataFromJWT(j VisaJWT) *VisaData {
+	d, err := visaDataFromJWT(j)
+	if err != nil {
+		glog.Fatalf("visaDataFromJWT(%v) failed: %v", j, err)
+	}
+	return d
+}

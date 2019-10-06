@@ -3,6 +3,5 @@
   "name": "John Doe",
   "preferred_username": "johndoe",
   "given_name": "John",
-  "family_name": "Doe",
-  "aud": ""
+  "family_name": "Doe"
 }

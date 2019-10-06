@@ -23,8 +23,34 @@ import (
 )
 
 // StdClaims contains the standard claims.
-// TODO: check that []string for audiance works or we don't need it.
-type StdClaims = jwt.StandardClaims
+// We dupliacte this instead of just using jwt.StandardClaims because
+// Audiance can be a string array.
+type StdClaims struct {
+	Audience  Audiences `json:"aud,omitempty"`
+	ExpiresAt int64     `json:"exp,omitempty"`
+	ID        string    `json:"jti,omitempty"`
+	IssuedAt  int64     `json:"iat,omitempty"`
+	Issuer    string    `json:"iss,omitempty"`
+	NotBefore int64     `json:"nbf,omitempty"`
+	Subject   string    `json:"sub,omitempty"`
+}
+
+// Valid validates time based claims "exp, iat, nbf".
+// There is no accounting for clock skew.
+// As well, if any of the above claims are not in the token, it will still
+// be considered a valid claim.
+func (c StdClaims) Valid() error {
+	// TODO: handle validation of c.Audience.
+	tmp := &jwt.StandardClaims{
+		ExpiresAt: c.ExpiresAt,
+		Id:        c.ID,
+		IssuedAt:  c.IssuedAt,
+		Issuer:    c.Issuer,
+		NotBefore: c.NotBefore,
+		Subject:   c.Subject,
+	}
+	return tmp.Valid()
+}
 
 // SigningMethod for JWT.
 type SigningMethod = jwt.SigningMethod

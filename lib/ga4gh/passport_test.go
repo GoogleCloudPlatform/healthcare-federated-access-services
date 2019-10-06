@@ -96,7 +96,7 @@ func fakeAccessDataAndJWT(t *testing.T) (*AccessData, AccessJWT) {
 	}
 	j := AccessJWT(signed)
 
-	t.Logf("Data: %v", d)
+	t.Logf("Data: %#v", d)
 	t.Logf("JWT: %v", j)
 	t.Logf("You can verify the Data and JWT match on https://jwt.io/")
 
@@ -106,7 +106,7 @@ func fakeAccessDataAndJWT(t *testing.T) (*AccessData, AccessJWT) {
 func fakeAccessData() *AccessData {
 	return &AccessData{
 		StdClaims: StdClaims{
-			Id:        "fake-passport-id",
+			ID:        "fake-passport-id",
 			Subject:   "fake-passport-subject",
 			Issuer:    "fake-passport-issuer",
 			IssuedAt:  fakeStart(),

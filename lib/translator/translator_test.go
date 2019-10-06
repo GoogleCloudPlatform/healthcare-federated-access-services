@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
-	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -39,43 +38,34 @@ type TestTranslator interface {
 	TestTranslator(token *oidc.IDToken, payload []byte) (*ga4gh.Identity, error)
 }
 
-func sortClaims() cmp.Option {
-	// This comparison option sorts the claims to avoid different orders in the output.
-	return cmp.Transformer("SortClaims", func(in []ga4gh.OldClaim) []ga4gh.OldClaim {
-		out := append([]ga4gh.OldClaim{}, in...)
-		sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
-		return out
-	})
-}
-
 func testTranslator(t *testing.T, tests []testCase) {
-	for _, test := range tests {
-		payload, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, test.input))
+	for _, tc := range tests {
+		payload, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, tc.input))
 		if err != nil {
-			t.Fatalf("test %q failed to read input file %q: %v", test.name, test.input, err)
+			t.Fatalf("test %q failed to read input file %q: %v", tc.name, tc.input, err)
+		}
+		token := &dbGapIdToken{}
+		if err := json.Unmarshal(payload, token); err != nil {
+			t.Fatalf("test %q failed to unmarshal ID token: %v", tc.name, err)
 		}
 
-		var token dbGapIdToken
-		if err := json.Unmarshal(payload, &token); err != nil {
-			t.Fatalf("test %q failed to unmarshal ID token: %v", test.name, err)
+		got, err := tc.translator.TestTranslator(convertToOIDCIDToken(*token), payload)
+		if err != nil {
+			t.Fatalf("test %q failed during translation: %v", tc.name, err)
 		}
 
-		id, err := test.translator.TestTranslator(convertToOIDCIDToken(token), payload)
+		str, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, tc.expected))
 		if err != nil {
-			t.Fatalf("test %q failed during translation: %v", test.name, err)
+			t.Fatalf("test %q failed to read expected output file %q: %v", tc.name, tc.expected, err)
+		}
+		want := &ga4gh.Identity{}
+		if err := json.Unmarshal(str, want); err != nil {
+			t.Fatalf("test %q failed to unmarshal expected output %q: %v", tc.name, tc.expected, err)
 		}
 
-		expected, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, test.expected))
-		if err != nil {
-			t.Fatalf("test %q failed to read expected output file %q: %v", test.name, test.expected, err)
-		}
-		var expectedID ga4gh.Identity
-		if err := json.Unmarshal(expected, &expectedID); err != nil {
-			t.Fatalf("test %q failed to unmarshal expected output %q: %v", test.name, test.expected, err)
-		}
-		test.cmpOptions = append(test.cmpOptions, sortClaims())
-		if diff := cmp.Diff(expectedID, *id, test.cmpOptions...); diff != "" {
-			t.Errorf("test %q returned diff (-want +got):\n%s", test.name, diff)
+		opts := cmp.Options{cmp.Transformer("", ga4gh.MustVisaDataFromJWT)}
+		if diff := cmp.Diff(want, got, opts); diff != "" {
+			t.Errorf("test %q returned diff (-want +got):\n%s", tc.name, diff)
 		}
 	}
 }
