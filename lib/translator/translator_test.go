@@ -43,9 +43,7 @@ func sortClaims() cmp.Option {
 	// This comparison option sorts the claims to avoid different orders in the output.
 	return cmp.Transformer("SortClaims", func(in []ga4gh.OldClaim) []ga4gh.OldClaim {
 		out := append([]ga4gh.OldClaim{}, in...)
-		sort.Slice(out, func(i, j int) bool {
-			return out[i].Value < out[j].Value
-		})
+		sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
 		return out
 	})
 }
@@ -76,8 +74,8 @@ func testTranslator(t *testing.T, tests []testCase) {
 			t.Fatalf("test %q failed to unmarshal expected output %q: %v", test.name, test.expected, err)
 		}
 		test.cmpOptions = append(test.cmpOptions, sortClaims())
-		if !cmp.Equal(expectedID, *id, test.cmpOptions...) {
-			t.Fatalf("test %q unexpected output:\n%+v\nexpected:\n%+v", test.name, id, expectedID)
+		if diff := cmp.Diff(expectedID, *id, test.cmpOptions...); diff != "" {
+			t.Errorf("test %q returned diff (-want +got):\n%s", test.name, diff)
 		}
 	}
 }
