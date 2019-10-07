@@ -122,3 +122,54 @@ func CheckIdentityAllVisasLinked(ctx context.Context, i *Identity, f JWTVerifier
 	}
 	return CheckLinkedIDs(visas)
 }
+
+// VisasToOldClaims populates the GA4GH claim based on visas.
+// TODO: use new policy engine instead when it becomes available.
+func VisasToOldClaims(vs []VisaJWT) map[string][]OldClaim {
+	out := make(map[string][]OldClaim)
+	for _, j := range vs {
+		v, err := NewVisaFromJWT(VisaJWT(j))
+		if err != nil {
+			// Don't let a bad visa spoil the bunch
+			continue
+		}
+		d := v.Data()
+		typ := string(d.Assertion.Type)
+		c := OldClaim{
+			Value:    string(d.Assertion.Value),
+			Source:   string(d.Assertion.Source),
+			Asserted: float64(d.Assertion.Asserted),
+			Expires:  float64(d.ExpiresAt),
+			By:       string(d.Assertion.By),
+		}
+		if len(d.Assertion.Conditions) > 0 {
+			c.Condition = toOldClaimConditions(d.Assertion.Conditions)
+		}
+		out[typ] = append(out[typ], c)
+	}
+	return out
+}
+
+func toOldClaimConditions(input Conditions) map[string]OldClaimCondition {
+	out := make(map[string]OldClaimCondition)
+	for _, cor := range input {
+		for _, cand := range cor {
+			ctyp := string(cand.Type)
+			oldCond, ok := out[ctyp]
+			if !ok {
+				oldCond = OldClaimCondition{}
+			}
+			if len(cand.Value) > 0 {
+				oldCond.Value = append(oldCond.Value, string(cand.Value))
+			}
+			if len(cand.Source) > 0 {
+				oldCond.Source = append(oldCond.Source, string(cand.Source))
+			}
+			if len(cand.By) > 0 {
+				oldCond.By = append(oldCond.By, string(cand.By))
+			}
+			out[ctyp] = oldCond
+		}
+	}
+	return out
+}

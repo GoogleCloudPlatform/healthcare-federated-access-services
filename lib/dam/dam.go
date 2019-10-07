@@ -401,6 +401,12 @@ func (s *Service) tokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok,
 		return nil, err
 	}
 
+	vs := []ga4gh.VisaJWT{}
+	for _, v := range id.VisaJWTs {
+		vs = append(vs, ga4gh.VisaJWT(v))
+	}
+	id.GA4GH = ga4gh.VisasToOldClaims(vs)
+
 	// Retain identities from access token.
 	id.Identities = identities
 
