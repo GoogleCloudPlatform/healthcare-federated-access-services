@@ -17,15 +17,14 @@ package gcp_storage
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
-	"cloud.google.com/go/datastore"
-
+	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"cloud.google.com/go/datastore"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
@@ -95,7 +94,7 @@ type DatastoreMeta struct {
 func NewDatastoreStorage(ctx context.Context, project, service, path string) *DatastoreStorage {
 	client, err := datastore.NewClient(ctx, project)
 	if err != nil {
-		log.Fatalf("cannot initialize datastore: %v", err)
+		glog.Fatalf("cannot initialize datastore: %v", err)
 	}
 	s := &DatastoreStorage{
 		project: project,
@@ -105,7 +104,7 @@ func NewDatastoreStorage(ctx context.Context, project, service, path string) *Da
 		ctx:     ctx,
 	}
 	if err = s.init(); err != nil {
-		log.Fatalf("Datastore failed to initialize: %v", err)
+		glog.Fatalf("Datastore failed to initialize: %v", err)
 	}
 
 	return s
@@ -334,7 +333,7 @@ func (s *DatastoreStorage) MultiDeleteTx(datatype, realm, user string, tx storag
 }
 
 func (s *DatastoreStorage) Wipe(realm string) error {
-	log.Printf("Datastore wipe project %q service %q realm %q: started", s.project, s.service, realm)
+	glog.Infof("Datastore wipe project %q service %q realm %q: started", s.project, s.service, realm)
 	results := make(map[string]int)
 	for _, kind := range wipeKinds {
 		q := datastore.NewQuery(kind).Filter("service =", s.service)
@@ -347,7 +346,7 @@ func (s *DatastoreStorage) Wipe(realm string) error {
 		}
 		results[kind] = total
 	}
-	log.Printf("Datastore wipe project %q service %q realm %q: completed results: %#v", s.project, s.service, realm, results)
+	glog.Infof("Datastore wipe project %q service %q realm %q: completed results: %#v", s.project, s.service, realm, results)
 	return nil
 }
 
@@ -400,7 +399,7 @@ func (s *DatastoreStorage) init() error {
 	} else if err != nil {
 		return fmt.Errorf("cannot access datastore metadata: %v", err)
 	}
-	log.Printf("Datastore service %q version: %s", s.service, meta.Value)
+	glog.Infof("Datastore service %q version: %s", s.service, meta.Value)
 	if meta.Value != storageVersion {
 		return fmt.Errorf("datastore version not compatible: expected %q, got %q", storageVersion, meta.Value)
 	}
@@ -482,7 +481,7 @@ func (tx *DatastoreTx) Finish() {
 	if tx.Tx != nil {
 		_, err := tx.Tx.Commit()
 		if err != nil {
-			log.Printf("datastore error committing transaction: %v", err)
+			glog.Infof("datastore error committing transaction: %v", err)
 		}
 		tx.Tx = nil
 	}
@@ -496,7 +495,7 @@ func (tx *DatastoreTx) Rollback() {
 	if tx.Tx != nil {
 		err := tx.Tx.Rollback()
 		if err != nil {
-			log.Printf("datastore error during rollback of transaction: %v", err)
+			glog.Infof("datastore error during rollback of transaction: %v", err)
 		}
 		// Transaction cannot be used after a rollback.
 		tx.Tx = nil

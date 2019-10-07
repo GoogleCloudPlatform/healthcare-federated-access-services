@@ -19,10 +19,10 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 
+	glog "github.com/golang/glog"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/internal/appengine"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam"
@@ -37,19 +37,19 @@ func main() {
 	ctx := context.Background()
 	domain := os.Getenv("DAM_URL")
 	if domain == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "DAM_URL")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "DAM_URL")
 	}
 	path := os.Getenv("CONFIG_PATH")
 	if path == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
 	}
 	storeName := os.Getenv("STORAGE")
 	if storeName == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
 	}
 	defaultBroker := os.Getenv("DEFAULT_BROKER")
 	if len(defaultBroker) == 0 {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "DEFAULT_BROKER")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "DEFAULT_BROKER")
 	}
 	serviceName := os.Getenv("SERVICE_NAME")
 	if serviceName == "" {
@@ -60,13 +60,13 @@ func main() {
 	case "datastore":
 		project := os.Getenv("PROJECT")
 		if project == "" {
-			log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
+			glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
 		}
 		store = gcp_storage.NewDatastoreStorage(ctx, project, serviceName, path)
 	case "memory":
 		store = storage.NewMemoryStorage(serviceName, path)
 	default:
-		log.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
+		glog.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
 	}
 	// ev := appengine.MustBuildEvaluator(ctx)
 	wh := appengine.MustBuildAccountWarehouse(ctx, store)
@@ -76,6 +76,6 @@ func main() {
 	if len(port) == 0 {
 		port = "8080"
 	}
-	log.Printf("Using port %v", port)
-	log.Fatal(http.ListenAndServe(":"+port, d.Handler))
+	glog.Infof("Using port %v", port)
+	glog.Fatal(http.ListenAndServe(":"+port, d.Handler))
 }

@@ -19,8 +19,8 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"log"
 
+	glog "github.com/golang/glog"
 	"cloud.google.com/go/kms/apiv1"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt"
 )
@@ -37,39 +37,39 @@ func main() {
 
 	flag.Parse()
 	if len(*project) == 0 || len(*keyring) == 0 || len(*keyname) == 0 {
-		log.Fatalf("Need project, keyring and key for real CloudKMS test")
+		glog.Fatalf("Need project, keyring and key for real CloudKMS test")
 	}
 
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
-		log.Fatalf("NewKeyManagementClient(ctx, clientOpt) failed: %v", err)
+		glog.Fatalf("NewKeyManagementClient(ctx, clientOpt) failed: %v", err)
 	}
 	s, err := gcpcrypt.New(ctx, *project, *location, *keyring, *keyname, client)
 	if err != nil {
-		log.Fatalf("kmssymmetric.New(ctx, %q, %q, %q, %q): %v", *project, *location, *keyring, *keyname, err)
+		glog.Fatalf("kmssymmetric.New(ctx, %q, %q, %q, %q): %v", *project, *location, *keyring, *keyname, err)
 	}
-	log.Printf("Runing test on real gcp kms service, project=%q, location=%q, keyring=%q, key=%q\n", *project, *location, *keyring, *keyname)
+	glog.Infof("Runing test on real gcp kms service, project=%q, location=%q, keyring=%q, key=%q\n", *project, *location, *keyring, *keyname)
 
 	const additionalAuthData = "aad"
 	data := []byte("This is a message.")
 
 	ciphertext, err := s.Encrypt(ctx, data, additionalAuthData)
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	plaintext, err := s.Decrypt(ctx, ciphertext, additionalAuthData)
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	if !bytes.Equal(plaintext, data) {
-		log.Fatalf("s.Decrypt(encrypted.Encrypted, kid, additionalAuthData) = %v, wants %v", plaintext, data)
+		glog.Fatalf("s.Decrypt(encrypted.Encrypted, kid, additionalAuthData) = %v, wants %v", plaintext, data)
 	}
 
 	// Decrypt with wrong additionalAuthData
 	if _, err := s.Decrypt(ctx, ciphertext, "wrong"); err == nil {
-		log.Fatal("s.Decrypt(encrypted.Encrypted, kid, 'wrong') wants error")
+		glog.Fatal("s.Decrypt(encrypted.Encrypted, kid, 'wrong') wants error")
 	}
-	log.Println("PASS")
+	glog.Infoln("PASS")
 }

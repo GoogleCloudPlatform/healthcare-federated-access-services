@@ -17,7 +17,6 @@ package ic
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp"
 	"github.com/coreos/go-oidc"
@@ -51,7 +51,7 @@ const (
 func init() {
 	err := os.Setenv("SERVICE_DOMAIN", domain)
 	if err != nil {
-		log.Fatal("Setenv SERVICE_DOMAIN:", err)
+		glog.Fatal("Setenv SERVICE_DOMAIN:", err)
 	}
 }
 

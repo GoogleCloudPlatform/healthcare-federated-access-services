@@ -18,12 +18,12 @@ package persona
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
 
+	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/gorilla/mux"
 	"gopkg.in/square/go-jose.v2"
@@ -78,11 +78,11 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string) (*Serv
 	}
 	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
-		log.Fatalf("cannot load login page %q: %v", loginPageFile, err)
+		glog.Fatalf("cannot load login page %q: %v", loginPageFile, err)
 	}
 	lpi, err := common.LoadFile(loginPageInfoFile)
 	if err != nil {
-		log.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
+		glog.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
 	}
 	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
 
@@ -113,8 +113,8 @@ func (s *Server) Serve(port string) {
 	if len(port) == 0 {
 		port = "8089"
 	}
-	log.Printf("Persona Broker using port %v", port)
-	log.Fatal(http.ListenAndServe(":"+port, s.Handler))
+	glog.Infof("Persona Broker using port %v", port)
+	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
 }
 
 // Sign the jwt with the private key in Server.
@@ -141,7 +141,7 @@ func (s *Server) oidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(conf); err != nil {
-		log.Printf("Marshal failed: %q", err)
+		glog.Infof("Marshal failed: %q", err)
 	}
 }
 
@@ -158,7 +158,7 @@ func (s *Server) oidcKeys(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(jwks); err != nil {
-		log.Printf("Marshal failed: %q", err)
+		glog.Infof("Marshal failed: %q", err)
 	}
 }
 

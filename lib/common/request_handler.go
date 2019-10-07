@@ -18,17 +18,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
-
+	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 )
 
 const (
@@ -224,7 +223,7 @@ func HandleError(num int, err error, w http.ResponseWriter) {
 	w.WriteHeader(num)
 	msg := fmt.Sprintf("%d request error: %v\n", num, err)
 	w.Write([]byte(msg))
-	log.Printf(msg)
+	glog.Infof(msg)
 }
 
 func handleIntegrityError(w http.ResponseWriter, results proto.Message, status int, err error) {

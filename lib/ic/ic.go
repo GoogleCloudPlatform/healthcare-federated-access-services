@@ -22,7 +22,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -34,20 +33,19 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/oauth2"
-
+	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
 	"gopkg.in/square/go-jose.v2"
 	"github.com/dgrijalva/jwt-go"
+	"golang.org/x/oauth2"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
-
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
@@ -285,33 +283,33 @@ func NewService(ctx context.Context, domain, accountDomain string, store storage
 	sh := &ServiceHandler{}
 	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
-		log.Fatalf("cannot load login page: %v", err)
+		glog.Fatalf("cannot load login page: %v", err)
 	}
 	lpi, err := common.LoadFile(loginPageInfoFile)
 	if err != nil {
-		log.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
+		glog.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
 	}
 	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
 	clp, err := common.LoadFile(clientLoginPageFile)
 	if err != nil {
-		log.Fatalf("cannot load client login page: %v", err)
+		glog.Fatalf("cannot load client login page: %v", err)
 	}
 	irp, err := common.LoadFile(informationReleasePageFile)
 	if err != nil {
-		log.Fatalf("cannot load information release page: %v", err)
+		glog.Fatalf("cannot load information release page: %v", err)
 	}
 	tp, err := common.LoadFile(testPageFile)
 	if err != nil {
-		log.Fatalf("cannot load test page: %v", err)
+		glog.Fatalf("cannot load test page: %v", err)
 	}
 	tfp, err := common.LoadFile(tokenFlowTestPageFile)
 	if err != nil {
-		log.Fatalf("cannot load token flow test page: %v", err)
+		glog.Fatalf("cannot load token flow test page: %v", err)
 	}
 
 	perms, err := common.LoadPermissions(store)
 	if err != nil {
-		log.Fatalf("cannot load permissions:%v", err)
+		glog.Fatalf("cannot load permissions:%v", err)
 	}
 	s := &Service{
 		store:                 store,
@@ -334,27 +332,27 @@ func NewService(ctx context.Context, domain, accountDomain string, store storage
 		"DOMAIN as URL":         "https://" + domain,
 		"ACCOUNT_DOMAIN as URL": "https://" + accountDomain,
 	}); err != nil {
-		log.Fatalf(err.Error())
+		glog.Fatalf(err.Error())
 	}
 	if err = s.importFiles(); err != nil {
-		log.Fatalf("cannot initialize storage: %v", err)
+		glog.Fatalf("cannot initialize storage: %v", err)
 	}
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
-		log.Fatalf("cannot load config: %v", err)
+		glog.Fatalf("cannot load config: %v", err)
 	}
 	if err = s.checkConfigIntegrity(cfg); err != nil {
-		log.Fatalf("invalid config: %v", err)
+		glog.Fatalf("invalid config: %v", err)
 	}
 	secrets, err := s.loadSecrets(nil)
 	if err != nil {
-		log.Fatalf("cannot load client secrets: %v", err)
+		glog.Fatalf("cannot load client secrets: %v", err)
 	}
 
 	for name, cfgIdp := range cfg.IdentityProviders {
 		_, err = s.getIssuerTranslator(s.ctx, cfgIdp.Issuer, cfg, secrets)
 		if err != nil {
-			log.Printf("failed to create translator for issuer %q: %v", name, err)
+			glog.Infof("failed to create translator for issuer %q: %v", name, err)
 		}
 	}
 
@@ -4079,7 +4077,7 @@ func (s *Service) importFiles() error {
 			wipe = true
 		}
 		if wipe {
-			log.Printf("prepare for IC config import: wipe data store for all realms")
+			glog.Infof("prepare for IC config import: wipe data store for all realms")
 			if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
 				return err
 			}
@@ -4100,7 +4098,7 @@ func (s *Service) importFiles() error {
 		return nil
 	}
 
-	log.Printf("import IC config into data store")
+	glog.Infof("import IC config into data store")
 	history := &dampb.HistoryEntry{
 		Revision:   1,
 		User:       "admin",
@@ -4170,7 +4168,7 @@ func (s *Service) OidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
 func (s *Service) OidcKeys(w http.ResponseWriter, r *http.Request) {
 	pub, err := s.getIssuerPublicKey(s.getIssuerString(), nil)
 	if err != nil {
-		log.Printf("getIssuerPublicKey %q failed: %q", s.getIssuerString(), err)
+		glog.Infof("getIssuerPublicKey %q failed: %q", s.getIssuerString(), err)
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
@@ -4188,7 +4186,7 @@ func (s *Service) OidcKeys(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(jwks)
 	if err != nil {
-		log.Printf("Marshal failed: %q", err)
+		glog.Infof("Marshal failed: %q", err)
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
@@ -4226,7 +4224,7 @@ func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(id)
 	if err != nil {
-		log.Printf("cannot encode user identity into JSON: %v", err)
+		glog.Infof("cannot encode user identity into JSON: %v", err)
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}

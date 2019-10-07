@@ -18,15 +18,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-
 	// TODO: this should be more generic, not DAM pb.
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
@@ -60,7 +59,7 @@ func NewFileStorage(service, path string) *FileStorage {
 	} else {
 		path = filepath.Join(path, strings.Split(service, "-")[0])
 	}
-	log.Printf("file storage for service %q using path %q.", service, path)
+	glog.Infof("file storage for service %q using path %q.", service, path)
 	f := &FileStorage{
 		service: strings.Split(service, "-")[0],
 		path:    path,

@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -32,6 +31,7 @@ import (
 	"time"
 	"unicode"
 
+	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
@@ -149,11 +149,11 @@ func NewService(ctx context.Context, domain, defaultBroker string, store storage
 	fs := getFileStore(store, damStaticService)
 	var roleCat pb.DamRoleCategoriesResponse
 	if err := fs.Read("role", storage.DefaultRealm, storage.DefaultUser, "en", storage.LatestRev, &roleCat); err != nil {
-		log.Fatalf("cannot load role categories: %v", err)
+		glog.Fatalf("cannot load role categories: %v", err)
 	}
 	perms, err := common.LoadPermissions(store)
 	if err != nil {
-		log.Fatalf("cannot load permissions: %v", err)
+		glog.Fatalf("cannot load permissions: %v", err)
 	}
 
 	sh := &ServiceHandler{}
@@ -177,32 +177,32 @@ func NewService(ctx context.Context, domain, defaultBroker string, store storage
 			}
 		}
 		if err != nil {
-			log.Fatalf("cannot load client secrets: %v", err)
+			glog.Fatalf("cannot load client secrets: %v", err)
 		}
 	}
 	adapters, err := adapter.CreateAdapters(fs, warehouse, secrets)
 	if err != nil {
-		log.Fatalf("cannot load adapters: %v", err)
+		glog.Fatalf("cannot load adapters: %v", err)
 	}
 	s.adapters = adapters
 	if err := s.importFiles(); err != nil {
-		log.Fatalf("cannot initialize storage: %v", err)
+		glog.Fatalf("cannot initialize storage: %v", err)
 	}
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
-		log.Fatalf("cannot load config: %v", err)
+		glog.Fatalf("cannot load config: %v", err)
 	}
 	if err := s.CheckIntegrity(cfg); err != nil {
-		log.Fatalf("config integrity error: %v", err)
+		glog.Fatalf("config integrity error: %v", err)
 	}
 	if tests := s.runTests(cfg, nil); hasTestError(tests) {
-		log.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
+		glog.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
 	}
 
 	for name, cfgTpi := range cfg.TrustedPassportIssuers {
 		_, err = s.getIssuerTranslator(s.ctx, cfgTpi.Issuer, cfg, secrets, nil)
 		if err != nil {
-			log.Printf("failed to create translator for issuer %q: %v", name, err)
+			glog.Infof("failed to create translator for issuer %q: %v", name, err)
 		}
 	}
 
@@ -2018,7 +2018,7 @@ func (s *Service) importFiles() error {
 			wipe = true
 		}
 		if wipe {
-			log.Printf("prepare for DAM config import: wipe data store for all realms")
+			glog.Infof("prepare for DAM config import: wipe data store for all realms")
 			if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
 				return err
 			}
@@ -2033,7 +2033,7 @@ func (s *Service) importFiles() error {
 		return nil
 	}
 	fs := getFileStore(s.store, os.Getenv("IMPORT_SERVICE"))
-	log.Printf("import DAM config %q into data store", fs.Info()["service"])
+	glog.Infof("import DAM config %q into data store", fs.Info()["service"])
 	tx, err := s.store.Tx(true)
 	if err != nil {
 		return err

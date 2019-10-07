@@ -18,9 +18,9 @@ package appengine
 
 import (
 	"context"
-	"log"
 	"os"
 
+	glog "github.com/golang/glog"
 	"golang.org/x/oauth2/google"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
@@ -32,13 +32,13 @@ import (
 func MustBuildAccountWarehouse(ctx context.Context, store storage.Store) clouds.ResourceTokenCreator {
 	client, err := google.DefaultClient(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
-		log.Fatalf("Error creating HTTP client: %v", err)
+		glog.Fatalf("Error creating HTTP client: %v", err)
 		return nil
 	}
 
 	wh, err := gcp.NewAccountWarehouse(client, store)
 	if err != nil {
-		log.Fatalf("Error creating account warehouse: %v", err)
+		glog.Fatalf("Error creating account warehouse: %v", err)
 		return nil
 	}
 	return wh
@@ -47,7 +47,7 @@ func MustBuildAccountWarehouse(ctx context.Context, store storage.Store) clouds.
 func mustGetenv(key string) string {
 	v := os.Getenv(key)
 	if v == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", key)
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", key)
 	}
 	return v
 }

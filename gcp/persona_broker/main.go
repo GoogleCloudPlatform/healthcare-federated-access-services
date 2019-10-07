@@ -18,9 +18,9 @@
 package main
 
 import (
-	"log"
 	"os"
 
+	glog "github.com/golang/glog"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 )
@@ -37,12 +37,12 @@ func main() {
 	}
 	oidcURL := os.Getenv("OIDC_URL")
 	if len(oidcURL) == 0 {
-		log.Fatalf("OIDC_URL must be provided")
+		glog.Fatalf("OIDC_URL must be provided")
 	}
 	port := os.Getenv("PORT")
 	broker, err := persona.NewBroker(oidcURL, key, service, path)
 	if err != nil {
-		log.Fatalf("starting broker: %v", err)
+		glog.Fatalf("starting broker: %v", err)
 	}
 	broker.Serve(port)
 }

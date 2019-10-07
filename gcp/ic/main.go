@@ -19,10 +19,10 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 
+	glog "github.com/golang/glog"
 	"cloud.google.com/go/kms/apiv1"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic"
@@ -41,23 +41,23 @@ func main() {
 	ctx := context.Background()
 	domain := os.Getenv("SERVICE_DOMAIN")
 	if domain == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "SERVICE_DOMAIN")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "SERVICE_DOMAIN")
 	}
 	acctDomain := os.Getenv("ACCOUNT_DOMAIN")
 	if acctDomain == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "ACCOUNT_DOMAIN")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "ACCOUNT_DOMAIN")
 	}
 	path := os.Getenv("CONFIG_PATH")
 	if path == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
 	}
 	project := os.Getenv("PROJECT")
 	if project == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
 	}
 	storeName := os.Getenv("STORAGE")
 	if storeName == "" {
-		log.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
 	}
 	serviceName := os.Getenv("SERVICE_NAME")
 	if serviceName == "" {
@@ -70,18 +70,18 @@ func main() {
 	case "memory":
 		store = storage.NewMemoryStorage(serviceName, path)
 	default:
-		log.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
+		glog.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
 	}
 
 	module := module.NewPlaygroundModule(os.Getenv("PERSONA_DAM_URL"), os.Getenv("PERSONA_DAM_CLIENT_ID"), os.Getenv("PERSONA_DAM_CLIENT_SECRET"))
 
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
-		log.Fatalf("NewKeyManagementClient(ctx, clientOpt) failed: %v", err)
+		glog.Fatalf("NewKeyManagementClient(ctx, clientOpt) failed: %v", err)
 	}
 	gcpkms, err := gcpcrypt.New(ctx, project, "global", serviceName+"_ring", serviceName+"_key", client)
 	if err != nil {
-		log.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
+		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
 	}
 
 	s := ic.NewService(ctx, domain, acctDomain, store, module, gcpkms)
@@ -89,6 +89,6 @@ func main() {
 	if len(port) == 0 {
 		port = "8080"
 	}
-	log.Printf("%s using port %v", ProductName, port)
-	log.Fatal(http.ListenAndServe(":"+port, s.Handler))
+	glog.Infof("%s using port %v", ProductName, port)
+	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
 }
