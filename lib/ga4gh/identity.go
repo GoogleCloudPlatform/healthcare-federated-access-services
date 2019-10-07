@@ -15,6 +15,7 @@
 package ga4gh
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -93,4 +94,31 @@ func (t *Identity) Validate(clientID string) error {
 	// TODO: check non-empty clientID against t.Audiences
 
 	return nil
+}
+
+// CheckIdentityAllVisasLinked checks if the Visas inside the identity are linked.
+// Verifies all Visas of type LinkedIdentities.
+// If JWTVerifier is not nil, will call f to verify LinkedIdentities Visas.
+// If JWTVerifier is nil, verification is skipped.
+func CheckIdentityAllVisasLinked(ctx context.Context, i *Identity, f JWTVerifier) error {
+	var visas []*Visa
+	for _, j := range i.VisaJWTs {
+		v, err := NewVisaFromJWT(VisaJWT(j))
+		if err != nil {
+			return err
+		}
+
+		if f != nil && v.Data().Assertion.Type == LinkedIdentities {
+			ok, err := f(ctx, j)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("the verification of some LinkedIdentities visa failed")
+			}
+		}
+
+		visas = append(visas, v)
+	}
+	return CheckLinkedIDs(visas)
 }
