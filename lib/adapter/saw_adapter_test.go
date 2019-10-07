@@ -30,7 +30,7 @@ import (
 
 func TestSawAdapter(t *testing.T) {
 	store := storage.NewMemoryStorage("dam-static", "testdata/config")
-	warehouse := clouds.NewMockTokenCreator(false)
+	warehouse := clouds.NewMockTokenCreator(true)
 	secretStore := storage.NewMemoryStorage("dam", "testdata/config")
 	secrets := &pb.DamSecrets{}
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
@@ -60,6 +60,16 @@ func TestSawAdapter(t *testing.T) {
 		t.Errorf("CheckConfg(%q, serviceTemplate, %q, view, cfg, adapters): error %v", tmpl, vname, err)
 	}
 
+	paytmpl := "gcs_requester_pays"
+	payst := cfg.ServiceTemplates[paytmpl]
+	payres := res
+	payvname := "gcs_payer"
+	payview := res.Views[payvname]
+	err = adapt.CheckConfig(paytmpl, payst, payvname, payview, &cfg, adapters)
+	if err != nil {
+		t.Errorf("CheckConfg(%q, serviceTemplate, %q, view, cfg, adapters): error %v", paytmpl, payvname, err)
+	}
+
 	grantRole := "viewer"
 	identity := &ga4gh.Identity{
 		Subject: "larry",
@@ -67,7 +77,11 @@ func TestSawAdapter(t *testing.T) {
 	}
 	sRole, err := adapter.ResolveServiceRole(grantRole, view, res, &cfg)
 	if err != nil {
-		t.Fatalf("ResolveServiceRole(%q, view, res, cfg): error %v", grantRole, err)
+		t.Fatalf("ResolveServiceRole(%q, %v, res, cfg): error %v", grantRole, view, err)
+	}
+	paysRole, err := adapter.ResolveServiceRole(grantRole, payview, payres, &cfg)
+	if err != nil {
+		t.Fatalf("ResolveServiceRole(%q, %v, res, cfg): error %v", grantRole, view, err)
 	}
 
 	tests := []struct {
@@ -100,6 +114,64 @@ func TestSawAdapter(t *testing.T) {
 					IssuedAt:  1,
 					Expires:   1001,
 					Token:     "token_1",
+					Params: clouds.ResourceTokenCreationParams{
+						AccountProject: "example-project-id",
+						Items: []map[string]string{
+							{
+								"bucket":  "dataset-example-bucket1",
+								"project": "dataset-example-project",
+							},
+							{
+								"bucket":  "dataset-example-bucket2",
+								"project": "dataset-example-project",
+							},
+						},
+						Roles:  []string{"roles/storage.objectViewer"},
+						Scopes: []string{"https://www.googleapis.com/auth/cloud-platform"},
+					},
+				},
+			},
+			fail: false,
+		},
+		{
+			name: "gcs requester pays token",
+			input: &adapter.Action{
+				Identity:        identity,
+				ClientID:        "client_id",
+				Config:          &cfg,
+				GrantRole:       grantRole,
+				MaxTTL:          168 * time.Hour,
+				Resource:        payres,
+				ServiceRole:     paysRole,
+				ServiceTemplate: cfg.ServiceTemplates["gcs_requester_pays"],
+				TTL:             60 * time.Second,
+				View:            payview,
+			},
+			expect: []clouds.MockTokenCreatorEntry{
+				{
+					AccountID: "larry|idp1.org",
+					TokenID:   "2",
+					TTL:       60 * time.Second,
+					MaxTTL:    168 * time.Hour,
+					NumKeys:   8,
+					IssuedAt:  2,
+					Expires:   1002,
+					Token:     "token_2",
+					Params: clouds.ResourceTokenCreationParams{
+						AccountProject: "example-project-id",
+						Items: []map[string]string{
+							{
+								"bucket":  "dataset-example-payer-bucket1",
+								"project": "dataset-example-project",
+							},
+							{
+								"bucket":  "dataset-example-payer-bucket2",
+								"project": "dataset-example-project",
+							},
+						},
+						Roles:  []string{"roles/storage.objectViewer"},
+						Scopes: []string{"https://www.googleapis.com/auth/cloud-platform"},
+					},
 				},
 			},
 			fail: false,

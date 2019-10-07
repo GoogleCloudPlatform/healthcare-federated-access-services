@@ -188,6 +188,6 @@
     "readOnlyMasterRealm": true,
     "gcpManagedKeysMaxRequestedTtl": "7d",
     "gcpManagedKeysPerAccount": 8,
-    "gcpServiceAccountProject": "ga4gh-identity"
+    "gcpServiceAccountProject": "example-project-id"
   }
 }

@@ -1,64 +1,72 @@
 {
-   "platform": "gcp",
-   "requirements": {
-      "targetRole": true,
-      "targetScope": false,
-      "aud": false
-   },
-   "properties": {
-      "isAggregate": false,
-      "canBeAggregated": true
-   },
-   "itemFormats": {
-      "gcs": {
-         "variables": {
-            "project": {
-               "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
-               "ui": {
-                  "label": "GCP Project ID",
-                  "description": "make sure to use the project ID and not the project name"
-               }
-            },
-            "bucket": {
-               "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
-               "optional": true,
-               "ui": {
-                  "label": "GCS Bucket name",
-                  "description": "must be owned by the specified project ID"
-               }
-            }
-         },
-         "ui": {
-            "label": "Google Cloud Storage",
-            "description": "Cloud Storage allows world-wide storage and retrieval of any amount of data at any time. You can use Cloud Storage for a range of scenarios including serving website content, storing data for archival and disaster recovery, or distributing large data objects to users via direct download."
-         }
+  "platform": "gcp",
+  "requirements": {
+    "targetRole": true,
+    "targetScope": false,
+    "aud": false
+  },
+  "properties": {
+    "isAggregate": false,
+    "canBeAggregated": true
+  },
+  "itemFormats": {
+    "gcs": {
+      "variables": {
+        "project": {
+          "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+          "ui": {
+            "label": "GCP Project ID",
+            "description": "make sure to use the project ID and not the project name"
+          }
+        },
+        "bucket": {
+          "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
+          "optional": true,
+          "ui": {
+            "label": "GCS Bucket name",
+            "description": "must be owned by the specified project ID"
+          }
+        },
+        "requester-pays-bucket": {
+          "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
+          "optional": true,
+          "ui": {
+            "label": "GCS Requester Pays Bucket name",
+            "description": "must be owned by the specified project ID"
+          }
+        }
       },
-      "bigquery": {
-         "variables": {
-            "project": {
-               "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
-               "ui": {
-                  "label": "GCP Project ID",
-                  "description": "make sure to use the project ID and not the project name"
-               }
-            },
-            "dataset": {
-               "regexp": "^[a-z]([-_a-z0-9]*[a-z0-9])?$",
-               "optional": true,
-               "ui": {
-                  "label": "BigQuery Dataset name",
-                  "description": "must be owned by the specified project ID"
-               }
-            }
-         },
-         "ui": {
-            "label": "Google BigQuery",
-            "description": "Google BigQuery is an enterprise data warehouse that solves this problem by enabling super-fast SQL queries using the processing power of Google's infrastructure."
-         }
+      "ui": {
+        "label": "Google Cloud Storage",
+        "description": "Cloud Storage allows world-wide storage and retrieval of any amount of data at any time. You can use Cloud Storage for a range of scenarios including serving website content, storing data for archival and disaster recovery, or distributing large data objects to users via direct download."
       }
-   },
-   "ui": {
-      "description": "Generates down-scoped Service Account access tokens for use on Google Cloud Platform (GCP)",
-      "label": "GCP Service Account Token"
-   }
+    },
+    "bigquery": {
+      "variables": {
+        "project": {
+          "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+          "ui": {
+            "label": "GCP Project ID",
+            "description": "make sure to use the project ID and not the project name"
+          }
+        },
+        "dataset": {
+          "regexp": "^[a-z]([-_a-z0-9]*[a-z0-9])?$",
+          "optional": true,
+          "ui": {
+            "label": "BigQuery Dataset name",
+            "description": "must be owned by the specified project ID"
+          }
+        }
+      },
+      "ui": {
+        "label": "Google BigQuery",
+        "description": "Google BigQuery is an enterprise data warehouse that solves this problem by enabling super-fast SQL queries using the processing power of Google's infrastructure."
+      }
+    }
+  },
+  "ui": {
+    "description": "Generates down-scoped Service Account access tokens for use on Google Cloud Platform (GCP)",
+    "label": "GCP Service Account Token"
+  }
 }

@@ -342,6 +342,40 @@
             "description": "GCS File Read"
           }
         },
+        "gcs_payer": {
+          "serviceTemplate": "gcs_requester_pays",
+          "version": "dataset v1",
+          "topic": "FHIR",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-b",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "dataset-example-project",
+                "requester-pays-bucket": "dataset-example-payer-bucket1"
+              }
+            }, {
+              "vars": {
+                "project": "dataset-example-project",
+                "requester-pays-bucket": "dataset-example-payer-bucket2"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": ["dac(DATASETS=^https?://dac\\.nih\\.gov/datasets/phs000709$,^https?://dac\\.nih\\.gov/datasets/phs000710$,https://dac.nih.gov/datasets/phs000711)"]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "File Requster Pays Read",
+            "description": "GCS Requester Pays File Read"
+          }
+        },
         "gcp": {
           "serviceTemplate": "views",
           "version": "dataset v1",
@@ -541,6 +575,31 @@
         "description": "Google Cloud Storage"
       }
     },
+    "gcs_requester_pays": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "gcs",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/storage.objectViewer"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "File Viewer",
+            "description": "List and read files"
+          }
+        }
+      },
+      "interfaces": {
+        "gcp:gs": "gs://${requester-pays-bucket}",
+        "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${requester-pays-bucket}"
+      },
+      "ui": {
+        "label": "Google Cloud Storage",
+        "description": "Google Cloud Storage (GCS) requester-pays bucket"
+      }
+    },
     "bigquery": {
       "targetAdapter": "token:gcp:sa",
       "itemFormat": "bigquery",
@@ -727,6 +786,7 @@
       "access": [
         "dataset_example/bq_read/viewer",
         "dataset_example/gcp/viewer",
+        "dataset_example/gcs_payer/viewer",
         "dataset_example/gcs_read/viewer"
       ]
     }
@@ -744,6 +804,6 @@
     "readOnlyMasterRealm": true,
     "gcpManagedKeysMaxRequestedTtl": "7d",
     "gcpManagedKeysPerAccount": 8,
-    "gcpServiceAccountProject": "hcls-data-connect-demo"
+    "gcpServiceAccountProject": "example-project-id"
   }
 }
