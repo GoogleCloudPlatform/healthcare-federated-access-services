@@ -94,7 +94,7 @@ func (h *realmHandler) Remove(name string) error {
 		return err
 	}
 	if name == storage.DefaultRealm {
-		return h.s.importFiles()
+		return h.s.ImportFiles(importDefault)
 	}
 	return h.s.unregisterRealm(h.cfg, name)
 }

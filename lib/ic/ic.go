@@ -242,6 +242,8 @@ var (
 
 	// skipURLValidationInTokenURL is for skipping URL validation for TokenUrl in format "FOO_BAR=https://...".
 	skipURLValidationInTokenURL = regexp.MustCompile("^[A-Z_]*=https://.*$")
+
+	importDefault = os.Getenv("IMPORT")
 )
 
 type Service struct {
@@ -334,7 +336,7 @@ func NewService(ctx context.Context, domain, accountDomain string, store storage
 	}); err != nil {
 		glog.Fatalf(err.Error())
 	}
-	if err = s.importFiles(); err != nil {
+	if err = s.ImportFiles(importDefault); err != nil {
 		glog.Fatalf("cannot initialize storage: %v", err)
 	}
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -568,7 +570,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
-	if err = s.importFiles(); err != nil {
+	if err = s.ImportFiles(importDefault); err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
@@ -1621,7 +1623,7 @@ func (c *realm) Remove(name string) error {
 		return err
 	}
 	if name == storage.DefaultRealm {
-		return c.s.importFiles()
+		return c.s.ImportFiles(importDefault)
 	}
 	return nil
 }
@@ -4064,10 +4066,11 @@ type damArgs struct {
 	persona      string
 }
 
-func (s *Service) importFiles() error {
-	// TODO: FIXME do not check in this destructive code.
-	if imp := os.Getenv("IMPORT"); imp == "AUTO_RESET" {
-		wipe := false
+// ImportFiles ingests bootstrap configuration files to the IC's storage sytem.
+func (s *Service) ImportFiles(importType string) error {
+	wipe := false
+	switch importType {
+	case "AUTO_RESET":
 		cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
 			if !storage.ErrNotFound(err) {
@@ -4076,11 +4079,13 @@ func (s *Service) importFiles() error {
 		} else if err := s.checkConfigIntegrity(cfg); err != nil {
 			wipe = true
 		}
-		if wipe {
-			glog.Infof("prepare for IC config import: wipe data store for all realms")
-			if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
-				return err
-			}
+	case "FORCE_WIPE":
+		wipe = true
+	}
+	if wipe {
+		glog.Infof("prepare for IC config import: wipe data store for all realms")
+		if err := s.store.Wipe(storage.WipeAllRealms); err != nil {
+			return err
 		}
 	}
 

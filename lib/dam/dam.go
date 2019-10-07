@@ -118,6 +118,8 @@ var (
 	maxTTLStr  = "90 days"           // keep in sync with maxTTL
 
 	translators = translator.PassportTranslators()
+
+	importDefault = os.Getenv("IMPORT")
 )
 
 type Service struct {
@@ -172,7 +174,7 @@ func NewService(ctx context.Context, domain, defaultBroker string, store storage
 	secrets, err := s.loadSecrets(nil)
 	if err != nil {
 		if isAutoReset() {
-			if impErr := s.importFiles(); impErr == nil {
+			if impErr := s.ImportFiles(importDefault); impErr == nil {
 				secrets, err = s.loadSecrets(nil)
 			}
 		}
@@ -185,7 +187,7 @@ func NewService(ctx context.Context, domain, defaultBroker string, store storage
 		glog.Fatalf("cannot load adapters: %v", err)
 	}
 	s.adapters = adapters
-	if err := s.importFiles(); err != nil {
+	if err := s.ImportFiles(importDefault); err != nil {
 		glog.Fatalf("cannot initialize storage: %v", err)
 	}
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1069,7 +1071,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
-	if err = s.importFiles(); err != nil {
+	if err = s.ImportFiles(importDefault); err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
@@ -2006,9 +2008,11 @@ func (s *Service) unregisterRealm(cfg *pb.DamConfig, realm string) error {
 	return s.warehouse.RegisterAccountProject(realm, "", 0, 0)
 }
 
-func (s *Service) importFiles() error {
-	if isAutoReset() {
-		wipe := false
+// ImportFiles ingests bootstrap configuration files to the DAM's storage sytem.
+func (s *Service) ImportFiles(importType string) error {
+	wipe := false
+	switch importType {
+	case "AUTO_RESET":
 		cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
 			if !storage.ErrNotFound(err) {
@@ -2017,11 +2021,13 @@ func (s *Service) importFiles() error {
 		} else if err := s.CheckIntegrity(cfg); err != nil {
 			wipe = true
 		}
-		if wipe {
-			glog.Infof("prepare for DAM config import: wipe data store for all realms")
-			if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
-				return err
-			}
+	case "FORCE_WIPE":
+		wipe = true
+	}
+	if wipe {
+		glog.Infof("prepare for DAM config import: wipe data store for all realms")
+		if err := s.store.Wipe(storage.WipeAllRealms); err != nil {
+			return err
 		}
 	}
 
@@ -2067,7 +2073,7 @@ func (s *Service) importFiles() error {
 }
 
 func isAutoReset() bool {
-	return os.Getenv("IMPORT") == "AUTO_RESET"
+	return importDefault == "AUTO_RESET"
 }
 
 func getFileStore(store storage.Store, service string) storage.Store {
