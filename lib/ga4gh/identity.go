@@ -109,12 +109,8 @@ func CheckIdentityAllVisasLinked(ctx context.Context, i *Identity, f JWTVerifier
 		}
 
 		if f != nil && v.Data().Assertion.Type == LinkedIdentities {
-			ok, err := f(ctx, j)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				return fmt.Errorf("the verification of some LinkedIdentities visa failed")
+			if err := f(ctx, j); err != nil {
+				return fmt.Errorf("the verification of some LinkedIdentities visa failed: %v", err)
 			}
 		}
 

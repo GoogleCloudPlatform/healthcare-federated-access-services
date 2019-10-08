@@ -68,7 +68,7 @@ func checkLiteral(ctx context.Context, l Literal, vs []*Visa, f JWTVerifier) err
 			glog.V(1).Infof("CheckCondition failed: %v", err)
 			continue
 		}
-		if ok, err := f(ctx, string(v.JWT())); err != nil || !ok {
+		if err := f(ctx, string(v.JWT())); err != nil {
 			glog.V(1).Infof("JWT verification failed: %v", err)
 			continue
 		}

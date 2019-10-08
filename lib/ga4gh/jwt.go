@@ -107,3 +107,12 @@ func jsontxtCanonical(j jsontxt) string {
 	}
 	return c.String()
 }
+
+// NewStdClaimsFromJWT extracts StdClaims from a serialized JWT token.
+func NewStdClaimsFromJWT(token string) (*StdClaims, error) {
+	d := &StdClaims{}
+	if _, _, err := (&jwt.Parser{}).ParseUnverified(token, d); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
