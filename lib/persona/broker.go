@@ -50,7 +50,7 @@ const (
 	loginInfoTitle    = "Persona Playground"
 	assetPath         = "/static"
 	staticFilePath    = assetPath + "/"
-	staticDirectory   = "assets/static/"
+	staticDirectory   = "assets/serve/"
 )
 
 // Server is a fake OIDC passport broker service for a playground
