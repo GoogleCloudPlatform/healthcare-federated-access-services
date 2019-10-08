@@ -192,7 +192,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("persona %q not found", sub), w)
 		return
 	}
-	id, err := PersonaToIdentity(pname, persona, "openid ga4gh_passport_v1", s.issuerURL)
+	id, err := PersonaToIdentity(pname, persona, "openid profile identities ga4gh_passport_v1 email", s.issuerURL)
 	if err != nil {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("preparing persona %q: %v", sub, err), w)
 		return

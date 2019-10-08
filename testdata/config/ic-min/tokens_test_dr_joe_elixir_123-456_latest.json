@@ -1,6 +1,6 @@
 {
   "token_type": "refresh",
   "issued_at": 1560970669,
-  "scope": "ga4gh identities profiles openid",
+  "scope": "ga4gh_passport_v1 identities profiles openid",
   "identity_provider": "elixir"
 }

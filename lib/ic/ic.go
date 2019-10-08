@@ -115,12 +115,11 @@ const (
 
 	serviceTitle         = "Identity Concentrator"
 	loginInfoTitle       = "Data Discovery and Access Platform"
-	ga4ghClaimNamePrefix = "ga4gh."
 	noClientID           = ""
 	noScope              = ""
 	noNonce              = ""
 	scopeOpenID          = "openid"
-	personaProvider      = "<persona>"
+	personaProvider      = "persona"
 	matchFullScope       = false
 	matchPrefixScope     = true
 	generateRefreshToken = true
@@ -141,22 +140,28 @@ var (
 		"clientSecret":  true,
 		"client_secret": true,
 	}
-	pageVariableRE       = regexp.MustCompile(`\$\{[-A-Z_]*\}`)
-	defaultIdpScopes     = []string{"openid", "profile", "email"}
+	pageVariableRE = regexp.MustCompile(`\$\{[-A-Z_]*\}`)
+
+	passportScope        = "ga4gh_passport_v1"
+	ga4ghScope           = "ga4gh"
+	defaultIdpScopes     = []string{"openid", "profile", "email", "ga4gh_passport_v1"}
 	filterAccessTokScope = map[string]bool{
-		"openid":            true,
-		"ga4gh":             true,
-		"identities":        true,
-		"link":              true,
-		"account_admin":     true,
-		"ga4gh_passport_v1": true,
+		"openid":        true,
+		ga4ghScope:      true,
+		"identities":    true,
+		"link":          true,
+		"account_admin": true,
+		"email":         true,
+		passportScope:   true,
 	}
 	filterIDTokScope = map[string]bool{
 		"openid":  true,
 		"profile": true,
 		// TODO: remove these once DDAP BFF switches to use access token.
-		"ga4gh":      true,
-		"identities": true,
+		ga4ghScope:    true,
+		passportScope: true,
+		"identities":  true,
+		"email":       true,
 	}
 
 	descAccountNameLength = &pb.ConfigOptions_Descriptor{
@@ -1469,8 +1474,8 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 			}
 			info = append(info, "profile: "+strings.Join(profile, ","))
 		}
-		if s == "ga4gh" && len(id.GA4GH) != 0 {
-			info = append(info, "GA4GH claims")
+		if (s == passportScope || s == ga4ghScope) && len(id.VisaJWTs) != 0 {
+			info = append(info, "passport visas")
 		}
 		if s == "account_admin" {
 			info = append(info, "admin claims")
@@ -2483,7 +2488,7 @@ func (c *account) Patch(name string) error {
 		if !hasScopes("link", c.id.Scope, matchFullScope) {
 			return fmt.Errorf("bearer token unauthorized for scope %q", "link")
 		}
-		linkID, _, err := c.s.tokenToIdentity(link, c.r, "link:"+c.item.Properties.Subject, c.cfg, c.sec, c.tx)
+		linkID, _, err := c.s.tokenToIdentity(link, c.r, "link:"+c.item.Properties.Subject, getRealm(c.r), c.cfg, c.sec, c.tx)
 		if err != nil {
 			return err
 		}
@@ -2832,7 +2837,7 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 	if err != nil {
 		return nil, nil, nil, http.StatusServiceUnavailable, err
 	}
-	id, status, err := s.getIdentity(r, scope, cfg, secrets, tx)
+	id, status, err := s.getIdentity(r, scope, getRealm(r), cfg, secrets, tx)
 	if err != nil {
 		return nil, nil, nil, status, err
 	}
@@ -2851,12 +2856,28 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 	return cfg, secrets, id, status, err
 }
 
-func (s *Service) getIdentity(r *http.Request, scope string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
+func (s *Service) getIdentity(r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	tok, status, err := getAuthCode(r)
 	if err != nil {
 		return nil, status, err
 	}
-	return s.tokenToIdentity(tok, r, scope, cfg, secrets, tx)
+	return s.tokenToIdentity(tok, r, scope, realm, cfg, secrets, tx)
+}
+
+func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
+	tok, status, err := getAuthCode(r)
+	if err != nil {
+		return "", status, err
+	}
+	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	if err != nil {
+		return "", http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
+	}
+	realm := id.Realm
+	if len(realm) == 0 {
+		return storage.DefaultRealm, http.StatusOK, nil
+	}
+	return realm, http.StatusOK, nil
 }
 
 func defaultPermissionTTL(cfg *pb.IcConfig) time.Duration {
@@ -2942,12 +2963,12 @@ func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Iden
 	return id, http.StatusOK, nil
 }
 
-func (s *Service) tokenToIdentity(tok string, r *http.Request, scope string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
+func (s *Service) tokenToIdentity(tok string, r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	token, status, err := s.getTokenIdentity(tok, scope, getClientID(r), isUserInfo(r), tx)
 	if err != nil {
 		return token, status, err
 	}
-	return s.getTokenAccountIdentity(r.Context(), token, getRealm(r), cfg, secrets, tx)
+	return s.getTokenAccountIdentity(r.Context(), token, realm, cfg, secrets, tx)
 }
 
 func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
@@ -2988,10 +3009,15 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 	identities := make(map[string][]string)
 	for _, link := range acct.ConnectedAccounts {
 		subject := link.Properties.Subject
-		tags := s.permissions.IncludeTags(subject, link.Tags, cfg.AccountTags)
-		if len(tags) > 0 {
-			identities[subject] = tags
+		email := link.Properties.Email
+		if len(email) == 0 {
+			email = subject
 		}
+		tags := s.permissions.IncludeTags(subject, email, link.Tags, cfg.AccountTags)
+		if len(tags) == 0 {
+			tags = []string{"IC"}
+		}
+		identities[email] = tags
 		// TODO: consider skipping claims if idp=cfg.IdProvider[link.Provider] is missing (not <persona>) or idp.State != "ACTIVE".
 		if err := s.populateLinkClaims(ctx, id, link, ttl, cfg, secrets); err != nil {
 			return nil, err
@@ -3247,24 +3273,6 @@ func hasScopes(want, got string, matchPrefix bool) bool {
 	return true
 }
 
-func shorten(identity *ga4gh.Identity) error {
-	bytes, err := json.Marshal(identity)
-	if err != nil {
-		return err
-	}
-
-	if len(string(bytes)) < maxClaimsLength {
-		return nil
-	}
-
-	for claim := range identity.GA4GH {
-		identity.UserinfoClaims = append(identity.UserinfoClaims, ga4ghClaimNamePrefix+claim)
-	}
-
-	identity.GA4GH = nil
-	return nil
-}
-
 func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string, iat, nbf, exp int64, aud []string, azp string) *ga4gh.Identity {
 	claims := &ga4gh.Identity{
 		Issuer:           iss,
@@ -3277,14 +3285,11 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 		Expiry:           exp,
 		Scope:            scope,
 		IdentityProvider: identity.IdentityProvider,
-		UserinfoClaims:   []string{},
 		Nonce:            nonce,
-		// TODO: VisaJWTs should support scope down.
-		VisaJWTs: identity.VisaJWTs,
 	}
 	if !hasScopes("refresh", scope, matchFullScope) {
 		// TODO: remove this extra "ga4gh" check once DDAP is compatible.
-		if hasScopes("identities", scope, matchFullScope) || hasScopes("ga4gh", scope, matchFullScope) {
+		if hasScopes("identities", scope, matchFullScope) || hasScopes(passportScope, scope, matchFullScope) || hasScopes(ga4ghScope, scope, matchFullScope) {
 			claims.Identities = identity.Identities
 		}
 		if hasScopes("profile", scope, matchFullScope) {
@@ -3296,9 +3301,6 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 			claims.Locale = identity.Locale
 			claims.Email = identity.Email
 			claims.Picture = identity.Picture
-		}
-		if hasScopes("ga4gh", scope, matchFullScope) {
-			claims.GA4GH = identity.GA4GH
 		}
 	}
 
@@ -3375,13 +3377,7 @@ func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm, 
 	}
 
 	claims := scopedIdentity(identity, scope, iss, subject, nonce, now.Unix(), now.Add(-1*time.Minute).Unix(), exp.Unix(), audiences, azp)
-
-	if hasScopes("ga4gh", scope, matchFullScope) {
-		err = shorten(claims)
-		if err != nil {
-			return "", err
-		}
-	}
+	claims.Realm = realm
 
 	jot := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	// TODO: should set key id properly and sync with JWKS.
@@ -4326,7 +4322,12 @@ func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Finish()
 
-	cfg, err := s.loadConfig(tx, getRealm(r))
+	realm, status, err := s.tokenRealm(r)
+	if err != nil {
+		common.HandleError(status, err, w)
+	}
+
+	cfg, err := s.loadConfig(tx, realm)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
@@ -4338,7 +4339,7 @@ func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, status, err := s.getIdentity(r, "", cfg, secrets, tx)
+	id, status, err := s.getIdentity(r, "", realm, cfg, secrets, tx)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -4347,9 +4348,12 @@ func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	// TODO: should also check the client id of access token is same as request client id.
 
 	// scope down identity information based on the token scope.
-	id = scopedIdentity(id, id.Scope, id.Issuer, id.Subject, noNonce, id.IssuedAt, id.NotBefore, id.Expiry, nil, "")
+	claims := scopedIdentity(id, id.Scope, id.Issuer, id.Subject, noNonce, id.IssuedAt, id.NotBefore, id.Expiry, nil, "")
+	if hasScopes(passportScope, id.Scope, matchFullScope) || hasScopes(ga4ghScope, id.Scope, matchFullScope) {
+		claims.VisaJWTs = id.VisaJWTs
+	}
 
-	data, err := json.Marshal(id)
+	data, err := json.Marshal(claims)
 	if err != nil {
 		glog.Infof("cannot encode user identity into JSON: %v", err)
 		common.HandleError(http.StatusInternalServerError, err, w)

@@ -139,9 +139,12 @@ func (p *Permissions) isAdminUser(user string, now float64) bool {
 }
 
 // IncludeTags returns user's tags and matched tags passed in.
-func (p *Permissions) IncludeTags(subject string, tags []string, tagDefs map[string]*pb.AccountTag) []string {
+func (p *Permissions) IncludeTags(subject, email string, tags []string, tagDefs map[string]*pb.AccountTag) []string {
 	out := []string{}
-	user, ok := p.perm.Users[subject]
+	if len(email) == 0 {
+		email = subject
+	}
+	user, ok := p.perm.Users[email]
 	if ok && len(user.Tags) > 0 {
 		out = append(out, user.Tags...)
 	}

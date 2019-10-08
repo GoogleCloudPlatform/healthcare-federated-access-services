@@ -51,7 +51,6 @@ type Identity struct {
 	ID               string                `json:"jti,omitempty"`
 	Nonce            string                `json:"nonce,omitempty"`
 	GA4GH            map[string][]OldClaim `json:"ga4gh,omitempty"`
-	UserinfoClaims   []string              `json:"ga4gh_userinfo_claims"`
 	IdentityProvider string                `json:"idp,omitempty"`
 	Identities       map[string][]string   `json:"identities,omitempty"`
 	Username         string                `json:"preferred_username,omitempty"`
@@ -66,6 +65,7 @@ type Identity struct {
 	Locale           string                `json:"locale,omitempty"`
 	Picture          string                `json:"picture,omitempty"`
 	Profile          string                `json:"profile,omitempty"`
+	Realm            string                `json:"realm,omitempty"`
 	VisaJWTs         []string              `json:"ga4gh_passport_v1,omitempty"`
 }
 
@@ -124,9 +124,9 @@ func CheckIdentityAllVisasLinked(ctx context.Context, i *Identity, f JWTVerifier
 func VisasToOldClaims(vs []VisaJWT) map[string][]OldClaim {
 	out := make(map[string][]OldClaim)
 	for _, j := range vs {
+		// Skip this visa on any errors such that a bad visa doesn't spoil the bunch.
 		v, err := NewVisaFromJWT(VisaJWT(j))
 		if err != nil {
-			// Don't let a bad visa spoil the bunch
 			continue
 		}
 		d := v.Data()

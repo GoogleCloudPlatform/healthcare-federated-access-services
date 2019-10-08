@@ -41,6 +41,7 @@ func TestIncludeTags(t *testing.T) {
 	type includeTagsTest struct {
 		testName    string
 		subject     string
+		email       string
 		tags        []string
 		tagDefs     []string
 		expectation []string
@@ -49,14 +50,16 @@ func TestIncludeTags(t *testing.T) {
 	tests := []includeTagsTest{
 		{
 			testName:    "tags in permission settings",
-			subject:     "admin_and_has_tags@example.com",
+			subject:     "admin_and_has_tags",
+			email:       "admin_and_has_tags@example.com",
 			tags:        []string{},
 			tagDefs:     []string{},
 			expectation: []string{"t1", "t2"},
 		},
 		{
 			testName: "no tags in permission settings, tags in pass in tags and tagDefs",
-			subject:  "no_tags@example.com",
+			subject:  "no_tags",
+			email:    "no_tags@example.com",
 			tags:     []string{"t3", "t4", "t5"},
 			tagDefs:  []string{"t3", "t4"},
 			// no t5 since t5 not in tagDefs
@@ -64,7 +67,8 @@ func TestIncludeTags(t *testing.T) {
 		},
 		{
 			testName: "user not in permission settings",
-			subject:  "not_a_user@example.com",
+			subject:  "not_a_user",
+			email:    "not_a_user@example.com",
 			tags:     []string{"t3", "t4", "t5"},
 			tagDefs:  []string{"t3", "t4"},
 			// no t5 since t5 not in tagDefs
@@ -72,7 +76,8 @@ func TestIncludeTags(t *testing.T) {
 		},
 		{
 			testName: "tags in  pass in tags and tagDefs",
-			subject:  "admin_and_has_tags@example.com",
+			subject:  "admin_and_has_tags",
+			email:    "admin_and_has_tags@example.com",
 			tags:     []string{"t3", "t4", "t5"},
 			tagDefs:  []string{"t3", "t4"},
 			// no t5 since t5 not in tagDefs
@@ -86,7 +91,7 @@ func TestIncludeTags(t *testing.T) {
 			tagDefs[tagDef] = &pb.AccountTag{}
 		}
 
-		result := perm.IncludeTags(test.subject, test.tags, tagDefs)
+		result := perm.IncludeTags(test.subject, test.email, test.tags, tagDefs)
 		if !reflect.DeepEqual(result, test.expectation) {
 			t.Fatalf("Test case [%q] failed. expected includedTags is %q, actual is %q", test.testName, test.expectation, result)
 		}

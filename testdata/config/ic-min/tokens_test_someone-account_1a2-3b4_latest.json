@@ -1,6 +1,6 @@
 {
   "token_type": "refresh",
   "issued_at": 1560970669,
-  "scope": "ga4gh openid",
+  "scope": "ga4gh_passport_v1 openid",
   "identity_provider": "google"
 }

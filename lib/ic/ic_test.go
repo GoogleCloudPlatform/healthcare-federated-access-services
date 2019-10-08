@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -89,51 +88,6 @@ func TestOidcEndpoints(t *testing.T) {
 	}
 }
 
-func TestUserinfoClaims(t *testing.T) {
-	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
-	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
-	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
-	if err != nil {
-		t.Fatalf("loading config: %v", err)
-	}
-
-	longStr := strings.Repeat("a", 1000)
-
-	identity := &ga4gh.Identity{
-		Subject: "sub",
-		GA4GH: map[string][]ga4gh.OldClaim{
-			string(ga4gh.ResearcherStatus): {{
-				Value: longStr,
-			}},
-			string(ga4gh.AcceptedTermsAndPolicies): {{
-				Value: longStr,
-			}},
-		},
-	}
-
-	tok, err := s.createToken(identity, "openid ga4gh", oidcIssuer, "azp", storage.DefaultRealm, noNonce, time.Now(), time.Hour*1, cfg, nil)
-	if err != nil {
-		t.Fatalf("creating token: %v", err)
-	}
-
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
-	if len(id.GA4GH) != 0 {
-		t.Errorf("wants token with no 'ga4gh' claims, got %d claims", len(id.GA4GH))
-	}
-
-	expectUserinfoClaims := []string{
-		ga4ghClaimNamePrefix + string(ga4gh.AcceptedTermsAndPolicies),
-		ga4ghClaimNamePrefix + string(ga4gh.ResearcherStatus),
-	}
-	sort.Strings(expectUserinfoClaims)
-	sort.Strings(id.UserinfoClaims)
-
-	if !cmp.Equal(id.UserinfoClaims, expectUserinfoClaims) {
-		t.Errorf("wants userinfo claim %v, got %v", expectUserinfoClaims, id.UserinfoClaims)
-	}
-}
-
 func TestHandlers(t *testing.T) {
 	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
@@ -158,7 +112,7 @@ func TestHandlers(t *testing.T) {
 			Name:   "Get a self-owned token",
 			Method: "GET",
 			Path:   "/identity/v1alpha/test/token/dr_joe_elixir/123-456",
-			Output: `{"tokenMetadata":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh identities profiles openid","identityProvider":"elixir"}}`,
+			Output: `{"tokenMetadata":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh_passport_v1 identities profiles openid","identityProvider":"elixir"}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -166,7 +120,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/v1alpha/test/token/someone-account/1a2-3b4",
 			Persona: "admin",
-			Output:  `{"tokenMetadata":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh openid","identityProvider":"google"}}`,
+			Output:  `{"tokenMetadata":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh_passport_v1 openid","identityProvider":"google"}}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -286,7 +240,7 @@ func TestAdminHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "admin",
-			Output:  `{"tokensMetadata":{"dr_joe_elixir/123-456":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh identities profiles openid","identityProvider":"elixir"},"someone-account/1a2-3b4":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh openid","identityProvider":"google"}}}`,
+			Output:  `{"tokensMetadata":{"dr_joe_elixir/123-456":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh_passport_v1 identities profiles openid","identityProvider":"elixir"},"someone-account/1a2-3b4":{"tokenType":"refresh","issuedAt":"1560970669","scope":"ga4gh_passport_v1 openid","identityProvider":"google"}}}`,
 			Status:  http.StatusOK,
 		},
 		{

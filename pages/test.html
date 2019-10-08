@@ -59,6 +59,14 @@
         color: #fff;
         background: #000;
       }
+      .green {
+        color: #222;
+        background: #3d7;
+      }
+      .green:hover {
+        color: #000;
+        background: #2c6;
+      }
       .red {
         color: #fff;
         background: #dc3545;
@@ -90,8 +98,9 @@
       var accountURL = "/identity/v1alpha/_REALM_/accounts/-?client_id="+clientId+"&client_secret="+clientSecret;
       var damCfgURL = "_DAM_URL_/dam/v1alpha/_REALM_/config?access_token=_TOKEN_&client_id="+clientId+"&client_secret="+clientSecret;
       var linkURL = "/identity/v1alpha/_REALM_/accounts/_ACCOUNT_?link_token=_LINK_TOKEN_&client_id="+clientId+"&client_secret="+clientSecret;
+      var userInfoURL = "/oidc/userinfo?client_id="+clientId+"&client_secret="+clientSecret;
       var refreshToken = null;
-      var defaultScopes = "openid ga4gh profile account_admin";
+      var defaultScopes = "openid ga4gh_passport_v1 profile email identities account_admin";
       var resources = {};
 
       function parseJwt(token) {
@@ -196,6 +205,40 @@
           }
         });
       }
+      function getVisas() {
+        var passport = $('#passport').val();
+        if (!passport) {
+          $("#source").text("must fetch passport first...");
+          return
+        }
+        var url = makeURL(userInfoURL, passport);
+        $.ajax({
+          url: url,
+          type: "GET",
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + passport);},
+          success: function(resp) {
+            var out = JSON.stringify(resp, undefined, 2) +
+                      "\n\n-----------------------------------\nPLAIN-TEXT VISAS\n-----------------------------------\n";
+            var visas = resp["ga4gh_passport_v1"];
+            for (var i = 0; visas && i < visas.length; i++) {
+              var visa = parseJWT(visas[i]);
+              if (visa) {
+                out += JSON.stringify(visa, undefined, 2) + "\n-----\n"
+              }
+            }
+            $("#source").text(out);
+          },
+          error: displayResult
+        });
+      }
+      function parseJWT (token) {
+        var base64Url = token.split('.')[1];
+        var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        var jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+      };
       function resolvePassport(successAction) {
         var passport = $('#passport').val();
         if (passport) {
@@ -529,11 +572,12 @@
       </div>
     </div>
     <div class="box">
-      <h3>Access Token <span class="small">(Passport when it has "ga4gh" scope)</span></h3>
+      <h3>Access Token <span class="small">(Passport when it has "ga4gh_passport_v1" scope)</span></h3>
       <textarea id="passport" rows="7" style="width:100%" readonly></textarea>
       <div>
         <a class="btn blue" onclick="getPassport()">Passport</a>
-        <a class="btn black" onclick="refreshPassport()">Refresh Passport</a>
+        <a class="btn black" onclick="getVisas()">Passport Visas</a>
+        <a class="btn green" onclick="refreshPassport()">Refresh Passport</a>
         <a class="btn red" onclick="revokeRefreshToken()">Revoke Refresh</a>
         <a class="btn white" onclick="accountInfo(displayResult)">Account Info</a>
         <a class="btn white" onclick="jwt('passport')">JWT.IO</a>

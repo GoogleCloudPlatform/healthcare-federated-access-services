@@ -173,7 +173,7 @@ func NewService(ctx context.Context, domain, defaultBroker string, store storage
 
 	secrets, err := s.loadSecrets(nil)
 	if err != nil {
-		if isAutoReset() {
+		if isAutoReset() || storage.ErrNotFound(err) {
 			if impErr := s.ImportFiles(importDefault); impErr == nil {
 				secrets, err = s.loadSecrets(nil)
 			}
