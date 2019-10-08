@@ -391,3 +391,78 @@ func TestNonce(t *testing.T) {
 		t.Error("refresh token should not include nonce")
 	}
 }
+
+func TestAddLinkedIdentities(t *testing.T) {
+	subject := "111@a.com"
+	issuer := "https://example.com/oidc"
+	subjectInIdp := "222"
+	emailInIdp := "222@idp.com"
+	idp := "idp"
+	idpIss := "https://idp.com/oidc"
+
+	id := &ga4gh.Identity{
+		Subject:  subject,
+		Issuer:   issuer,
+		VisaJWTs: []string{},
+	}
+
+	link := &pb.ConnectedAccount{
+		Provider: idp,
+		Properties: &pb.AccountProperties{
+			Subject: subjectInIdp,
+			Email:   emailInIdp,
+		},
+	}
+
+	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
+	s := NewService(context.Background(), domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	cfg.IdentityProviders = map[string]*pb.IdentityProvider{
+		idp: &pb.IdentityProvider{Issuer: idpIss},
+	}
+
+	err = s.addLinkedIdentities(id, link, testkeys.Default.Private, cfg)
+	if err != nil {
+		t.Fatalf("s.addLinkedIdentities(_) failed: %v", err)
+	}
+
+	if len(id.VisaJWTs) != 1 {
+		t.Fatalf("len(id.VisaJWTs), want 1, got %d", len(id.VisaJWTs))
+	}
+
+	v, err := ga4gh.NewVisaFromJWT(ga4gh.VisaJWT(id.VisaJWTs[0]))
+	if err != nil {
+		t.Fatalf("ga4gh.NewVisaFromJWT(_) failed: %v", err)
+	}
+
+	got := v.Data()
+
+	wantIdentities := []string{
+		linkedIdentityValue(subjectInIdp, idpIss),
+		linkedIdentityValue(emailInIdp, idpIss),
+	}
+
+	want := &ga4gh.VisaData{
+		StdClaims: ga4gh.StdClaims{
+			Subject:   subject,
+			Issuer:    issuer,
+			IssuedAt:  got.IssuedAt,
+			ExpiresAt: got.ExpiresAt,
+		},
+		Scope: "openid",
+		Assertion: ga4gh.Assertion{
+			Type:     ga4gh.LinkedIdentities,
+			Asserted: got.Assertion.Asserted,
+			Value:    ga4gh.Value(strings.Join(wantIdentities, ";")),
+			Source:   ga4gh.Source(issuer),
+		},
+	}
+
+	if diff := cmp.Diff(want, got); len(diff) != 0 {
+		t.Fatalf("v.Data() returned diff (-want +got):\n%s", diff)
+	}
+}
