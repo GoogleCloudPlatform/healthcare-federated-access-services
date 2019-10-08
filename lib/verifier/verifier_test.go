@@ -82,7 +82,7 @@ func TestVerifier_Verify(t *testing.T) {
 	}
 	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
-		t.Fatal("ga4gh.NewVisaFromData() failed: %v", err)
+		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
 
 	// Make calls by oidc package use the fake HTTP client.
@@ -112,7 +112,7 @@ func TestVerifier_Verify_SecondIssuer(t *testing.T) {
 
 	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
-		t.Fatal("ga4gh.NewVisaFromData() failed: %v", err)
+		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
 
 	// Make calls by oidc package use the fake HTTP client.
@@ -141,7 +141,7 @@ func TestVerifier_Verify_Fail_WrongIssuerURL(t *testing.T) {
 	}
 	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
-		t.Fatal("ga4gh.NewVisaFromData() failed: %v", err)
+		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
 
 	// Make calls by oidc package use the fake HTTP client.
@@ -172,7 +172,7 @@ func TestVerifier_Verify_Fail_WrongKey(t *testing.T) {
 	wrongKey := testkeys.Keys[testkeys.VisaIssuer1]
 	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, wrongKey.Private, key.ID)
 	if err != nil {
-		t.Fatal("ga4gh.NewVisaFromData() failed: %v", err)
+		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
 
 	// Make calls by oidc package use the fake HTTP client.
@@ -202,7 +202,7 @@ func TestVerifier_Verify_Fail_WrongClient(t *testing.T) {
 
 	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
-		t.Fatal("ga4gh.NewVisaFromData() failed: %v", err)
+		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
 
 	// Make calls by oidc package use the fake HTTP client.
@@ -232,7 +232,7 @@ func TestVerifier_Verify_Fail_TokenExpired(t *testing.T) {
 
 	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
-		t.Fatal("ga4gh.NewVisaFromData() failed: %v", err)
+		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
 
 	// Make calls by oidc package use the fake HTTP client.
