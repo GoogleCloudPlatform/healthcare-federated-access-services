@@ -144,7 +144,7 @@ var (
 
 	passportScope        = "ga4gh_passport_v1"
 	ga4ghScope           = "ga4gh"
-	defaultIdpScopes     = []string{"openid", "profile", "email", "ga4gh_passport_v1"}
+	defaultIdpScopes     = []string{"openid", "profile", "email"}
 	filterAccessTokScope = map[string]bool{
 		"openid":        true,
 		ga4ghScope:      true,
