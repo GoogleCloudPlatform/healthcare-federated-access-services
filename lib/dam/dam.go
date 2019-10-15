@@ -401,7 +401,7 @@ func (s *Service) tokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok,
 		return nil, fmt.Errorf("translating token from issuer %q: %v", iss, err)
 	}
 	if common.HasUserinfoClaims(id) {
-		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id, t)
+		id, err = translator.FetchUserinfoClaims(s.ctx, tok, id.Issuer, id.Subject, t)
 		if err != nil {
 			return nil, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
 		}

@@ -1123,7 +1123,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		accessToken = tok.AccessToken
-		if len(accessToken) == 0 && len(idToken) == 0 {
+		if len(idToken) == 0 {
 			idToken, ok = tok.Extra("id_token").(string)
 			if !ok {
 				common.HandleError(http.StatusUnauthorized, fmt.Errorf("token does not contain a valid id_token field"), w)
@@ -1131,11 +1131,8 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if accessToken == "" {
-		accessToken = idToken
-	}
 
-	login, status, err := s.loginTokenToIdentity(accessToken, idp, r, cfg, secrets)
+	login, status, err := s.loginTokenToIdentity(accessToken, idToken, idp, r, cfg, secrets)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -3030,30 +3027,35 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 	return id, nil
 }
 
-func (s *Service) loginTokenToIdentity(acTok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(acTok)
-	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
-	}
-
-	iss := id.Issuer
-	t, err := s.getIssuerTranslator(s.ctx, iss, cfg, secrets)
+func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
+	t, err := s.getIssuerTranslator(s.ctx, idp.Issuer, cfg, secrets)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 
-	id, err = t.TranslateToken(s.ctx, acTok)
-	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("translating token from issuer %q: %v", iss, err)
-	}
-	if idp.GetUsePassportVisa() || common.HasUserinfoClaims(id) {
-		id, err = translator.FetchUserinfoClaims(s.ctx, acTok, id, t)
+	if len(acTok) > 0 && idp.GetUsePassportVisa() {
+		tid, err := t.TranslateToken(s.ctx, acTok)
 		if err != nil {
-			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
+			return nil, http.StatusUnauthorized, fmt.Errorf("translating access token from issuer %q: %v", idp.Issuer, err)
 		}
+		if !common.HasUserinfoClaims(tid) {
+			return tid, http.StatusOK, nil
+		}
+		id, err := translator.FetchUserinfoClaims(s.ctx, acTok, idp.Issuer, tid.Subject, t)
+		if err != nil {
+			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
+		}
+		return id, http.StatusOK, nil
 	}
-
-	return id, http.StatusOK, nil
+	if len(idTok) > 0 {
+		// Assumes the login ID token is a JWT containing standard claims.
+		tid, err := t.TranslateToken(s.ctx, idTok)
+		if err != nil {
+			return nil, http.StatusUnauthorized, fmt.Errorf("translating ID token from issuer %q: %v", idp.Issuer, err)
+		}
+		return tid, http.StatusOK, nil
+	}
+	return nil, http.StatusBadRequest, fmt.Errorf("fetching identity: the IdP is not configured to fetch passports and the IdP did not provide an ID token")
 }
 
 func (s *Service) accountLinkToClaims(ctx context.Context, acct *pb.Account, subject string, cfg *pb.IcConfig, secrets *pb.IcSecrets) (map[string][]ga4gh.OldClaim, error) {

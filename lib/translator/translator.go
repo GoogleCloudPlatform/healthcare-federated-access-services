@@ -34,20 +34,19 @@ type Translator interface {
 }
 
 // FetchUserinfoClaims calls the /userinfo endpoint of an issuer to fetch additional claims.
-func FetchUserinfoClaims(ctx context.Context, acTok string, id *ga4gh.Identity, translator Translator) (*ga4gh.Identity, error) {
+func FetchUserinfoClaims(ctx context.Context, tok, issuer, subject string, translator Translator) (*ga4gh.Identity, error) {
 	// Issue a Get request to the issuer's /userinfo endpoint.
-	iss := id.Issuer
 	// TODO: use JWKS to discover the /userinfo endpoint.
-	contentType, userInfo, err := issueGetRequest(ctx, strings.TrimSuffix(iss, "/")+"/userinfo", acTok)
+	contentType, userInfo, err := issueGetRequest(ctx, strings.TrimSuffix(issuer, "/")+"/userinfo", tok)
 	if err != nil {
 		return nil, err
 	}
 
 	// Convert the /userinfo response to an identity based on the content type.
-	var userinfoID ga4gh.Identity
+	var id ga4gh.Identity
 	switch contentType {
 	case "application/json":
-		if err := json.Unmarshal(userInfo, &userinfoID); err != nil {
+		if err := json.Unmarshal(userInfo, &id); err != nil {
 			return nil, fmt.Errorf("inspecting user info claims: %v", err)
 		}
 	case "application/jwt":
@@ -55,25 +54,18 @@ func FetchUserinfoClaims(ctx context.Context, acTok string, id *ga4gh.Identity, 
 		if err != nil {
 			return nil, fmt.Errorf("inspecting signed user info claims: %v", err)
 		}
-		if tok.Issuer != iss {
-			return nil, fmt.Errorf("incorrect issuer in user info claims: got: %q, expected: %q", userinfoID.Issuer, iss)
+		if tok.Issuer != issuer {
+			return nil, fmt.Errorf("incorrect issuer in user info claims: got: %q, expected: %q", id.Issuer, issuer)
 		}
-		userinfoID = *tok
+		id = *tok
 	default:
 		return nil, fmt.Errorf("unsupported content type returned by /userinfo endpoint: %q", contentType)
 	}
-	if userinfoID.Subject != id.Subject {
-		return nil, fmt.Errorf("incorrect subject in user info claims: got: %q, expected: %q", userinfoID.Subject, id.Subject)
+	if len(subject) > 0 && subject != id.Subject {
+		return nil, fmt.Errorf("incorrect subject in user info claims: got: %q, expected: %q", id.Subject, subject)
 	}
 
-	// Append the claims returned by /userinfo to the access token's list of claims.
-	if userinfoID.GA4GH == nil {
-		userinfoID.GA4GH = make(map[string][]ga4gh.OldClaim)
-	}
-	for name, claims := range id.GA4GH {
-		userinfoID.GA4GH[name] = append(userinfoID.GA4GH[name], claims...)
-	}
-	return &userinfoID, nil
+	return &id, nil
 }
 
 func issueGetRequest(ctx context.Context, url, acTok string) (string, []byte, error) {
