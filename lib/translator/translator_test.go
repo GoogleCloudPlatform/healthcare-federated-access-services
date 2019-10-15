@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -62,6 +63,7 @@ func testTranslator(t *testing.T, tests []testCase) {
 		if err := json.Unmarshal(str, want); err != nil {
 			t.Fatalf("test %q failed to unmarshal expected output %q: %v", tc.name, tc.expected, err)
 		}
+		sort.Strings(got.VisaJWTs)
 
 		opts := cmp.Options{cmp.Transformer("", ga4gh.MustVisaDataFromJWT)}
 		if diff := cmp.Diff(want, got, opts); diff != "" {

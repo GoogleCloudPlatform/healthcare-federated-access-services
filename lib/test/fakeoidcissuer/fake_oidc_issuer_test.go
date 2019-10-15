@@ -79,7 +79,7 @@ func TestServer(t *testing.T) {
 	}
 	id, err := translator.FetchUserinfoClaims(ctx, string(acTok), issuerURL, sub, trans)
 	if err != nil {
-		t.Fatalf("translator.FetchUserinfoClaims(ctx, tok, %q, %q, trans) failed: %v", err)
+		t.Fatalf("translator.FetchUserinfoClaims(ctx, tok, %q, %q, trans) failed: %v", issuerURL, sub, err)
 	}
 	if len(id.VisaJWTs) == 0 {
 		t.Errorf("id.VisaJWTs: wanted more than zero, got none")
