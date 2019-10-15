@@ -2581,7 +2581,8 @@ func (s *Service) accountSubjectFactory() *common.HandlerFactory {
 		HasNamedIdentifiers: true,
 		IsAdmin:             false,
 		NameChecker: map[string]*regexp.Regexp{
-			"subject": regexp.MustCompile(`^[\w][^/\\]*@[\w][^/\\]*$`),
+			// Some upstream IdPs may use a wider selection of characters, including email-looking format.
+			"subject": regexp.MustCompile(`^[\w][^/\\@]*@?[\w][^/\\@]*$`),
 		},
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &accountLink{

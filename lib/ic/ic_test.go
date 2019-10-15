@@ -204,6 +204,22 @@ func TestHandlers(t *testing.T) {
 			Output:  "",
 			Status:  http.StatusOK,
 		},
+		{
+			Name:    "Get linked accounts (foo)",
+			Method:  "GET",
+			Path:    "/identity/v1alpha/test/accounts/non-admin/subjects/foo",
+			Persona: "admin",
+			Output:  "^.*not found",
+			Status:  http.StatusNotFound,
+		},
+		{
+			Name:    "Get linked accounts (foo@bar.com)",
+			Method:  "GET",
+			Path:    "/identity/v1alpha/test/accounts/non-admin/subjects/foo@bar.com",
+			Persona: "admin",
+			Output:  "^.*not found",
+			Status:  http.StatusNotFound,
+		},
 	}
 	test.HandlerTests(t, s.Handler, tests, oidcIssuer, server.Config())
 }
