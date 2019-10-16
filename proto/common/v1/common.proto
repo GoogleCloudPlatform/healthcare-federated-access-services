@@ -14,10 +14,41 @@
 
 syntax = "proto3";
 
-// Package models defines models share between IC and DAM server.
-package models;
+// Package com defines messages shared between IC and DAM server.
+package common;
 
-option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
+
+message Assertion {
+  message ConditionClause {
+    string type = 1;
+    string source = 2;
+    string value = 3;
+    string by = 4;
+  }
+  message Condition {
+    repeated ConditionClause clauses = 1;
+  }
+  string type = 1;
+  string source = 2;
+  string value = 3;
+  string asserted_duration = 4;
+  string expires_duration = 5;
+  repeated Condition conditions = 6;
+  string by = 7;
+}
+
+message Passport {
+  map<string, string> standard_claims = 1;
+  repeated Assertion ga4gh_assertions = 2;
+  repeated bytes internal_encrypted_visas = 11;
+}
+
+message TestPersona {
+  Passport passport = 1;
+  repeated string access = 2;
+  map<string, string> ui = 3;
+}
 
 message Permissions {
   message PermissionUser {
@@ -62,4 +93,22 @@ message TokenMetadata {
   string name = 1;
   string issued_at = 2;
   string expires = 3;
+}
+
+message HistoryEntry {
+  int64 revision = 1;
+  string user = 2;
+  double commit_time = 3;
+  string path = 4;
+  string query = 5;
+  string desc = 6;
+  string method = 7;
+  string change_type = 8;
+  string original_value = 9;
+  string change_request = 10;
+}
+
+message History {
+  repeated HistoryEntry history = 1;
+  string next_page_token = 2;
 }

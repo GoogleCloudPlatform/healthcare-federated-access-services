@@ -22,7 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 const (
@@ -86,9 +86,9 @@ func TestIncludeTags(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tagDefs := make(map[string]*pb.AccountTag)
+		tagDefs := make(map[string]*cpb.AccountTag)
 		for _, tagDef := range test.tagDefs {
-			tagDefs[tagDef] = &pb.AccountTag{}
+			tagDefs[tagDef] = &cpb.AccountTag{}
 		}
 
 		result := perm.IncludeTags(test.subject, test.email, test.tags, tagDefs)

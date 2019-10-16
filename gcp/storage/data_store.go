@@ -28,8 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
-	// TODO: this should be more generic, not DAM pb.
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 const (
@@ -227,7 +226,7 @@ func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, conte
 		return err
 	}
 	for _, e := range results {
-		he := new(pb.HistoryEntry)
+		he := new(cpb.HistoryEntry)
 		if len(e.Content) == 0 {
 			continue
 		}

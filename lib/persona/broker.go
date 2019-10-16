@@ -31,6 +31,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 	ipb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 )
@@ -179,7 +180,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sub := src.Subject
-	var persona *dampb.TestPersona
+	var persona *cpb.TestPersona
 	var pname string
 	for pn, p := range s.cfg.TestPersonas {
 		if pn == sub || (p.Passport.StandardClaims != nil && p.Passport.StandardClaims["sub"] == sub) {
@@ -192,7 +193,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("persona %q not found", sub), w)
 		return
 	}
-	id, err := PersonaToIdentity(pname, persona, "openid profile identities ga4gh_passport_v1 email", s.issuerURL)
+	id, err := ToIdentity(pname, persona, "openid profile identities ga4gh_passport_v1 email", s.issuerURL)
 	if err != nil {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("preparing persona %q: %v", sub, err), w)
 		return
@@ -298,7 +299,7 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusNotFound, fmt.Errorf("persona %q not found", pname), w)
 		return
 	}
-	acTok, _, err := PersonaAccessToken(pname, s.issuerURL, clientID, persona)
+	acTok, _, err := NewAccessToken(pname, s.issuerURL, clientID, persona)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("error creating access token for persona %q: %v", pname, err), w)
 		return

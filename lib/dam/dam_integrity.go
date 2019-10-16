@@ -28,6 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
 
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
@@ -177,7 +178,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 		if tp.Passport == nil {
 			return fmt.Errorf("test persona %q requires a Passport", n)
 		}
-		tid, err := persona.PersonaToIdentity(n, tp, defaultPersonaScope, "")
+		tid, err := persona.ToIdentity(n, tp, defaultPersonaScope, "")
 		if err != nil {
 			return err
 		}
@@ -570,7 +571,7 @@ func (s *Service) updateTests(cfg *pb.DamConfig, modification *pb.ConfigModifica
 
 func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestResultsResponse {
 	t := float64(time.Now().UnixNano()) / 1e9
-	personas := make(map[string]*pb.TestPersona)
+	personas := make(map[string]*cpb.TestPersona)
 	results := make([]*pb.GetTestResultsResponse_TestResult, 0)
 	passed := int32(0)
 	tc := int32(0)
@@ -594,7 +595,7 @@ func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestRes
 	}
 	for pname, p := range cfg.TestPersonas {
 		tc++
-		personas[pname] = &pb.TestPersona{
+		personas[pname] = &cpb.TestPersona{
 			Passport: p.Passport,
 			Access:   p.Access,
 		}

@@ -48,6 +48,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
 
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
@@ -438,7 +439,7 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 
 func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, []string, error) {
 	p := cfg.TestPersonas[personaName]
-	id, err := persona.PersonaToIdentity(personaName, p, defaultPersonaScope, "")
+	id, err := persona.ToIdentity(personaName, p, defaultPersonaScope, "")
 	if err != nil {
 		return "INVALID", nil, err
 	}
@@ -2062,7 +2063,7 @@ func (s *Service) ImportFiles(importType string) error {
 	}
 	defer tx.Finish()
 
-	history := &pb.HistoryEntry{
+	history := &cpb.HistoryEntry{
 		Revision:   1,
 		User:       "admin",
 		CommitTime: float64(time.Now().Unix()),

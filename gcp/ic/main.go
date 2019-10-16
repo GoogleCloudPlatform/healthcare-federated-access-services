@@ -27,9 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
-	//"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 )
 
 const (
@@ -73,8 +71,6 @@ func main() {
 		glog.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
 	}
 
-	module := module.NewPlaygroundModule(os.Getenv("PERSONA_DAM_URL"), os.Getenv("PERSONA_DAM_CLIENT_ID"), os.Getenv("PERSONA_DAM_CLIENT_SECRET"))
-
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
 		glog.Fatalf("NewKeyManagementClient(ctx, clientOpt) failed: %v", err)
@@ -84,7 +80,7 @@ func main() {
 		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
 	}
 
-	s := ic.NewService(ctx, domain, acctDomain, store, module, gcpkms)
+	s := ic.NewService(ctx, domain, acctDomain, store, gcpkms)
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"

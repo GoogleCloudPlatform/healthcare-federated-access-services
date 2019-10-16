@@ -26,8 +26,8 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
-	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 /////////////////////////////////////////////////////////
@@ -258,7 +258,7 @@ type tokensHandler struct {
 	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.TokensRequest
-	item  []*compb.TokenMetadata
+	item  []*cpb.TokenMetadata
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -331,7 +331,7 @@ type tokenHandler struct {
 	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.TokenRequest
-	item  *compb.TokenMetadata
+	item  *cpb.TokenMetadata
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -1161,8 +1161,8 @@ type configPersonaHandler struct {
 	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigTestPersonaRequest
-	item  *pb.TestPersona
-	save  *pb.TestPersona
+	item  *cpb.TestPersona
+	save  *cpb.TestPersona
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -1196,10 +1196,10 @@ func (h *configPersonaHandler) NormalizeInput(name string, vars map[string]strin
 		return err
 	}
 	if h.input.Item == nil {
-		h.input.Item = &pb.TestPersona{}
+		h.input.Item = &cpb.TestPersona{}
 	}
 	if h.input.Item.Passport == nil {
-		h.input.Item.Passport = &pb.TestPersona_TestPassport{}
+		h.input.Item.Passport = &cpb.Passport{}
 	}
 	if h.input.Item.Passport.StandardClaims == nil {
 		h.input.Item.Passport.StandardClaims = make(map[string]string)
@@ -1233,7 +1233,7 @@ func (h *configPersonaHandler) Patch(name string) error {
 }
 func (h *configPersonaHandler) Remove(name string) error {
 	delete(h.cfg.TestPersonas, name)
-	h.save = &pb.TestPersona{}
+	h.save = &cpb.TestPersona{}
 	return nil
 }
 func (h *configPersonaHandler) CheckIntegrity() (proto.Message, int, error) {

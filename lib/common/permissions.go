@@ -24,12 +24,12 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
 	glog "github.com/golang/glog"
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 // Permissions type exposes functions access user permissions.
 type Permissions struct {
-	perm *pb.Permissions
+	perm *cpb.Permissions
 }
 
 // LoadPermissions loads permission from storage/config.
@@ -43,7 +43,7 @@ func LoadPermissions(store storage.Store) (*Permissions, error) {
 
 	// TODO Save these in real storage.
 	fs := storage.NewFileStorage(service, path)
-	perms := &pb.Permissions{}
+	perms := &cpb.Permissions{}
 
 	if err := fs.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perms); err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func (p *Permissions) isAdminUser(user string, now float64) bool {
 }
 
 // IncludeTags returns user's tags and matched tags passed in.
-func (p *Permissions) IncludeTags(subject, email string, tags []string, tagDefs map[string]*pb.AccountTag) []string {
+func (p *Permissions) IncludeTags(subject, email string, tags []string, tagDefs map[string]*cpb.AccountTag) []string {
 	out := []string{}
 	if len(email) == 0 {
 		email = subject

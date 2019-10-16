@@ -42,7 +42,7 @@ import (
 	"google.golang.org/api/iamcredentials/v1"
 	cloudstorage "google.golang.org/api/storage/v1"
 
-	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 const (
@@ -144,7 +144,7 @@ func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl
 }
 
 // GetTokenMetadata returns an access token based on its name.
-func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, name string) (*compb.TokenMetadata, error) {
+func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, name string) (*cpb.TokenMetadata, error) {
 	account := wh.GetAccountName(project, id)
 	// A standard Keys.Get does not return ValidAfterTime or ValidBeforeTime
 	// so use List and pull the right key out of the list. These lists are small.
@@ -155,7 +155,7 @@ func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, n
 	for _, key := range k.Keys {
 		parts := strings.Split(key.Name, "/")
 		if name == parts[len(parts)-1] {
-			return &compb.TokenMetadata{
+			return &cpb.TokenMetadata{
 				Name:     name,
 				IssuedAt: key.ValidAfterTime,
 				Expires:  key.ValidBeforeTime,
@@ -166,17 +166,17 @@ func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, n
 }
 
 // ListTokenMetadata returns a list of outstanding access tokens.
-func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error) {
+func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id string) ([]*cpb.TokenMetadata, error) {
 	account := wh.GetAccountName(project, id)
 	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("list tokens from service keys: %v", err)
 	}
-	out := make([]*compb.TokenMetadata, len(k.Keys))
+	out := make([]*cpb.TokenMetadata, len(k.Keys))
 	for i, key := range k.Keys {
 		// Use the last part of the key identifier as the GUID.
 		parts := strings.Split(key.Name, "/")
-		out[i] = &compb.TokenMetadata{
+		out[i] = &cpb.TokenMetadata{
 			Name:     parts[len(parts)-1],
 			IssuedAt: key.ValidAfterTime,
 			Expires:  key.ValidBeforeTime,

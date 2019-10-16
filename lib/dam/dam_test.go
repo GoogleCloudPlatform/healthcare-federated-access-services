@@ -901,9 +901,9 @@ func TestCheckAuthorization(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 	p := cfg.TestPersonas[pname]
-	acTok, _, err := persona.PersonaAccessToken(pname, test.TestIssuerURL, test.TestClientID, p)
+	acTok, _, err := persona.NewAccessToken(pname, test.TestIssuerURL, test.TestClientID, p)
 	if err != nil {
-		t.Fatalf("persona.PersonaAccessToken(%q, %q, _, _) failed: %v", pname, test.TestIssuerURL, err)
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, test.TestIssuerURL, err)
 	}
 
 	// Ensure pass context with TTL in validator

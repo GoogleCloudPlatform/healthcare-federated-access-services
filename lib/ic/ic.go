@@ -42,13 +42,10 @@ import (
 	"golang.org/x/oauth2"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/module"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
-	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
-	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
 )
 
 const (
@@ -119,7 +116,6 @@ const (
 	noScope              = ""
 	noNonce              = ""
 	scopeOpenID          = "openid"
-	personaProvider      = "persona"
 	matchFullScope       = false
 	matchPrefixScope     = true
 	generateRefreshToken = true
@@ -264,7 +260,6 @@ type Service struct {
 	permissions           *common.Permissions
 	domain                string
 	accountDomain         string
-	module                module.Module
 	translators           sync.Map
 	encryption            Encryption
 }
@@ -284,9 +279,8 @@ type Encryption interface {
 // - domain: domain used to host ic service
 // - accountDomain: domain used to host service account warehouse
 // - store: data storage and configuration storage
-// - module: the extended functionality for this environment
 // - encryption: the encryption use for storing tokens safely in database
-func NewService(ctx context.Context, domain, accountDomain string, store storage.Store, module module.Module, encryption Encryption) *Service {
+func NewService(ctx context.Context, domain, accountDomain string, store storage.Store, encryption Encryption) *Service {
 	sh := &ServiceHandler{}
 	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
@@ -331,7 +325,6 @@ func NewService(ctx context.Context, domain, accountDomain string, store storage
 		permissions:           perms,
 		domain:                domain,
 		accountDomain:         accountDomain,
-		module:                module,
 		encryption:            encryption,
 	}
 
@@ -478,8 +471,6 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(acceptLoginPath, s.AcceptLogin)
 	r.HandleFunc(finishLoginPath, s.FinishLogin)
 	r.HandleFunc(acceptInformationReleasePath, s.acceptInformationRelease).Methods("GET")
-	r.HandleFunc(personasPath, s.Personas)
-	r.HandleFunc(personaPath, s.Persona)
 	r.HandleFunc(testPath, s.Test)
 	r.HandleFunc(tokenFlowTestPath, s.TokenFlowTest)
 	r.HandleFunc(authorizePath, s.Authorize)
@@ -505,7 +496,7 @@ func (s *Service) GetInfo(w http.ResponseWriter, r *http.Request) {
 		StartTime: s.startTime,
 	}
 	if _, err := s.verifyClient(common.RequestAbstractPath(r), r); err == nil {
-		out.Modules = []string{s.module.ModuleName()}
+		out.Modules = []string{}
 	}
 
 	realm := common.GetParamOrDefault(r, "realm", storage.DefaultRealm)
@@ -778,27 +769,8 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	personas, err := s.module.LoadPersonas(getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
 	clientID := getClientID(r)
 	params = "?client_id=" + clientID + "&redirect_uri=" + url.QueryEscape(redirect) + "&scope=" + url.QueryEscape(scope) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce)
-	for pname, p := range personas {
-		ui := p.Ui
-		if ui == nil {
-			ui = make(map[string]string)
-		}
-		if _, ok := ui[common.UILabel]; !ok {
-			ui[common.UILabel] = common.ToTitle(pname)
-		}
-		list.Personas[pname] = &pb.LoginPageProviders_ProviderEntry{
-			Url: buildPath(personaPath, pname, vars) + params,
-			Ui:  ui,
-		}
-	}
 	ma := jsonpb.Marshaler{}
 	json, err := ma.MarshalToString(list)
 	if err != nil {
@@ -810,16 +782,6 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 	page = strings.Replace(page, "${SERVICE_TITLE}", serviceTitle, -1)
 	page = strings.Replace(page, "${LOGIN_INFO_TITLE}", loginInfoTitle, -1)
 	common.SendHTML(page, w)
-}
-
-func personaSubject(pName string, p *dampb.TestPersona) string {
-	if p.Passport == nil || p.Passport.StandardClaims == nil {
-		return pName
-	}
-	if sub, ok := p.Passport.StandardClaims["sub"]; ok {
-		return sub
-	}
-	return pName
 }
 
 func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirect string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
@@ -874,7 +836,7 @@ func idpConfig(idp *pb.IdentityProvider, domainURL string, secrets *pb.IcSecrets
 }
 
 func (s *Service) buildState(idpName, realm, clientID, scope, redirect, state, nonce string, tx storage.Tx) (string, error) {
-	login := &compb.LoginState{
+	login := &cpb.LoginState{
 		IdpName:  idpName,
 		Realm:    realm,
 		ClientId: clientID,
@@ -998,7 +960,7 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var loginState compb.LoginState
+	var loginState cpb.LoginState
 	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
@@ -1070,7 +1032,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var loginState compb.LoginState
+	var loginState cpb.LoginState
 	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState, tx)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
@@ -1125,8 +1087,8 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		accessToken = tok.AccessToken
 		if len(idToken) == 0 {
 			idToken, ok = tok.Extra("id_token").(string)
-			if !ok {
-				common.HandleError(http.StatusUnauthorized, fmt.Errorf("token does not contain a valid id_token field"), w)
+			if !ok && len(accessToken) == 0 {
+				common.HandleError(http.StatusUnauthorized, fmt.Errorf("identity provider response does not contain an access_token nor id_token token"), w)
 				return
 			}
 		}
@@ -1178,136 +1140,8 @@ func (s *Service) Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
 	// Idp login
-	if loginHintProvider != personaProvider {
-		s.login(w, r, cfg, loginHintProvider, loginHintAccount)
-		return
-	}
-
-	// persona login
-	personas, err := s.module.LoadPersonas(getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	for pname, p := range personas {
-		if loginHintAccount == personaSubject(pname, p) {
-			s.personaLogin(pname, p, cfg, secrets, nil, w, r)
-			return
-		}
-	}
-
-	common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("login for persona login_hint %q not found", loginHintAccount), w)
-}
-
-func (s *Service) Personas(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-
-	personas, err := s.module.LoadPersonas(getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	out := make(map[string]*pb.GetPersonasResponse_Meta)
-	for pname, p := range personas {
-		pid, err := persona.PersonaToIdentity(pname, p, noScope, s.getIssuerString())
-		if err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
-			return
-		}
-		list := []string{}
-		for cname := range pid.GA4GH {
-			list = append(list, cname)
-		}
-		out[pname] = &pb.GetPersonasResponse_Meta{
-			ClaimNames: list,
-		}
-	}
-
-	resp := pb.GetPersonasResponse{
-		Personas: out,
-	}
-	common.SendResponse(proto.Message(&resp), w)
-}
-
-func (s *Service) Persona(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	defer tx.Finish()
-
-	pName := getName(r)
-	personas, err := s.module.LoadPersonas(getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	p, ok := personas[pName]
-	if !ok {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("test persona %q not found", pName), w)
-		return
-	}
-	cfg, err := s.loadConfig(tx, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	s.personaLogin(pName, p, cfg, secrets, tx, w, r)
-}
-
-func (s *Service) personaLogin(pName string, p *dampb.TestPersona, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx, w http.ResponseWriter, r *http.Request) {
-	scope, err := getScope(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-	state, err := extractState(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-	nonce, err := getNonce(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	id, err := persona.PersonaToIdentity(pName, p, scope, s.getIssuerString())
-	if err != nil {
-		common.HandleError(http.StatusUnauthorized, err, w)
-		return
-	}
-	redirect, err := s.getAndValidateStateRedirect(r, cfg)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-	id.Nonce = nonce
-
-	s.finishLogin(id, personaProvider, redirect, scope, getClientID(r), state, tx, cfg, secrets, r, w)
+	s.login(w, r, cfg, loginHintProvider, loginHintAccount)
 }
 
 func getStateRedirect(r *http.Request) (string, error) {
@@ -1378,7 +1212,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 			return
 		}
 
-		if err = s.saveNewLinkedAccount(acct, id, "New Persona Account", r, tx, lookup); err != nil {
+		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
@@ -1387,13 +1221,8 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 
 	loginHint := makeLoginHint(provider, id.Subject)
 
-	if provider == personaProvider {
-		s.sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, state, id.Nonce, loginHint, cfg, tx, r, w)
-		return
-	}
-
 	// redirect to information release page.
-	auth := &compb.AuthTokenState{
+	auth := &cpb.AuthTokenState{
 		Redirect:  redirect,
 		Subject:   subject,
 		Scope:     scope,
@@ -1511,7 +1340,7 @@ func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Reques
 	}
 	defer tx.Finish()
 
-	state := &compb.AuthTokenState{}
+	state := &cpb.AuthTokenState{}
 	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
@@ -2453,13 +2282,8 @@ func (c *account) NormalizeInput(name string, vars map[string]string) error {
 		if a.Properties == nil {
 			a.Properties = &pb.AccountProperties{}
 		}
-		if a.Claims == nil {
-			a.Claims = make(map[string]*pb.AccountClaimList)
-		}
-		for _, cl := range a.Claims {
-			if cl.List == nil {
-				cl.List = []*pb.AccountClaim{}
-			}
+		if a.Passport == nil {
+			a.Passport = &cpb.Passport{}
 		}
 		a.ComputedIdentityProvider = nil
 	}
@@ -2636,13 +2460,8 @@ func (c *accountLink) NormalizeInput(name string, vars map[string]string) error 
 	if c.input.Item.Profile == nil {
 		c.input.Item.Profile = &pb.AccountProfile{}
 	}
-	if c.input.Item.Claims == nil {
-		c.input.Item.Claims = make(map[string]*pb.AccountClaimList)
-	}
-	for _, cl := range c.input.Item.Claims {
-		if cl.List == nil {
-			cl.List = []*pb.AccountClaim{}
-		}
+	if c.input.Item.Passport == nil {
+		c.input.Item.Passport = &cpb.Passport{}
 	}
 	c.input.Item.ComputedIdentityProvider = nil
 	return nil
@@ -2748,24 +2567,18 @@ func (c *adminClaims) NormalizeInput(name string, vars map[string]string) error 
 }
 func (c *adminClaims) Get(name string) error {
 	// Collect all claims across linked accounts.
-	claims := make(map[string]*pb.AccountClaimList)
+	out := []*cpb.Assertion{}
 	for _, link := range c.item.ConnectedAccounts {
-		for k, v := range link.Claims {
-			c, ok := claims[k]
-			if !ok {
-				c = &pb.AccountClaimList{
-					List: []*pb.AccountClaim{},
-				}
-				claims[k] = c
-			}
-			for _, acctClaim := range v.List {
-				c.List = append(c.List, acctClaim)
-			}
+		if link.Passport == nil {
+			continue
+		}
+		for _, v := range link.Passport.Ga4GhAssertions {
+			out = append(out, v)
 		}
 	}
 
 	common.SendResponse(&pb.SubjectClaimsResponse{
-		Claims: claims,
+		Assertions: out,
 	}, c.w)
 	return nil
 }
@@ -2785,7 +2598,7 @@ func (c *adminClaims) Remove(name string) error {
 	c.save = &pb.Account{}
 	proto.Merge(c.save, c.item)
 	for _, link := range c.save.ConnectedAccounts {
-		link.Claims = make(map[string]*pb.AccountClaimList)
+		link.Passport = &cpb.Passport{}
 	}
 	return nil
 }
@@ -3017,7 +2830,7 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 		}
 		identities[email] = tags
 		// TODO: consider skipping claims if idp=cfg.IdProvider[link.Provider] is missing (not <persona>) or idp.State != "ACTIVE".
-		if err := s.populateLinkClaims(ctx, id, link, ttl, cfg, secrets); err != nil {
+		if err := s.populateLinkVisas(ctx, id, link, ttl, cfg, secrets); err != nil {
 			return nil, err
 		}
 	}
@@ -3079,7 +2892,7 @@ func (s *Service) accountLinkToClaims(ctx context.Context, acct *pb.Account, sub
 		return id.GA4GH, nil
 	}
 	ttl := getDurationOption(cfg.Options.ClaimTtlCap, descClaimTtlCap)
-	if err := s.populateLinkClaims(ctx, id, link, ttl, cfg, secrets); err != nil {
+	if err := s.populateLinkVisas(ctx, id, link, ttl, cfg, secrets); err != nil {
 		return nil, err
 	}
 
@@ -3151,17 +2964,12 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAcco
 	return nil
 }
 
-func (s *Service) populateLinkClaims(ctx context.Context, id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.Duration, cfg *pb.IcConfig, secrets *pb.IcSecrets) error {
-	for cname, cl := range link.Claims {
-		if cl == nil || cl.List == nil {
-			continue
-		}
-		for _, claim := range cl.List {
-			populateIdentityClaim(id, cname, claim, ttl)
-		}
+func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.Duration, cfg *pb.IcConfig, secrets *pb.IcSecrets) error {
+	passport := link.Passport
+	if passport == nil {
+		passport = &cpb.Passport{}
 	}
-
-	jwts, err := s.decryptEmbeddedTokens(ctx, link.EcryptedTokens)
+	jwts, err := s.decryptEmbeddedTokens(ctx, passport.InternalEncryptedVisas)
 	if err != nil {
 		return err
 	}
@@ -3171,52 +2979,13 @@ func (s *Service) populateLinkClaims(ctx context.Context, id *ga4gh.Identity, li
 		return err
 	}
 
-	id.VisaJWTs = jwts
+	id.VisaJWTs = append(id.VisaJWTs, jwts...)
 
 	if err = s.addLinkedIdentities(id, link, priv, cfg); err != nil {
 		return fmt.Errorf("add linked identities to visas failed: %v", err)
 	}
 
 	return nil
-}
-
-func populateIdentityClaim(id *ga4gh.Identity, cname string, claim *pb.AccountClaim, ttl time.Duration) {
-	if _, ok := id.GA4GH[cname]; !ok {
-		id.GA4GH[cname] = make([]ga4gh.OldClaim, 0)
-	}
-	c := ga4gh.OldClaim{
-		Value:    claim.Value,
-		Source:   claim.Source,
-		Asserted: claim.Asserted,
-		Expires:  claim.Expires,
-		By:       claim.By,
-	}
-	if claim.Condition != nil {
-		c.Condition = make(map[string]ga4gh.OldClaimCondition)
-		for k, v := range claim.Condition {
-			c.Condition[k] = ga4gh.OldClaimCondition{
-				Value:  v.Value,
-				Source: v.Source,
-				By:     v.By,
-			}
-		}
-	}
-	if c.Asserted > 0 {
-		asserted := time.Unix(int64(c.Asserted), 0)
-		ttlExp := asserted.Add(ttl)
-		exp := time.Unix(int64(c.Expires), 0)
-		if c.Expires <= c.Asserted || ttlExp.Before(exp) {
-			c.Expires = c.Asserted + ttl.Seconds()
-		}
-	}
-	if prev := findSimilarClaim(id.GA4GH[cname], &c); prev != nil {
-		if prev.Asserted < c.Asserted {
-			prev.Asserted = c.Asserted
-			prev.Expires = c.Expires
-		}
-		return
-	}
-	id.GA4GH[cname] = append(id.GA4GH[cname], c)
 }
 
 func findSimilarClaim(claims []ga4gh.OldClaim, match *ga4gh.OldClaim) *ga4gh.OldClaim {
@@ -3554,19 +3323,13 @@ func (s *Service) populateAccountClaims(ctx context.Context, acct *pb.Account, i
 	link, _ := findLinkedAccount(acct, id.Subject)
 	now := common.GetNowInUnixNano()
 	if link == nil {
-		tokens, err := s.encryptEmbeddedTokens(ctx, id.VisaJWTs)
-		if err != nil {
-			return err
-		}
-
 		link = &pb.ConnectedAccount{
-			Profile:        setupAccountProfile(id),
-			Properties:     setupAccountProperties(id, id.Subject, now, now),
-			Provider:       provider,
-			Refreshed:      now,
-			Revision:       1,
-			LinkRevision:   1,
-			EcryptedTokens: tokens,
+			Profile:      setupAccountProfile(id),
+			Properties:   setupAccountProperties(id, id.Subject, now, now),
+			Provider:     provider,
+			Refreshed:    now,
+			Revision:     1,
+			LinkRevision: 1,
 		}
 		acct.ConnectedAccounts = append(acct.ConnectedAccounts, link)
 	} else {
@@ -3574,41 +3337,15 @@ func (s *Service) populateAccountClaims(ctx context.Context, acct *pb.Account, i
 		link.Refreshed = now
 		link.Revision++
 	}
-	// Remove existing claims and repopulate them.
-	link.Claims = make(map[string]*pb.AccountClaimList)
-	for k, v := range id.GA4GH {
-		cl := make([]*pb.AccountClaim, 0)
-		for _, c := range v {
-			cl = append(cl, &pb.AccountClaim{
-				Value:     c.Value,
-				Source:    c.Source,
-				Asserted:  c.Asserted,
-				Expires:   c.Expires,
-				Condition: accountClaimCondition(c.Condition),
-				By:        c.By,
-			})
-		}
-		link.Claims[k] = &pb.AccountClaimList{
-			List: cl,
-		}
+	tokens, err := s.encryptEmbeddedTokens(ctx, id.VisaJWTs)
+	if err != nil {
+		return err
+	}
+	link.Passport = &cpb.Passport{
+		InternalEncryptedVisas: tokens,
 	}
 
 	return nil
-}
-
-func accountClaimCondition(cond map[string]ga4gh.OldClaimCondition) map[string]*pb.AccountClaim_Condition {
-	if cond == nil {
-		return nil
-	}
-	out := make(map[string]*pb.AccountClaim_Condition)
-	for k, v := range cond {
-		out[k] = &pb.AccountClaim_Condition{
-			Value:  v.Value,
-			Source: v.Source,
-			By:     v.By,
-		}
-	}
-	return out
 }
 
 func setupAccountProfile(id *ga4gh.Identity) *pb.AccountProfile {
@@ -4231,7 +3968,7 @@ func (s *Service) ImportFiles(importType string) error {
 	}
 
 	glog.Infof("import IC config into data store")
-	history := &dampb.HistoryEntry{
+	history := &cpb.HistoryEntry{
 		Revision:   1,
 		User:       "admin",
 		CommitTime: float64(time.Now().Unix()),

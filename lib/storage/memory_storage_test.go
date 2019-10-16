@@ -17,7 +17,7 @@ package storage
 import (
 	"testing"
 
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 
 func TestMemoryStorageDelete(t *testing.T) {
 	store := NewMemoryStorage("storage", "testdata")
-	content := &pb.TestPersona{}
+	content := &cpb.TestPersona{}
 	if err := store.Read(testStoreFileType, DefaultRealm, DefaultUser, testFileID, LatestRev, content); err != nil {
 		t.Errorf("reading default file: want success, got error: %v", err)
 	}

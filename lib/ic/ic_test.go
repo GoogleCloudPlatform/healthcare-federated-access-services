@@ -31,7 +31,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/fakeencryption"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/module"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient"
@@ -56,7 +55,7 @@ func init() {
 
 func TestOidcEndpoints(t *testing.T) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, store, module.NewBasicModule(), fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, store, fakeencryption.New())
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -89,14 +88,13 @@ func TestOidcEndpoints(t *testing.T) {
 }
 
 func TestHandlers(t *testing.T) {
-	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", oidcIssuer, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	s := NewService(ctx, domain, domain, store, fakeencryption.New())
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -233,7 +231,6 @@ func createTestToken(t *testing.T, s *Service, id *ga4gh.Identity, scope string,
 }
 
 func TestAdminHandlers(t *testing.T) {
-	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
 	if err != nil {
@@ -241,7 +238,7 @@ func TestAdminHandlers(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 
-	s := NewService(ctx, domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	s := NewService(ctx, domain, domain, store, fakeencryption.New())
 	tests := []test.HandlerTest{
 		{
 			Name:    "List all tokens of all users as a non-admin",
@@ -289,17 +286,22 @@ func TestAdminHandlers(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	nonce := "nonce-for-test"
-	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, store, fakeencryption.New())
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
 	}
 
 	// Auth Code should not include "nonce".
-	auth, err := s.createAuthToken("someone-account", "openid", personaProvider, "test", nonce, time.Now(), cfg, nil)
+	auth, err := s.createAuthToken("someone-account", "openid", "persona", "test", nonce, time.Now(), cfg, nil)
+	if err != nil {
+		t.Fatalf("creating auth token: %v", err)
+	}
 	id, err := common.ConvertTokenToIdentityUnsafe(auth)
+	if err != nil {
+		t.Fatalf("ConvertTokenToIdentityUnsafe(%q) error: %v", auth, err)
+	}
 	if len(id.Nonce) > 0 {
 		t.Error("Auth Code should not include 'nonce'")
 	}
@@ -323,14 +325,23 @@ func TestNonce(t *testing.T) {
 		t.Fatalf("unmarshal failed")
 	}
 	id, err = common.ConvertTokenToIdentityUnsafe(tokens.IdToken)
+	if err != nil {
+		t.Errorf("ConvertTokenToIdentityUnsafe(%q) error: %v", tokens.IdToken, err)
+	}
 	if id.Nonce != nonce {
 		t.Errorf("get tokens by auth code, id_token.nonce incorrect: want %q, got %q", id.Nonce, nonce)
 	}
 	access, err := common.ConvertTokenToIdentityUnsafe(tokens.AccessToken)
+	if err != nil {
+		t.Errorf("ConvertTokenToIdentityUnsafe(%q) error: %v", tokens.AccessToken, err)
+	}
 	if len(access.Nonce) > 0 {
 		t.Error("access token should not include nonce")
 	}
 	refresh, err := common.ConvertTokenToIdentityUnsafe(tokens.RefreshToken)
+	if err != nil {
+		t.Errorf("ConvertTokenToIdentityUnsafe(%q) error: %v", tokens.RefreshToken, err)
+	}
 	if len(refresh.Nonce) > 0 {
 		t.Error("refresh token should not include nonce")
 	}
@@ -384,9 +395,8 @@ func TestAddLinkedIdentities(t *testing.T) {
 		},
 	}
 
-	damStore := storage.NewMemoryStorage("dam-min", "testdata/config")
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, store, module.NewTestModule(t, damStore, storage.DefaultRealm), fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, store, fakeencryption.New())
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)

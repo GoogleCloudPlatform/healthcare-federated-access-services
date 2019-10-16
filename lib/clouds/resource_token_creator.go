@@ -19,7 +19,7 @@ import (
 	"context"
 	"time"
 
-	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 // ResourceTokenCreationParams provides information on a set of items to perform an action upon.
@@ -48,10 +48,10 @@ type ResourceTokenCreator interface {
 	MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (*ResourceTokenResult, error)
 
 	// GetTokenMetadata returns an access token based on its name.
-	GetTokenMetadata(ctx context.Context, project, id, name string) (*compb.TokenMetadata, error)
+	GetTokenMetadata(ctx context.Context, project, id, name string) (*cpb.TokenMetadata, error)
 
 	// ListTokenMetadata returns a list of outstanding access tokens.
-	ListTokenMetadata(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error)
+	ListTokenMetadata(ctx context.Context, project, id string) ([]*cpb.TokenMetadata, error)
 
 	// DeleteTokens removes tokens belonging to 'id' with given names.
 	// If 'names' is empty, delete all tokens belonging to 'id'.

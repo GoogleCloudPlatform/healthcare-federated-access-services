@@ -23,7 +23,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 
-	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 var (
@@ -52,9 +52,9 @@ var (
 	personaKey = testkeys.Keys[testkeys.PersonaBroker]
 )
 
-// PersonaAccessToken returns an access token for a persona at a given issuer.
+// NewAccessToken returns an access token for a persona at a given issuer.
 // The persona parameter may be nil.
-func PersonaAccessToken(name, issuer, clientID string, persona *dampb.TestPersona) (ga4gh.AccessJWT, string, error) {
+func NewAccessToken(name, issuer, clientID string, persona *cpb.TestPersona) (ga4gh.AccessJWT, string, error) {
 	now := common.GetNowInUnix()
 	sub := name
 	email := name
@@ -88,8 +88,8 @@ func PersonaAccessToken(name, issuer, clientID string, persona *dampb.TestPerson
 	return access.JWT(), sub, nil
 }
 
-// PersonaToIdentity retuns an Identity from persona configuration settings.
-func PersonaToIdentity(name string, persona *dampb.TestPersona, scope, visaIssuer string) (*ga4gh.Identity, error) {
+// ToIdentity retuns an Identity from persona configuration settings.
+func ToIdentity(name string, persona *cpb.TestPersona, scope, visaIssuer string) (*ga4gh.Identity, error) {
 	if persona.Passport == nil {
 		return nil, fmt.Errorf("persona %q has not configured a test identity token", name)
 	}
@@ -193,14 +193,14 @@ func nameSplit(r rune) bool {
 	return r == ' ' || r == '_' || r == '.' || r == '-'
 }
 
-func getStandardClaim(persona *dampb.TestPersona, claim string) string {
+func getStandardClaim(persona *cpb.TestPersona, claim string) string {
 	if persona.Passport.StandardClaims == nil || len(persona.Passport.StandardClaims[claim]) == 0 {
 		return ""
 	}
 	return persona.Passport.StandardClaims[claim]
 }
 
-func populatePersonaVisas(pname, visaIssuer string, assertions []*dampb.TestPersona_TestAssertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
+func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	id.VisaJWTs = make([]string, len(assertions))

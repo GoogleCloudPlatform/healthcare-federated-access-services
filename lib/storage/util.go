@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 var (
@@ -63,7 +63,7 @@ func MakeConfigHistory(desc, resType string, rev int64, ts float64, r *http.Requ
 	ov, _ := m.MarshalToString(orig)
 	uv, _ := m.MarshalToString(update)
 
-	return &pb.HistoryEntry{
+	return &cpb.HistoryEntry{
 		Revision:      rev,
 		User:          user,
 		CommitTime:    ts,
@@ -77,7 +77,8 @@ func MakeConfigHistory(desc, resType string, rev int64, ts float64, r *http.Requ
 	}
 }
 
-func GetHistory(store Store, datatype, realm, user, id string, r *http.Request) (*pb.History, int, error) {
+// GetHistory returns a History object based on the input parameters.
+func GetHistory(store Store, datatype, realm, user, id string, r *http.Request) (*cpb.History, int, error) {
 	hlist := make([]proto.Message, 0)
 	if err := store.ReadHistory(datatype, realm, user, id, &hlist); err != nil {
 		if os.IsNotExist(err) {
@@ -86,15 +87,15 @@ func GetHistory(store Store, datatype, realm, user, id string, r *http.Request) 
 		}
 		return nil, http.StatusBadRequest, fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
-	he := make([]*pb.HistoryEntry, len(hlist))
+	he := make([]*cpb.HistoryEntry, len(hlist))
 	var ok bool
 	for i, e := range hlist {
-		he[i], ok = e.(*pb.HistoryEntry)
+		he[i], ok = e.(*cpb.HistoryEntry)
 		if !ok {
 			return nil, http.StatusInternalServerError, fmt.Errorf("cannot load history entry %d", i)
 		}
 	}
-	history := &pb.History{
+	history := &cpb.History{
 		History: he,
 	}
 	pageToken := r.URL.Query().Get("pageToken")

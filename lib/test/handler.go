@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
@@ -71,13 +72,13 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 		if len(test.Persona) > 0 {
 			pname = test.Persona
 		}
-		var p *dampb.TestPersona
+		var p *cpb.TestPersona
 		if cfg != nil {
 			p = cfg.TestPersonas[pname]
 		}
-		acTok, _, err := persona.PersonaAccessToken(pname, issuerURL, TestClientID, p)
+		acTok, _, err := persona.NewAccessToken(pname, issuerURL, TestClientID, p)
 		if err != nil {
-			t.Fatalf("persona.PersonaAccessToken(%q, %q, _, _) failed: %v", pname, issuerURL, err)
+			t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, issuerURL, err)
 		}
 		target := fmt.Sprintf("%s?client_id=%s&client_secret=%s", test.Path, TestClientID, TestClientSecret)
 		var Input io.Reader

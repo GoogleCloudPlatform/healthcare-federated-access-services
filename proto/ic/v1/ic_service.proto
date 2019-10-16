@@ -18,7 +18,7 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package ic.v1;
 
-import "proto/models/common.proto";
+import "proto/common/v1/common.proto";
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1";
 
@@ -45,7 +45,7 @@ message IcConfig {
   double commit_time = 3;
   map<string, IdentityProvider> identity_providers = 4;
   map<string, Client> clients = 5;
-  map<string, models.AccountTag> account_tags = 6;
+  map<string, common.AccountTag> account_tags = 6;
   ConfigOptions options = 7;
   map<string, string> ui = 8;
 }
@@ -152,30 +152,11 @@ message ConnectedAccount {
   double refreshed = 4;
   int64 revision = 5;
   int64 link_revision = 6;
-  map<string, AccountClaimList> claims = 7;
+  common.Passport passport = 7;
   repeated string tags = 8;
   IdentityProvider computed_identity_provider = 9
       [json_name = "identityProvider"];
   string computed_login_hint = 10 [json_name = "loginHint"];
-  repeated bytes ecrypted_tokens = 11;
-}
-
-message AccountClaimList {
-  repeated AccountClaim list = 1;
-}
-
-message AccountClaim {
-  message Condition {
-    repeated string value = 1;
-    repeated string source = 2;
-    repeated string by = 3;
-  }
-  string value = 1;
-  string source = 2;
-  double asserted = 3;
-  double expires = 4;
-  map<string, Condition> condition = 5;
-  string by = 6;
 }
 
 message AccountLookup {
@@ -292,7 +273,7 @@ message SubjectClaimsRequest {
 }
 
 message SubjectClaimsResponse {
-  map<string, AccountClaimList> claims = 1;
+  repeated common.Assertion assertions = 1;
 }
 
 message ClientSecretRequest {}

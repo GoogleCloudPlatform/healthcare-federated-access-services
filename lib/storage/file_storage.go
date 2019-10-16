@@ -26,8 +26,7 @@ import (
 	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	// TODO: this should be more generic, not DAM pb.
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 const (
@@ -162,7 +161,7 @@ func (f *FileStorage) ReadHistoryTx(datatype, realm, user, id string, content *[
 		return fmt.Errorf("history file %q I/O error: %v", hfname, err)
 	}
 	full := `{"history":[` + string(b[:]) + "]}"
-	his := &pb.History{}
+	his := &cpb.History{}
 	if err := jsonpb.Unmarshal(strings.NewReader(full), his); err != nil {
 		return fmt.Errorf("history file %q invalid JSON: %v", hfname, err)
 	}

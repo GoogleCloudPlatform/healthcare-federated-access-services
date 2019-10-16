@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	compb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/models"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 type MockTokenCreatorEntry struct {
@@ -38,7 +38,7 @@ type MockTokenCreatorEntry struct {
 type MockTokenCreator struct {
 	includeParams bool
 	calls         []MockTokenCreatorEntry
-	tokens        map[string][]*compb.TokenMetadata
+	tokens        map[string][]*cpb.TokenMetadata
 	tokID         int64
 }
 
@@ -47,7 +47,7 @@ func NewMockTokenCreator(includeParams bool) *MockTokenCreator {
 	return &MockTokenCreator{
 		includeParams: includeParams,
 		calls:         []MockTokenCreatorEntry{},
-		tokens:        make(map[string][]*compb.TokenMetadata),
+		tokens:        make(map[string][]*cpb.TokenMetadata),
 		tokID:         0,
 	}
 }
@@ -77,9 +77,9 @@ func (m *MockTokenCreator) MintTokenWithTTL(ctx context.Context, id string, ttl,
 	tokenUser := testTokenUser(params.AccountProject, id)
 	list, ok := m.tokens[tokenUser]
 	if !ok {
-		list = []*compb.TokenMetadata{}
+		list = []*cpb.TokenMetadata{}
 	}
-	m.tokens[tokenUser] = append(list, &compb.TokenMetadata{
+	m.tokens[tokenUser] = append(list, &cpb.TokenMetadata{
 		Name:     entry.TokenID,
 		IssuedAt: fmt.Sprintf("%d", entry.IssuedAt),
 		Expires:  fmt.Sprintf("%d", entry.Expires),
@@ -100,7 +100,7 @@ func testTokenUser(project, id string) string {
 }
 
 // GetTokenMetadata returns an access token based on its name.
-func (m *MockTokenCreator) GetTokenMetadata(ctx context.Context, project, id, name string) (*compb.TokenMetadata, error) {
+func (m *MockTokenCreator) GetTokenMetadata(ctx context.Context, project, id, name string) (*cpb.TokenMetadata, error) {
 	list, err := m.ListTokenMetadata(ctx, project, id)
 	if err != nil {
 		return nil, fmt.Errorf("getting token: %v", err)
@@ -114,11 +114,11 @@ func (m *MockTokenCreator) GetTokenMetadata(ctx context.Context, project, id, na
 }
 
 // ListTokenMetadata returns a list of outstanding access tokens.
-func (m *MockTokenCreator) ListTokenMetadata(ctx context.Context, project, id string) ([]*compb.TokenMetadata, error) {
+func (m *MockTokenCreator) ListTokenMetadata(ctx context.Context, project, id string) ([]*cpb.TokenMetadata, error) {
 	tokenUser := testTokenUser(project, id)
 	list, ok := m.tokens[tokenUser]
 	if !ok {
-		return []*compb.TokenMetadata{}, nil
+		return []*cpb.TokenMetadata{}, nil
 	}
 	return list, nil
 }
@@ -140,7 +140,7 @@ func (m *MockTokenCreator) DeleteTokens(ctx context.Context, project, id string,
 		for i, entry := range list {
 			if entry.Name == name {
 				if len(list) == 1 {
-					list = []*compb.TokenMetadata{}
+					list = []*cpb.TokenMetadata{}
 					delete(m.tokens, tokenUser)
 				} else {
 					list = append(list[:i-1], list[i+1:]...)
