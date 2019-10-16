@@ -2290,8 +2290,13 @@ func (c *account) NormalizeInput(name string, vars map[string]string) error {
 	return nil
 }
 func (c *account) Get(name string) error {
+	secrets, err := c.s.loadSecrets(c.tx)
+	if err != nil {
+		// Do not expose internal errors related to secrets to users, return generic error instead.
+		return fmt.Errorf("internal system information unavailable")
+	}
 	common.SendResponse(&pb.AccountResponse{
-		Account: makeAccount(c.item, c.cfg),
+		Account: c.s.makeAccount(c.r.Context(), c.item, c.cfg, secrets),
 	}, c.w)
 	return nil
 }
@@ -2467,8 +2472,13 @@ func (c *accountLink) NormalizeInput(name string, vars map[string]string) error 
 	return nil
 }
 func (c *accountLink) Get(name string) error {
+	secrets, err := c.s.loadSecrets(c.tx)
+	if err != nil {
+		// Do not expose internal errors related to secrets to users, return generic error instead.
+		return fmt.Errorf("internal system information unavailable")
+	}
 	common.SendResponse(&pb.AccountSubjectResponse{
-		Item: makeConnectedAccount(c.item, c.cfg),
+		Item: c.s.makeConnectedAccount(c.r.Context(), c.item, c.cfg, secrets),
 	}, c.w)
 	return nil
 }
@@ -3623,20 +3633,34 @@ func makeIdentityProvider(idp *pb.IdentityProvider) *pb.IdentityProvider {
 	}
 }
 
-func makeAccount(acct *pb.Account, cfg *pb.IcConfig) *pb.Account {
+func (s *Service) makeAccount(ctx context.Context, acct *pb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) *pb.Account {
 	out := &pb.Account{}
 	proto.Merge(out, acct)
 	out.State = ""
 	out.ConnectedAccounts = []*pb.ConnectedAccount{}
 	for _, ca := range acct.ConnectedAccounts {
-		out.ConnectedAccounts = append(out.ConnectedAccounts, makeConnectedAccount(ca, cfg))
+		out.ConnectedAccounts = append(out.ConnectedAccounts, s.makeConnectedAccount(ctx, ca, cfg, secrets))
 	}
 	return out
 }
 
-func makeConnectedAccount(ca *pb.ConnectedAccount, cfg *pb.IcConfig) *pb.ConnectedAccount {
+func (s *Service) makeConnectedAccount(ctx context.Context, ca *pb.ConnectedAccount, cfg *pb.IcConfig, secrets *pb.IcSecrets) *pb.ConnectedAccount {
 	out := &pb.ConnectedAccount{}
 	proto.Merge(out, ca)
+	if out.Passport == nil {
+		out.Passport = &cpb.Passport{}
+	}
+	out.Passport.InternalEncryptedVisas = nil
+	jwts, err := s.decryptEmbeddedTokens(ctx, ca.Passport.InternalEncryptedVisas)
+	if err == nil {
+		for _, jwt := range jwts {
+			visa, err := ga4gh.NewVisaFromJWT(ga4gh.VisaJWT(jwt))
+			if err != nil {
+				continue
+			}
+			out.Passport.Ga4GhAssertions = append(out.Passport.Ga4GhAssertions, visa.AssertionProto())
+		}
+	}
 	if idp, ok := cfg.IdentityProviders[ca.Provider]; ok {
 		out.ComputedIdentityProvider = makeIdentityProvider(idp)
 	}

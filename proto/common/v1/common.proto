@@ -36,6 +36,8 @@ message Assertion {
   string expires_duration = 5;
   repeated Condition conditions = 6;
   string by = 7;
+  int64 asserted = 8;
+  int64 exp = 9;
 }
 
 message Passport {

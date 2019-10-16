@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	glog "github.com/golang/glog"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 // Conditions represent a GA4GH Passport Visa condition field sub-object.
@@ -118,6 +119,29 @@ func CheckCondition(c Condition, a Assertion) error {
 	}
 
 	return nil
+}
+
+func toConditionsProto(c Conditions) []*cpb.Assertion_Condition {
+	if len(c) == 0 {
+		return nil
+	}
+	out := []*cpb.Assertion_Condition{}
+	for _, cor := range c {
+		pc := &cpb.Assertion_Condition{
+			Clauses: []*cpb.Assertion_ConditionClause{},
+		}
+		for _, cand := range cor {
+			clause := &cpb.Assertion_ConditionClause{
+				Type:   string(cand.Type),
+				Source: string(cand.Source),
+				Value:  string(cand.Value),
+				By:     string(cand.By),
+			}
+			pc.Clauses = append(pc.Clauses, clause)
+		}
+		out = append(out, pc)
+	}
+	return out
 }
 
 // TODO: add tests for this file.

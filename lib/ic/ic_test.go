@@ -94,7 +94,8 @@ func TestHandlers(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", oidcIssuer, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, domain, domain, store, fakeencryption.New())
+	crypt := fakeencryption.New()
+	s := NewService(ctx, domain, domain, store, crypt)
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -217,6 +218,14 @@ func TestHandlers(t *testing.T) {
 			Persona: "admin",
 			Output:  "^.*not found",
 			Status:  http.StatusNotFound,
+		},
+		{
+			Name:    "Get account",
+			Method:  "GET",
+			Path:    "/identity/v1alpha/test/accounts/-",
+			Persona: "non-admin",
+			Output:  `^.*non-admin@example.org.*"passport"`,
+			Status:  http.StatusOK,
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests, oidcIssuer, server.Config())

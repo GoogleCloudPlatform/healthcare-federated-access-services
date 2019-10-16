@@ -14,6 +14,10 @@
 
 package ga4gh
 
+import (
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
+)
+
 // Assertion represents a GA4GH Passport Visa Object.
 // http://bit.ly/ga4gh-passport-v1#passport-visa-object
 type Assertion struct {
@@ -34,4 +38,15 @@ type Assertion struct {
 
 	// Conditions http://bit.ly/ga4gh-passport-v1#conditions
 	Conditions Conditions `json:"conditions,omitempty"`
+}
+
+func toAssertionProto(a Assertion) *cpb.Assertion {
+	return &cpb.Assertion{
+		Type:       string(a.Type),
+		Value:      string(a.Value),
+		Source:     string(a.Source),
+		By:         string(a.By),
+		Asserted:   int64(a.Asserted),
+		Conditions: toConditionsProto(a.Conditions),
+	}
 }

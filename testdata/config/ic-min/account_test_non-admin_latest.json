@@ -9,6 +9,26 @@
     "created": 1561210199,
     "modified": 1561226899
   },
-  "connectedAccounts": [],
+  "connectedAccounts": [
+    {
+      "profile": {
+        "username": "non-admin",
+        "name": "Non Administrator"
+      },
+      "properties": {
+        "subject": "non-admin",
+        "email": "non-admin@example.org",
+        "created": 1571241437,
+        "modified": 1571241437
+      },
+      "provider": "persona",
+      "refreshed": 1571241437,
+      "revision": "1",
+      "linkRevision": "1",
+      "passport": {
+      },
+      "loginHint": "persona:non-admin"
+    }
+  ],
   "state": "ACTIVE"
 }

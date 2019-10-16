@@ -19,6 +19,7 @@ import (
 
 	glog "github.com/golang/glog"
 	"github.com/dgrijalva/jwt-go"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 )
 
 // Visa represents a GA4GH Passport Visa.
@@ -98,6 +99,13 @@ func (v *Visa) JWT() VisaJWT {
 // Data returns the data of a Visa.
 func (v *Visa) Data() *VisaData {
 	return v.data
+}
+
+// AssertionProto returns the visa assertion in common proto (cpb.Assertion) format.
+func (v *Visa) AssertionProto() *cpb.Assertion {
+	a := toAssertionProto(v.data.Assertion)
+	a.Exp = v.Data().ExpiresAt
+	return a
 }
 
 func visaJWTFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey, keyID string) (VisaJWT, error) {
