@@ -3033,7 +3033,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProv
 		return nil, http.StatusUnauthorized, err
 	}
 
-	if len(acTok) > 0 && idp.GetUsePassportVisa() {
+	if len(acTok) > 0 && s.idpProvidesPassports(idp) {
 		tid, err := t.TranslateToken(s.ctx, acTok)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("translating access token from issuer %q: %v", idp.Issuer, err)
@@ -3056,6 +3056,18 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProv
 		return tid, http.StatusOK, nil
 	}
 	return nil, http.StatusBadRequest, fmt.Errorf("fetching identity: the IdP is not configured to fetch passports and the IdP did not provide an ID token")
+}
+
+func (s *Service) idpProvidesPassports(idp *pb.IdentityProvider) bool {
+	if len(idp.TranslateUsing) > 0 {
+		return true
+	}
+	for _, scope := range idp.Scopes {
+		if scope == passportScope {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) accountLinkToClaims(ctx context.Context, acct *pb.Account, subject string, cfg *pb.IcConfig, secrets *pb.IcSecrets) (map[string][]ga4gh.OldClaim, error) {
