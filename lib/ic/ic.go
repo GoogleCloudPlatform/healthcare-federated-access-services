@@ -1251,7 +1251,7 @@ func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, re
 		return
 	}
 	if len(redirect) == 0 {
-		common.SendResponse(&pb.GetTokenResponse{
+		common.SendResponse(&cpb.OidcTokenResponse{
 			AccessToken: auth,
 			TokenType:   "code",
 		}, w)
@@ -3197,7 +3197,7 @@ func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm, 
 	return token, nil
 }
 
-func (s *Service) createTokens(identity *ga4gh.Identity, includeRefresh bool, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*pb.GetTokenResponse, error) {
+func (s *Service) createTokens(identity *ga4gh.Identity, includeRefresh bool, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*cpb.OidcTokenResponse, error) {
 	now := time.Now()
 	ttl := common.GetParam(r, "ttl")
 	if len(ttl) == 0 {
@@ -3226,7 +3226,7 @@ func (s *Service) createTokens(identity *ga4gh.Identity, includeRefresh bool, r 
 		}
 	}
 
-	return &pb.GetTokenResponse{
+	return &cpb.OidcTokenResponse{
 		AccessToken:  accessTok,
 		IdToken:      idTok,
 		RefreshToken: refreshTok,
@@ -4042,10 +4042,10 @@ func (s *Service) OidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
 		scopes = append(scopes, k)
 	}
 
-	conf := &pb.OidcConfig{
-		Issuer:  s.getIssuerString(),
-		JwksUri: s.getDomainURL() + oidcJwksPath,
-		AuthUrl: s.getDomainURL() + defaultAuthorizePath,
+	conf := &cpb.OidcConfig{
+		Issuer:       s.getIssuerString(),
+		JwksUri:      s.getDomainURL() + oidcJwksPath,
+		AuthEndpoint: s.getDomainURL() + defaultAuthorizePath,
 		ResponseTypesSupported: []string{
 			"code",
 		},

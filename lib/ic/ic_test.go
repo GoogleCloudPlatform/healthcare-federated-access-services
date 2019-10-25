@@ -36,6 +36,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 )
 
@@ -328,7 +329,7 @@ func TestNonce(t *testing.T) {
 	}
 
 	unmarshaler := jsonpb.Unmarshaler{}
-	tokens := pb.GetTokenResponse{}
+	tokens := cpb.OidcTokenResponse{}
 	err = unmarshaler.Unmarshal(resp.Body, &tokens)
 	if err != nil {
 		t.Fatalf("unmarshal failed")

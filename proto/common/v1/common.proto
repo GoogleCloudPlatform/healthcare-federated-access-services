@@ -114,3 +114,33 @@ message History {
   repeated HistoryEntry history = 1;
   string next_page_token = 2;
 }
+
+///////////////////////////////////////////////////
+// oidc
+
+message OidcConfig {
+  string issuer = 1 [json_name = "issuer"];
+  string jwks_uri = 2 [json_name = "jwks_uri"];
+  string auth_endpoint = 3 [json_name = "authorization_endpoint"];
+  repeated string response_types_supported = 4
+      [json_name = "response_types_supported"];
+  string token_endpoint = 5 [json_name = "token_endpoint"];
+  string revocation_endpoint = 8 [json_name = "revocation_endpoint"];
+  string userinfo_endpoint = 6 [json_name = "userinfo_endpoint"];
+  repeated string scopes_supported = 7 [json_name = "scopes_supported"];
+}
+
+message OidcTokenResponse {
+  message Info {
+    string name = 1;
+    string email = 2;
+  }
+  string access_token = 1 [json_name = "access_token"];
+  string token_type = 2 [json_name = "token_type"];
+  int32 expires_in = 3 [json_name = "expires_in"];
+  string refresh_token = 4 [json_name = "refresh_token"];
+  string id_token = 5 [json_name = "id_token"];
+  string scope = 6;
+  string uid = 7;
+  Info info = 8;
+}

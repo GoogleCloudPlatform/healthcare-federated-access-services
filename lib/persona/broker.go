@@ -135,8 +135,10 @@ func (s *Server) Config() *dampb.DamConfig {
 }
 
 func (s *Server) oidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
-	conf := &ipb.OidcConfig{
+	conf := &cpb.OidcConfig{
 		Issuer:           s.issuerURL,
+		AuthEndpoint:     s.issuerURL + oidcAuthorizePath,
+		TokenEndpoint:    s.issuerURL + oidcTokenPath,
 		JwksUri:          s.issuerURL + oidcJwksPath,
 		UserinfoEndpoint: s.issuerURL + oidcUserInfoPath,
 	}
@@ -304,7 +306,7 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("error creating access token for persona %q: %v", pname, err), w)
 		return
 	}
-	resp := &ipb.GetTokenResponse{
+	resp := &cpb.OidcTokenResponse{
 		AccessToken: string(acTok),
 		TokenType:   "bearer",
 		ExpiresIn:   60 * 60 * 24 * 365,
