@@ -2857,7 +2857,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProv
 	}
 
 	if len(acTok) > 0 && s.idpProvidesPassports(idp) {
-		tid, err := t.TranslateToken(s.ctx, acTok)
+		tid, err := t.TranslateToken(s.ctx, idTok)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("translating access token from issuer %q: %v", idp.Issuer, err)
 		}
