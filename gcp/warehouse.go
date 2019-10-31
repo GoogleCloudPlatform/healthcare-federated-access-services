@@ -475,19 +475,27 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 		var failedEtag string
 		var prevErr error
 		if err := backoff.Retry(func() error {
-			policy, err := wh.cs.Buckets.GetIamPolicy(bkt).Context(ctx).Do()
+			policyCall := wh.cs.Buckets.GetIamPolicy(bkt)
+			if params.UserProject != "" {
+				policyCall = policyCall.UserProject(params.UserProject)
+			}
+			getIamPolicy, err := policyCall.Context(ctx).Do()
 			if err != nil {
 				return convertToPermanentErrorIfApplicable(err, fmt.Errorf("getting IAM policy for bucket %q: %v", bkt, err))
 			}
-			if len(failedEtag) > 0 && failedEtag == policy.Etag {
+			if len(failedEtag) > 0 && failedEtag == getIamPolicy.Etag {
 				return convertToPermanentErrorIfApplicable(prevErr, fmt.Errorf("setting IAM policy for bucket %q on service account %q: %v", bkt, email, prevErr))
 			}
 			for _, role := range roles {
-				wh.configureBucketRole(policy, role, email)
+				wh.configureBucketRole(getIamPolicy, role, email)
 			}
-			_, err = wh.cs.Buckets.SetIamPolicy(bkt, policy).Context(ctx).Do()
+			setIamPolicyCall := wh.cs.Buckets.SetIamPolicy(bkt, getIamPolicy)
+			if params.UserProject != "" {
+				setIamPolicyCall.UserProject(params.UserProject)
+			}
+			_, err = setIamPolicyCall.Context(ctx).Do()
 			if err != nil {
-				failedEtag = policy.Etag
+				failedEtag = getIamPolicy.Etag
 				prevErr = err
 			}
 			return err
