@@ -235,10 +235,12 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 		Config:          cfg,
 		GrantRole:       role,
 		MaxTTL:          maxTTL,
+		ResourceId:      resourceName,
 		Resource:        res,
 		ServiceRole:     sRole,
 		ServiceTemplate: st,
 		TTL:             ttl,
+		ViewId:          viewName,
 		View:            view,
 		TokenFormat:     tokenFormat,
 	}

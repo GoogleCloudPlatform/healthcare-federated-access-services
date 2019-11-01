@@ -49,10 +49,12 @@ type Action struct {
 	Identity        *ga4gh.Identity
 	Issuer          string
 	MaxTTL          time.Duration
+	ResourceId      string
 	Resource        *pb.Resource
 	ServiceRole     *pb.ServiceRole
 	ServiceTemplate *pb.ServiceTemplate
 	TTL             time.Duration
+	ViewId          string
 	View            *pb.View
 	TokenFormat     string
 }
@@ -102,6 +104,7 @@ func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, 
 	}
 	registerAdapter(adapters, store, warehouse, secrets, NewSawAdapter)
 	registerAdapter(adapters, store, warehouse, secrets, NewGatekeeperAdapter)
+	registerAdapter(adapters, store, warehouse, secrets, NewAwsAdapter)
 	registerAdapter(adapters, store, warehouse, secrets, NewAggregatorAdapter)
 
 	if len(adapters.errors) > 0 {
