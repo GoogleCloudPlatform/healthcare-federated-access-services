@@ -60,7 +60,8 @@ const (
 	methodPrefix = basePath + "/" + version + "/" + realmVariable + "/"
 
 	infoPath              = basePath
-	realmPath             = basePath + "/" + version + "/{realm}"
+	versionPath           = basePath + "/" + version
+	realmPath             = versionPath + "/" + common.RealmVariable
 	resourcesPath         = methodPrefix + "resources"
 	resourcePath          = methodPrefix + "resources/{name}"
 	flatViewsPath         = methodPrefix + "flatViews"

@@ -512,16 +512,19 @@ message ConfigClientRequest {
 }
 
 message ResourceTokenRequestState {
-  string realm = 1;
+  message Resource {
+    string realm = 1;
+    string resource = 2;
+    string view = 3;
+    string role = 4;
+  }
+  repeated Resource resources = 1;
   string client_id = 2;
-  string resource = 3;
-  string view = 4;
-  string role = 5;
-  string state = 6;
-  string broker = 7;
-  string redirect = 8;
-  int64 ttl = 9;
-  bool response_key_file = 10;
+  string state = 3;
+  string broker = 4;
+  string redirect = 5;
+  int64 ttl = 6;
+  bool response_key_file = 7;
 }
 
 message AuthCode {

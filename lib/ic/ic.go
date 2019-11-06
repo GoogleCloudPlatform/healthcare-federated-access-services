@@ -69,7 +69,8 @@ const (
 	requiresAdmin              = true
 
 	basePath         = "/identity"
-	realmPath        = basePath + "/" + version + "/" + common.RealmVariable
+	versionPath      = basePath + "/" + version
+	realmPath        = versionPath + "/" + common.RealmVariable
 	methodPrefix     = realmPath + "/"
 	acceptLoginPath  = basePath + "/loggedin"
 	assetPath        = basePath + "/static"
@@ -107,7 +108,7 @@ const (
 	adminTokenMetadataPath = adminPathPrefix + "/tokens"
 
 	testPath          = methodPrefix + "test"
-	tokenFlowTestPath = methodPrefix + "new-flow-test"
+	tokenFlowTestPath = basePath + "/new-flow-test"
 	authorizePath     = methodPrefix + "authorize"
 
 	serviceTitle         = "Identity Concentrator"

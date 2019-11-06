@@ -79,10 +79,10 @@
     <script>
       var clientId = "903cfaeb-57d9-4ef6-5659-04377794ed65";
       var clientSecret = "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
-      var loginURL = "_DAM_URL_/dam/oidc/authorize?response_type=code&client_id="+clientId+"&state=_STATE_&resource=_RESOURCE_URL_&redirect_uri=_REDIRECT_&ttl=1h"
+      var loginURL = "_DAM_URL_/dam/oidc/authorize?response_type=code&client_id="+clientId+"&state=_STATE_&resource=_RESOURCES_&redirect_uri=_REDIRECT_&ttl=1h"
       var tokenURL = "_DAM_URL_/dam/oidc/token?grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_&client_id="+clientId+"&client_secret="+clientSecret;
       var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
-      var resourceURL = "_DAM_URL_/dam/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
+      var resourceURL = "_DAM_URL_/dam/v1alpha/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
       var resources = {};
 
       function validateState(stateID) {
@@ -90,6 +90,7 @@
         if (!state) {
           $("#log").text(`request with invalid 'state' ${stateID}, no 'state' in database`)
           window.alert(`app maybe under attack.`);
+          return false;
         }
         var s = JSON.parse(state)
         if (s.id !== stateID) {
@@ -99,7 +100,7 @@
         }
 
         window.localStorage.removeItem('state');
-        $('#resURL').text(s.res);
+        $('#resources').text(s.resList);
         return true;
       }
 
@@ -141,12 +142,22 @@
         return result;
       }
 
-      function makeURL(pattern, token, params, state, resURL) {
-        var path = window.location.href;
+      function makeURL(pattern, token, params, state, resources) {
+        var path = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + window.location.pathname;
+        var damUrl = $("#dam_url").val();
+        if (damUrl.startsWith("http://localhost:")) {
+          path = path.replace(/^http:\/\/.*:/, "http://localhost:");
+        }
         var redirect = (params && path+"?"+params) || path;
-        var realm = path.split('/')[3];  // first character is a slash...
+        var realm = $("#realm").val() || "master";
         state = state || "";
-        resURL = resURL || "";
+        var resEncoded = "";
+        if (resources) {
+          for (var i = 0; i < resources.length; i++) {
+            var resURL = encodeURIComponent(resources[i]);
+            resEncoded = resEncoded ? resEncoded+"&resource="+resURL : resURL;
+          }
+        }
         return pattern.replace(/_PATH_/g, encodeURI(path))
                       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
                       .replace(/_REALM_/g, encodeURIComponent(realm))
@@ -156,18 +167,22 @@
                       .replace(/_DAM_URL_/g, encodeURI($("#dam_url").val()))
                       .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
                       .replace(/_STATE_/g, state)
-                      .replace(/_RESOURCE_URL_/g, encodeURIComponent(resURL))
+                      .replace(/_RESOURCES_/g, resEncoded)
                       .replace(/_RESOURCE_/g, encodeURIComponent($("#resource_name").val()))
       }
       function auth() {
-        var resURL = makeURL(resourceURL)
+        var resources = $("#resources").val().trim();
+        if (!resources) {
+          $("#log").text("must include resources first...");
+          return;
+        }
         var stateID = randomString(16);
         var state = new Object();
         state.id = stateID;
-        state.res = resURL;
+        state.resList = resources;
         window.localStorage.setItem('state', JSON.stringify(state));
 
-        var url = makeURL(loginURL, /*token*/ undefined, /*params*/ undefined, stateID, resURL);
+        var url = makeURL(loginURL, /*token*/ undefined, /*params*/ undefined, stateID, resources.split("\n"));
         window.location.href = url;
       }
       function tokenExchange() {
@@ -183,7 +198,7 @@
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + authCode);},
           success: function(resp) {
             $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#token").val(resp.access_token);
+            $("#token").val(resp.token);
           },
           error: function(err) {
             $("#log").text(JSON.stringify(err, undefined, 2));
@@ -255,6 +270,19 @@
         var list = resources[$('#resource_name').val()][val];
         populateDropdown('resource_role', list);
       }
+      function clearPage() {
+        window.location.href = makeURL("_PATH_");
+      }
+      function add() {
+        var resURL = makeURL(resourceURL)
+        var resources = $("#resources").val();
+        resources = resources ? resources + "\n" + resURL : resURL;
+        $("#resources").text(resources);
+      }
+      function jwt(id) {
+        var token = $("#"+id).val();
+        window.open("https://jwt.io/#debugger-io?token="+token);
+      }
     </script>
   </head>
   <body onload="init()">
@@ -266,23 +294,30 @@
       <select id="resource_view" style="width:33%" onchange="viewChanged()"></select>
       <select id="resource_role" style="width:33%"></select>
       <div>
-        <a class="btn blue" onclick="auth()">Auth for Resource</a>
+        <a class="btn blue" onclick="add()">Include Resource</a>
         <a class="btn white" onclick="$('#dam_url').val('http://localhost:8081');">Local DAM</a>
+        <a class="btn white" onclick="clearPage()">Clear</a>
+        <input id="realm" style="width:200px" value="master">
+      </div>
+      <h4>&nbsp;&nbsp;&nbsp;Included Resources:</h4>
+      <textarea id="resources" style="width:100%" value="" rows="4"></textarea>
+      <div>
+        <a class="btn blue" onclick="auth()">Auth for Resources</a>
       </div>
     </div>
     <div class="box">
       <h3>2. Get Authentication Code</h3>
-      Requesting Resource: <span id="resURL"></span>
       <textarea id="auth_code" rows="4" style="width:100%" readonly></textarea>
       <div>
         <a class="btn blue" onclick="tokenExchange()">Token Exchange</a>
       </div>
     </div>
     <div class="box">
-      <h3>3. Exchange Access Token For Resource</h3>
+      <h3>3. Resource Access Token</h3>
       <textarea id="token" rows="7" style="width:100%" readonly></textarea>
       <div>
         <a class="btn black" onclick="browseDataset()">Browse Resource</a>
+        <a class="btn white" onclick="jwt('token')">JWT.IO</a>
       </div>
     </div>
 

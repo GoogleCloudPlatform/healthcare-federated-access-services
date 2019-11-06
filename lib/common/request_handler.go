@@ -218,6 +218,14 @@ func GetParamOrDefault(r *http.Request, name, defaultValue string) string {
 	return out
 }
 
+// GetParamList returns a list of URL query parameter values.
+func GetParamList(r *http.Request, name string) []string {
+	if set, ok := r.Form[name]; ok {
+		return set
+	}
+	return nil
+}
+
 func HandleError(num int, err error, w http.ResponseWriter) {
 	AddCorsHeaders(w)
 	w.WriteHeader(num)

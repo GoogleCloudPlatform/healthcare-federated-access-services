@@ -35,10 +35,10 @@ import (
 )
 
 var (
-	// viewPathRE is for resource name and view name lookup only.
-	viewPathRE = regexp.MustCompile(`^resources/([^\s/]*)/views/([^\s/]*)$`)
-	// rolePathRE is for resource name, view name and role name lookup only.
-	rolePathRE = regexp.MustCompile(`^resources/([^\s/]*)/views/([^\s/]*)/roles/([^\s/]*)$`)
+	// viewPathRE is for realm name, resource name and view name lookup only.
+	viewPathRE = regexp.MustCompile(`^([^\s/]*)/resources/([^\s/]*)/views/([^\s/]*)$`)
+	// rolePathRE is for realm name, resource name, view name and role name lookup only.
+	rolePathRE = regexp.MustCompile(`^([^\s/]*)/resources/([^\s/]*)/views/([^\s/]*)/roles/([^\s/]*)$`)
 )
 
 func extractBearerToken(r *http.Request) (string, error) {
@@ -60,8 +60,8 @@ func extractAccessToken(r *http.Request) (string, error) {
 	if err == nil {
 		return tok, nil
 	}
-	// TODO: access_token should not pass vai query.
-	tok = r.URL.Query().Get("access_token")
+	// TODO: access_token should not pass via query.
+	tok = common.GetParam(r, "access_token")
 	if len(tok) > 0 {
 		return tok, nil
 	}
@@ -78,7 +78,11 @@ func extractAuthCode(r *http.Request) (string, error) {
 }
 
 func extractTTL(r *http.Request) (time.Duration, error) {
-	str := r.URL.Query().Get("ttl")
+	age, err := common.ParseSeconds(common.GetParam(r, "max_age"))
+	if err == nil && age > 0 {
+		return age, nil
+	}
+	str := common.GetParam(r, "ttl")
 	if len(str) == 0 {
 		return defaultTTL, nil
 	}
@@ -261,45 +265,50 @@ func (s *Service) oauthConf(brokerName string, broker *pb.TrustedPassportIssuer,
 	}
 }
 
+func (s *Service) resourceViewRoleFromRequest(r *http.Request) ([]resourceViewRole, error) {
+	out := []resourceViewRole{}
+	list := common.GetParamList(r, "resource")
+	if len(list) == 0 {
+		return nil, fmt.Errorf("resource parameter not found")
+	}
+
+	for _, res := range list {
+		if !strings.HasPrefix(res, s.domainURL) {
+			return nil, fmt.Errorf("requested resouce %q not in this DAM", res)
+		}
+		prefix := s.domainURL + basePath + "/"
+		path := strings.ReplaceAll(res, prefix, "")
+
+		m := viewPathRE.FindStringSubmatch(path)
+		if len(m) > 3 {
+			out = append(out, resourceViewRole{realm: m[1], resource: m[2], view: m[3]})
+			continue
+		}
+		m = rolePathRE.FindStringSubmatch(path)
+		if len(m) > 4 {
+			out = append(out, resourceViewRole{realm: m[1], resource: m[2], view: m[3], role: m[4]})
+			continue
+		}
+		return nil, fmt.Errorf("resource %q has invalid format", res)
+	}
+
+	return out, nil
+}
+
 type resourceViewRole struct {
+	realm    string
 	resource string
 	view     string
 	role     string
 }
 
-func (s *Service) resourceViewRoleFromRequest(r *http.Request) (*resourceViewRole, error) {
-	res := common.GetParam(r, "resource")
-	if len(res) == 0 {
-		return nil, fmt.Errorf("resource parameter not found")
-	}
-
-	fmt.Println(s.domainURL)
-	if !strings.HasPrefix(res, s.domainURL) {
-		return nil, fmt.Errorf("requested resouce not in this DAM")
-	}
-	path := strings.ReplaceAll(res, s.domainURL+basePath+"/", "")
-
-	m := viewPathRE.FindStringSubmatch(path)
-	if len(m) > 0 {
-		return &resourceViewRole{resource: m[1], view: m[2]}, nil
-	}
-	m = rolePathRE.FindStringSubmatch(path)
-	if len(m) > 0 {
-		return &resourceViewRole{resource: m[1], view: m[2], role: m[3]}, nil
-	}
-	return nil, fmt.Errorf("resource parameter with invalid format")
-}
-
 type resourceAuthHandlerIn struct {
-	realm           string
 	stateID         string
 	redirect        string
 	ttl             time.Duration
-	resource        string
-	view            string
-	role            string
 	clientID        string
 	responseKeyFile bool
+	resources       []resourceViewRole
 }
 
 type resourceAuthHandlerOut struct {
@@ -314,82 +323,95 @@ func (s *Service) resourceAuth(ctx context.Context, in resourceAuthHandlerIn) (*
 	}
 	defer tx.Finish()
 
-	cfg, err := s.loadConfig(tx, in.realm)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
-	}
-
 	sec, err := s.loadSecrets(tx)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
 	}
 
-	for name, client := range cfg.Clients {
-		if client.ClientId != in.clientID {
-			continue
+	var broker *pb.TrustedPassportIssuer
+	var clientSecret string
+	var list []*pb.ResourceTokenRequestState_Resource
+
+	for _, rvr := range in.resources {
+		cfg, err := s.loadConfig(tx, rvr.realm)
+		if err != nil {
+			return nil, http.StatusServiceUnavailable, err
 		}
-		urlAllow := false
-		for _, uri := range client.RedirectUris {
-			if uri == in.redirect {
-				urlAllow = true
-				break
+
+		for name, client := range cfg.Clients {
+			if client.ClientId != in.clientID {
+				continue
+			}
+			urlAllow := false
+			for _, uri := range client.RedirectUris {
+				if uri == in.redirect {
+					urlAllow = true
+					break
+				}
+			}
+			if !urlAllow {
+				return nil, http.StatusBadRequest, fmt.Errorf("redirect url %q is not allow for client %q", in.redirect, name)
 			}
 		}
-		if !urlAllow {
-			return nil, http.StatusBadRequest, fmt.Errorf("redirect url %q is not allow for client %q", in.redirect, name)
+
+		resName := rvr.resource
+		viewName := rvr.view
+		roleName := rvr.role
+		if err := checkName(resName); err != nil {
+			return nil, http.StatusBadRequest, err
 		}
+		if err := checkName(viewName); err != nil {
+			return nil, http.StatusBadRequest, err
+		}
+
+		res, ok := cfg.Resources[resName]
+		if !ok {
+			return nil, http.StatusNotFound, fmt.Errorf("resource not found: %q", resName)
+		}
+		view, ok := res.Views[viewName]
+		if !ok {
+			return nil, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", viewName, resName)
+		}
+		grantRole := roleName
+		if len(grantRole) == 0 {
+			grantRole = view.DefaultRole
+		}
+		if !viewHasRole(view, grantRole) {
+			return nil, http.StatusBadRequest, fmt.Errorf("role %q is not defined on resource %q view %q", grantRole, resName, viewName)
+		}
+
+		if broker == nil {
+			broker, ok = cfg.TrustedPassportIssuers[s.defaultBroker]
+			if !ok {
+				return nil, http.StatusBadRequest, fmt.Errorf("broker %q is not defined", s.defaultBroker)
+			}
+			clientSecret, ok = sec.GetBrokerSecrets()[broker.ClientId]
+			if !ok {
+				return nil, http.StatusBadRequest, fmt.Errorf("client secret of broker %q is not defined", s.defaultBroker)
+			}
+		}
+
+		list = append(list, &pb.ResourceTokenRequestState_Resource{
+			Realm:    rvr.realm,
+			Resource: resName,
+			View:     viewName,
+			Role:     grantRole,
+		})
 	}
 
-	resName := in.resource
-	viewName := in.view
-	roleName := in.role
-	if err := checkName(resName); err != nil {
-		return nil, http.StatusBadRequest, err
-	}
-	if err := checkName(viewName); err != nil {
-		return nil, http.StatusBadRequest, err
-	}
-
-	res, ok := cfg.Resources[resName]
-	if !ok {
-		return nil, http.StatusNotFound, fmt.Errorf("resource not found: %q", resName)
-	}
-	view, ok := res.Views[viewName]
-	if !ok {
-		return nil, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", viewName, resName)
-	}
-	grantRole := roleName
-	if len(grantRole) == 0 {
-		grantRole = view.DefaultRole
-	}
-	if !viewHasRole(view, grantRole) {
-		return nil, http.StatusBadRequest, fmt.Errorf("role %q is not defined on resource %q view %q", grantRole, resName, viewName)
-	}
 	// TODO: need support real policy filter
 	scopes := []string{"openid", "ga4gh", "identities", "account_admin"}
-
-	broker, ok := cfg.TrustedPassportIssuers[s.defaultBroker]
-	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("broker %q is not defined", s.defaultBroker)
-	}
-	clientSecret, ok := sec.GetBrokerSecrets()[broker.ClientId]
-	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("client secret of broker %q is not defined", s.defaultBroker)
-	}
 
 	sID := uuid.New()
 
 	state := &pb.ResourceTokenRequestState{
-		Realm:           in.realm,
 		ClientId:        in.clientID,
-		Resource:        resName,
-		View:            viewName,
-		Role:            grantRole,
 		State:           in.stateID,
 		Broker:          s.defaultBroker,
 		Redirect:        in.redirect,
 		Ttl:             int64(in.ttl),
 		ResponseKeyFile: in.responseKeyFile,
+		Resources:       list,
 	}
 
 	err = s.store.WriteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, sID, storage.LatestRev, state, nil, tx)
@@ -405,12 +427,9 @@ func (s *Service) resourceAuth(ctx context.Context, in resourceAuthHandlerIn) (*
 }
 
 // ResourceAuthHandler implements OAuth2 endpoint "/authorize" for resource authorize.
-// custom params:
-// - realm: optional, if not present, use default realm
-// - resource: format: DAM_URL/dam/resources/{resourceName}/views/{viewName}[/roles/{roleName}]
-//             TODO: support multi resource in 1 request
-// - ttl: request ttl for resource token
-//        TODO: should use max_age instead of ttl
+// Extended params:
+// - resource: multi-value, format: DAM_URL/dam/{version}/{realm}/resources/{resourceName}/views/{viewName}[/roles/{roleName}]
+// - max_age: request ttl for resource token
 func (s *Service) ResourceAuthHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method %s not allowed", r.Method), w)
@@ -434,22 +453,19 @@ func (s *Service) ResourceAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rvr, err := s.resourceViewRoleFromRequest(r)
+	resList, err := s.resourceViewRoleFromRequest(r)
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
 
 	in := resourceAuthHandlerIn{
-		realm:           common.GetParamOrDefault(r, "realm", storage.DefaultRealm),
 		stateID:         stateID,
 		redirect:        redirectURL,
 		ttl:             ttl,
-		resource:        rvr.resource,
-		view:            rvr.view,
-		role:            rvr.role,
 		clientID:        getClientID(r),
 		responseKeyFile: responseKeyFile(r),
+		resources:       resList,
 	}
 
 	out, status, err := s.resourceAuth(r.Context(), in)
@@ -487,59 +503,77 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 		return nil, http.StatusServiceUnavailable, err
 	}
 
-	cfg, err := s.loadConfig(tx, state.Realm)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+	list := state.Resources
+	if len(list) == 0 {
+		return nil, http.StatusInternalServerError, fmt.Errorf("empty resource list")
 	}
-
 	sec, err := s.loadSecrets(tx)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
 	}
 
-	broker, ok := cfg.TrustedPassportIssuers[state.Broker]
-	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("unknown identity broker %q", state.Broker)
-	}
+	cfgs := make(map[string]*pb.DamConfig)
+	keyFile := false
+	var sTok *pb.ResourceToken
+	var id *ga4gh.Identity
 
-	clientSecret, ok := sec.GetBrokerSecrets()[broker.ClientId]
-	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("client secret of broker %q is not defined", s.defaultBroker)
-	}
+	for _, r := range list {
+		cfg, ok := cfgs[r.Realm]
+		if !ok {
+			cfg, err = s.loadConfig(tx, r.Realm)
+			if err != nil {
+				return nil, http.StatusServiceUnavailable, err
+			}
+			cfgs[r.Realm] = cfg
+		}
 
-	// Use code exchange tokens.
-	conf := s.oauthConf(state.Broker, broker, clientSecret, []string{})
-	tok, err := conf.Exchange(ctx, in.authCode)
-	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("token exchange failed. %s", err)
-	}
+		broker, ok := cfg.TrustedPassportIssuers[state.Broker]
+		if !ok {
+			return nil, http.StatusBadRequest, fmt.Errorf("unknown identity broker %q", state.Broker)
+		}
 
-	id, err := s.tokenToPassportIdentity(cfg, tx, tok.AccessToken, broker.ClientId)
-	if err != nil {
-		return nil, http.StatusUnauthorized, err
-	}
+		clientSecret, ok := sec.GetBrokerSecrets()[broker.ClientId]
+		if !ok {
+			return nil, http.StatusBadRequest, fmt.Errorf("client secret of broker %q is not defined", s.defaultBroker)
+		}
 
-	ttl := time.Duration(state.Ttl)
+		if id == nil {
+			// Use code exchange tokens. Only uses the broker issuer from the first resource.
+			// Does not support different resources and realms having different broker settings since the exchange can only occur once.
+			conf := s.oauthConf(state.Broker, broker, clientSecret, []string{})
+			tok, err := conf.Exchange(ctx, in.authCode)
+			if err != nil {
+				return nil, http.StatusServiceUnavailable, fmt.Errorf("token exchange failed. %s", err)
+			}
 
-	res, ok := cfg.Resources[state.Resource]
-	if !ok {
-		return nil, http.StatusNotFound, fmt.Errorf("resource not found: %q", state.Resource)
-	}
+			id, err = s.tokenToPassportIdentity(cfg, tx, tok.AccessToken, broker.ClientId)
+			if err != nil {
+				return nil, http.StatusUnauthorized, err
+			}
+		}
 
-	view, ok := res.Views[state.View]
-	if !ok {
-		return nil, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", state.View, state.Resource)
-	}
+		ttl := time.Duration(state.Ttl)
 
-	status, err := s.checkAuthorization(id, ttl, state.Resource, state.View, state.Role, cfg, state.ClientId, nil)
-	if err != nil {
-		return nil, status, err
-	}
+		res, ok := cfg.Resources[r.Resource]
+		if !ok {
+			return nil, http.StatusNotFound, fmt.Errorf("resource not found: %q", r.Resource)
+		}
 
-	keyFile := state.ResponseKeyFile
-	sTok, status, err := s.generateResourceToken(ctx, state.ClientId, state.Resource, state.View, state.Role, ttl, keyFile, id, cfg, res, view)
-	if err != nil {
-		return nil, status, err
+		view, ok := res.Views[r.View]
+		if !ok {
+			return nil, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", r.View, r.Resource)
+		}
+
+		status, err := s.checkAuthorization(id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, nil)
+		if err != nil {
+			return nil, status, err
+		}
+
+		keyFile = state.ResponseKeyFile
+		sTok, status, err = s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, ttl, keyFile, id, cfg, res, view)
+		if err != nil {
+			return nil, status, err
+		}
 	}
 
 	respAuthCode := uuid.New()

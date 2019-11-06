@@ -83,6 +83,15 @@ func ParseNegDuration(d string, def time.Duration) (time.Duration, error) {
 	return dur, nil
 }
 
+// ParseSeconds returns a duration from a numeric string in seconds
+func ParseSeconds(d string) (time.Duration, error) {
+	n, err := strconv.ParseInt(d, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return time.Duration(n) * time.Second, nil
+}
+
 func TtlString(ttl time.Duration) string {
 	str := ttl.String()
 	if strings.HasSuffix(str, "m0s") {
