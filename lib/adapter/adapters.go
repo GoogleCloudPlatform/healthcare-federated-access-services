@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
-
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
@@ -76,7 +76,7 @@ type Adapter interface {
 	IsAggregator() bool
 
 	// CheckConfig validates that a new configuration is compatible with this adapter.
-	CheckConfig(templateName string, template *pb.ServiceTemplate, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) error
+	CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error)
 
 	// MintToken has the adapter mint a token.
 	MintToken(ctx context.Context, input *Action) (*MintTokenResult, error)
@@ -111,19 +111,19 @@ func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, 
 }
 
 // GetItemVariables returns a map of variables and their values for a given view item.
-func GetItemVariables(adapters *TargetAdapters, targetAdapter, itemFormat string, item *pb.View_Item) (map[string]string, error) {
+func GetItemVariables(adapters *TargetAdapters, targetAdapter, itemFormat string, item *pb.View_Item) (map[string]string, string, error) {
 	adapter, ok := adapters.Descriptors[targetAdapter]
 	if !ok {
-		return nil, fmt.Errorf("target adapter %q is undefined", targetAdapter)
+		return nil, common.StatusPath("targetAdapter"), fmt.Errorf("target adapter %q is undefined", targetAdapter)
 	}
 	format, ok := adapter.ItemFormats[itemFormat]
 	if !ok {
-		return nil, fmt.Errorf("target adapter %q item format %q is undefined", targetAdapter, itemFormat)
+		return nil, common.StatusPath("itemFormats", itemFormat), fmt.Errorf("target adapter %q item format %q is undefined", targetAdapter, itemFormat)
 	}
 	for varname, val := range item.Vars {
 		_, ok := format.Variables[varname]
 		if !ok {
-			return nil, fmt.Errorf("target adapter %q item format %q variable %q is undefined", targetAdapter, itemFormat, varname)
+			return nil, common.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q is undefined", targetAdapter, itemFormat, varname)
 		}
 		if len(val) == 0 {
 			// Treat empty input the same as not provided so long as the variable name is valid.
@@ -135,10 +135,10 @@ func GetItemVariables(adapters *TargetAdapters, targetAdapter, itemFormat string
 			continue
 		}
 		if !re.Match([]byte(val)) {
-			return nil, fmt.Errorf("target adapter %q item format %q variable %q value %q does not match expected regexp", targetAdapter, itemFormat, varname, val)
+			return nil, common.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q value %q does not match expected regexp", targetAdapter, itemFormat, varname, val)
 		}
 	}
-	return item.Vars, nil
+	return item.Vars, "", nil
 }
 
 // ResolveServiceRole is a helper function that returns a ServiceRole structure from a role name on a view.

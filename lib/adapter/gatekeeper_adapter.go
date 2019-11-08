@@ -83,11 +83,11 @@ func (a *GatekeeperAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *GatekeeperAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) error {
+func (a *GatekeeperAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error) {
 	if view != nil && len(view.Items) > 1 {
-		return fmt.Errorf("view %q has more than one target item defined", viewName)
+		return common.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("view %q has more than one target item defined", viewName)
 	}
-	return nil
+	return "", nil
 }
 
 // MintToken has the adapter mint a token.

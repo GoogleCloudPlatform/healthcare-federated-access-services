@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fakehttp
+package common
 
 import (
 	"net/http"
+	"strings"
 
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	errpb "google.golang.org/genproto/googleapis/rpc/errdetails"
 )
 
 // 499 is a non-standard code for "Client Closed Request" and is the code
@@ -34,7 +38,7 @@ var canonical2http = map[codes.Code]int{
 	codes.AlreadyExists:      http.StatusConflict,
 	codes.PermissionDenied:   http.StatusForbidden,
 	codes.ResourceExhausted:  http.StatusTooManyRequests,
-	codes.FailedPrecondition: http.StatusBadRequest,
+	codes.FailedPrecondition: http.StatusFailedDependency,
 	codes.Aborted:            http.StatusConflict,
 	codes.OutOfRange:         http.StatusBadRequest,
 	codes.Unimplemented:      http.StatusNotImplemented,
@@ -88,4 +92,37 @@ func FromCode(code codes.Code) int {
 // FromError translates a canonical error into an HTTP status.
 func FromError(err error) int {
 	return FromCode(status.Code(err))
+}
+
+// NewStatus returns a standard RPC-style error message.
+func NewStatus(code codes.Code, msg string) *status.Status {
+	return status.New(code, msg)
+}
+
+// NewInfoStatus returns a standard RPC-style error message with ErrorInfo details.
+func NewInfoStatus(code codes.Code, name, msg string) *status.Status {
+	return AddStatusInfo(NewStatus(code, msg), name, msg)
+}
+
+// AddStatusInfo returns a new status that includes an additional ErrorInfo entry.
+func AddStatusInfo(s *status.Status, name, msg string) *status.Status {
+	detail := &errpb.ResourceInfo{
+		ResourceName: name,
+		Description:  msg,
+	}
+	return AddStatusDetails(s, detail)
+}
+
+// AddStatusDetails adds a details message to a status.
+func AddStatusDetails(s *status.Status, details ...proto.Message) *status.Status {
+	es, err := s.WithDetails(details...)
+	if err == nil {
+		return es
+	}
+	return s
+}
+
+// StatusPath combines multiple path elements into one string path.
+func StatusPath(list ...string) string {
+	return strings.Join(list, "/")
 }

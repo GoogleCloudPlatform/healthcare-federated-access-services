@@ -54,7 +54,7 @@ func TestGatekeeperAdapter(t *testing.T) {
 	res := cfg.Resources[rname]
 	vname := "beacon"
 	view := res.Views[vname]
-	err = adapt.CheckConfig(tmpl, st, vname, view, &cfg, adapters)
+	_, err = adapt.CheckConfig(tmpl, st, rname, vname, view, &cfg, adapters)
 	if err != nil {
 		t.Errorf("CheckConfg(%q, serviceTemplate, %q, view, cfg, adapters): error %v", tmpl, vname, err)
 	}

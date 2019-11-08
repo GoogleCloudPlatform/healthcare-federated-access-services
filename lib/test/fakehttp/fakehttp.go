@@ -26,6 +26,7 @@ import (
 	glog "github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 )
 
 // Handler handles HTTP requests.
@@ -56,7 +57,7 @@ func New() (*HTTP, func() error) {
 
 		body, err := f.Handler(req)
 		if err != nil {
-			code := FromError(err)
+			code := common.FromError(err)
 			http.Error(w, err.Error(), code)
 			return
 		}

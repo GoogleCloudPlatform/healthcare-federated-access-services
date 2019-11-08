@@ -17,8 +17,10 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
@@ -66,48 +68,52 @@ func (a *AggregatorAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) error {
-	if view != nil && len(view.Items) == 0 {
-		return fmt.Errorf("view %q has no items defined", viewName)
-	}
+func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error) {
 	if view == nil {
-		return nil
+		return "", nil
+	}
+	if len(view.Items) == 0 {
+		return common.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("view %q has no items defined", viewName)
 	}
 	adapterName := ""
+	adapterST := ""
 	for iIdx, item := range view.Items {
-		vars, err := GetItemVariables(adapters, template.TargetAdapter, template.ItemFormat, item)
+		vars, path, err := GetItemVariables(adapters, template.TargetAdapter, template.ItemFormat, item)
 		if err != nil {
-			return fmt.Errorf("view %q item %d: %v", viewName, iIdx, err)
+			return common.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), path), err
 		}
-		refRes, ok := cfg.Resources[vars["resource"]]
+		refResName := vars["resource"]
+		refRes, ok := cfg.Resources[refResName]
 		if !ok {
-			return fmt.Errorf("view %q item %d: resource not found", viewName, iIdx)
+			return common.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "resource"), fmt.Errorf("resource %q not found", refResName)
 		}
-		refView, ok := refRes.Views[vars["view"]]
+		refViewName := vars["view"]
+		refView, ok := refRes.Views[refViewName]
 		if !ok {
-			return fmt.Errorf("view %q item %d: view not found", viewName, iIdx)
+			return common.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view %q not found", refViewName)
 		}
 		refSt, ok := cfg.ServiceTemplates[refView.ServiceTemplate]
 		if !ok {
-			return fmt.Errorf("view %q item %d: view service template %q not found", viewName, iIdx, refView.ServiceTemplate)
+			return common.StatusPath("resources", refResName, "views", refViewName, "serviceTemplate"), fmt.Errorf("view service template %q not found", refView.ServiceTemplate)
 		}
 		if len(adapterName) == 0 {
 			adapterName = refSt.TargetAdapter
+			adapterST = refView.ServiceTemplate
 		} else if adapterName != refSt.TargetAdapter {
-			return fmt.Errorf("view %q item %d: service template %q target adapter %q is not consistent with other items using target adapter %q", viewName, iIdx, refView.ServiceTemplate, refSt.TargetAdapter, adapterName)
+			return common.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view service template %q target adapter %q does not match other items using target adapter %q", refView.ServiceTemplate, refSt.TargetAdapter, adapterName)
 		}
 	}
 	if adapterName == "" {
-		return fmt.Errorf("included views offer no items to aggregate")
+		return common.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("included views offer no items to aggregate")
 	}
 	destAdapter, ok := adapters.Descriptors[adapterName]
 	if !ok {
-		return fmt.Errorf("target adapter %q not found as used within grants", adapterName)
+		return common.StatusPath("serviceTemplates", adapterST, "targetAdapter"), fmt.Errorf("target adapter %q not found", adapterName)
 	}
 	if !destAdapter.Properties.CanBeAggregated {
-		return fmt.Errorf("aggregation on target adapter %q not supported", adapterName)
+		return common.StatusPath("serviceTemplates", adapterST, "targetAdapter", "properties", "canBeAggregated"), fmt.Errorf("aggregation on target adapter %q not supported", adapterName)
 	}
-	return nil
+	return "", nil
 }
 
 // MintToken has the adapter mint a token.

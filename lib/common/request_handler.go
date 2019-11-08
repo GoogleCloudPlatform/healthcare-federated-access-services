@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc/status"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 )
 
@@ -72,7 +73,7 @@ type HandlerInterface interface {
 	Put(name string) error
 	Patch(name string) error
 	Remove(name string) error
-	CheckIntegrity() (proto.Message, int, error)
+	CheckIntegrity() *status.Status
 	Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error
 }
 
@@ -142,9 +143,9 @@ func MakeHandler(s ServiceInterface, hri *HandlerFactory) http.HandlerFunc {
 				HandleError(http.StatusBadRequest, err, w)
 				return
 			}
-			if results, status, err := hi.CheckIntegrity(); err != nil {
+			if stat := hi.CheckIntegrity(); stat != nil {
 				tx.Rollback()
-				handleIntegrityError(w, results, status, err)
+				handleIntegrityError(stat, w)
 				return
 			}
 			if err := hi.Save(tx, name, vars, desc, typ); err != nil {
@@ -169,9 +170,9 @@ func MakeHandler(s ServiceInterface, hri *HandlerFactory) http.HandlerFunc {
 				HandleError(http.StatusBadRequest, err, w)
 				return
 			}
-			if results, status, err := hi.CheckIntegrity(); err != nil {
+			if stat := hi.CheckIntegrity(); stat != nil {
 				tx.Rollback()
-				handleIntegrityError(w, results, status, err)
+				handleIntegrityError(stat, w)
 				return
 			}
 			if err := hi.Save(tx, name, vars, desc, typ); err != nil {
@@ -184,9 +185,9 @@ func MakeHandler(s ServiceInterface, hri *HandlerFactory) http.HandlerFunc {
 				HandleError(http.StatusBadRequest, err, w)
 				return
 			}
-			if results, status, err := hi.CheckIntegrity(); err != nil {
+			if stat := hi.CheckIntegrity(); stat != nil {
 				tx.Rollback()
-				handleIntegrityError(w, results, status, err)
+				handleIntegrityError(stat, w)
 				return
 			}
 			if err := hi.Save(tx, name, vars, desc, typ); err != nil {
@@ -234,13 +235,13 @@ func HandleError(num int, err error, w http.ResponseWriter) {
 	glog.Infof(msg)
 }
 
-func handleIntegrityError(w http.ResponseWriter, results proto.Message, status int, err error) {
+func handleIntegrityError(stat *status.Status, w http.ResponseWriter) {
 	AddCorsHeaders(w)
-	w.WriteHeader(status)
-	if results != nil {
-		SendResponse(results, w)
+	w.WriteHeader(FromCode(stat.Code()))
+	if len(stat.Details()) > 0 {
+		SendStatus(stat, w)
 	} else {
-		msg := fmt.Sprintf("%d request error: %v\n", http.StatusFailedDependency, err)
+		msg := fmt.Sprintf("%d request error: %v\n", http.StatusFailedDependency, stat.Message())
 		w.Write([]byte(msg))
 	}
 }
@@ -263,6 +264,7 @@ func IsJSON(str string) bool {
 	return str == "application/json" || str == "JSON" || str == "json"
 }
 
+// SendResponse puts a proto message in the response.
 func SendResponse(resp proto.Message, w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
@@ -270,6 +272,11 @@ func SendResponse(resp proto.Message, w http.ResponseWriter) error {
 	AddCorsHeaders(w)
 	ma := jsonpb.Marshaler{}
 	return ma.Marshal(w, resp)
+}
+
+// SendStatus puts a status.Status message in the response.
+func SendStatus(stat *status.Status, w http.ResponseWriter) error {
+	return SendResponse(stat.Proto(), w)
 }
 
 // SendHTML writes a "text/html" type string to the ResponseWriter.

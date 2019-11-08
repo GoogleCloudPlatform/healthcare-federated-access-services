@@ -38,6 +38,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/square/go-jose.v2"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
@@ -485,11 +487,12 @@ func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles 
 }
 
 func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, r *http.Request) []string {
-	vm, err := s.buildValidatorMap(cfg)
-	if err != nil {
+	vm, stat := s.buildValidatorMap(cfg)
+	if stat != nil {
 		return nil
 	}
 	if id == nil {
+		var err error
 		id, _, err = s.getPassportIdentity(cfg, nil, r)
 		if err != nil {
 			return nil
@@ -501,8 +504,8 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 }
 
 func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vm map[string]*validator.Policy) (int, error) {
-	if err := s.checkTrustedIssuer(id.Issuer, cfg); err != nil {
-		return http.StatusForbidden, err
+	if stat := s.checkTrustedIssuer(id.Issuer, cfg); stat != nil {
+		return common.FromCode(stat.Code()), stat.Err()
 	}
 	srcRes, ok := cfg.Resources[resourceName]
 	if !ok {
@@ -517,10 +520,10 @@ func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, reso
 		return http.StatusForbidden, err
 	}
 	if vm == nil {
-		var err error
-		vm, err = s.buildValidatorMap(cfg)
-		if err != nil {
-			return http.StatusForbidden, err
+		var stat *status.Status
+		vm, stat = s.buildValidatorMap(cfg)
+		if stat != nil {
+			return http.StatusForbidden, stat.Err()
 		}
 	}
 	active := false
@@ -577,7 +580,7 @@ func (s *Service) resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *
 	}
 	targetAdapter := ""
 	for index, item := range srcView.Items {
-		vars, err := adapter.GetItemVariables(s.adapters, st.TargetAdapter, st.ItemFormat, item)
+		vars, _, err := adapter.GetItemVariables(s.adapters, st.TargetAdapter, st.ItemFormat, item)
 		if err != nil {
 			return nil, fmt.Errorf("item %d: %v", index+1, err)
 		}
@@ -1571,7 +1574,7 @@ func (s *Service) makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg 
 			return out
 		}
 		for _, item := range entry.View.Items {
-			vars, err := adapter.GetItemVariables(s.adapters, st.TargetAdapter, st.ItemFormat, item)
+			vars, _, err := adapter.GetItemVariables(s.adapters, st.TargetAdapter, st.ItemFormat, item)
 			if err != nil {
 				return out
 			}
@@ -1831,23 +1834,23 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error)
 	return cfg, nil
 }
 
-func (s *Service) buildValidatorMap(cfg *pb.DamConfig) (map[string]*validator.Policy, error) {
+func (s *Service) buildValidatorMap(cfg *pb.DamConfig) (map[string]*validator.Policy, *status.Status) {
 	vm := make(map[string]*validator.Policy)
-	policies, err := s.resolvePolicies(cfg)
-	if err != nil {
-		return nil, err
+	policies, stat := s.resolvePolicies(cfg)
+	if stat != nil {
+		return nil, stat
 	}
 	for pname, policy := range policies {
 		v, err := validator.BuildPolicyValidator(s.ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources)
 		if err != nil {
-			return nil, fmt.Errorf("cannot build policy %q: %v", pname, err)
+			return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, pname), fmt.Sprintf("cannot build policy: %v", err))
 		}
 		vm[pname] = v
 	}
 	return vm, nil
 }
 
-func (s *Service) resolvePolicies(cfg *pb.DamConfig) (map[string]*pb.Policy, error) {
+func (s *Service) resolvePolicies(cfg *pb.DamConfig) (map[string]*pb.Policy, *status.Status) {
 	out := make(map[string]*pb.Policy)
 	for resname, res := range cfg.Resources {
 		for vname, view := range res.Views {
@@ -1856,22 +1859,22 @@ func (s *Service) resolvePolicies(cfg *pb.DamConfig) (map[string]*pb.Policy, err
 					if len(p) > 0 && p[len(p)-1] == ')' {
 						policy, err := s.resolvePolicyArgs(p, cfg)
 						if err != nil {
-							return nil, fmt.Errorf("resource %q view %q role %q: %v", resname, vname, rolename, err)
+							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename), err.Error())
 						}
 						out[p] = policy
 					} else {
 						// Verify that no args were missing.
 						policy, ok := cfg.Policies[p]
 						if !ok {
-							return nil, fmt.Errorf("resource %q view %q role %q: policy %q not found", resname, vname, rolename, p)
+							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename, "policies", p), fmt.Sprintf("policy %q not found", p))
 						}
 						pargs := make(map[string][]string)
 						used := make(map[string]bool)
 						if err := resolveConditionArgs(policy.Allow, pargs, used); err != nil {
-							return nil, fmt.Errorf("resource %q view %q role %q policy %q: %v", resname, vname, rolename, p, err)
+							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename, "policies", p), err.Error())
 						}
 						if err := resolveConditionArgs(policy.Disallow, pargs, used); err != nil {
-							return nil, fmt.Errorf("resource %q view %q role %q policy %q: %v", resname, vname, rolename, p, err)
+							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename, "policies", p), err.Error())
 						}
 						// Now include it in the output if it is not already there.
 						out[p] = policy

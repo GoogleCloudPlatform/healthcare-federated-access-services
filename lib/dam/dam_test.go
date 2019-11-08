@@ -293,6 +293,38 @@ func TestHandlers(t *testing.T) {
 											{
 												"vars": {
 													"project": "ga4gh-apis",
+													"bad-var-name": "ga4gh-apis-controlled-access"
+												}
+											}
+										],
+										"roles":{
+											"viewer":{
+												"policies":["bona_fide", "ethics", "GRU"]
+											}
+										},
+					          "defaultRole": "viewer",
+										"ui": {
+											"label": "foo",
+											"description": "bar"
+										}
+									},
+									"modification": {
+									}
+								}`,
+			Output: `{"code":3,"message":"access requirements: target adapter \"token:gcp:sa\" item format \"gcs\" variable \"bad-var-name\" is undefined","details":[{"@type":"type.googleapis.com/google.rpc.ResourceInfo","resourceName":"resources/ga4gh-apis/views/gcs_read2/items/0/vars/bad-var-name","description":"access requirements: target adapter \"token:gcp:sa\" item format \"gcs\" variable \"bad-var-name\" is undefined"}]}`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Method: "PUT",
+			Path:   "/dam/v1alpha/test/config/resources/ga4gh-apis/views/gcs_read2",
+			Input: `{
+									"item": {
+										"serviceTemplate":"gcs",
+										"version":"Phase 3",
+										"items": [
+											{
+												"vars": {
+													"project": "ga4gh-apis",
 													"bucket": "ga4gh-apis-controlled-access"
 												}
 											}

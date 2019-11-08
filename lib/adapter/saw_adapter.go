@@ -69,11 +69,11 @@ func (a *SawAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) error {
+func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error) {
 	if cfg.Options == nil || len(cfg.Options.GcpServiceAccountProject) == 0 {
-		return fmt.Errorf("service template %q uses service accounts but options.gcpServiceAccountProject is not defined", templateName)
+		return common.StatusPath("serviceTemplates", templateName, "targetAdapter"), fmt.Errorf("target adapter uses service accounts but options.gcpServiceAccountProject is not defined")
 	}
-	return nil
+	return "", nil
 }
 
 // MintToken has the adapter mint a token.

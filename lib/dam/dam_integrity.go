@@ -19,10 +19,12 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
@@ -32,65 +34,79 @@ import (
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
+const (
+	cfgClaimDefinitions      = "claimDefinitions"
+	cfgClients               = "clients"
+	cfgOptions               = "options"
+	cfgPolicies              = "policies"
+	cfgResources             = "resources"
+	cfgRoot                  = "cfg"
+	cfgServiceTemplates      = "serviceTemplates"
+	cfgTestPersonas          = "testPersonas"
+	cfgTrustedPassportIssuer = "trustedPassportIssuer"
+	cfgTrustedSources        = "trustedSources"
+)
+
 var (
 	interfaceRE = regexp.MustCompile(`\$\{(.*)\}`)
 )
 
-func (s *Service) CheckIntegrity(cfg *pb.DamConfig) error {
+// CheckIntegrity returns an error status if the config is invalid.
+func (s *Service) CheckIntegrity(cfg *pb.DamConfig) *status.Status {
 	if s.adapters == nil {
-		return fmt.Errorf("target adapters not loaded")
+		return common.NewStatus(codes.Unavailable, "target adapters not loaded")
 	}
-	if err := s.checkBasicIntegrity(cfg); err != nil {
-		return err
+	if stat := s.checkBasicIntegrity(cfg); stat != nil {
+		return stat
 	}
-	if err := s.checkExtraIntegrity(cfg); err != nil {
-		return err
+	if stat := s.checkExtraIntegrity(cfg); stat != nil {
+		return stat
 	}
 	return nil
 }
 
-func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
+func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 	for n, ti := range cfg.TrustedPassportIssuers {
 		if err := checkName(n); err != nil {
-			return fmt.Errorf("trusted passport issuer name %q: %v", n, err)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedPassportIssuer, n), err.Error())
 		}
 		if !isHTTPS(ti.Issuer) && !isLocalhost(ti.Issuer) {
-			return fmt.Errorf("trusted identity %q must have an issuer of type HTTPS", n)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedPassportIssuer, n, "issuer"), "trusted identity must have an issuer of type HTTPS")
 		}
 		if _, ok := translators[ti.TranslateUsing]; !ok && len(ti.TranslateUsing) > 0 {
-			return fmt.Errorf("trusted identity %q as unknown translator %q", n, ti.TranslateUsing)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedPassportIssuer, n, "translateUsing"), fmt.Sprintf("trusted identity with unknown translator %q", ti.TranslateUsing))
 		}
-		if err := common.CheckUI(ti.Ui, true); err != nil {
-			return fmt.Errorf("trusted passport issuer %q: %v", n, err)
+		if path, err := common.CheckUI(ti.Ui, true); err != nil {
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedPassportIssuer, n, path), fmt.Sprintf("trusted passport issuer UI settings: %v", err))
 		}
-		if err := checkTrustedIssuerClientCredentials(n, s.defaultBroker, ti); err != nil {
-			return fmt.Errorf("trusted passport issuer %q: %v", n, err)
+		if stat := checkTrustedIssuerClientCredentials(n, s.defaultBroker, ti); stat != nil {
+			return stat
 		}
 	}
 
-	for n, tc := range cfg.TrustedSources {
+	for n, ts := range cfg.TrustedSources {
 		if err := checkName(n); err != nil {
-			return fmt.Errorf("trusted claim name %q: %v", n, err)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedSources, n), err.Error())
 		}
-		for _, source := range tc.Sources {
+		for i, source := range ts.Sources {
 			if !isHTTPS(source) {
-				return fmt.Errorf("trusted claim %q must have an source of type HTTPS", n)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedSources, n, "sources", strconv.Itoa(i)), "trusted source URL must be HTTPS")
 			}
 		}
-		for _, claim := range tc.Claims {
+		for i, claim := range ts.Claims {
 			if !strings.HasPrefix(claim, "^") {
 				// Not a regexp, so just look up the claim name.
 				if _, ok := cfg.ClaimDefinitions[claim]; !ok {
-					return fmt.Errorf("trusted source %q claim name %q not found in claim definitions", n, claim)
+					return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim name %q not found in claim definitions", claim))
 				}
 				continue
 			}
 			if !strings.HasSuffix(claim, "$") {
-				return fmt.Errorf("trusted source %q claim regular expression %q does not end with %q", n, claim, "$")
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim regular expression %q does not end with %q", claim, "$"))
 			}
 			re, err := regexp.Compile(claim)
 			if err != nil {
-				return fmt.Errorf("trusted source %q claim regular expression %q: %v", n, claim, err)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim regular expression error: %v", err))
 			}
 			// Regexp should match at least one claim definition.
 			match := false
@@ -101,26 +117,26 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 				}
 			}
 			if !match {
-				return fmt.Errorf("trusted source %q claim regular expression %q does not match any claim definitions", n, claim)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim regular expression %q does not match any claim definitions", claim))
 			}
 		}
-		if err := common.CheckUI(tc.Ui, true); err != nil {
-			return fmt.Errorf("trusted claim %q: %v", n, err)
+		if path, err := common.CheckUI(ts.Ui, true); err != nil {
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedSources, n, path), fmt.Sprintf("trusted sources UI settings: %v", err))
 		}
 	}
 
 	for n, policy := range cfg.Policies {
 		if err := checkName(n); err != nil {
-			return fmt.Errorf("policy name %q: %v", n, err)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n), err.Error())
 		}
 		if path, err := s.checkConditionIntegrity(n, policy.Allow, "allow", cfg); err != nil {
-			return fmt.Errorf("policy name %q condition %q: %v", n, path, err)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n, path), err.Error())
 		}
 		if path, err := s.checkConditionIntegrity(n, policy.Disallow, "disallow", cfg); err != nil {
-			return fmt.Errorf("policy name %q condition %q: %v", n, path, err)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n, path), err.Error())
 		}
-		if err := common.CheckUI(policy.Ui, true); err != nil {
-			return fmt.Errorf("policy name %q: %v", n, err)
+		if path, err := common.CheckUI(policy.Ui, true); err != nil {
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n, path), fmt.Sprintf("policies UI settings: %v", err))
 		}
 	}
 	if _, err := s.resolvePolicies(cfg); err != nil {
@@ -128,173 +144,173 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) error {
 	}
 
 	for n, st := range cfg.ServiceTemplates {
-		if err := s.checkServiceTemplate(n, st, cfg); err != nil {
-			return err
+		if stat := s.checkServiceTemplate(n, st, cfg); stat != nil {
+			return stat
 		}
 	}
 
 	for n, res := range cfg.Resources {
 		if err := checkName(n); err != nil {
-			return fmt.Errorf("resource name %q: %v", n, err)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, n), err.Error())
 		}
-		for _, item := range res.Clients {
+		for i, item := range res.Clients {
 			if _, ok := cfg.Clients[item]; !ok {
-				return fmt.Errorf("resource %q client %q does not exist", n, item)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, n, "clients", strconv.Itoa(i)), fmt.Sprintf("client %q does not exist", item))
 			}
 		}
 		if len(res.MaxTokenTtl) > 0 && !ttlRE.Match([]byte(res.MaxTokenTtl)) {
-			return fmt.Errorf("resource %q max token TTL %q invalid format", n, res.MaxTokenTtl)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, n, "maxTokenTtl"), "max token TTL invalid format")
 		}
 		for vn, view := range res.Views {
-			if err := s.checkViewIntegrity(vn, view, res, cfg); err != nil {
-				return fmt.Errorf("resource %q error: %v", n, err)
+			if stat := s.checkViewIntegrity(vn, view, n, res, cfg); stat != nil {
+				return stat
 			}
 		}
-		if err := common.CheckUI(res.Ui, true); err != nil {
-			return fmt.Errorf("resource name %q: %v", n, err)
+		if path, err := common.CheckUI(res.Ui, true); err != nil {
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, n, path), fmt.Sprintf("resource UI settings: %v", err))
 		}
 	}
 
 	for n, cl := range cfg.Clients {
 		if _, err := common.ParseGUID(cl.ClientId); err != nil || len(cl.ClientId) != clientIdLen {
-			return fmt.Errorf("client %q does not contain a valid client ID", n)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgClients, n, "clientId"), fmt.Sprintf("missing client ID or invalid format: %q", cl.ClientId))
 		}
-		if err := common.CheckUI(cl.Ui, true); err != nil {
-			return fmt.Errorf("client %q: %v", n, err)
+		if path, err := common.CheckUI(cl.Ui, true); err != nil {
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgClients, n, path), fmt.Sprintf("client UI settings: %v", err))
 		}
 	}
 
 	for n, def := range cfg.ClaimDefinitions {
-		if err := common.CheckUI(def.Ui, true); err != nil {
-			return fmt.Errorf("claim definition %q: %v", n, err)
+		if path, err := common.CheckUI(def.Ui, true); err != nil {
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgClaimDefinitions, n, path), fmt.Sprintf("claim definitions UI settings: %v", err))
 		}
 	}
 
 	personaEmail := make(map[string]string)
 	for n, tp := range cfg.TestPersonas {
 		if err := checkName(n); err != nil {
-			return fmt.Errorf("test persona name %q: %v", n, err)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n), err.Error())
 		}
 		if tp.Passport == nil {
-			return fmt.Errorf("test persona %q requires a Passport", n)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "passport"), "persona requires a passport")
 		}
 		tid, err := persona.ToIdentity(n, tp, defaultPersonaScope, "")
 		if err != nil {
-			return err
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n), fmt.Sprintf("persona to identity: %v", err))
 		}
 		if len(tid.Issuer) == 0 {
-			return fmt.Errorf("test persona %q ID token requires an issuer", n)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "iss"), "persona requires an issuer")
 		}
 		if len(tid.Subject) == 0 {
-			return fmt.Errorf("test persona %q ID token requires a subject", n)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "sub"), "persona requires a subject")
 		}
 		if pmatch, ok := personaEmail[tid.Subject]; ok {
-			return fmt.Errorf("test persona %q subject %q conflicts with the identity of test persona %q", n, tid.Subject, pmatch)
+			return common.NewInfoStatus(codes.AlreadyExists, common.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "sub"), fmt.Sprintf("persona subject %q conflicts with test persona %q", tid.Subject, pmatch))
 		}
-		if err := common.CheckUI(tp.Ui, false); err != nil {
-			return fmt.Errorf("test persona %q: %v", n, err)
+		if path, err := common.CheckUI(tp.Ui, false); err != nil {
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, path), fmt.Sprintf("test persona UI settings: %v", err))
 		}
 		// Checking persona expectations is in checkExtraIntegrity() to give an
 		// opportunity for runTests() to catch problems and calculate a ConfigModification
 		// response.
 	}
 
-	if err := s.checkOptionsIntegrity(cfg.Options); err != nil {
-		return err
+	if stat := s.checkOptionsIntegrity(cfg.Options); stat != nil {
+		return stat
 	}
 
-	if err := common.CheckUI(cfg.Ui, true); err != nil {
-		return fmt.Errorf("root config object: %v", err)
+	if path, err := common.CheckUI(cfg.Ui, true); err != nil {
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgRoot, path), fmt.Sprintf("root config UI settings: %v", err))
 	}
 
 	return nil
 }
 
-func (s *Service) checkExtraIntegrity(cfg *pb.DamConfig) error {
+func (s *Service) checkExtraIntegrity(cfg *pb.DamConfig) *status.Status {
 	for n, tp := range cfg.TestPersonas {
-		for _, access := range tp.Access {
+		for i, access := range tp.Access {
 			aparts := strings.Split(access, "/")
 			if len(aparts) != 3 {
-				return fmt.Errorf("test persona %q access %q: invalid format (expecting 'resourceName/viewName/roleName')", n, access)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i)), "invalid access entry format (expecting 'resourceName/viewName/roleName')")
 			}
 			rn := aparts[0]
 			vn := aparts[1]
 			rolename := aparts[2]
 			res, ok := cfg.Resources[rn]
 			if !ok {
-				return fmt.Errorf("test persona %q access %q resource %q not found", n, access, rn)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "resource"), fmt.Sprintf("access entry resource %q not found", rn))
 			}
 			view, ok := res.Views[vn]
 			if !ok {
-				return fmt.Errorf("test persona %q access %q: view %q not found", n, access, vn)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "view"), fmt.Sprintf("access entry view %q not found", vn))
 			}
 			roleView := s.makeView(vn, view, res, cfg)
 			if roleView.AccessRoles == nil {
-				return fmt.Errorf("test persona %q access %q: no roles defined", n, access)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry no roles defined for view %q", vn))
 			}
 			if _, ok := roleView.AccessRoles[rolename]; !ok {
-				return fmt.Errorf("test persona %q access %q: role %q not defined", n, access, rolename)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry role %q not found on view %q", rolename, vn))
 			}
 		}
 	}
 	return nil
 }
 
-func (s *Service) checkViewIntegrity(name string, view *pb.View, res *pb.Resource, cfg *pb.DamConfig) error {
+func (s *Service) checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Resource, cfg *pb.DamConfig) *status.Status {
 	if err := checkName(name); err != nil {
-		return fmt.Errorf("view name %q: %v", name, err)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name), err.Error())
 	}
 	if len(view.ServiceTemplate) == 0 {
-		return fmt.Errorf("view %q service template is not defined", name)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), "service template is not defined")
 	}
 	st, ok := cfg.ServiceTemplates[view.ServiceTemplate]
 	if !ok {
-		return fmt.Errorf("view %q service template %q not found", name, view.ServiceTemplate)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), fmt.Sprintf("service template %q not found", view.ServiceTemplate))
 	}
 	if len(view.Version) == 0 {
-		return fmt.Errorf("view %q version is not defined", name)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name, "version"), "version is empty")
 	}
-	if err := s.checkAccessRequirements(view.ServiceTemplate, st, name, view, cfg); err != nil {
-		return fmt.Errorf("view %q: %v", name, err)
+	if path, err := s.checkAccessRequirements(view.ServiceTemplate, st, resName, name, view, cfg); err != nil {
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, path), fmt.Sprintf("access requirements: %v", err))
 	}
 	if len(view.DefaultRole) == 0 {
-		return fmt.Errorf("view %q does not provide a default role", name)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is empty")
 	}
 	if _, ok := view.AccessRoles[view.DefaultRole]; !ok {
-		return fmt.Errorf("view %q default role %q is not defined in any grants within the view", name, view.DefaultRole)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is not defined within the view")
 	}
 	if len(view.ComputedInterfaces) > 0 {
-		return fmt.Errorf("view %q interfaces should be determined at runtime and cannot be stored as part of the config", name)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name, "interfaces"), "interfaces should be determined at runtime and cannot be stored as part of the config")
 	}
-	if err := common.CheckUI(view.Ui, true); err != nil {
-		return fmt.Errorf("view name %q: %v", name, err)
+	if path, err := common.CheckUI(view.Ui, true); err != nil {
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resName, "views", name, path), fmt.Sprintf("view UI settings: %v", err))
 	}
 
 	return nil
 }
 
-func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.DamConfig) error {
+func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.DamConfig) *status.Status {
 	if err := checkName(name); err != nil {
-		return fmt.Errorf("service template name %q: %v", name, err)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name), err.Error())
 	}
 	if len(template.TargetAdapter) == 0 {
-		return fmt.Errorf("service template %q adapter is not specified", name)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name, "targetAdapter"), "target adapter is not specified")
 	}
 	adapt, ok := s.adapters.ByName[template.TargetAdapter]
 	if !ok {
-		return fmt.Errorf("service template %q adapter %q is not a recognized adapter within this service", name, template.TargetAdapter)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name, "targetAdapter"), "target adapter is not a recognized adapter within this service")
 	}
-	if err := adapt.CheckConfig(name, template, "", nil, cfg, s.adapters); err != nil {
-		return err
+	if path, err := adapt.CheckConfig(name, template, "", "", nil, cfg, s.adapters); err != nil {
+		return common.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	if len(template.ItemFormat) == 0 {
-		return fmt.Errorf("service template %q item format is not specified", name)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name, "itemFormat"), "item format is not specified")
 	}
 	if _, ok = adapt.Descriptor().ItemFormats[template.ItemFormat]; !ok {
-		return fmt.Errorf("service template %q item format %q is not valid", name, template.ItemFormat)
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name, "itemFormat"), fmt.Sprintf("item format %q is invalid", template.ItemFormat))
 	}
-	if err := s.checkServiceRoles(template.ServiceRoles, template.TargetAdapter, template.ItemFormat, false, cfg); err != nil {
-		return fmt.Errorf("service template %q roles: %v", name, err)
+	if path, err := s.checkServiceRoles(template.ServiceRoles, name, template.TargetAdapter, template.ItemFormat, false, cfg); err != nil {
+		return common.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	varNames := make(map[string]bool)
 	desc := s.adapters.Descriptors[template.TargetAdapter]
@@ -309,50 +325,50 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 			// Remove the `${` prefix and `}` suffix.
 			varName := varMatch[2 : len(varMatch)-1]
 			if _, ok := varNames[varName]; !ok {
-				return fmt.Errorf("service template %q interface %q variable name %q not defined for adapter %q", name, k, varName, template.TargetAdapter)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name, "interfaces", k), fmt.Sprintf("interface %q variable %q not defined for this target adapter", k, varName))
 			}
 		}
 	}
-	if err := common.CheckUI(template.Ui, true); err != nil {
-		return fmt.Errorf("service template %q: %v", name, err)
+	if path, err := common.CheckUI(template.Ui, true); err != nil {
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name, path), fmt.Sprintf("service template UI settings: %v", err))
 	}
 	return nil
 }
 
-func (s *Service) checkAccessRequirements(templateName string, template *pb.ServiceTemplate, viewName string, view *pb.View, cfg *pb.DamConfig) error {
+func (s *Service) checkAccessRequirements(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig) (string, error) {
 	adapt, ok := s.adapters.ByName[template.TargetAdapter]
 	if !ok {
-		return fmt.Errorf("service template %q adapter %q is not a recognized adapter within this service", templateName, template.TargetAdapter)
+		return common.StatusPath("targetAdapter"), fmt.Errorf("service template %q adapter %q is not a recognized adapter within this service", templateName, template.TargetAdapter)
 	}
-	if err := adapt.CheckConfig(templateName, template, viewName, view, cfg, s.adapters); err != nil {
-		return err
+	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, s.adapters); err != nil {
+		return path, err
 	}
-	if err := s.checkAccessRoles(view.AccessRoles, template.TargetAdapter, template.ItemFormat, true, cfg); err != nil {
-		return fmt.Errorf("view %q roles: %v", viewName, err)
+	if err := s.checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, true, cfg); err != nil {
+		return common.StatusPath("views", viewName, "accessRoles"), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
 	desc := adapt.Descriptor()
 	if desc.Requirements.Aud && len(view.Aud) == 0 {
-		return fmt.Errorf("view %q does not provide an audience", viewName)
+		return common.StatusPath("views", viewName, "aud"), fmt.Errorf("view %q does not provide an audience", viewName)
 	}
 	if len(desc.ItemFormats) > 0 && len(view.Items) == 0 {
-		return fmt.Errorf("view %q does not provide any target items", viewName)
+		return common.StatusPath("views", viewName, "items"), fmt.Errorf("view %q does not provide any target items", viewName)
 	}
 	if len(desc.ItemFormats) > 0 && desc.Properties != nil && desc.Properties.SingleItem && len(view.Items) > 1 {
-		return fmt.Errorf("view %q provides more than one item when only one was expected for adapter %q", viewName, template.TargetAdapter)
+		return common.StatusPath("views", viewName, "items"), fmt.Errorf("view %q provides more than one item when only one was expected for adapter %q", viewName, template.TargetAdapter)
 	}
 	for idx, item := range view.Items {
-		vars, err := adapter.GetItemVariables(s.adapters, template.TargetAdapter, template.ItemFormat, item)
+		vars, path, err := adapter.GetItemVariables(s.adapters, template.TargetAdapter, template.ItemFormat, item)
 		if err != nil {
-			return fmt.Errorf("item %d: %v", idx, err)
+			return common.StatusPath("views", viewName, "items", strconv.Itoa(idx), path), err
 		}
 		if len(vars) == 0 {
-			return fmt.Errorf("view %q item %d has no variables defined", viewName, idx+1)
+			return common.StatusPath("views", viewName, "items", strconv.Itoa(idx), "vars"), fmt.Errorf("no variables defined")
 		}
 	}
-	return nil
+	return "", nil
 }
 
-func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) error {
+func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) error {
 	if requirementCheck && len(roles) == 0 {
 		return fmt.Errorf("does not provide any roles")
 	}
@@ -379,39 +395,39 @@ func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, targetAdapte
 	return nil
 }
 
-func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) error {
+func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) (string, error) {
 	if requirementCheck && len(roles) == 0 {
-		return fmt.Errorf("does not provide any roles")
+		return common.StatusPath(cfgServiceTemplates, templateName, "roles"), fmt.Errorf("no roles provided")
 	}
 	desc := s.adapters.Descriptors[targetAdapter]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
-			return fmt.Errorf("role has invalid name %q: %v", rname, err)
+			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
 		}
 		if requirementCheck && len(role.DamRoleCategories) == 0 {
-			return fmt.Errorf("role %q does not provide a DAM role category", rname)
+			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories"), fmt.Errorf("role %q does not provide a DAM role category", rname)
 		}
-		for _, pt := range role.DamRoleCategories {
+		for i, pt := range role.DamRoleCategories {
 			if _, ok := s.roleCategories[pt]; !ok {
-				return fmt.Errorf("role %q DAM role category %q is not defined (valid types are: %s)", rname, pt, strings.Join(roleCategorySet(s.roleCategories), ", "))
+				return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories", strconv.Itoa(i)), fmt.Errorf("role %q DAM role category %q is not defined (valid types are: %s)", rname, pt, strings.Join(roleCategorySet(s.roleCategories), ", "))
 			}
 		}
 		if requirementCheck && desc.Requirements.TargetRole && len(role.TargetRoles) == 0 {
-			return fmt.Errorf("role %q does not provide any target role assignments", rname)
+			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetRoles"), fmt.Errorf("role %q does not provide any target role assignments", rname)
 		}
 		for ri, rv := range role.TargetRoles {
 			if len(rv) == 0 {
-				return fmt.Errorf("role %q value %d is empty", rname, ri+1)
+				return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetRoles", strconv.Itoa(ri)), fmt.Errorf("target role is empty")
 			}
 		}
 		if requirementCheck && desc.Requirements.TargetScope && len(role.TargetScopes) == 0 {
-			return fmt.Errorf("role %q does not provide any target scopes assignments", rname)
+			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetScopes"), fmt.Errorf("role %q does not provide any target scopes assignments", rname)
 		}
-		if err := common.CheckUI(role.Ui, true); err != nil {
-			return fmt.Errorf("role %q: %v", rname, err)
+		if path, err := common.CheckUI(role.Ui, true); err != nil {
+			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, path), fmt.Errorf("role %q: %v", rname, err)
 		}
 	}
-	return nil
+	return "", nil
 }
 
 func (s *Service) checkConditionIntegrity(policyName string, cond *pb.Condition, path string, cfg *pb.DamConfig) (string, error) {
@@ -460,72 +476,73 @@ func (s *Service) checkConditionIntegrity(policyName string, cond *pb.Condition,
 	return path, nil
 }
 
-func (s *Service) checkOptionsIntegrity(opts *pb.ConfigOptions) error {
+func (s *Service) checkOptionsIntegrity(opts *pb.ConfigOptions) *status.Status {
 	if opts == nil {
 		return nil
 	}
 	// Get the descriptors.
 	opts = makeConfigOptions(opts)
 	if err := common.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", opts.ComputedDescriptors); err != nil {
-		return err
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgOptions, "whitelistedRealms"), err.Error())
 	}
 	if err := common.CheckStringOption(opts.GcpManagedKeysMaxRequestedTtl, "gcpManagedKeysMaxRequestedTtl", opts.ComputedDescriptors); err != nil {
-		return err
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgOptions, "gcpManagedKeysMaxRequestedTtl"), err.Error())
 	}
 	if err := common.CheckIntOption(opts.GcpManagedKeysPerAccount, "gcpManagedKeysPerAccount", opts.ComputedDescriptors); err != nil {
-		return err
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgOptions, "gcpManagedKeysPerAccount"), err.Error())
 	}
 	if err := common.CheckStringOption(opts.GcpServiceAccountProject, "gcpServiceAccountProject", opts.ComputedDescriptors); err != nil {
-		return err
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgOptions, "gcpServiceAccountProject"), err.Error())
 	}
 	return nil
 }
 
-func (s *Service) configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http.Request) (proto.Message, int, error) {
-	bad := http.StatusBadRequest
+func (s *Service) configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http.Request) *status.Status {
+	bad := codes.InvalidArgument
 	if err := common.CheckReadOnly(getRealm(r), cfg.Options.ReadOnlyMasterRealm, cfg.Options.WhitelistedRealms); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if len(cfg.Version) == 0 {
-		return nil, bad, fmt.Errorf("missing config version")
+		return common.NewStatus(bad, "missing config version")
 	}
 	if cfg.Revision <= 0 {
-		return nil, bad, fmt.Errorf("invalid config revision")
+		return common.NewStatus(bad, "invalid config revision")
 	}
 	if err := configRevision(mod, cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
-	if err := s.updateTests(cfg, mod); err != nil {
-		return nil, http.StatusBadRequest, err
+	if stat := s.updateTests(cfg, mod); stat != nil {
+		return stat
 	}
-	if err := s.checkBasicIntegrity(cfg); err != nil {
-		return nil, http.StatusConflict, err
+	if stat := s.checkBasicIntegrity(cfg); stat != nil {
+		return stat
 	}
 	if tests := s.runTests(cfg, nil); hasTestError(tests) {
-		return tests.Modification, http.StatusFailedDependency, fmt.Errorf(tests.Error)
+		stat := common.NewStatus(codes.FailedPrecondition, tests.Error)
+		return common.AddStatusDetails(stat, tests.Modification)
 	}
-	if err := s.checkExtraIntegrity(cfg); err != nil {
-		return nil, http.StatusConflict, err
+	if stat := s.checkExtraIntegrity(cfg); stat != nil {
+		return stat
 	}
-	return nil, http.StatusOK, nil
+	return nil
 }
 
-func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.TrustedPassportIssuer) error {
+func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.TrustedPassportIssuer) *status.Status {
 	if name != defaultBroker {
 		return nil
 	}
 	if len(tpi.AuthUrl) == 0 {
-		fmt.Errorf("AuthUrl not found")
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedPassportIssuer, name, "authUrl"), "AuthUrl not provided")
 	}
 	if len(tpi.TokenUrl) == 0 {
-		fmt.Errorf("TokenUrl not found")
+		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTrustedPassportIssuer, name, "tokenUrl"), "TokenUrl not provided")
 	}
 	return nil
 }
 
-func (s *Service) checkTrustedIssuer(iss string, cfg *pb.DamConfig) error {
+func (s *Service) checkTrustedIssuer(iss string, cfg *pb.DamConfig) *status.Status {
 	if len(iss) == 0 {
-		return fmt.Errorf("unauthorized missing passport issuer")
+		return common.NewStatus(codes.PermissionDenied, "unauthorized missing passport issuer")
 	}
 	foundIssuer := false
 	for _, tpi := range cfg.TrustedPassportIssuers {
@@ -535,7 +552,7 @@ func (s *Service) checkTrustedIssuer(iss string, cfg *pb.DamConfig) error {
 		}
 	}
 	if !foundIssuer {
-		return fmt.Errorf("unauthorized passport issuer %q", iss)
+		return common.NewStatus(codes.PermissionDenied, fmt.Sprintf("unauthorized passport issuer %q", iss))
 	}
 	return nil
 }
@@ -554,14 +571,14 @@ func rmTestView(cfg *pb.DamConfig, resName, viewName string) {
 	}
 }
 
-func (s *Service) updateTests(cfg *pb.DamConfig, modification *pb.ConfigModification) error {
+func (s *Service) updateTests(cfg *pb.DamConfig, modification *pb.ConfigModification) *status.Status {
 	if modification == nil {
 		return nil
 	}
 	for name, td := range modification.TestPersonas {
 		p, ok := cfg.TestPersonas[name]
 		if !ok {
-			return fmt.Errorf("test persona %q not found", name)
+			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, name), fmt.Sprintf("test persona %q not found", name))
 		}
 		p.Access = td.Access
 		sort.Strings(p.Access)
@@ -584,13 +601,13 @@ func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestRes
 	modification := &pb.ConfigModification{
 		TestPersonas: make(map[string]*pb.ConfigModification_PersonaModification),
 	}
-	vm, err := s.buildValidatorMap(cfg)
-	if err != nil {
+	vm, stat := s.buildValidatorMap(cfg)
+	if stat != nil {
 		return &pb.GetTestResultsResponse{
 			Version:   cfg.Version,
 			Revision:  cfg.Revision,
 			Timestamp: t,
-			Error:     err.Error(),
+			Error:     stat.Message(),
 		}
 	}
 	for pname, p := range cfg.TestPersonas {

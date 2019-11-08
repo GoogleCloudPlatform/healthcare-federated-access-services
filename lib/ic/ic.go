@@ -37,6 +37,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/square/go-jose.v2"
 	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/oauth2"
@@ -1486,8 +1488,8 @@ func (c *realm) Remove(name string) error {
 	}
 	return nil
 }
-func (c *realm) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (c *realm) CheckIntegrity() *status.Status {
+	return nil
 }
 func (c *realm) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	// Accept, but do nothing.
@@ -1569,8 +1571,8 @@ func (c *client) Patch(name string) error {
 func (c *client) Remove(name string) error {
 	return fmt.Errorf("REMOVE not allowed")
 }
-func (c *client) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (c *client) CheckIntegrity() *status.Status {
+	return nil
 }
 func (c *client) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	// Accept, but do nothing.
@@ -1659,24 +1661,24 @@ func (c *config) Patch(name string) error {
 func (c *config) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
-func (c *config) CheckIntegrity() (proto.Message, int, error) {
-	bad := http.StatusBadRequest
+func (c *config) CheckIntegrity() *status.Status {
+	bad := codes.InvalidArgument
 	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if len(c.input.Item.Version) == 0 {
-		return nil, bad, fmt.Errorf("missing config version")
+		return common.NewStatus(bad, "missing config version")
 	}
 	if c.input.Item.Revision <= 0 {
-		return nil, bad, fmt.Errorf("invalid config revision")
+		return common.NewStatus(bad, "invalid config revision")
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.input.Item); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
-	return nil, http.StatusOK, nil
+	return nil
 }
 func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return c.s.saveConfig(c.input.Item, desc, typeName, c.r, c.id, c.cfg, c.input.Item, c.input.Modification, tx)
@@ -1770,18 +1772,18 @@ func (c *configIDP) Remove(name string) error {
 	c.save = &pb.IdentityProvider{}
 	return nil
 }
-func (c *configIDP) CheckIntegrity() (proto.Message, int, error) {
-	bad := http.StatusBadRequest
+func (c *configIDP) CheckIntegrity() *status.Status {
+	bad := codes.InvalidArgument
 	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
-	return nil, http.StatusOK, nil
+	return nil
 }
 func (c *configIDP) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
@@ -1881,18 +1883,18 @@ func (c *configClient) Remove(name string) error {
 	c.save = &pb.Client{}
 	return nil
 }
-func (c *configClient) CheckIntegrity() (proto.Message, int, error) {
-	bad := http.StatusBadRequest
+func (c *configClient) CheckIntegrity() *status.Status {
+	bad := codes.InvalidArgument
 	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
-	return nil, http.StatusOK, nil
+	return nil
 }
 func (c *configClient) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
@@ -1981,18 +1983,18 @@ func (c *configOptions) Patch(name string) error {
 func (c *configOptions) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
-func (c *configOptions) CheckIntegrity() (proto.Message, int, error) {
-	bad := http.StatusBadRequest
+func (c *configOptions) CheckIntegrity() *status.Status {
+	bad := codes.InvalidArgument
 	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return nil, bad, err
+		return common.NewStatus(bad, err.Error())
 	}
-	return nil, http.StatusOK, nil
+	return nil
 }
 func (c *configOptions) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
@@ -2096,8 +2098,8 @@ func (h *tokenMetadataHandler) Remove(name string) error {
 	return h.s.store.DeleteTx(storage.TokensDatatype, getRealm(h.r), h.sub, h.jti, storage.LatestRev, h.tx)
 }
 
-func (h *tokenMetadataHandler) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (h *tokenMetadataHandler) CheckIntegrity() *status.Status {
+	return nil
 }
 
 func (h *tokenMetadataHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -2186,8 +2188,8 @@ func (h *adminTokenMetadataHandler) Remove(name string) error {
 	return h.s.store.MultiDeleteTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, h.tx)
 }
 
-func (h *adminTokenMetadataHandler) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (h *adminTokenMetadataHandler) CheckIntegrity() *status.Status {
+	return nil
 }
 
 func (h *adminTokenMetadataHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -2385,9 +2387,9 @@ func (c *account) Remove(name string) error {
 	c.save.State = "DELETED"
 	return nil
 }
-func (c *account) CheckIntegrity() (proto.Message, int, error) {
+func (c *account) CheckIntegrity() *status.Status {
 	// TODO: add more checks for accounts here.
-	return nil, http.StatusOK, nil
+	return nil
 }
 func (c *account) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
@@ -2507,9 +2509,9 @@ func (c *accountLink) Remove(name string) error {
 	}
 	return nil
 }
-func (c *accountLink) CheckIntegrity() (proto.Message, int, error) {
+func (c *accountLink) CheckIntegrity() *status.Status {
 	// TODO: add more checks for accounts here (such as removing the primary email account).
-	return nil, http.StatusOK, nil
+	return nil
 }
 func (c *accountLink) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
@@ -2613,8 +2615,8 @@ func (c *adminClaims) Remove(name string) error {
 	}
 	return nil
 }
-func (c *adminClaims) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (c *adminClaims) CheckIntegrity() *status.Status {
+	return nil
 }
 func (c *adminClaims) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
@@ -3514,7 +3516,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		if err := validateTranslator(idp.TranslateUsing, idp.Issuer); err != nil {
 			return fmt.Errorf("identity provider %q: %v", name, err)
 		}
-		if err := common.CheckUI(idp.Ui, true); err != nil {
+		if _, err := common.CheckUI(idp.Ui, true); err != nil {
 			return fmt.Errorf("identity provider %q: %v", name, err)
 		}
 	}
@@ -3537,7 +3539,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 				return err
 			}
 		}
-		if err := common.CheckUI(client.Ui, true); err != nil {
+		if _, err := common.CheckUI(client.Ui, true); err != nil {
 			return fmt.Errorf("client %q: %v", name, err)
 		}
 	}
@@ -3547,7 +3549,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 			return fmt.Errorf("invalid account tag name %q: %v", name, err)
 		}
 
-		if err := common.CheckUI(at.Ui, true); err != nil {
+		if _, err := common.CheckUI(at.Ui, true); err != nil {
 			return fmt.Errorf("account tag %q: %v", name, err)
 		}
 	}
@@ -3585,7 +3587,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		return fmt.Errorf("defaultPassportTtl (%s) must not be greater than maxPassportTtl (%s)", dpTTL, mpTTL)
 	}
 
-	if err := common.CheckUI(cfg.Ui, true); err != nil {
+	if _, err := common.CheckUI(cfg.Ui, true); err != nil {
 		return fmt.Errorf("config root: %v", err)
 	}
 

@@ -55,7 +55,7 @@ func TestSawAdapter(t *testing.T) {
 	res := cfg.Resources[rname]
 	vname := "gcs_read"
 	view := res.Views[vname]
-	err = adapt.CheckConfig(tmpl, st, vname, view, &cfg, adapters)
+	_, err = adapt.CheckConfig(tmpl, st, rname, vname, view, &cfg, adapters)
 	if err != nil {
 		t.Errorf("CheckConfg(%q, serviceTemplate, %q, view, cfg, adapters): error %v", tmpl, vname, err)
 	}
@@ -65,7 +65,7 @@ func TestSawAdapter(t *testing.T) {
 	payres := res
 	payvname := "gcs_payer"
 	payview := res.Views[payvname]
-	err = adapt.CheckConfig(paytmpl, payst, payvname, payview, &cfg, adapters)
+	_, err = adapt.CheckConfig(paytmpl, payst, rname, payvname, payview, &cfg, adapters)
 	if err != nil {
 		t.Errorf("CheckConfg(%q, serviceTemplate, %q, view, cfg, adapters): error %v", paytmpl, payvname, err)
 	}

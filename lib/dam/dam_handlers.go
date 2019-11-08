@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/status"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
@@ -97,8 +98,8 @@ func (h *realmHandler) Remove(name string) error {
 	}
 	return h.s.unregisterRealm(h.cfg, name)
 }
-func (h *realmHandler) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (h *realmHandler) CheckIntegrity() *status.Status {
+	return nil
 }
 func (h *realmHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	// Accept, but do nothing.
@@ -175,8 +176,8 @@ func (h *processesHandler) Patch(name string) error {
 func (h *processesHandler) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
-func (h *processesHandler) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (h *processesHandler) CheckIntegrity() *status.Status {
+	return nil
 }
 func (h *processesHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return fmt.Errorf("save not allowed")
@@ -244,8 +245,8 @@ func (h *processHandler) Patch(name string) error {
 func (h *processHandler) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
-func (h *processHandler) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (h *processHandler) CheckIntegrity() *status.Status {
+	return nil
 }
 func (h *processHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return fmt.Errorf("save not allowed")
@@ -317,8 +318,8 @@ func (h *tokensHandler) Remove(name string) error {
 	}
 	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), nil)
 }
-func (h *tokensHandler) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (h *tokensHandler) CheckIntegrity() *status.Status {
+	return nil
 }
 func (h *tokensHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
@@ -383,8 +384,8 @@ func (h *tokenHandler) Remove(name string) error {
 	list := []string{name}
 	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), list)
 }
-func (h *tokenHandler) CheckIntegrity() (proto.Message, int, error) {
-	return nil, http.StatusOK, nil
+func (h *tokenHandler) CheckIntegrity() *status.Status {
+	return nil
 }
 func (h *tokenHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
@@ -464,7 +465,7 @@ func (h *configHandler) Patch(name string) error {
 func (h *configHandler) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
-func (h *configHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.save, h.input.Modification, h.r)
 }
 func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -546,7 +547,7 @@ func (h *configOptionsHandler) Patch(name string) error {
 func (h *configOptionsHandler) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
-func (h *configOptionsHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configOptionsHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configOptionsHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -636,7 +637,7 @@ func (h *configResourceHandler) Remove(name string) error {
 	h.save = &pb.Resource{}
 	return nil
 }
-func (h *configResourceHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configResourceHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configResourceHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -730,7 +731,7 @@ func (h *configViewHandler) Remove(name string) error {
 	h.save = &pb.View{}
 	return nil
 }
-func (h *configViewHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configViewHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configViewHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -811,7 +812,7 @@ func (h *configIssuerHandler) Remove(name string) error {
 	h.save = &pb.TrustedPassportIssuer{}
 	return nil
 }
-func (h *configIssuerHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configIssuerHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configIssuerHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -894,7 +895,7 @@ func (h *configSourceHandler) Remove(name string) error {
 	h.save = &pb.TrustedSource{}
 	return nil
 }
-func (h *configSourceHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configSourceHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configSourceHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -977,7 +978,7 @@ func (h *configPolicyHandler) Remove(name string) error {
 	h.save = &pb.Policy{}
 	return nil
 }
-func (h *configPolicyHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configPolicyHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configPolicyHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -1058,7 +1059,7 @@ func (h *configClaimDefinitionHandler) Remove(name string) error {
 	h.save = &pb.ClaimDefinition{}
 	return nil
 }
-func (h *configClaimDefinitionHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configClaimDefinitionHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configClaimDefinitionHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -1147,7 +1148,7 @@ func (h *configServiceTemplateHandler) Remove(name string) error {
 	h.save = &pb.ServiceTemplate{}
 	return nil
 }
-func (h *configServiceTemplateHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configServiceTemplateHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configServiceTemplateHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -1236,7 +1237,7 @@ func (h *configPersonaHandler) Remove(name string) error {
 	h.save = &cpb.TestPersona{}
 	return nil
 }
-func (h *configPersonaHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configPersonaHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configPersonaHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
@@ -1324,7 +1325,7 @@ func (h *configClientHandler) Remove(name string) error {
 	h.save = &pb.Client{}
 	return nil
 }
-func (h *configClientHandler) CheckIntegrity() (proto.Message, int, error) {
+func (h *configClientHandler) CheckIntegrity() *status.Status {
 	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
 }
 func (h *configClientHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {

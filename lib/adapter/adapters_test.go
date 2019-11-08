@@ -145,7 +145,7 @@ func TestGetItemVariables(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		result, err := adapter.GetItemVariables(adapters, adapter.SawAdapterName, "gcs", test.item)
+		result, _, err := adapter.GetItemVariables(adapters, adapter.SawAdapterName, "gcs", test.item)
 		if test.fail != (err != nil) {
 			t.Fatalf("test %q error mismatch: want error %v, got error %v", test.name, test.fail, err)
 		}
