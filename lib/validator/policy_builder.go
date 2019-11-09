@@ -18,75 +18,77 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
+	"strings"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
+var (
+	byValues = map[string]bool{
+		"self":   true,
+		"peer":   true,
+		"system": true,
+		"so":     true,
+		"dac":    true,
+	}
+)
+
 // BuildPolicyValidator creates a new policy validator.
-func BuildPolicyValidator(ctx context.Context, policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource) (*Policy, error) {
-	allow, err := policyValidator(ctx, policy.Allow, defs, sources)
+func BuildPolicyValidator(ctx context.Context, policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (*Policy, error) {
+	allow, err := policyValidator(ctx, policy.AnyOf, defs, sources, args)
 	if err != nil {
 		return nil, err
 	}
-	disallow, err := policyValidator(ctx, policy.Disallow, defs, sources)
-	if err != nil {
-		return nil, err
-	}
-	return NewPolicy(allow, disallow), nil
+	return NewPolicy(allow, nil), nil
 }
 
-func policyValidator(ctx context.Context, c *pb.Condition, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource) (Validator, error) {
-	if c == nil {
+func policyValidator(ctx context.Context, anyOf []*pb.Policy_Or, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (Validator, error) {
+	if len(anyOf) == 0 {
 		return nil, nil
 	}
-	if err := ValidateCondition(c, defs); err != nil {
-		return nil, err
-	}
-	if len(c.AllTrue) == 1 {
-		return policyValidator(ctx, c.AllTrue[0], defs, sources)
-	}
-	if len(c.AllTrue) > 1 {
-		var vs []Validator
-		for _, ce := range c.AllTrue {
-			entry, err := policyValidator(ctx, ce, defs, sources)
+	var vor []Validator
+	for _, any := range anyOf {
+		var vand []Validator
+		for _, clause := range any.AllOf {
+			if err := validateVisaType(clause.Type, defs); err != nil {
+				return nil, err
+			}
+			srcs, err := expandSources(clause.Type, clause.Source, sources)
 			if err != nil {
 				return nil, err
 			}
-			vs = append(vs, entry)
-		}
-		return And(vs), nil
-	}
-	if len(c.AnyTrue) == 1 {
-		return policyValidator(ctx, c.AnyTrue[0], defs, sources)
-	}
-	if len(c.AnyTrue) > 1 {
-		var vs []Validator
-		for _, ce := range c.AnyTrue {
-			entry, err := policyValidator(ctx, ce, defs, sources)
+			vals, err := expandValues(clause.Value, args)
 			if err != nil {
 				return nil, err
 			}
-			vs = append(vs, entry)
+			by, err := expandBy(clause.By)
+			if err != nil {
+				return nil, err
+			}
+			v, err := NewClaimValidator(clause.Type, vals, "", srcs, by)
+			if err != nil {
+				return nil, err
+			}
+			vand = append(vand, v)
 		}
-		return Or(vs), nil
+		vor = append(vor, And(vand))
 	}
-	switch k := c.Key.(type) {
-	case *pb.Condition_Claim:
-		src, err := expandSources(k.Claim, c.From, sources)
-		if err != nil {
-			return nil, err
-		}
-		return NewClaimValidator(k.Claim, c.Values, c.Is, src, byMap(c.By))
-	case *pb.Condition_DataUse:
-		// TODO: implement this and deal with policy complexity with multiple DU values.
-		return &Constant{OK: true}, nil
-	}
-	return nil, fmt.Errorf("condition requires one of claim, dataUse, userList, allTrue, anyTrue: %v", c)
+	return Or(vor), nil
 }
 
-func expandSources(claim string, from []string, sources map[string]*pb.TrustedSource) (map[string]bool, error) {
+func expandSources(claim string, src string, sources map[string]*pb.TrustedSource) (map[string]bool, error) {
+	from, err := expandField(src)
+	if err != nil {
+		return nil, err
+	}
 	out := make(map[string]bool)
 	for _, f := range from {
+		if common.IsURL(f) {
+			out[f] = true
+			continue
+		}
 		source, ok := sources[f]
 		if !ok {
 			return nil, fmt.Errorf("from %q name is not a valid source name", f)
@@ -129,53 +131,108 @@ func expandSources(claim string, from []string, sources map[string]*pb.TrustedSo
 	return out, nil
 }
 
-func byMap(strs []string) map[string]bool {
-	out := make(map[string]bool)
-	for _, str := range strs {
-		out[str] = true
+func expandValues(input string, args map[string]string) ([]string, error) {
+	vals, err := expandField(input)
+	if err != nil {
+		return nil, err
 	}
-	return out
+	if args == nil {
+		return vals, err
+	}
+	for i, v := range vals {
+		out, err := common.ReplaceVariables(v, args)
+		if err != nil {
+			return nil, err
+		}
+		vals[i] = out
+	}
+	return vals, nil
 }
 
-// ValidateCondition validates a condition.
-func ValidateCondition(c *pb.Condition, defs map[string]*pb.ClaimDefinition) error {
-	n := 0
-	if len(c.AllTrue) > 0 {
-		n++
+func expandBy(input string) (map[string]bool, error) {
+	list, err := expandField(input)
+	if err != nil {
+		return nil, err
 	}
-	if len(c.AnyTrue) > 0 {
-		n++
+	out := make(map[string]bool)
+	for _, by := range list {
+		if _, ok := byValues[by]; !ok {
+			return nil, fmt.Errorf("by %q is not supported", by)
+		}
+		out[by] = true
 	}
-	du := false
-	claim := ""
-	switch k := c.Key.(type) {
-	case *pb.Condition_Claim:
-		claim = k.Claim
-		n++
-	case *pb.Condition_DataUse:
-		du = true
-		n++
+	return out, nil
+}
+
+func expandField(input string) ([]string, error) {
+	if len(input) == 0 {
+		return nil, nil
 	}
-	if n == 0 {
-		return fmt.Errorf("must specify one of [claim, dataUse, allTrue, anyTrue] in condition: %v", *c)
+	i := strings.Index(input, ":")
+	if i < 0 {
+		return nil, fmt.Errorf("missing pattern type")
 	}
-	if n > 1 {
-		return fmt.Errorf("must specify only one of [claim, dataUse, allTrue, anyTrue] in condition: %v", *c)
+	prefix := input[:i]
+	suffix := input[i+1:]
+	if len(suffix) == 0 {
+		return nil, fmt.Errorf("empty suffix")
 	}
-	n = 0
-	st := false
-	if len(c.Values) > 0 {
-		st = true
-		n++
+	// TODO: change this when using the new policy engine
+	switch prefix {
+	case "const":
+		return []string{suffix}, nil
+	case "pattern":
+		return []string{toPattern(suffix)}, nil
+	case "split_pattern":
+		sp := strings.Split(suffix, ";")
+		for i, s := range sp {
+			sp[i] = toPattern(s)
+		}
+		return sp, nil
 	}
-	if n > 0 && (len(c.AllTrue) > 0 || len(c.AnyTrue) > 0) {
-		return fmt.Errorf("cannot specify a value within scope of a allTrue or anyTrue list of clauses: %v", *c)
+	return nil, fmt.Errorf("pattern type %q not supported", prefix)
+}
+
+// TODO: remove this helper function
+func toPattern(input string) string {
+	if !strings.Contains(input, "*") && !strings.Contains(input, "?") {
+		return input
 	}
-	if du && st {
-		return fmt.Errorf("cannot specify a value with a dataUse: %v", *c)
-	}
-	if _, ok := defs[claim]; !ok && len(claim) > 0 {
-		return fmt.Errorf("claim %q is undefined in claimDefinitions: %v", claim, *c)
+
+	all := regexp.QuoteMeta("*")
+	any := regexp.QuoteMeta("?")
+	q := regexp.QuoteMeta(input)
+	q = strings.ReplaceAll(q, all, ".*")
+	q = strings.ReplaceAll(q, any, ".")
+	q = "^" + q + "$"
+
+	return q
+}
+
+func validateVisaType(typ string, defs map[string]*pb.ClaimDefinition) error {
+	if _, ok := defs[typ]; !ok {
+		return fmt.Errorf("visa type %q is undefined", typ)
 	}
 	return nil
+}
+
+// ValidatePolicy does basic validation for an "anyOf" outer policy layer.
+func ValidatePolicy(anyOf []*pb.Policy_Or, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (string, error) {
+	for i, any := range anyOf {
+		for j, clause := range any.AllOf {
+			if err := validateVisaType(clause.Type, defs); err != nil {
+				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "type"), err
+			}
+			if _, err := expandSources(clause.Type, clause.Source, sources); err != nil {
+				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "source"), err
+			}
+			if _, err := expandValues(clause.Value, args); err != nil {
+				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "value"), err
+			}
+			if _, err := expandBy(clause.By); err != nil {
+				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "by"), err
+			}
+		}
+	}
+	return "", nil
 }

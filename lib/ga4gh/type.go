@@ -149,7 +149,9 @@ func matchSuffix(w string, v string) error {
 	any := regexp.QuoteMeta("?")
 
 	q := regexp.QuoteMeta(w)
-	q = strings.ReplaceAll(q, all, "*")
+	// Replace the quoted all ("*") with the regex equivalent (".*")
+	q = strings.ReplaceAll(q, all, ".*")
+	// Replace the quoted any ("?") with the regex value (".")
 	q = strings.ReplaceAll(q, any, ".")
 	q = "^" + q + "$"
 

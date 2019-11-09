@@ -36,10 +36,16 @@
   },
   "policies": {
     "bona_fide": {
-      "allow": {
-        "claim": "BonaFide",
-        "values": ["https://doi.org/10.1038/s41431-018-0219-y"]
-      },
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "BonaFide",
+              "value": "const:https://doi.org/10.1038/s41431-018-0219-y"
+            }
+          ]
+        }
+      ],
       "ui": {
         "label": "Bona Fide",
         "description": "NIH custom Bona Fide reseacher status that makes use of Registered Access Bona Fide status and/or Library Cards",

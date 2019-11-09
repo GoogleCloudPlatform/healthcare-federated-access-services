@@ -38,8 +38,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/square/go-jose.v2"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
@@ -205,8 +203,8 @@ func NewService(ctx context.Context, domain, defaultBroker string, store storage
 	if err != nil {
 		glog.Fatalf("cannot load config: %v", err)
 	}
-	if err := s.CheckIntegrity(cfg); err != nil {
-		glog.Fatalf("config integrity error: %v", err)
+	if stat := s.CheckIntegrity(cfg); stat != nil {
+		glog.Fatalf("config integrity error: %+v", stat.Proto())
 	}
 	if tests := s.runTests(cfg, nil); hasTestError(tests) {
 		glog.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
@@ -440,13 +438,13 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 	return id, http.StatusOK, nil
 }
 
-func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, []string, error) {
+func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig) (string, []string, error) {
 	p := cfg.TestPersonas[personaName]
 	id, err := persona.ToIdentity(personaName, p, defaultPersonaScope, "")
 	if err != nil {
 		return "INVALID", nil, err
 	}
-	state, got, err := s.resolveAccessList(id, resources, nil, nil, cfg, vm)
+	state, got, err := s.resolveAccessList(id, resources, nil, nil, cfg)
 	if err != nil {
 		return state, got, err
 	}
@@ -456,7 +454,7 @@ func (s *Service) testPersona(personaName string, resources []string, cfg *pb.Da
 	return "FAILED", got, fmt.Errorf("access does not match expectations")
 }
 
-func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, vm map[string]*validator.Policy) (string, []string, error) {
+func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig) (string, []string, error) {
 	var got []string
 	for _, rn := range resources {
 		r, ok := cfg.Resources[rn]
@@ -475,7 +473,7 @@ func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles 
 				if len(roles) > 0 && !common.ListContains(roles, rname) {
 					continue
 				}
-				if _, err := s.checkAuthorization(id, 0, rn, vn, rname, cfg, noClientID, vm); err != nil {
+				if _, err := s.checkAuthorization(id, 0, rn, vn, rname, cfg, noClientID); err != nil {
 					continue
 				}
 				got = append(got, rn+"/"+vn+"/"+rname)
@@ -487,10 +485,8 @@ func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles 
 }
 
 func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, r *http.Request) []string {
-	vm, stat := s.buildValidatorMap(cfg)
-	if stat != nil {
-		return nil
-	}
+	// Ignore errors as the goal of makeAccessList is to show what is accessible despite any errors.
+	// TODO: consider separating acceptable errors (don't halt the request) from system errors that should return an error code.
 	if id == nil {
 		var err error
 		id, _, err = s.getPassportIdentity(cfg, nil, r)
@@ -498,12 +494,14 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 			return nil
 		}
 	}
-	// Ignore errors as the goal of makeAccessList is to show what is accessible despite any errors.
-	_, got, _ := s.resolveAccessList(id, resources, views, roles, cfg, vm)
+	_, got, err := s.resolveAccessList(id, resources, views, roles, cfg)
+	if err != nil {
+		return nil
+	}
 	return got
 }
 
-func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vm map[string]*validator.Policy) (int, error) {
+func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string) (int, error) {
 	if stat := s.checkTrustedIssuer(id.Issuer, cfg); stat != nil {
 		return common.FromCode(stat.Code()), stat.Err()
 	}
@@ -518,13 +516,6 @@ func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, reso
 	entries, err := s.resolveAggregates(srcRes, srcView, cfg)
 	if err != nil {
 		return http.StatusForbidden, err
-	}
-	if vm == nil {
-		var stat *status.Status
-		vm, stat = s.buildValidatorMap(cfg)
-		if stat != nil {
-			return http.StatusForbidden, stat.Err()
-		}
 	}
 	active := false
 	for _, entry := range entries {
@@ -542,12 +533,16 @@ func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, reso
 			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName)
 		}
 		ctxWithTTL := context.WithValue(s.ctx, requestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
-		for _, policy := range vRole.Policies {
-			v, ok := vm[policy]
+		for _, name := range vRole.Policies {
+			policy, ok := cfg.Policies[name]
 			if !ok {
-				return http.StatusInternalServerError, fmt.Errorf("cannot enforce policies for resource %q view %q role %q", resourceName, viewName, roleName)
+				return http.StatusInternalServerError, fmt.Errorf("invalid policy %q for resource %q view %q role %q", name, resourceName, viewName, roleName)
 			}
-			ok, err := v.Validate(ctxWithTTL, id)
+			v, err := s.buildValidator(policy, vRole, cfg)
+			if err != nil {
+				return http.StatusInternalServerError, fmt.Errorf("cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err)
+			}
+			ok, err = v.Validate(ctxWithTTL, id)
 			if err != nil {
 				// TODO: strip internal error
 				return http.StatusInternalServerError, fmt.Errorf("cannot validate identity: %v", err)
@@ -1615,11 +1610,11 @@ func isItemVariable(str string) bool {
 	return strings.HasPrefix(str, "${") && strings.HasSuffix(str, "}")
 }
 
-func (s *Service) makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig) []*pb.PolicyBasis {
+func (s *Service) makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig) map[string]bool {
 	policies := make(map[string]bool)
 	entries, err := s.resolveAggregates(srcRes, srcView, cfg)
 	if err != nil {
-		return []*pb.PolicyBasis{}
+		return nil
 	}
 	for _, entry := range entries {
 		if role, ok := entry.View.AccessRoles[roleName]; ok {
@@ -1629,60 +1624,23 @@ func (s *Service) makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.
 		}
 	}
 
-	rmap := make(map[string]*pb.PolicyBasis)
+	basis := make(map[string]bool)
 	for rn := range policies {
 		if _, ok := cfg.Policies[rn]; ok {
-			addPolicyBasis("allow", cfg.Policies[rn].Allow, rmap)
-			addPolicyBasis("disallow", cfg.Policies[rn].Disallow, rmap)
+			addPolicyBasis(cfg.Policies[rn], basis)
 		}
 	}
-
-	require := make([]*pb.PolicyBasis, 0)
-	for _, ro := range rmap {
-		require = append(require, ro)
-	}
-	return require
+	return basis
 }
 
-func addPolicyBasis(clause string, cond *pb.Condition, rmap map[string]*pb.PolicyBasis) {
-	if cond == nil {
+func addPolicyBasis(p *pb.Policy, basis map[string]bool) {
+	if p == nil {
 		return
 	}
-	switch k := cond.Key.(type) {
-	case *pb.Condition_Claim:
-		mergePolicyBasis(k.Claim, "claim", clause, cond, rmap)
-	case *pb.Condition_DataUse:
-		mergePolicyBasis(k.DataUse, "duo", clause, cond, rmap)
-	}
-	for _, c := range cond.AllTrue {
-		addPolicyBasis(clause, c, rmap)
-	}
-	for _, c := range cond.AnyTrue {
-		addPolicyBasis(clause, c, rmap)
-	}
-}
-
-func mergePolicyBasis(name, ptype, clause string, cond *pb.Condition, rmap map[string]*pb.PolicyBasis) {
-	mname := "claim:" + name
-	item, ok := rmap[mname]
-	if !ok {
-		item = &pb.PolicyBasis{
-			Name:    name,
-			Type:    ptype,
-			Clauses: []string{clause},
+	for _, any := range p.AnyOf {
+		for _, clause := range any.AllOf {
+			basis[clause.Type] = true
 		}
-		rmap[mname] = item
-	}
-	found := false
-	for _, c := range item.Clauses {
-		if c == clause {
-			found = true
-			break
-		}
-	}
-	if !found {
-		item.Clauses = append(item.Clauses, clause)
-		sort.Strings(item.Clauses)
 	}
 }
 
@@ -1834,131 +1792,8 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error)
 	return cfg, nil
 }
 
-func (s *Service) buildValidatorMap(cfg *pb.DamConfig) (map[string]*validator.Policy, *status.Status) {
-	vm := make(map[string]*validator.Policy)
-	policies, stat := s.resolvePolicies(cfg)
-	if stat != nil {
-		return nil, stat
-	}
-	for pname, policy := range policies {
-		v, err := validator.BuildPolicyValidator(s.ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources)
-		if err != nil {
-			return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, pname), fmt.Sprintf("cannot build policy: %v", err))
-		}
-		vm[pname] = v
-	}
-	return vm, nil
-}
-
-func (s *Service) resolvePolicies(cfg *pb.DamConfig) (map[string]*pb.Policy, *status.Status) {
-	out := make(map[string]*pb.Policy)
-	for resname, res := range cfg.Resources {
-		for vname, view := range res.Views {
-			for rolename, role := range view.AccessRoles {
-				for _, p := range role.Policies {
-					if len(p) > 0 && p[len(p)-1] == ')' {
-						policy, err := s.resolvePolicyArgs(p, cfg)
-						if err != nil {
-							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename), err.Error())
-						}
-						out[p] = policy
-					} else {
-						// Verify that no args were missing.
-						policy, ok := cfg.Policies[p]
-						if !ok {
-							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename, "policies", p), fmt.Sprintf("policy %q not found", p))
-						}
-						pargs := make(map[string][]string)
-						used := make(map[string]bool)
-						if err := resolveConditionArgs(policy.Allow, pargs, used); err != nil {
-							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename, "policies", p), err.Error())
-						}
-						if err := resolveConditionArgs(policy.Disallow, pargs, used); err != nil {
-							return nil, common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgResources, resname, "views", vname, "roles", rolename, "policies", p), err.Error())
-						}
-						// Now include it in the output if it is not already there.
-						out[p] = policy
-					}
-				}
-			}
-		}
-	}
-	return out, nil
-}
-
-func (s *Service) resolvePolicyArgs(refPolicy string, cfg *pb.DamConfig) (*pb.Policy, error) {
-	substr := strings.SplitN(refPolicy[0:len(refPolicy)-1], "(", 2)
-	if len(substr) < 2 {
-		return nil, fmt.Errorf("policy args %q: missing opening %q to arg list", refPolicy, "(")
-	}
-	pname := substr[0]
-	argparts := strings.Split(substr[1], ";")
-	src, ok := cfg.Policies[pname]
-	if !ok {
-		return nil, fmt.Errorf("policy reference %q: policy not found", pname)
-	}
-	policy := &pb.Policy{}
-	proto.Merge(policy, src)
-	pargs := make(map[string][]string)
-	for apIdx, ap := range argparts {
-		parts := strings.SplitN(ap, "=", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("policy reference %q part %d: %q does not include an argument name of the form 'ARG=a,b,c,...'", refPolicy, apIdx+1, ap)
-		}
-		argname := parts[0]
-		vals := strings.Split(parts[1], ",")
-		if _, ok := pargs[argname]; ok {
-			return nil, fmt.Errorf("policy reference %q defines arg %q more than once", refPolicy, argname)
-		}
-		pargs[argname] = vals
-	}
-	used := make(map[string]bool)
-	if err := resolveConditionArgs(policy.Allow, pargs, used); err != nil {
-		return nil, fmt.Errorf("policy reference %q error on allow clause: %v", refPolicy, err)
-	}
-	if err := resolveConditionArgs(policy.Disallow, pargs, used); err != nil {
-		return nil, fmt.Errorf("policy reference %q error on disallow clause: %v", refPolicy, err)
-	}
-	if len(pargs) != len(used) {
-		for k := range pargs {
-			if _, ok := used[k]; !ok {
-				return nil, fmt.Errorf("policy reference %q: arg %q is not defined", refPolicy, k)
-			}
-		}
-	}
-	return policy, nil
-}
-
-func resolveConditionArgs(cond *pb.Condition, args map[string][]string, used map[string]bool) error {
-	if cond == nil {
-		return nil
-	}
-	vals := []string{}
-	for _, v := range cond.Values {
-		if len(v) > 2 && strings.HasPrefix(v, "${") && strings.HasSuffix(v, "}") {
-			argName := v[2 : len(v)-1]
-			argVals, ok := args[argName]
-			if !ok {
-				return fmt.Errorf("policy arg %q was not provided as an input parameter", argName)
-			}
-			vals = append(vals, argVals...)
-			used[argName] = true
-		} else {
-			vals = append(vals, v)
-		}
-	}
-	cond.Values = vals
-	for _, sub := range cond.AllTrue {
-		if err := resolveConditionArgs(sub, args, used); err != nil {
-			return err
-		}
-	}
-	for _, sub := range cond.AnyTrue {
-		if err := resolveConditionArgs(sub, args, used); err != nil {
-			return err
-		}
-	}
-	return nil
+func (s *Service) buildValidator(policy *pb.Policy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
+	return validator.BuildPolicyValidator(s.ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources, accessRole.Vars)
 }
 
 func (s *Service) saveConfig(cfg *pb.DamConfig, desc, resType string, r *http.Request, id *ga4gh.Identity, orig, update proto.Message, modification *pb.ConfigModification, tx storage.Tx) error {

@@ -129,18 +129,12 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		if err := checkName(n); err != nil {
 			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n), err.Error())
 		}
-		if path, err := s.checkConditionIntegrity(n, policy.Allow, "allow", cfg); err != nil {
-			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n, path), err.Error())
-		}
-		if path, err := s.checkConditionIntegrity(n, policy.Disallow, "disallow", cfg); err != nil {
+		if path, err := validator.ValidatePolicy(policy.AnyOf, cfg.ClaimDefinitions, cfg.TrustedSources, nil); err != nil {
 			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n, path), err.Error())
 		}
 		if path, err := common.CheckUI(policy.Ui, true); err != nil {
 			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n, path), fmt.Sprintf("policies UI settings: %v", err))
 		}
-	}
-	if _, err := s.resolvePolicies(cfg); err != nil {
-		return err
 	}
 
 	for n, st := range cfg.ServiceTemplates {
@@ -343,8 +337,8 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, s.adapters); err != nil {
 		return path, err
 	}
-	if err := s.checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, true, cfg); err != nil {
-		return common.StatusPath("views", viewName, "accessRoles"), fmt.Errorf("view %q roles: %v", viewName, err)
+	if path, err := s.checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, true, cfg); err != nil {
+		return common.StatusPath("views", viewName, "accessRoles", path), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
 	desc := adapt.Descriptor()
 	if desc.Requirements.Aud && len(view.Aud) == 0 {
@@ -368,31 +362,34 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 	return "", nil
 }
 
-func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) error {
+func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) (string, error) {
 	if requirementCheck && len(roles) == 0 {
-		return fmt.Errorf("does not provide any roles")
+		return "", fmt.Errorf("does not provide any roles")
 	}
 	desc := s.adapters.Descriptors[targetAdapter]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
-			return fmt.Errorf("role has invalid name %q: %v", rname, err)
+			return common.StatusPath(rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
 		}
 		if len(role.ComputedPolicyBasis) > 0 {
-			return fmt.Errorf("role %q interfaces should be determined at runtime and cannot be stored as part of the config", rname)
+			return common.StatusPath(rname, "policyBasis"), fmt.Errorf("role %q interfaces should be determined at runtime and cannot be stored as part of the config", rname)
 		}
 		if role.Policies != nil {
-			for _, policy := range role.Policies {
-				pname := strings.SplitN(policy, "(", 2)[0]
-				if _, ok := cfg.Policies[pname]; !ok {
-					return fmt.Errorf("role %q target policy %q is not defined", rname, pname)
+			for i, name := range role.Policies {
+				policy, ok := cfg.Policies[name]
+				if !ok {
+					return common.StatusPath(rname, "policies", strconv.Itoa(i)), fmt.Errorf("role %q target policy %q is not defined", rname, name)
+				}
+				if path, err := validator.ValidatePolicy(policy.AnyOf, cfg.ClaimDefinitions, cfg.TrustedSources, role.Vars); err != nil {
+					return common.StatusPath(rname, "policies", strconv.Itoa(i), path), err
 				}
 			}
 		}
 		if requirementCheck && len(role.Policies) == 0 && !desc.Properties.IsAggregate {
-			return fmt.Errorf("role %q is configured but does not provide any target policy", rname)
+			return common.StatusPath(rname, "policies"), fmt.Errorf("must provice at least one target policy")
 		}
 	}
-	return nil
+	return "", nil
 }
 
 func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) (string, error) {
@@ -428,52 +425,6 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateNa
 		}
 	}
 	return "", nil
-}
-
-func (s *Service) checkConditionIntegrity(policyName string, cond *pb.Condition, path string, cfg *pb.DamConfig) (string, error) {
-	if cond == nil {
-		return path, nil
-	}
-	n := ""
-	claim := ""
-	if len(cond.AllTrue) > 0 {
-		n = "/allTrue"
-	}
-	if len(cond.AnyTrue) > 0 {
-		n = "/anyTrue"
-	}
-	switch k := cond.Key.(type) {
-	case *pb.Condition_Claim:
-		n = "/claim:" + k.Claim
-		claim = k.Claim
-	case *pb.Condition_DataUse:
-		n = "/claim:" + k.DataUse
-	}
-	// Must contain one of: AllTrue, AnyTrue, {Claim, *Value}, {DataUse, StrValue}.
-	if err := validator.ValidateCondition(cond, cfg.ClaimDefinitions); err != nil {
-		return path, err
-	}
-	path = path + n
-	if len(cond.Is) > 0 && len(claim) == 0 {
-		return path, fmt.Errorf(`comparison "is" type is only for use with claim names`)
-	}
-	for _, f := range cond.From {
-		if _, ok := cfg.TrustedSources[f]; !ok {
-			return path, fmt.Errorf(`"from" restriction %q does not match any Trusted Source names`, f)
-		}
-	}
-	// TODO: support for userlists.
-	for i, sub := range cond.AnyTrue {
-		if p, err := s.checkConditionIntegrity(policyName, sub, fmt.Sprintf("%s:%d", path, i), cfg); err != nil {
-			return p, err
-		}
-	}
-	for i, sub := range cond.AllTrue {
-		if p, err := s.checkConditionIntegrity(policyName, sub, fmt.Sprintf("%s:%d", path, i), cfg); err != nil {
-			return p, err
-		}
-	}
-	return path, nil
 }
 
 func (s *Service) checkOptionsIntegrity(opts *pb.ConfigOptions) *status.Status {
@@ -601,22 +552,13 @@ func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestRes
 	modification := &pb.ConfigModification{
 		TestPersonas: make(map[string]*pb.ConfigModification_PersonaModification),
 	}
-	vm, stat := s.buildValidatorMap(cfg)
-	if stat != nil {
-		return &pb.GetTestResultsResponse{
-			Version:   cfg.Version,
-			Revision:  cfg.Revision,
-			Timestamp: t,
-			Error:     stat.Message(),
-		}
-	}
 	for pname, p := range cfg.TestPersonas {
 		tc++
 		personas[pname] = &cpb.TestPersona{
 			Passport: p.Passport,
 			Access:   p.Access,
 		}
-		status, got, err := s.testPersona(pname, resources, cfg, vm)
+		status, got, err := s.testPersona(pname, resources, cfg)
 		e := ""
 		if err == nil {
 			passed++

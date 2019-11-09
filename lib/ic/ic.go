@@ -3721,11 +3721,8 @@ func (s *Service) saveNewLinkedAccount(newAcct *pb.Account, id *ga4gh.Identity, 
 
 func validateURLs(input map[string]string) error {
 	for k, v := range input {
-		if len(v) < 7 || !(strings.HasPrefix(v, "http://") || strings.HasPrefix(v, "https://")) || !(strings.Contains(v, ".") || strings.Contains(v, "localhost")) || len(strings.Split(v, ":")) > 3 || strings.Contains(v, "//http") {
+		if !common.IsURL(v) {
 			return fmt.Errorf("%q value %q is not a URL", k, v)
-		}
-		if _, err := url.Parse(v); err != nil {
-			return fmt.Errorf("parse %q URL %q: %v", k, v, err)
 		}
 	}
 	return nil

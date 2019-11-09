@@ -29,11 +29,9 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	. "github.com/golang/mock/gomock"
 )
 
 // transformJSON is a cmp.Option that transform strings into structured objects
@@ -299,7 +297,7 @@ func TestHandlers(t *testing.T) {
 										],
 										"roles":{
 											"viewer":{
-												"policies":["bona_fide", "ethics", "GRU"]
+												"policies":["bona_fide", "ethics"]
 											}
 										},
 					          "defaultRole": "viewer",
@@ -331,7 +329,7 @@ func TestHandlers(t *testing.T) {
 										],
 										"roles":{
 											"viewer":{
-												"policies":["bona_fide", "ethics", "GRU"]
+												"policies":["bona_fide", "ethics"]
 											}
 										},
 					          "defaultRole": "viewer",
@@ -360,7 +358,7 @@ func TestHandlers(t *testing.T) {
 										],
 										"roles":{
 											"viewer":{
-												"policies":["bona_fide", "ethics", "GRU"]
+												"policies":["bona_fide", "ethics"]
 											}
 										},
 										"ui": {
@@ -444,26 +442,26 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/config/policies/bona_fide",
-			Output: `^.*"allow"`,
+			Output: `^.*"anyOf"`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "POST",
 			Path:   "/dam/v1alpha/test/config/policies/new-policy",
-			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test.org"]},"ui":{"label":"foo","description":"bar"}}}`,
+			Input:  `{"item":{"anyOf":[{"allOf":[{"type":"BonaFide","value":"const:https://test.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
 			Output: ``,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/policies/new-policy",
-			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test2.org"]},"ui":{"label":"foo","description":"bar"}}}`,
+			Input:  `{"item":{"anyOf":[{"allOf":[{"type":"BonaFide","value":"const:https://test2.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/policies/new-policy",
-			Input:  `{"item":{"allow":{"claim":"BonaFide","values":["https://test3.org"]},"ui":{"label":"foo","description":"bar"}}}`,
+			Input:  `{"item":{"anyOf":[{"allOf":[{"type":"BonaFide","value":"const:https://test3.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
 			Status: http.StatusOK,
 		},
 		{
@@ -953,27 +951,9 @@ func TestCheckAuthorization(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	ctrl := NewController(t)
-	defer ctrl.Finish()
-
-	mockValidator := validator.NewMockValidator(ctrl)
-	mockValidator.EXPECT().Validate(contextMatcher{}, Any()).Return(true, nil).Times(3)
-
-	policies := map[string]*validator.Policy{
-		"bona_fide": {
-			Allow: mockValidator,
-		},
-		"ethics": {
-			Allow: mockValidator,
-		},
-		"GRU": {
-			Allow: mockValidator,
-		},
-	}
-
-	status, err := s.checkAuthorization(id, ttl, resName, viewName, role, cfg, getClientID(r), policies)
+	status, err := s.checkAuthorization(id, ttl, resName, viewName, role, cfg, getClientID(r))
 	if status != http.StatusOK || err != nil {
-		t.Errorf("checkAuthorization(id, %v, %q, %q, %q, cfg, %q, policies) failed, expected %q, got %q: %v", ttl, resName, viewName, role, getClientID(r), http.StatusOK, status, err)
+		t.Errorf("checkAuthorization(id, %v, %q, %q, %q, cfg, %q) failed, expected %q, got %q: %v", ttl, resName, viewName, role, getClientID(r), http.StatusOK, status, err)
 	}
 
 	// TODO: we need more tests for other condition in checkAuthorization()

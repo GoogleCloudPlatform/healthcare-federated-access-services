@@ -967,8 +967,7 @@ func (h *configPolicyHandler) Put(name string) error {
 }
 func (h *configPolicyHandler) Patch(name string) error {
 	proto.Merge(h.item, h.input.Item)
-	h.item.Allow = h.input.Item.Allow
-	h.item.Disallow = h.input.Item.Disallow
+	h.item.AnyOf = h.input.Item.AnyOf
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
 	return nil

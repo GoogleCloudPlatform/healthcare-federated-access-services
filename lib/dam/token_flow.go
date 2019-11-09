@@ -155,7 +155,7 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID := getClientID(r)
-	status, err = s.checkAuthorization(id, ttl, name, viewName, grantRole, cfg, clientID, nil)
+	status, err = s.checkAuthorization(id, ttl, name, viewName, grantRole, cfg, clientID)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -564,7 +564,7 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 			return nil, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", r.View, r.Resource)
 		}
 
-		status, err := s.checkAuthorization(id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, nil)
+		status, err := s.checkAuthorization(id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId)
 		if err != nil {
 			return nil, status, err
 		}

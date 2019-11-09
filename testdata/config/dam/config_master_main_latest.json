@@ -151,40 +151,27 @@
     }
   },
   "policies": {
-    "GRU": {
-      "allow": {
-        "dataUse": "DUO:0000005"
-      },
-      "ui": {
-        "label": "General Research Use",
-        "description": "This primary category consent code indicates that use is allowed for health/medical/biomedical purposes and other biological research, including the study of population origins or ancestry",
-        "infoUrl": "https://www.ebi.ac.uk/ols/ontologies/duo/terms?iri=http%3A%2F%2Fpurl.obolibrary.org%2Fobo%2FDUO_0000005"
-      }
-    },
     "bona_fide": {
-      "allow": {
-        "anyTrue": [
-          {
-            "claim": "BonaFide",
-            "values": ["https://doi.org/10.1038/s41431-018-0219-y"],
-            "from": [
-              "nih_institutes",
-              "eu_universities",
-              "us_universities",
-              "research_companies"
-            ]
-          },
-          {
-            "claim": "AcceptedTermsAndPolicies",
-            "values": ["https://librarycard.broadinstitute.org/v1"],
-            "from": ["the_broad"]
-          }
-        ]
-      },
-      "disallow": {
-        "claim": "nih.Blacklisted",
-        "values": ["true"]
-      },
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "BonaFide",
+              "value": "split_pattern:https://doi.org/10.1038/s41431-018-0219-y;http://www.ga4gh.org/beacon/bonafide/ver1.0",
+              "source": "split_pattern:elixir_institutes;nih_institutes;eu_universities;us_universities;research_companies"
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "type": "AcceptedTermsAndPolicies",
+              "value": "const:https://librarycard.broadinstitute.org/v1",
+              "source": "split_pattern:the_broad"
+            }
+          ]
+        }
+      ],
       "ui": {
         "label": "Bona Fide",
         "description": "NIH custom Bona Fide reseacher status that makes use of Registered Access Bona Fide status and/or Library Cards",
@@ -192,10 +179,17 @@
       }
     },
     "ethics": {
-      "allow": {
-        "claim": "AcceptedTermsAndPolicies",
-        "values": ["https://doi.org/10.1038/s41431-018-0219-y"]
-      },
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "AcceptedTermsAndPolicies",
+              "value": "const:https://doi.org/10.1038/s41431-018-0219-y",
+              "by": "split_pattern:self;so"
+            }
+          ]
+        }
+      ],
       "ui": {
         "label": "Researcher Ethics Agreement",
         "description": "Based on Registered Access ethics terms",
@@ -203,71 +197,22 @@
       }
     },
     "dac": {
-      "allow": {
-        "claim": "ControlledAccessGrants",
-        "from": ["nih_institutes"],
-        "values": ["${DATASETS}"]
-      },
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "ControlledAccessGrants",
+              "value": "const:https://dac.nih.gov/datasets/${DATASET}",
+              "source": "split_pattern:nih_institutes",
+              "by": "const:dac"
+            }
+          ]
+        }
+      ],
       "ui": {
         "label": "Data Access Committee Approval",
         "description": "Approval from a DAC for the researcher to access specific datasets",
         "infoUrl": "https://osp.od.nih.gov/scientific-sharing/policy-oversight/"
-      }
-    },
-    "discovery_access": {
-      "allow": {
-        "allTrue": [
-          {
-            "anyTrue": [
-              {
-                "claim": "BonaFide",
-                "values": [
-                  "https://doi.org/10.1038/s41431-018-0219-y",
-                  "https://www.nature.com/articles/s99999-999-9999-z"
-                ],
-                "from": [
-                  "nih_institutes",
-                  "eu_universities",
-                  "us_universities",
-                  "research_companies"
-                ]
-              },
-              {
-                "claim": "nih.DiscoveryAccess",
-                "values": [
-                  "https://nih.gov/access/level1",
-                  "https://nih.gov/access/level2"
-                ],
-                "from": [
-                  "nih_institutes"
-                ]
-              }
-            ]
-          },
-          {
-            "anyTrue": [
-              {
-                "claim": "ControlledAccessGrants",
-                "values": [
-                  "^.*$"
-                ],
-                "from": [
-                  "nih_institutes"
-                ]
-              },
-              {
-                "claim": "AcceptedTermsAndPolicies",
-                "values": ["https://librarycard.nih.gov/v1"],
-                "from": ["nih_institutes"]
-              }
-            ]
-          }
-        ]
-      },
-      "ui": {
-        "label": "NIH Discovery Access",
-        "description": "NIH Discovery Access policy accepting a combination of Bona Fide or special Discovery Access approval in combination with preexisiting grants or library cards",
-        "infoUrl": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5961811/"
       }
     }
   },
@@ -299,7 +244,10 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac(DATASETS=^https?://dac\\.nih\\.gov/datasets/phs000709$,^https?://dac\\.nih\\.gov/datasets/phs000710$,https://dac.nih.gov/datasets/phs000711)"]
+              "policies": ["dac"],
+              "vars": {
+                "DATASET": "phs000710"
+              }
             }
           },
           "defaultRole": "viewer",
@@ -333,7 +281,10 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac(DATASETS=^https?://dac\\.nih\\.gov/datasets/phs000709$,^https?://dac\\.nih\\.gov/datasets/phs000710$,https://dac.nih.gov/datasets/phs000711)"]
+              "policies": ["dac"],
+              "vars": {
+                "DATASET": "phs000710"
+              }
             }
           },
           "defaultRole": "viewer",
@@ -367,7 +318,10 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac(DATASETS=^https?://dac\\.nih\\.gov/datasets/phs000709$,^https?://dac\\.nih\\.gov/datasets/phs000710$,https://dac.nih.gov/datasets/phs000711)"]
+              "policies": ["dac"],
+              "vars": {
+                "DATASET": "phs000710"
+              }
             }
           },
           "defaultRole": "viewer",
@@ -401,7 +355,10 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac(DATASETS=https://dac.nih.gov/datasets/phs000711)"]
+              "policies": ["dac"],
+              "vars": {
+                "DATASET": "phs000711"
+              }
             }
           },
           "defaultRole": "viewer",
@@ -472,7 +429,7 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["bona_fide", "ethics", "GRU"]
+              "policies": ["bona_fide", "ethics"]
             }
           },
           "defaultRole": "viewer",

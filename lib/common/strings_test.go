@@ -178,3 +178,147 @@ func TestToTitle(t *testing.T) {
 		}
 	}
 }
+
+func TestIsURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "simple string",
+			input: "hello",
+			want:  false,
+		},
+		{
+			name:  "partial prefix but not a URL",
+			input: "http://",
+			want:  false,
+		},
+		{
+			name:  "simple http URL",
+			input: "http://a.org",
+			want:  true,
+		},
+		{
+			name:  "simple https URL",
+			input: "https://a.org",
+			want:  true,
+		},
+		{
+			name:  "case mismatch",
+			input: "Https://a.org",
+			want:  false,
+		},
+		{
+			name:  "longer URL",
+			input: "https://my.longer.example.org/hello/world/how/are/you/today?fruit=apples&mood=happy",
+			want:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		got := IsURL(tc.input)
+		if got != tc.want {
+			t.Errorf("test case %q: IsURL(%q) = %v, want %v", tc.name, tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestReplaceVariables(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		args  map[string]string
+		want  string
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "simple string",
+			input: "hello",
+			want:  "hello",
+		},
+		{
+			name:  "simple string with args",
+			input: "hello",
+			args:  map[string]string{"foo": "bar"},
+			want:  "hello",
+		},
+		{
+			name:  "whole string replace",
+			input: "${foo}",
+			args:  map[string]string{"foo": "bar"},
+			want:  "bar",
+		},
+		{
+			name:  "prefix string replace",
+			input: "${foo}maid",
+			args:  map[string]string{"foo": "bar"},
+			want:  "barmaid",
+		},
+		{
+			name:  "prefix string replace",
+			input: "wonder${foo}",
+			args:  map[string]string{"foo": "bar"},
+			want:  "wonderbar",
+		},
+		{
+			name:  "multiple replace of same variable",
+			input: "a_${foo}_b_${foo}_c",
+			args:  map[string]string{"foo": "bar"},
+			want:  "a_bar_b_bar_c",
+		},
+		{
+			name:  "multiple variables",
+			input: "${toy} is fun to play with when eating an ${food}",
+			args:  map[string]string{"food": "apple", "toy": "LEGO"},
+			want:  "LEGO is fun to play with when eating an apple",
+		},
+	}
+
+	for _, tc := range tests {
+		got, err := ReplaceVariables(tc.input, tc.args)
+		if err != nil {
+			t.Errorf("test case %q: ReplaceVariables(%q, %v) = (%v, %v) unexpected error", tc.name, tc.input, tc.args, got, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("test case %q: ReplaceVariables(%q, %v) = (%v, nil), want %q", tc.name, tc.input, tc.args, got, tc.want)
+		}
+	}
+}
+
+func TestReplaceVariablesErrors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		args  map[string]string
+	}{
+		{
+			name:  "no variables not defined",
+			input: "${foo}",
+		},
+		{
+			name:  "wrong variables defined",
+			input: "${foo}",
+			args:  map[string]string{"food": "apple", "toy": "LEGO"},
+		},
+	}
+
+	for _, tc := range tests {
+		got, err := ReplaceVariables(tc.input, tc.args)
+		if err == nil {
+			t.Errorf("test case %q: ReplaceVariables(%q, %v) = (%v, %v) was expecting an error", tc.name, tc.input, tc.args, got, err)
+			continue
+		}
+	}
+}

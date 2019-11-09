@@ -68,15 +68,23 @@ message Condition {
 }
 
 message Policy {
-  Condition allow = 1;
-  Condition disallow = 2;
-  map<string, string> ui = 3;
-}
+  message And {
+    string type = 1;
+    string source = 2;
+    string value = 3;
+    string by = 4;
+  }
+  message Or {
+    repeated And all_of = 1;
+  }
+  message Variable {
+    string format = 1;
+    map<string, string> ui = 2;
+  }
 
-message PolicyBasis {
-  string name = 1;
-  string type = 2;
-  repeated string clauses = 3;
+  repeated Or any_of = 1;
+  map<string, Variable> variable_definitions = 2;
+  map<string, string> ui = 3;
 }
 
 message View {
@@ -136,7 +144,8 @@ message ServiceRole {
 
 message AccessRole {
   repeated string policies = 1;
-  repeated PolicyBasis computed_policy_basis = 3 [json_name = "policyBasis"];
+  map<string, string> vars = 2;
+  map<string, bool> computed_policy_basis = 3 [json_name = "policyBasis"];
 }
 
 message ConfigOptions {
