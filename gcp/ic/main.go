@@ -61,6 +61,11 @@ func main() {
 	if serviceName == "" {
 		serviceName = DefaultServiceName
 	}
+	hydraAdminURL := os.Getenv("HYDRA_ADMIN_URL")
+	if hydraAdminURL == "" {
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
+	}
+
 	var store storage.Store
 	switch storeName {
 	case "datastore":
@@ -80,7 +85,7 @@ func main() {
 		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
 	}
 
-	s := ic.NewService(ctx, domain, acctDomain, store, gcpkms)
+	s := ic.NewService(ctx, domain, acctDomain, hydraAdminURL, store, gcpkms)
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"

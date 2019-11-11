@@ -36,5 +36,9 @@ env_variables:
   # PERSONA_DAM_CLIENT_SECRET is the IC's client secret for use with the PERSONA_DAM_URL service.
   # Remove this from production systems.
   PERSONA_DAM_CLIENT_SECRET: "your-dam-client-secret"
+  # HYDRA_PUBLIC_URL sets the hydra public url for start login.
+  HYDRA_PUBLIC_URL: "https://you-hydra-public-url"
+  # HYDRA_ADMIN_URL sets the hydra admin url for callback.
+  HYDRA_ADMIN_URL: "https://you-hydra-admin-url"
   # STORAGE is one of: "memory", "datastore".
   STORAGE: "datastore"

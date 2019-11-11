@@ -42,6 +42,7 @@ import (
 
 const (
 	domain           = "example.com"
+	hydraAdminURL    = "https://example.com"
 	oidcIssuer       = "https://" + domain + "/oidc"
 	testClientID     = "00000000-0000-0000-0000-000000000000"
 	testClientSecret = "00000000-0000-0000-0000-000000000001"
@@ -56,7 +57,7 @@ func init() {
 
 func TestOidcEndpoints(t *testing.T) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, store, fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, hydraAdminURL, store, fakeencryption.New())
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -96,7 +97,7 @@ func TestHandlers(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, store, crypt)
+	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt)
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -248,7 +249,7 @@ func TestAdminHandlers(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 
-	s := NewService(ctx, domain, domain, store, fakeencryption.New())
+	s := NewService(ctx, domain, domain, hydraAdminURL, store, fakeencryption.New())
 	tests := []test.HandlerTest{
 		{
 			Name:    "List all tokens of all users as a non-admin",
@@ -297,7 +298,7 @@ func TestAdminHandlers(t *testing.T) {
 func TestNonce(t *testing.T) {
 	nonce := "nonce-for-test"
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, store, fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, hydraAdminURL, store, fakeencryption.New())
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -406,7 +407,7 @@ func TestAddLinkedIdentities(t *testing.T) {
 	}
 
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, store, fakeencryption.New())
+	s := NewService(context.Background(), domain, domain, hydraAdminURL, store, fakeencryption.New())
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)

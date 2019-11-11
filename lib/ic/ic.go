@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package ic is identity concentrator for GA4GH Passports.
 package ic
 
 import (
@@ -66,6 +67,7 @@ const (
 	informationReleasePageFile = "pages/information_release.html"
 	testPageFile               = "pages/test.html"
 	tokenFlowTestPageFile      = "pages/new-flow-test.html"
+	hydraICTestPageFile        = "pages/hydra-ic-test.html"
 	staticDirectory            = "assets/serve/"
 	version                    = "v1alpha"
 	requiresAdmin              = true
@@ -108,6 +110,10 @@ const (
 	adminPathPrefix        = methodPrefix + "admin"
 	adminClaimsPath        = adminPathPrefix + "/subjects/{name}/account/claims"
 	adminTokenMetadataPath = adminPathPrefix + "/tokens"
+
+	hydraLoginPath   = basePath + "/login"
+	hydraConsentPath = basePath + "/consent"
+	hydraTestPage    = basePath + "/hydra-test"
 
 	testPath          = methodPrefix + "test"
 	tokenFlowTestPath = basePath + "/new-flow-test"
@@ -259,10 +265,12 @@ type Service struct {
 	infomationReleasePage string
 	testPage              string
 	tokenFlowTestPage     string
+	hydraTestPage         string
 	startTime             int64
 	permissions           *common.Permissions
 	domain                string
 	accountDomain         string
+	hydraAdminURL         string
 	translators           sync.Map
 	encryption            Encryption
 }
@@ -281,9 +289,10 @@ type Encryption interface {
 // NewService create new IC service.
 // - domain: domain used to host ic service
 // - accountDomain: domain used to host service account warehouse
+// - hydraAdminURL: hydra admin endpoints url
 // - store: data storage and configuration storage
 // - encryption: the encryption use for storing tokens safely in database
-func NewService(ctx context.Context, domain, accountDomain string, store storage.Store, encryption Encryption) *Service {
+func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string, store storage.Store, encryption Encryption) *Service {
 	sh := &ServiceHandler{}
 	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
@@ -310,6 +319,10 @@ func NewService(ctx context.Context, domain, accountDomain string, store storage
 	if err != nil {
 		glog.Fatalf("cannot load token flow test page: %v", err)
 	}
+	htp, err := common.LoadFile(hydraICTestPageFile)
+	if err != nil {
+		glog.Fatalf("cannot load hydra test page: %v", err)
+	}
 
 	perms, err := common.LoadPermissions(store)
 	if err != nil {
@@ -324,10 +337,12 @@ func NewService(ctx context.Context, domain, accountDomain string, store storage
 		infomationReleasePage: irp,
 		testPage:              tp,
 		tokenFlowTestPage:     tfp,
+		hydraTestPage:         htp,
 		startTime:             time.Now().Unix(),
 		permissions:           perms,
 		domain:                domain,
 		accountDomain:         accountDomain,
+		hydraAdminURL:         hydraAdminURL,
 		encryption:            encryption,
 	}
 
@@ -414,7 +429,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	// Allow some requests to proceed without client IDs and/or secrets.
 	path := common.RequestAbstractPath(r)
-	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, tokenFlowTestPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcPath) {
+	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, tokenFlowTestPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcPath) || path == hydraLoginPath || path == hydraConsentPath || path == hydraTestPage {
 		sh.Handler.ServeHTTP(w, r)
 		return
 	}
@@ -484,6 +499,10 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(oidcConfiguarePath, s.OidcWellKnownConfig).Methods("GET")
 	r.HandleFunc(oidcJwksPath, s.OidcKeys).Methods("GET")
 	r.HandleFunc(oidcUserInfoPath, s.OidcUserInfo).Methods("GET", "POST")
+
+	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
+	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
+	r.HandleFunc(hydraTestPage, s.HydraTestPage).Methods(http.MethodGet)
 
 	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(storage.ProjectRoot, staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)
