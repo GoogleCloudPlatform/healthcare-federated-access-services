@@ -8,17 +8,16 @@ require (
   cloud.google.com/go/datastore v1.0.0
   github.com/cenkalti/backoff v2.1.1+incompatible
   github.com/coreos/go-oidc v2.0.0+incompatible
-  github.com/davecgh/go-spew v1.1.1 // indirect
   github.com/dgrijalva/jwt-go v3.2.0+incompatible
+  github.com/go-openapi/strfmt v0.19.3 // indirect
   github.com/golang/mock v1.3.1
   github.com/golang/protobuf v1.3.2
   github.com/google/go-cmp v0.3.1
   github.com/gorilla/mux v1.7.0
   github.com/hashicorp/golang-lru v0.5.3 // indirect
   github.com/pborman/uuid v1.2.0
-  github.com/pmezard/go-difflib v1.0.0 // indirect
   github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
-  github.com/stretchr/testify v1.2.2 // indirect
+  go.mongodb.org/mongo-driver v1.1.3 // indirect
   golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
   golang.org/x/exp v0.0.0-20190731235908-ec7cb31e5a56 // indirect
   golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297 // indirect
@@ -32,7 +31,4 @@ require (
   honnef.co/go/tools v0.0.1-2019.2.2 // indirect
 )
 
-replace (
-  git.apache.org/thrift.git => github.com/apache/thrift v0.0.0-20180902110319-2566ecd5d999
-)
-
+replace git.apache.org/thrift.git => github.com/apache/thrift v0.0.0-20180902110319-2566ecd5d999
