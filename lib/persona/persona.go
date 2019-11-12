@@ -252,11 +252,11 @@ func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion,
 				By:       ga4gh.By(assert.By),
 			},
 		}
-		if len(assert.Conditions) > 0 {
+		if len(assert.AnyOfConditions) > 0 {
 			visa.Assertion.Conditions = make(ga4gh.Conditions, 0)
-			for _, cond := range assert.Conditions {
+			for _, cond := range assert.AnyOfConditions {
 				clauses := []ga4gh.Condition{}
-				for _, clause := range cond.Clauses {
+				for _, clause := range cond.AllOf {
 					c := ga4gh.Condition{
 						Type:   ga4gh.Type(clause.Type),
 						Value:  ga4gh.Pattern(clause.Value),
@@ -283,14 +283,14 @@ func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion,
 			Expires:  float64(expires),
 			By:       assert.By,
 		}
-		if len(assert.Conditions) > 0 {
+		if len(assert.AnyOfConditions) > 0 {
 			c.Condition = make(map[string]ga4gh.OldClaimCondition)
 			cType := ""
 			cValue := []string{}
 			cSource := []string{}
 			cBy := []string{}
-			for _, cond := range assert.Conditions {
-				for _, clause := range cond.Clauses {
+			for _, cond := range assert.AnyOfConditions {
+				for _, clause := range cond.AllOf {
 					cType = clause.Type
 					clValue := clause.Value
 					if clValues := strings.SplitN(clause.Value, ":", 2); len(clValues) > 1 {

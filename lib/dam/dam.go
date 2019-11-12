@@ -533,12 +533,8 @@ func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, reso
 			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName)
 		}
 		ctxWithTTL := context.WithValue(s.ctx, requestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
-		for _, name := range vRole.Policies {
-			policy, ok := cfg.Policies[name]
-			if !ok {
-				return http.StatusInternalServerError, fmt.Errorf("invalid policy %q for resource %q view %q role %q", name, resourceName, viewName, roleName)
-			}
-			v, err := s.buildValidator(policy, vRole, cfg)
+		for _, p := range vRole.Policies {
+			v, err := s.buildValidator(p, vRole, cfg)
 			if err != nil {
 				return http.StatusInternalServerError, fmt.Errorf("cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err)
 			}
@@ -1618,8 +1614,8 @@ func (s *Service) makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.
 	}
 	for _, entry := range entries {
 		if role, ok := entry.View.AccessRoles[roleName]; ok {
-			for _, policy := range role.Policies {
-				policies[policy] = true
+			for _, p := range role.Policies {
+				policies[p.Name] = true
 			}
 		}
 	}
@@ -1792,8 +1788,12 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error)
 	return cfg, nil
 }
 
-func (s *Service) buildValidator(policy *pb.Policy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
-	return validator.BuildPolicyValidator(s.ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources, accessRole.Vars)
+func (s *Service) buildValidator(ap *pb.AccessRole_AccessPolicy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
+	policy, ok := cfg.Policies[ap.Name]
+	if !ok {
+		return nil, fmt.Errorf("access policy name %q does not match any policy names", ap.Name)
+	}
+	return validator.BuildPolicyValidator(s.ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources, ap.Vars)
 }
 
 func (s *Service) saveConfig(cfg *pb.DamConfig, desc, resType string, r *http.Request, id *ga4gh.Identity, orig, update proto.Message, modification *pb.ConfigModification, tx storage.Tx) error {

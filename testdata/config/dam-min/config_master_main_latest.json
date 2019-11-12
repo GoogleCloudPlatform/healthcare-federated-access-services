@@ -76,7 +76,9 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["bona_fide"]
+              "policies": [
+                {"name":"bona_fide"}
+              ]
             }
           },
           "defaultRole": "viewer",

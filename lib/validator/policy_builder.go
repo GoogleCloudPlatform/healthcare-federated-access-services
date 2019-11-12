@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
@@ -44,7 +45,7 @@ func BuildPolicyValidator(ctx context.Context, policy *pb.Policy, defs map[strin
 	return NewPolicy(allow, nil), nil
 }
 
-func policyValidator(ctx context.Context, anyOf []*pb.Policy_Or, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (Validator, error) {
+func policyValidator(ctx context.Context, anyOf []*cpb.ConditionSet, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (Validator, error) {
 	if len(anyOf) == 0 {
 		return nil, nil
 	}
@@ -217,7 +218,7 @@ func validateVisaType(typ string, defs map[string]*pb.ClaimDefinition) error {
 }
 
 // ValidatePolicy does basic validation for an "anyOf" outer policy layer.
-func ValidatePolicy(anyOf []*pb.Policy_Or, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (string, error) {
+func ValidatePolicy(anyOf []*cpb.ConditionSet, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (string, error) {
 	for i, any := range anyOf {
 		for j, clause := range any.AllOf {
 			if err := validateVisaType(clause.Type, defs); err != nil {

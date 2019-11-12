@@ -42,11 +42,11 @@ type Assertion struct {
 
 func toAssertionProto(a Assertion) *cpb.Assertion {
 	return &cpb.Assertion{
-		Type:       string(a.Type),
-		Value:      string(a.Value),
-		Source:     string(a.Source),
-		By:         string(a.By),
-		Asserted:   int64(a.Asserted),
-		Conditions: toConditionsProto(a.Conditions),
+		Type:            string(a.Type),
+		Value:           string(a.Value),
+		Source:          string(a.Source),
+		By:              string(a.By),
+		Asserted:        int64(a.Asserted),
+		AnyOfConditions: toConditionsProto(a.Conditions),
 	}
 }

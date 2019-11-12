@@ -19,22 +19,27 @@ package common;
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
 
+message Condition {
+  string type = 1;
+  string source = 2;
+  string value = 3;
+  string by = 4;
+}
+
+message ConditionSet {
+  repeated Condition all_of = 1;
+}
+
 message Assertion {
-  message ConditionClause {
-    string type = 1;
-    string source = 2;
-    string value = 3;
-    string by = 4;
-  }
-  message Condition {
-    repeated ConditionClause clauses = 1;
-  }
   string type = 1;
   string source = 2;
   string value = 3;
   string asserted_duration = 4;
   string expires_duration = 5;
-  repeated Condition conditions = 6;
+  // Disjunction of Conjunctions (OR of ANDs).
+  // If at least one of these ConditionSets evaluates to true, then the
+  // conditions on this assertion have been met.
+  repeated ConditionSet any_of_conditions = 6;
   string by = 7;
   int64 asserted = 8;
   int64 exp = 9;

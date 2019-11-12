@@ -375,12 +375,15 @@ func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName
 			return common.StatusPath(rname, "policyBasis"), fmt.Errorf("role %q interfaces should be determined at runtime and cannot be stored as part of the config", rname)
 		}
 		if role.Policies != nil {
-			for i, name := range role.Policies {
-				policy, ok := cfg.Policies[name]
-				if !ok {
-					return common.StatusPath(rname, "policies", strconv.Itoa(i)), fmt.Errorf("role %q target policy %q is not defined", rname, name)
+			for i, p := range role.Policies {
+				if len(p.Name) == 0 {
+					return common.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("access policy name is not defined")
 				}
-				if path, err := validator.ValidatePolicy(policy.AnyOf, cfg.ClaimDefinitions, cfg.TrustedSources, role.Vars); err != nil {
+				policy, ok := cfg.Policies[p.Name]
+				if !ok {
+					return common.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("policy %q is not defined", p.Name)
+				}
+				if path, err := validator.ValidatePolicy(policy.AnyOf, cfg.ClaimDefinitions, cfg.TrustedSources, p.Vars); err != nil {
 					return common.StatusPath(rname, "policies", strconv.Itoa(i), path), err
 				}
 			}

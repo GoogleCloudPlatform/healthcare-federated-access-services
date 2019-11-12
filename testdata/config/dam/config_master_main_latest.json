@@ -244,10 +244,14 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac"],
-              "vars": {
-                "DATASET": "phs000710"
-              }
+              "policies": [
+                {
+                  "name":"dac",
+                  "vars": {
+                    "DATASET": "phs000710"
+                  }
+                }
+              ]
             }
           },
           "defaultRole": "viewer",
@@ -281,10 +285,14 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac"],
-              "vars": {
-                "DATASET": "phs000710"
-              }
+              "policies": [
+                {
+                  "name": "dac",
+                  "vars": {
+                    "DATASET": "phs000710"
+                  }
+                }
+              ]
             }
           },
           "defaultRole": "viewer",
@@ -318,10 +326,14 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac"],
-              "vars": {
-                "DATASET": "phs000710"
-              }
+              "policies": [
+                {
+                  "name": "dac",
+                  "vars": {
+                    "DATASET": "phs000710"
+                  }
+                }
+              ]
             }
           },
           "defaultRole": "viewer",
@@ -355,10 +367,14 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["dac"],
-              "vars": {
-                "DATASET": "phs000711"
-              }
+              "policies": [
+                {
+                  "name": "dac",
+                  "vars": {
+                    "DATASET": "phs000711"
+                  }
+                }
+              ]
             }
           },
           "defaultRole": "viewer",
@@ -400,7 +416,9 @@
           "aud": "https://ga4gh-apis-beacon.dnastack.com",
           "roles": {
             "discovery": {
-              "policies": ["bona_fide"]
+              "policies": [
+                {"name":"bona_fide"}
+              ]
             }
           },
           "defaultRole": "discovery",
@@ -429,7 +447,9 @@
           ],
           "roles": {
             "viewer": {
-              "policies": ["bona_fide", "ethics"]
+              "policies": [
+                {"name":"bona_fide"}, {"name":"ethics"}
+              ]
             }
           },
           "defaultRole": "viewer",
@@ -726,9 +746,9 @@
             "assertedDuration": "1d",
             "expiresDuration": "30d",
             "by": "dac",
-            "conditions": [
+            "anyOfConditions": [
               {
-                "clauses": [
+                "allOf": [
                   {
                     "type": "AffiliationAndRole",
                     "value": "const:faculty@example.edu",

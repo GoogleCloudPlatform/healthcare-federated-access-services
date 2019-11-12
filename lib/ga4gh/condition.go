@@ -121,25 +121,25 @@ func CheckCondition(c Condition, a Assertion) error {
 	return nil
 }
 
-func toConditionsProto(c Conditions) []*cpb.Assertion_Condition {
+func toConditionsProto(c Conditions) []*cpb.ConditionSet {
 	if len(c) == 0 {
 		return nil
 	}
-	out := []*cpb.Assertion_Condition{}
+	out := []*cpb.ConditionSet{}
 	for _, cor := range c {
-		pc := &cpb.Assertion_Condition{
-			Clauses: []*cpb.Assertion_ConditionClause{},
+		cs := &cpb.ConditionSet{
+			AllOf: []*cpb.Condition{},
 		}
 		for _, cand := range cor {
-			clause := &cpb.Assertion_ConditionClause{
+			clause := &cpb.Condition{
 				Type:   string(cand.Type),
 				Source: string(cand.Source),
 				Value:  string(cand.Value),
 				By:     string(cand.By),
 			}
-			pc.Clauses = append(pc.Clauses, clause)
+			cs.AllOf = append(cs.AllOf, clause)
 		}
-		out = append(out, pc)
+		out = append(out, cs)
 	}
 	return out
 }

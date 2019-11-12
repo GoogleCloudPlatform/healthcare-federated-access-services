@@ -53,37 +53,9 @@ message TrustedSource {
   map<string, string> ui = 3;
 }
 
-message Condition {
-  oneof key {
-    string claim = 1;
-    string data_use = 2;
-    string user_list = 3;
-  }
-  string is = 4;
-  repeated string values = 5;
-  repeated string from = 6;
-  repeated string by = 7;
-  repeated Condition all_true = 8;
-  repeated Condition any_true = 9;
-}
-
 message Policy {
-  message And {
-    string type = 1;
-    string source = 2;
-    string value = 3;
-    string by = 4;
-  }
-  message Or {
-    repeated And all_of = 1;
-  }
-  message Variable {
-    string format = 1;
-    map<string, string> ui = 2;
-  }
-
-  repeated Or any_of = 1;
-  map<string, Variable> variable_definitions = 2;
+  repeated common.ConditionSet any_of = 1;
+  map<string, VariableFormat> variable_definitions = 2;
   map<string, string> ui = 3;
 }
 
@@ -143,8 +115,11 @@ message ServiceRole {
 }
 
 message AccessRole {
-  repeated string policies = 1;
-  map<string, string> vars = 2;
+  message AccessPolicy {
+    string name = 1;
+    map<string, string> vars = 2;
+  }
+  repeated AccessPolicy policies = 1;
   map<string, bool> computed_policy_basis = 3 [json_name = "policyBasis"];
 }
 

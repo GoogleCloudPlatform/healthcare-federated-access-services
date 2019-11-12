@@ -297,7 +297,9 @@ func TestHandlers(t *testing.T) {
 										],
 										"roles":{
 											"viewer":{
-												"policies":["bona_fide", "ethics"]
+												"policies":[
+													{"name":"bona_fide"}, {"name":"ethics"}
+												]
 											}
 										},
 					          "defaultRole": "viewer",
@@ -329,7 +331,9 @@ func TestHandlers(t *testing.T) {
 										],
 										"roles":{
 											"viewer":{
-												"policies":["bona_fide", "ethics"]
+												"policies":[
+													{"name":"bona_fide"}, {"name":"ethics"}
+												]
 											}
 										},
 					          "defaultRole": "viewer",
@@ -358,7 +362,9 @@ func TestHandlers(t *testing.T) {
 										],
 										"roles":{
 											"viewer":{
-												"policies":["bona_fide", "ethics"]
+												"policies":[
+													{"name":"bona_fide"}, {"name":"ethics"}
+												]
 											}
 										},
 										"ui": {
@@ -625,9 +631,9 @@ func TestHandlers(t *testing.T) {
 								"assertedDuration": "1d",
 								"expiresDuration": "30d",
 								"by": "dac",
-								"conditions": [
+								"anyOfConditions": [
        		      	{
-                		"clauses": [
+                		"allOf": [
                   		{
                     		"type": "AffiliationAndRole",
                     		"value": "const:faculty@example.edu",
@@ -680,9 +686,9 @@ func TestHandlers(t *testing.T) {
 								"assertedDuration": "1d",
 								"expiresDuration": "30d",
 								"by": "dac",
-								"conditions": [
+								"anyOfConditions": [
        		      	{
-                		"clauses": [
+                		"allOf": [
                   		{
                     		"type": "AffiliationAndRole",
                     		"value": "const:faculty@example.edu",
