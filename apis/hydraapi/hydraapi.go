@@ -20,5 +20,5 @@ import "fmt"
 
 // Error implements error interface.
 func (s *GenericError) Error() string {
-	return fmt.Sprintf("Hydra GenericError %d %s: %s", s.Code, s.Name, s.Description)
+	return fmt.Sprintf("Hydra GenericError %d %s: %s", s.Code, *s.Name, s.Description)
 }

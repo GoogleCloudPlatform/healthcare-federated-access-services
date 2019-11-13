@@ -19,7 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"google3/third_party/golang/klog/glog/glog"
+	glog "github.com/golang/glog"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 )
 
