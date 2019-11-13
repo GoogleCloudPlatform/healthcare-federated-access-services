@@ -15,17 +15,83 @@
 package ic
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
-	glog "github.com/golang/glog"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+
+	glog "github.com/golang/glog"
 )
 
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
-	glog.Errorln("unimplemented")
+	// Use login_challenge fetch information from hydra.
+	challenge := common.GetParam(r, "login_challenge")
+	if len(challenge) == 0 {
+		common.HandleError(http.StatusBadRequest, fmt.Errorf("request must include query login_challenge"), w)
+		return
+	}
+
+	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	// If hydra was already able to authenticate the user, skip will be true and we do not need to re-authenticate
+	// the user.
+	if login.Skip {
+		// You can apply logic here, for example update the number of times the user logged in.
+
+		// TODO: provide metrics / audit logs for this case
+
+		// Now it's time to grant the login request. You could also deny the request if something went terribly wrong
+		resp, err := hydra.AcceptLoginRequest(s.httpClient, s.hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+
+		common.SendRedirect(resp.RedirectTo, r, w)
+		return
+	}
+
+	cfg, err := s.loadConfig(nil, getRealm(r))
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	u, err := url.Parse(login.RequestURL)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	realm := u.Query().Get("realm")
+	if len(realm) == 0 {
+		realm = storage.DefaultRealm
+	}
+
+	scopes := login.RequestedScope
+	if len(scopes) == 0 {
+		scopes = defaultIdpScopes
+	}
+
+	// Return Login page.
+	query := fmt.Sprintf("?scope=%s&login_challenge=%s", url.QueryEscape(strings.Join(scopes, " ")), url.QueryEscape(challenge))
+	page, err := s.renderLoginPage(cfg, map[string]string{"realm": realm}, query)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+	common.SendHTML(page, w)
 }
 
 // HydraConsent handles consent request from hydra.

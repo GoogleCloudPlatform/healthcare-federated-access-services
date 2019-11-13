@@ -260,6 +260,7 @@ type Service struct {
 	store                 storage.Store
 	Handler               *ServiceHandler
 	ctx                   context.Context
+	httpClient            *http.Client
 	loginPage             string
 	clientLoginPage       string
 	infomationReleasePage string
@@ -273,6 +274,7 @@ type Service struct {
 	hydraAdminURL         string
 	translators           sync.Map
 	encryption            Encryption
+	useHydra              bool
 }
 
 type ServiceHandler struct {
@@ -292,7 +294,7 @@ type Encryption interface {
 // - hydraAdminURL: hydra admin endpoints url
 // - store: data storage and configuration storage
 // - encryption: the encryption use for storing tokens safely in database
-func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string, store storage.Store, encryption Encryption) *Service {
+func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string, store storage.Store, encryption Encryption, useHydra bool) *Service {
 	sh := &ServiceHandler{}
 	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
@@ -332,6 +334,7 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string
 		store:                 store,
 		Handler:               sh,
 		ctx:                   ctx,
+		httpClient:            http.DefaultClient,
 		loginPage:             lp,
 		clientLoginPage:       clp,
 		infomationReleasePage: irp,
@@ -344,6 +347,7 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string
 		accountDomain:         accountDomain,
 		hydraAdminURL:         hydraAdminURL,
 		encryption:            encryption,
+		useHydra:              useHydra,
 	}
 
 	if err := validateURLs(map[string]string{
@@ -433,6 +437,14 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sh.Handler.ServeHTTP(w, r)
 		return
 	}
+
+	// OAuth2 client logic will include in hydra.
+	// TODO: remove unused endpoints.
+	if sh.s.useHydra {
+		sh.Handler.ServeHTTP(w, r)
+		return
+	}
+
 	if status, err := sh.s.verifyClient(path, r); err != nil {
 		http.Error(w, err.Error(), status)
 		return
@@ -779,31 +791,35 @@ func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 	vars := mux.Vars(r)
 
+	page, err := s.renderLoginPage(cfg, vars, params)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+	}
+	common.SendHTML(page, w)
+}
+
+func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, queryParams string) (string, error) {
 	list := &pb.LoginPageProviders{
 		Idps:     make(map[string]*pb.LoginPageProviders_ProviderEntry),
 		Personas: make(map[string]*pb.LoginPageProviders_ProviderEntry),
 	}
 	for name, idp := range cfg.IdentityProviders {
-		idpParams := params
 		list.Idps[name] = &pb.LoginPageProviders_ProviderEntry{
-			Url: buildPath(loginPath, name, vars) + idpParams,
+			Url: buildPath(loginPath, name, pathVars) + queryParams,
 			Ui:  idp.Ui,
 		}
 	}
 
-	clientID := getClientID(r)
-	params = "?client_id=" + clientID + "&redirect_uri=" + url.QueryEscape(redirect) + "&scope=" + url.QueryEscape(scope) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce)
 	ma := jsonpb.Marshaler{}
 	json, err := ma.MarshalToString(list)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
+		return "", err
 	}
 	page := strings.Replace(s.loginPage, "${PROVIDER_LIST}", json, -1)
 	page = strings.Replace(page, "${ASSET_DIR}", assetPath, -1)
 	page = strings.Replace(page, "${SERVICE_TITLE}", serviceTitle, -1)
 	page = strings.Replace(page, "${LOGIN_INFO_TITLE}", loginInfoTitle, -1)
-	common.SendHTML(page, w)
+	return page, nil
 }
 
 func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirect string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {

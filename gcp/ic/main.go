@@ -65,6 +65,8 @@ func main() {
 	if hydraAdminURL == "" {
 		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
 	}
+	// TODO will remove this flag after hydra integration complete.
+	useHydra := os.Getenv("USE_HYDRA") != ""
 
 	var store storage.Store
 	switch storeName {
@@ -85,7 +87,7 @@ func main() {
 		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
 	}
 
-	s := ic.NewService(ctx, domain, acctDomain, hydraAdminURL, store, gcpkms)
+	s := ic.NewService(ctx, domain, acctDomain, hydraAdminURL, store, gcpkms, useHydra)
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"
