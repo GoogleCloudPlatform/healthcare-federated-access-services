@@ -15,6 +15,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -304,6 +305,36 @@ func SendRedirect(url string, r *http.Request, w http.ResponseWriter) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
+// DecodeJSONFromBody decodes json in http request/response body.
+func DecodeJSONFromBody(body io.ReadCloser, o interface{}) error {
+	defer body.Close()
+
+	b, err := ioutil.ReadAll(body)
+	if err != nil {
+		return fmt.Errorf("ioutil.ReadAll failed: %v", err)
+	}
+
+	err = json.Unmarshal(b, o)
+	if err != nil {
+		return fmt.Errorf("json.Unmarshal(%s) failed: %v", string(b), err)
+	}
+	return nil
+}
+
+// EncodeJSONToResponse encode o to json to http response body.
+// No Cors and no-cache header will apply.
+func EncodeJSONToResponse(w http.ResponseWriter, status int, o interface{}) error {
+	b, err := json.Marshal(o)
+	if err != nil {
+		return fmt.Errorf("json.Marshal(%v) failed: %v", o, err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, err = w.Write(b)
+	return err
+}
+
+// CheckName checks name following the given rule.
 func CheckName(field, name string, rem map[string]*regexp.Regexp) error {
 	if len(name) == 0 {
 		return fmt.Errorf("invalid %s: empty", field)
