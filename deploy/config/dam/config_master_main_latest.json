@@ -21,17 +21,17 @@
   },
   "policies": {
     "bona_fide": {
-      "allow": {
-        "claim": "ResearcherStatus",
-        "values": [
-          "https://doi.org/10.1038/s41431-018-0219-y",
-          "http://www.ga4gh.org/beacon/bonafide/ver1.0"
-        ],
-        "from": [
-          "elixir_institutes",
-          "eu_universities"
-        ]
-      },
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "ResearcherStatus",
+              "value": "split_pattern:https://doi.org/10.1038/s41431-018-0219-y;http://www.ga4gh.org/beacon/bonafide/ver1.0",
+              "source": "split_pattern:elixir_institutes;eu_universities"
+            }
+          ]
+        }
+      ],
       "ui": {
         "label": "Bona Fide",
         "description": "Bona Fide Researcher Status v1.0.0 as defined by the Registered Access researcher model.",
@@ -39,16 +39,17 @@
       }
     },
     "ethics": {
-      "allow": {
-        "claim": "AcceptedTermsAndPolicies",
-        "values": [
-          "https://doi.org/10.1038/s41431-018-0219-y"
-        ],
-        "by": [
-          "self",
-          "so"
-        ]
-      },
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "AcceptedTermsAndPolicies",
+              "value": "const:https://doi.org/10.1038/s41431-018-0219-y",
+              "by": "split_pattern:self;so"
+            }
+          ]
+        }
+      ],
       "ui": {
         "label": "Researcher Ethics Agreement",
         "description": "Based on Registered Access ethics terms",
@@ -56,18 +57,18 @@
       }
     },
     "dac": {
-      "allow": {
-        "claim": "ControlledAccessGrants",
-        "from": [
-          "eu_institutes"
-        ],
-        "values": [
-          "${DATASET}"
-        ],
-        "by": [
-          "dac"
-        ]
-      },
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "ControlledAccessGrants",
+              "source": "const:eu_institutes",
+              "value": "const:${DATASET}",
+              "by": "const:dac"
+            }
+          ]
+        }
+      ],
       "ui": {
         "label": "Data Access Committee Approval",
         "description": "Approval from a DAC for the researcher to access specific datasets",
@@ -99,7 +100,7 @@
           "roles": {
             "viewer": {
               "policies": [
-                "bona_fide"
+                {"name":"bona_fide"}
               ]
             }
           },
@@ -129,7 +130,7 @@
           "roles": {
             "viewer": {
               "policies": [
-                "bona_fide"
+                {"name":"bona_fide"}
               ]
             }
           },
