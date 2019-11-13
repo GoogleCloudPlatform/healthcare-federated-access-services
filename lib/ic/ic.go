@@ -1101,7 +1101,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(accessToken) == 0 {
 		idpc := idpConfig(idp, s.getDomainURL(), secrets)
-		tok, err := idpc.Exchange(r.Context(), code)
+		tok, err := idpc.Exchange(s.ctx, code)
 		if err != nil {
 			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid code: %v", err), w)
 			return
@@ -1209,14 +1209,14 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
-		claims, err := s.accountLinkToClaims(r.Context(), acct, id.Subject, cfg, secrets)
+		claims, err := s.accountLinkToClaims(s.ctx, acct, id.Subject, cfg, secrets)
 		if err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 		if !claimsAreEqual(claims, id.GA4GH) {
 			// Refresh the claims in the storage layer.
-			if err := s.populateAccountClaims(r.Context(), acct, id, provider); err != nil {
+			if err := s.populateAccountClaims(s.ctx, acct, id, provider); err != nil {
 				common.HandleError(http.StatusServiceUnavailable, err, w)
 				return
 			}
@@ -1228,7 +1228,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		}
 	} else {
 		// Create an account for the identity automatically.
-		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
+		acct, err := s.newAccountWithLink(s.ctx, id, provider, cfg)
 		if err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
@@ -2318,7 +2318,7 @@ func (c *account) Get(name string) error {
 		return fmt.Errorf("internal system information unavailable")
 	}
 	common.SendResponse(&pb.AccountResponse{
-		Account: c.s.makeAccount(c.r.Context(), c.item, c.cfg, secrets),
+		Account: c.s.makeAccount(c.s.ctx, c.item, c.cfg, secrets),
 	}, c.w)
 	return nil
 }
@@ -2500,7 +2500,7 @@ func (c *accountLink) Get(name string) error {
 		return fmt.Errorf("internal system information unavailable")
 	}
 	common.SendResponse(&pb.AccountSubjectResponse{
-		Item: c.s.makeConnectedAccount(c.r.Context(), c.item, c.cfg, secrets),
+		Item: c.s.makeConnectedAccount(c.s.ctx, c.item, c.cfg, secrets),
 	}, c.w)
 	return nil
 }
@@ -2762,7 +2762,7 @@ func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcCon
 	id.Scope = tokenMetadata.Scope
 	id.IdentityProvider = tokenMetadata.IdentityProvider
 	id.Nonce = tokenMetadata.Nonce
-	return s.getTokenAccountIdentity(r.Context(), id, realm, cfg, secrets, tx)
+	return s.getTokenAccountIdentity(s.ctx, id, realm, cfg, secrets, tx)
 }
 
 func (s *Service) getTokenIdentity(tok, scope, clientID string, anyAudience bool, tx storage.Tx) (*ga4gh.Identity, int, error) {
@@ -2811,7 +2811,7 @@ func (s *Service) tokenToIdentity(tok string, r *http.Request, scope, realm stri
 	if err != nil {
 		return token, status, err
 	}
-	return s.getTokenAccountIdentity(r.Context(), token, realm, cfg, secrets, tx)
+	return s.getTokenAccountIdentity(s.ctx, token, realm, cfg, secrets, tx)
 }
 
 func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
@@ -2826,7 +2826,7 @@ func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.Ic
 		}
 		return nil, http.StatusServiceUnavailable, err
 	}
-	return s.getTokenAccountIdentity(r.Context(), id, getRealm(r), cfg, secrets, tx)
+	return s.getTokenAccountIdentity(s.ctx, id, getRealm(r), cfg, secrets, tx)
 }
 
 func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
