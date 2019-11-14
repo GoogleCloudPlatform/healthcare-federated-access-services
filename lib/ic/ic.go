@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -2986,6 +2987,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAcco
 	for k := range subjectIssuers {
 		linked = append(linked, k)
 	}
+	sort.Strings(linked)
 
 	d := &ga4gh.VisaData{
 		StdClaims: ga4gh.StdClaims{

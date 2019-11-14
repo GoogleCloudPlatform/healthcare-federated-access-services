@@ -434,8 +434,8 @@ func TestAddLinkedIdentities(t *testing.T) {
 	got := v.Data()
 
 	wantIdentities := []string{
-		linkedIdentityValue(subjectInIdp, idpIss),
 		linkedIdentityValue(emailInIdp, idpIss),
+		linkedIdentityValue(subjectInIdp, idpIss),
 	}
 
 	want := &ga4gh.VisaData{
