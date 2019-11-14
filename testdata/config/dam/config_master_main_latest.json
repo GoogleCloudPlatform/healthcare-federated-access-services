@@ -209,6 +209,14 @@
           ]
         }
       ],
+      "variableDefinitions": {
+        "DATASET": {
+          "regexp": "^phs\\d{6}$",
+          "ui": {
+            "description": "The name of an NIH dataset of the form 'phsXXXXXX'"
+          }
+        }
+      },
       "ui": {
         "label": "Data Access Committee Approval",
         "description": "Approval from a DAC for the researcher to access specific datasets",

@@ -123,11 +123,26 @@ func ReplaceVariables(v string, args map[string]string) (string, error) {
 			out += parts[i]
 			continue
 		}
-		val, ok := args[p[0]]
+		arg := p[0]
+		val, ok := args[arg]
 		if !ok {
-			return "", fmt.Errorf("variable %q not defined", p[0])
+			return "", fmt.Errorf("variable %q not defined", arg)
 		}
 		out += val + p[1]
 	}
 	return out, nil
+}
+
+// ExtractVariables returns a map of variable names found within an input string.
+func ExtractVariables(v string) (map[string]bool, error) {
+	args := make(map[string]bool)
+	parts := strings.Split(v, "${")
+	for i := 1; i < len(parts); i++ {
+		p := strings.SplitN(parts[i], "}", 2)
+		if len(p) < 2 {
+			return nil, fmt.Errorf("variable mismatched brackets")
+		}
+		args[p[0]] = true
+	}
+	return args, nil
 }

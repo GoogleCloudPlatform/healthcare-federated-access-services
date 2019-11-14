@@ -129,7 +129,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		if err := checkName(n); err != nil {
 			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n), err.Error())
 		}
-		if path, err := validator.ValidatePolicy(policy.AnyOf, cfg.ClaimDefinitions, cfg.TrustedSources, nil); err != nil {
+		if path, err := validator.ValidatePolicy(policy, cfg.ClaimDefinitions, cfg.TrustedSources, nil); err != nil {
 			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgPolicies, n, path), err.Error())
 		}
 		if path, err := common.CheckUI(policy.Ui, true); err != nil {
@@ -383,7 +383,7 @@ func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName
 				if !ok {
 					return common.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("policy %q is not defined", p.Name)
 				}
-				if path, err := validator.ValidatePolicy(policy.AnyOf, cfg.ClaimDefinitions, cfg.TrustedSources, p.Vars); err != nil {
+				if path, err := validator.ValidatePolicy(policy, cfg.ClaimDefinitions, cfg.TrustedSources, p.Vars); err != nil {
 					return common.StatusPath(rname, "policies", strconv.Itoa(i), path), err
 				}
 			}

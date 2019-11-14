@@ -288,11 +288,11 @@ func TestReplaceVariables(t *testing.T) {
 	for _, tc := range tests {
 		got, err := ReplaceVariables(tc.input, tc.args)
 		if err != nil {
-			t.Errorf("test case %q: ReplaceVariables(%q, %v) = (%v, %v) unexpected error", tc.name, tc.input, tc.args, got, err)
+			t.Errorf("test case %q: ReplaceVariables(%q, %v, _) = (%v, %v) unexpected error", tc.name, tc.input, tc.args, got, err)
 			continue
 		}
 		if got != tc.want {
-			t.Errorf("test case %q: ReplaceVariables(%q, %v) = (%v, nil), want %q", tc.name, tc.input, tc.args, got, tc.want)
+			t.Errorf("test case %q: ReplaceVariables(%q, %v, _) = (%v, nil), want %q", tc.name, tc.input, tc.args, got, tc.want)
 		}
 	}
 }
@@ -318,6 +318,89 @@ func TestReplaceVariablesErrors(t *testing.T) {
 		got, err := ReplaceVariables(tc.input, tc.args)
 		if err == nil {
 			t.Errorf("test case %q: ReplaceVariables(%q, %v) = (%v, %v) was expecting an error", tc.name, tc.input, tc.args, got, err)
+			continue
+		}
+	}
+}
+
+func TestExtractVariables(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  map[string]bool
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  map[string]bool{},
+		},
+		{
+			name:  "simple string",
+			input: "hello",
+			want:  map[string]bool{},
+		},
+		{
+			name:  "whole string replace",
+			input: "${foo}",
+			want:  map[string]bool{"foo": true},
+		},
+		{
+			name:  "prefix string replace",
+			input: "${foo}maid",
+			want:  map[string]bool{"foo": true},
+		},
+		{
+			name:  "prefix string replace",
+			input: "wonder${foo}",
+			want:  map[string]bool{"foo": true},
+		},
+		{
+			name:  "multiple replace of same variable",
+			input: "a_${foo}_b_${foo}_c",
+			want:  map[string]bool{"foo": true},
+		},
+		{
+			name:  "multiple variables",
+			input: "${toy} is fun to play with when eating an ${food}",
+			want:  map[string]bool{"food": true, "toy": true},
+		},
+	}
+
+	for _, tc := range tests {
+		got, err := ExtractVariables(tc.input)
+		if err != nil {
+			t.Errorf("test case %q: ExtractVariables(%q) = (%v, %v), want (%+v, nil)", tc.name, tc.input, got, err, tc.want)
+			continue
+		}
+		if diff := cmp.Diff(got, tc.want); diff != "" {
+			t.Errorf("test case %q: ExtractVariables(%q): returned diff (-want +got):\n%s", tc.name, tc.input, diff)
+		}
+	}
+}
+
+func TestExtractVariableErrors(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "bad variable min",
+			input: "${",
+		},
+		{
+			name:  "bad variable after name",
+			input: "${FOO",
+		},
+		{
+			name:  "bad variable in the middle",
+			input: "This is a ${FOO test of the system",
+		},
+	}
+
+	for _, tc := range tests {
+		got, err := ExtractVariables(tc.input)
+		if err == nil {
+			t.Errorf("test case %q: ExtractVariables(%q) = (%v, %v), want nil, error", tc.name, tc.input, got, err)
 			continue
 		}
 	}

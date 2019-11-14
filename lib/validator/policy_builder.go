@@ -217,9 +217,18 @@ func validateVisaType(typ string, defs map[string]*pb.ClaimDefinition) error {
 	return nil
 }
 
-// ValidatePolicy does basic validation for an "anyOf" outer policy layer.
-func ValidatePolicy(anyOf []*cpb.ConditionSet, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (string, error) {
-	for i, any := range anyOf {
+// ValidatePolicy does basic validation for a policy and (optionally) the variable "args" that a policy instantiation uses.
+func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (string, error) {
+	usedArgs := make(map[string]bool)
+	valArgs := args
+	if valArgs == nil {
+		// To allow variable substitution to be attempted, set up variables to substitute based on definitions (regex match not required).
+		valArgs = make(map[string]string)
+		for v := range policy.VariableDefinitions {
+			valArgs[v] = "a"
+		}
+	}
+	for i, any := range policy.AnyOf {
 		for j, clause := range any.AllOf {
 			if err := validateVisaType(clause.Type, defs); err != nil {
 				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "type"), err
@@ -227,12 +236,63 @@ func ValidatePolicy(anyOf []*cpb.ConditionSet, defs map[string]*pb.ClaimDefiniti
 			if _, err := expandSources(clause.Type, clause.Source, sources); err != nil {
 				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "source"), err
 			}
-			if _, err := expandValues(clause.Value, args); err != nil {
+			if _, err := expandValues(clause.Value, valArgs); err != nil {
 				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "value"), err
+			}
+			valArgs, err := common.ExtractVariables(clause.Value)
+			if err != nil {
+				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "value"), err
+			}
+			for arg := range valArgs {
+				usedArgs[arg] = true
 			}
 			if _, err := expandBy(clause.By); err != nil {
 				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "by"), err
 			}
+		}
+	}
+	for name, v := range policy.VariableDefinitions {
+		if len(v.Regexp) == 0 {
+			return common.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("regular expression not specified")
+		}
+		re, err := regexp.Compile(v.Regexp)
+		if err != nil {
+			return common.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("invalid regular expression: %v", err)
+		}
+		if args != nil {
+			arg, ok := args[name]
+			if !ok {
+				return common.StatusPath("variableDefinitions", name), fmt.Errorf("variable not provided")
+			}
+			if !re.Match([]byte(arg)) {
+				return common.StatusPath("variableDefinitions", name), fmt.Errorf("variable value %q invalid format", arg)
+			}
+		}
+		if v.Ui == nil || v.Ui[common.UIDescription] == "" {
+			return common.StatusPath("variableDefinitions", name, "ui", common.UIDescription), fmt.Errorf("description not provided")
+		}
+	}
+
+	prefix := "variableDefinitions"
+	if args != nil {
+		prefix = "vars"
+	}
+	for arg := range usedArgs {
+		if len(policy.VariableDefinitions) == 0 {
+			return common.StatusPath(prefix, arg), fmt.Errorf("policy does not use variables")
+		}
+		if _, ok := policy.VariableDefinitions[arg]; !ok {
+			return common.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
+		}
+		if args != nil {
+			if _, ok := args[arg]; !ok {
+				return common.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
+			}
+		}
+	}
+	for arg := range args {
+		if _, ok := usedArgs[arg]; !ok {
+			return common.StatusPath(prefix, arg), fmt.Errorf("unused variable")
 		}
 	}
 	return "", nil
