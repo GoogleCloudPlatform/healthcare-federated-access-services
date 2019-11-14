@@ -18,8 +18,8 @@ package fakehydra
 import (
 	"net/http"
 
+	glog "github.com/golang/glog"
 	"github.com/gorilla/mux"
-	"google3/third_party/golang/klog/glog/glog"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 )

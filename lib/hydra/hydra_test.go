@@ -82,7 +82,7 @@ func TestAcceptLoginRequest(t *testing.T) {
 	}
 
 	if *serv.AcceptLoginRequestReq.Subject != subject {
-		t.Errorf("subject want %s got %s", subject, serv.AcceptLoginRequestReq.Subject)
+		t.Errorf("subject want %s got %s", subject, *serv.AcceptLoginRequestReq.Subject)
 	}
 
 	if resp.RedirectTo != callbackURL {
@@ -106,7 +106,7 @@ func TestRejectLoginRequest(t *testing.T) {
 	}
 
 	if serv.RejectLoginRequestReq.Code != rejectCode {
-		t.Errorf("rejectCode want %s got %s", rejectCode, serv.RejectLoginRequestReq.Code)
+		t.Errorf("rejectCode want %d got %d", rejectCode, serv.RejectLoginRequestReq.Code)
 	}
 
 	if resp.RedirectTo != callbackURL {
@@ -177,7 +177,7 @@ func TestRejectConsentRequest(t *testing.T) {
 	}
 
 	if serv.RejectConsentRequestReq.Code != rejectCode {
-		t.Errorf("rejectCode want %s got %s", rejectCode, serv.RejectConsentRequestReq.Code)
+		t.Errorf("rejectCode want %d got %d", rejectCode, serv.RejectConsentRequestReq.Code)
 	}
 
 	if resp.RedirectTo != callbackURL {
