@@ -27,14 +27,19 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
 	glog "github.com/golang/glog"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
+)
+
+const (
+	stateIDInHydra = "state"
 )
 
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	// Use login_challenge fetch information from hydra.
-	challenge := common.GetParam(r, "login_challenge")
-	if len(challenge) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request must include query login_challenge"), w)
+	challenge, err := extractLoginChallenge(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
 
@@ -92,6 +97,49 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	common.SendHTML(page, w)
+}
+
+func (s *Service) hydraLoginSuccess(w http.ResponseWriter, r *http.Request, challenge, subject, stateID string) {
+	req := &hydraapi.HandledLoginRequest{
+		Subject: &subject,
+		Context: map[string]interface{}{
+			stateIDInHydra: stateID,
+		},
+	}
+	resp, err := hydra.AcceptLoginRequest(s.httpClient, s.hydraAdminURL, challenge, req)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	common.SendRedirect(resp.RedirectTo, r, w)
+}
+
+func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state, errName, errDesc string) {
+	var loginState cpb.LoginState
+	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, state, storage.LatestRev, &loginState)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
+		return
+	}
+
+	if len(loginState.Challenge) == 0 {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state challenge parameter"), w)
+		return
+	}
+
+	// Report the login err to hydra.
+	hyErr := &hydraapi.RequestDeniedError{
+		Name:        errName,
+		Description: errDesc,
+	}
+	resp, err := hydra.RejectLoginRequest(s.httpClient, s.hydraAdminURL, loginState.Challenge, hyErr)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	common.SendRedirect(resp.RedirectTo, r, w)
 }
 
 // HydraConsent handles consent request from hydra.

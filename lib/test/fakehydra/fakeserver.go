@@ -60,6 +60,28 @@ func New(r *mux.Router) *Server {
 	return s
 }
 
+// Clear states in fake hydra server.
+func (s *Server) Clear() {
+	s.GetLoginRequestReq = ""
+	s.GetLoginRequestErr = nil
+	s.GetLoginRequestResp = nil
+	s.AcceptLoginRequestReq = nil
+	s.AcceptLoginRequestErr = nil
+	s.AcceptLoginRequestResp = nil
+	s.RejectLoginRequestReq = nil
+	s.RejectLoginRequestErr = nil
+	s.RejectLoginRequestResp = nil
+	s.GetConsentRequestReq = ""
+	s.GetConsentRequestErr = nil
+	s.GetConsentRequestResp = nil
+	s.AcceptConsentRequestReq = nil
+	s.AcceptConsentRequestErr = nil
+	s.AcceptConsentRequestResp = nil
+	s.RejectConsentRequestReq = nil
+	s.RejectConsentRequestErr = nil
+	s.RejectConsentRequestResp = nil
+}
+
 func (s *Server) write(w http.ResponseWriter, e *hydraapi.GenericError, resp interface{}) {
 	code := http.StatusOK
 	body := resp

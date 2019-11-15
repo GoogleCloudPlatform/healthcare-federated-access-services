@@ -425,6 +425,14 @@ func extractState(r *http.Request) (string, error) {
 	return "no-state", nil
 }
 
+func extractLoginChallenge(r *http.Request) (string, error) {
+	n := common.GetParam(r, "login_challenge")
+	if len(n) > 0 {
+		return n, nil
+	}
+	return "", fmt.Errorf("request must include 'login challenge' query parameter")
+}
+
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
 		common.AddCorsHeaders(w)
@@ -834,16 +842,27 @@ func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirec
 		scope = strings.Join(idp.Scopes, " ")
 	}
 
-	state, err := extractState(r)
-	if err != nil {
-		return nil, "", err
-	}
-	nonce, err := getNonce(r)
-	if err != nil {
-		return nil, "", err
+	state := ""
+	nonce := ""
+	challenge := ""
+
+	if s.useHydra {
+		challenge, err = extractLoginChallenge(r)
+		if err != nil {
+			return nil, "", err
+		}
+	} else {
+		state, err = extractState(r)
+		if err != nil {
+			return nil, "", err
+		}
+		nonce, err = getNonce(r)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
-	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, state, nonce, tx)
+	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, state, nonce, challenge, tx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -874,15 +893,16 @@ func idpConfig(idp *pb.IdentityProvider, domainURL string, secrets *pb.IcSecrets
 	}
 }
 
-func (s *Service) buildState(idpName, realm, clientID, scope, redirect, state, nonce string, tx storage.Tx) (string, error) {
+func (s *Service) buildState(idpName, realm, clientID, scope, redirect, state, nonce, challenge string, tx storage.Tx) (string, error) {
 	login := &cpb.LoginState{
-		IdpName:  idpName,
-		Realm:    realm,
-		ClientId: clientID,
-		Scope:    scope,
-		Redirect: redirect,
-		State:    state,
-		Nonce:    nonce,
+		IdpName:   idpName,
+		Realm:     realm,
+		ClientId:  clientID,
+		Scope:     scope,
+		Redirect:  redirect,
+		State:     state,
+		Nonce:     nonce,
+		Challenge: challenge,
 	}
 
 	id := common.GenerateGUID()
@@ -923,21 +943,29 @@ func (s *Service) idpUsesClientLoginPage(idpName, realm string, cfg *pb.IcConfig
 }
 
 func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig, idpName, loginHint string) {
-	nonce, err := getNonce(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
+	nonce := ""
+	redirect := ""
+	var err error
+
+	if !s.useHydra {
+		nonce, err = getNonce(r)
+		if err != nil {
+			common.HandleError(http.StatusBadRequest, err, w)
+			return
+		}
+		redirect, err = s.getAndValidateStateRedirect(r, cfg)
+		if err != nil {
+			common.HandleError(http.StatusBadRequest, err, w)
+			return
+		}
 	}
+
 	idp, ok := cfg.IdentityProviders[idpName]
 	if !ok {
 		common.HandleError(http.StatusNotFound, fmt.Errorf("login service %q not found", idpName), w)
 		return
 	}
-	redirect, err := s.getAndValidateStateRedirect(r, cfg)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
+
 	idpc, state, err := s.idpAuthorize(idpName, idp, redirect, r, cfg, nil)
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
@@ -949,8 +977,10 @@ func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig
 	}
 	options := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("response_type", resType),
-		oauth2.SetAuthURLParam("nonce", nonce),
 		oauth2.SetAuthURLParam("prompt", "login consent"),
+	}
+	if len(nonce) > 0 {
+		options = append(options, oauth2.SetAuthURLParam("nonce", nonce))
 	}
 	if len(loginHint) > 0 {
 		options = append(options, oauth2.SetAuthURLParam("login_hint", loginHint))
@@ -981,13 +1011,19 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request method not supported: %q", r.Method), w)
 		return
 	}
+
+	stateParam := common.GetParam(r, "state")
 	errStr := common.GetParam(r, "error")
 	errDesc := common.GetParam(r, "error_description")
 	if len(errStr) > 0 || len(errDesc) > 0 {
+		if s.useHydra && len(stateParam) > 0 {
+			s.hydraLoginError(w, r, stateParam, errStr, errDesc)
+			return
+		}
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("authorization error: %q, description: %q", errStr, errDesc), w)
 		return
 	}
-	stateParam := common.GetParam(r, "state")
+
 	extract := common.GetParam(r, "client_extract") // makes sure we only grab state from client once
 
 	// Some IdPs need state extracted from html anchor.
@@ -1009,6 +1045,11 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
 		return
 	}
+	if s.useHydra && len(loginState.Challenge) == 0 {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
+		return
+	}
+
 	// For the purposes of simplifying OIDC redirect_uri registrations, this handler is on a path without
 	// realms or other query param context. To make the handling of these requests compatible with the
 	// rest of the code, this request will be forwarded to a standard path at "finishLoginPath" and state
@@ -1085,9 +1126,21 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: add security checks here as per OIDC spec.
-	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 || len(loginState.ClientId) == 0 || len(loginState.Redirect) == 0 || len(loginState.Nonce) == 0 {
+	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
 		return
+	}
+
+	if s.useHydra {
+		if len(loginState.Challenge) == 0 {
+			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
+			return
+		}
+	} else {
+		if len(loginState.ClientId) == 0 || len(loginState.Redirect) == 0 || len(loginState.Nonce) == 0 {
+			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
+			return
+		}
 	}
 
 	if len(code) == 0 && len(idToken) == 0 && !s.idpUsesClientLoginPage(loginState.IdpName, loginState.Realm, cfg) {
@@ -1100,10 +1153,11 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	state := loginState.State
 	nonce := loginState.Nonce
 	clientID := getClientID(r)
-
-	if clientID != loginState.ClientId {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request client id does not match login state, want %q, got %q", loginState.ClientId, clientID), w)
-		return
+	if !s.useHydra {
+		if clientID != loginState.ClientId {
+			common.HandleError(http.StatusUnauthorized, fmt.Errorf("request client id does not match login state, want %q, got %q", loginState.ClientId, clientID), w)
+			return
+		}
 	}
 
 	if idpName != loginState.IdpName {
@@ -1148,7 +1202,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.finishLogin(login, idpName, redirect, scope, clientID, state, tx, cfg, secrets, r, w)
+	s.finishLogin(login, idpName, redirect, scope, clientID, state, loginState.Challenge, tx, cfg, secrets, r, w)
 }
 
 func (s *Service) Authorize(w http.ResponseWriter, r *http.Request) {
@@ -1211,7 +1265,7 @@ func (s *Service) getAndValidateStateRedirect(r *http.Request, cfg *pb.IcConfig)
 	return redirect, nil
 }
 
-func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request, w http.ResponseWriter) {
+func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request, w http.ResponseWriter) {
 	realm := getRealm(r)
 	lookup, err := s.accountLookup(realm, id.Subject, tx)
 	if err != nil {
@@ -1280,7 +1334,11 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		return
 	}
 
-	s.sendInformationReleasePage(id, stateID, clientID, scope, realm, cfg, w)
+	if s.useHydra {
+		s.hydraLoginSuccess(w, r, challenge, subject, stateID)
+	} else {
+		s.sendInformationReleasePage(id, stateID, clientID, scope, realm, cfg, w)
+	}
 }
 
 func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, state, nonce, loginHint string, cfg *pb.IcConfig, tx storage.Tx, r *http.Request, w http.ResponseWriter) {

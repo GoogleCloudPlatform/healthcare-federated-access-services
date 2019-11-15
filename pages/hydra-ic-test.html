@@ -79,7 +79,7 @@
     <script>
       var clientId = "ic-test-page";
       var clientSecret = "secret";
-      var scope = "openid+offline+ga4gh_passport_v1"
+      var scope = "openid+offline+profile+identities+account_admin+ga4gh_passport_v1"
       var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope="+ scope +"&state=_STATE_"
       var tokenURL = "_HYDRA_URL_/oauth2/token?grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_&client_id="+clientId+"&client_secret="+clientSecret;
 
