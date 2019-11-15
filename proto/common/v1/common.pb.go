@@ -145,8 +145,8 @@ type Assertion struct {
 	AssertedDuration string `protobuf:"bytes,4,opt,name=asserted_duration,json=assertedDuration,proto3" json:"asserted_duration,omitempty"`
 	ExpiresDuration  string `protobuf:"bytes,5,opt,name=expires_duration,json=expiresDuration,proto3" json:"expires_duration,omitempty"`
 	// Disjunction of Conjunctions (OR of ANDs).
-	// If at least one of these Conjuctions evaluates to true, then the conditions
-	// have been met.
+	// If at least one of these ConditionSets evaluates to true, then the
+	// conditions on this assertion have been met.
 	AnyOfConditions      []*ConditionSet `protobuf:"bytes,6,rep,name=any_of_conditions,json=anyOfConditions,proto3" json:"any_of_conditions,omitempty"`
 	By                   string          `protobuf:"bytes,7,opt,name=by,proto3" json:"by,omitempty"`
 	Asserted             int64           `protobuf:"varint,8,opt,name=asserted,proto3" json:"asserted,omitempty"`
