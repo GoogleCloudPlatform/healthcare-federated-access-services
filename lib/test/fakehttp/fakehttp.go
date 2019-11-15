@@ -26,7 +26,7 @@ import (
 	glog "github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 )
 
 // Handler handles HTTP requests.
@@ -54,20 +54,8 @@ func New() (*HTTP, func() error) {
 	h := func(w http.ResponseWriter, req *http.Request) {
 		glog.Infof("HTTP Request: %+v", req)
 		defer glog.Infof("HTTP Response: %+v", req.Response)
-
-		body, err := f.Handler(req)
-		if err != nil {
-			code := common.FromError(err)
-			http.Error(w, err.Error(), code)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(body); err != nil {
-			glog.Errorf("json.NewEncoder(%v).Encode(%v) failed: %v", w, body, err)
-			http.Error(w, "encoding the response failed", http.StatusInternalServerError)
-			return
-		}
+		resp, err := f.Handler(req)
+		httputil.WriteRPCResp(w, resp, err)
 	}
 
 	f.Server = httptest.NewServer(http.HandlerFunc(h))

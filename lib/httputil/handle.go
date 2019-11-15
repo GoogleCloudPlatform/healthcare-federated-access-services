@@ -19,7 +19,6 @@ import (
 	"net/http"
 
 	glog "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 )
 
 // WriteRPCResp writes reponse and error.
@@ -37,7 +36,7 @@ import (
 //
 // TODO: reconcile and ensure consistency with
 //                  common.NewStatus() and common.SendStatus().
-func WriteRPCResp(w http.ResponseWriter, resp proto.Message, err error) {
+func WriteRPCResp(w http.ResponseWriter, resp interface{}, err error) {
 	if err != nil {
 		code := FromError(err)
 		http.Error(w, err.Error(), code)
