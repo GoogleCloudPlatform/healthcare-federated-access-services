@@ -15,6 +15,7 @@
 package ic
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,11 +24,12 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
-	glog "github.com/golang/glog"
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 )
 
 const (
@@ -142,10 +144,233 @@ func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state,
 	common.SendRedirect(resp.RedirectTo, r, w)
 }
 
+func (s *Service) hydraConsentSkip(consent *hydraapi.ConsentRequest, challenge string, w http.ResponseWriter, r *http.Request) bool {
+	if !consent.Skip {
+		return false
+	}
+
+	// If hydra was already able to consent the user, skip will be true and we do not need to re-consent the user.
+
+	// You can apply logic here, for example update the number of times the user consent.
+
+	// TODO: provide metrics / audit logs for this case
+
+	// Now it's time to grant the consent request. You could also deny the request if something went terribly wrong
+	consentReq := &hydraapi.HandledConsentRequest{
+		GrantedAudience: consent.RequestedAudience,
+		GrantedScope:    consent.RequestedScope,
+		// TODO: need double check token has correct info.
+	}
+	resp, err := hydra.AcceptConsentRequest(s.httpClient, s.hydraAdminURL, challenge, consentReq)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return true
+	}
+
+	common.SendRedirect(resp.RedirectTo, r, w)
+	return true
+}
+
 // HydraConsent handles consent request from hydra.
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
-	glog.Errorln("unimplemented")
+	// Use consent_challenge fetch information from hydra.
+	challenge, err := extractConsentChallenge(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
 
+	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	if s.hydraConsentSkip(consent, challenge, w, r) {
+		return
+	}
+
+	clientName := consent.Client.Name
+	if len(clientName) == 0 {
+		clientName = consent.Client.ClientID
+	}
+	if len(clientName) == 0 {
+		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Client.Name empty"), w)
+		return
+	}
+
+	sub := consent.Subject
+	if len(sub) == 0 {
+		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Subject empty"), w)
+		return
+	}
+
+	st, ok := consent.Context[stateIDInHydra]
+	if !ok {
+		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Context[%s] not found", stateIDInHydra), w)
+		return
+	}
+
+	stateID, ok := st.(string)
+	if !ok {
+		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Context[%s] in wrong type", stateIDInHydra), w)
+		return
+	}
+
+	tx, err := s.store.Tx(true)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+	defer tx.Finish()
+
+	state := &cpb.AuthTokenState{}
+	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	state.ConsentChallenge = challenge
+	state.Scope = strings.Join(consent.RequestedScope, " ")
+	state.Audience = consent.RequestedAudience
+	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	acct, status, err := s.loadAccount(sub, state.Realm, tx)
+	if err != nil {
+		common.HandleError(status, err, w)
+		return
+	}
+
+	cfg, err := s.loadConfig(tx, state.Realm)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	secrets, err := s.loadSecrets(tx)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	id, err := s.accountToIdentity(s.ctx, acct, cfg, secrets)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	id.Scope = strings.Join(consent.RequestedScope, " ")
+
+	s.sendInformationReleasePage(id, stateID, clientName, id.Scope, state.Realm, cfg, w)
+}
+
+func (s *Service) hydraRejectConsent(w http.ResponseWriter, r *http.Request, stateID string) {
+	tx, err := s.store.Tx(true)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+	defer tx.Finish()
+
+	state := &cpb.AuthTokenState{}
+	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	// The temporary state for information releasing process can be only used once.
+	err = s.store.DeleteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	req := &hydraapi.RequestDeniedError{
+		Code:        http.StatusUnauthorized,
+		Name:        "Consent Denied",
+		Description: "User deny consent",
+	}
+
+	resp, err := hydra.RejectConsentRequest(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	common.SendRedirect(resp.RedirectTo, r, w)
+}
+
+func identityToHydraMap(id *ga4gh.Identity) (map[string]interface{}, error) {
+	b, err := json.Marshal(id)
+	if err != nil {
+		return nil, err
+	}
+
+	m := map[string]interface{}{}
+	err = json.Unmarshal(b, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	// Remove all standard claims which already included in hydra.
+	claims := []string{"sub", "iss", "iat", "nbf", "exp", "scope", "aud", "azp", "jti", "nonce"}
+	for _, n := range claims {
+		delete(m, n)
+	}
+	return m, err
+}
+
+func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, state *cpb.AuthTokenState, cfg *pb.IcConfig, tx storage.Tx) {
+	secrets, err := s.loadSecrets(tx)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	acct, status, err := s.loadAccount(state.Subject, state.Realm, tx)
+	if err != nil {
+		common.HandleError(status, err, w)
+		return
+	}
+
+	id, err := s.accountToIdentity(s.ctx, acct, cfg, secrets)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	now := common.GetNowInUnix()
+
+	// TODO: scope maybe different after optional information release.
+	// scope down the identity.
+	scoped := scopedIdentity(id, state.Scope, s.getIssuerString(), state.Subject, "", now, id.NotBefore, id.Expiry, []string{}, "")
+	m, err := identityToHydraMap(scoped)
+	if err != nil {
+		common.HandleError(http.StatusInternalServerError, err, w)
+		return
+	}
+
+	req := &hydraapi.HandledConsentRequest{
+		GrantedAudience: state.Audience,
+		GrantedScope:    strings.Split(state.Scope, " "),
+		Session: &hydraapi.ConsentRequestSessionData{
+			IDToken: m,
+		},
+	}
+
+	resp, err := hydra.AcceptConsentRequest(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	common.SendRedirect(resp.RedirectTo, r, w)
 }
 
 // HydraTestPage send hydra test page.

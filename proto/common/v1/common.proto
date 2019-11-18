@@ -97,6 +97,8 @@ message AuthTokenState {
   string state = 8 [deprecated = true];
   string nonce = 6 [deprecated = true];
   string login_hint = 7;
+  string consent_challenge = 9;
+  repeated string audience = 10;
 }
 
 message TokenMetadata {

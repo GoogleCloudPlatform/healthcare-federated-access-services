@@ -79,19 +79,20 @@
     <script>
       var clientId = "ic-test-page";
       var clientSecret = "secret";
-      var scope = "openid+offline+profile+identities+account_admin+ga4gh_passport_v1"
-      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope="+ scope +"&state=_STATE_"
-      var tokenURL = "_HYDRA_URL_/oauth2/token?grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_&client_id="+clientId+"&client_secret="+clientSecret;
+      var scope = "openid+offline+profile+identities+account_admin+ga4gh_passport_v1";
+      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope="+ scope +"&state=_STATE_";
+      var tokenURL = "_HYDRA_URL_/oauth2/token";
+      var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
 
       function validateStateAndNonce(stateID) {
         var state = window.localStorage.getItem('state');
         if (!state) {
-          $("#log").text(`request with invalid 'state' ${stateID}, no 'state' in database`)
+          $("#log").text(`request with invalid 'state' ${stateID}, no 'state' in database`);
           window.alert(`app maybe under attack.`);
         }
-        var s = JSON.parse(state)
+        var s = JSON.parse(state);
         if (s.id !== stateID) {
-          $("#log").text(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`)
+          $("#log").text(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`);
           window.alert(`app maybe under attack.`);
           return false;
         }
@@ -138,7 +139,7 @@
       }
 
       function makeURL(pattern, token, state, nonce) {
-        var redirect = window.location.href;
+        var redirect = window.location.href.split("?")[0];
         state = state || "";
         nonce = nonce || "";
         return pattern.replace(/_AUTH_CODE_/g, encodeURIComponent(token))
@@ -167,11 +168,12 @@
           $("#log").text("must login first...");
           return;
         }
-        var url = makeURL(tokenURL, authCode);
+        var url = makeURL(tokenURL);
         $.ajax({
           url: url,
           type: "POST",
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + authCode);},
+          data: makeURL(tokenQuery, authCode),
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
             $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
             $("#token").val(resp.access_token);

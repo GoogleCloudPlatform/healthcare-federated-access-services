@@ -433,6 +433,14 @@ func extractLoginChallenge(r *http.Request) (string, error) {
 	return "", fmt.Errorf("request must include 'login challenge' query parameter")
 }
 
+func extractConsentChallenge(r *http.Request) (string, error) {
+	n := common.GetParam(r, "consent_challenge")
+	if len(n) > 0 {
+		return n, nil
+	}
+	return "", fmt.Errorf("request must include query 'consent_challenge'")
+}
+
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
 		common.AddCorsHeaders(w)
@@ -1337,7 +1345,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	if s.useHydra {
 		s.hydraLoginSuccess(w, r, challenge, subject, stateID)
 	} else {
-		s.sendInformationReleasePage(id, stateID, clientID, scope, realm, cfg, w)
+		s.sendInformationReleasePage(id, stateID, extractClientName(cfg, clientID), scope, realm, cfg, w)
 	}
 }
 
@@ -1367,7 +1375,7 @@ func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, re
 	common.SendRedirect(url.String(), r, w)
 }
 
-func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, clientID, scope, realm string, cfg *pb.IcConfig, w http.ResponseWriter) {
+func extractClientName(cfg *pb.IcConfig, clientID string) string {
 	clientName := "the application"
 	for name, cli := range cfg.Clients {
 		if cli.ClientId == clientID {
@@ -1380,6 +1388,10 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 		}
 	}
 
+	return clientName
+}
+
+func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, clientName, scope, realm string, cfg *pb.IcConfig, w http.ResponseWriter) {
 	var info []string
 	scopes := strings.Split(scope, " ")
 
@@ -1426,6 +1438,11 @@ func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Reques
 
 	agree := common.GetParam(r, "agree")
 	if agree != "y" {
+		if s.useHydra {
+			s.hydraRejectConsent(w, r, stateID)
+			return
+		}
+
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("no information release"), w)
 		return
 	}
@@ -1456,7 +1473,11 @@ func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	s.sendAuthTokenToRedirect(state.Redirect, state.Subject, state.Scope, state.Provider, state.Realm, state.State, state.Nonce, state.LoginHint, cfg, tx, r, w)
+	if s.useHydra {
+		s.hydraAcceptConsent(w, r, state, cfg, tx)
+	} else {
+		s.sendAuthTokenToRedirect(state.Redirect, state.Subject, state.Scope, state.Provider, state.Realm, state.State, state.Nonce, state.LoginHint, cfg, tx, r, w)
+	}
 }
 
 func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
