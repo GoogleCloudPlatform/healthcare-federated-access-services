@@ -653,7 +653,7 @@ func TestHandlers(t *testing.T) {
 				}
 			}`,
 			Output: `^.*"removeAccess":\["dataset_example/`,
-			Status: http.StatusFailedDependency,
+			Status: http.StatusBadRequest,
 		},
 		{
 			Name:   "Claim condition dependency expired",
@@ -708,7 +708,7 @@ func TestHandlers(t *testing.T) {
 				}
 			}`,
 			Output: `^.*"removeAccess":\["dataset_example/`,
-			Status: http.StatusFailedDependency,
+			Status: http.StatusBadRequest,
 		},
 		{
 			Name:   "BonaFide claim expiry check",
@@ -751,7 +751,7 @@ func TestHandlers(t *testing.T) {
 				}
 			},`,
 			Output: `^.*"removeAccess":\["ga4gh-apis/`,
-			Status: http.StatusFailedDependency,
+			Status: http.StatusBadRequest,
 		},
 		{
 			Method: "GET",
