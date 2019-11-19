@@ -533,6 +533,10 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
 	r.HandleFunc(hydraTestPage, s.HydraTestPage).Methods(http.MethodGet)
 
+	r.HandleFunc("/tokens", NewTokensHandler(&stubTokens{}).ListTokens).Methods(http.MethodGet)
+	r.HandleFunc("/tokens/", NewTokensHandler(&stubTokens{}).GetToken).Methods(http.MethodGet)
+	r.HandleFunc("/tokens/", NewTokensHandler(&stubTokens{}).DeleteToken).Methods(http.MethodDelete)
+
 	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(storage.ProjectRoot, staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)
 	return r

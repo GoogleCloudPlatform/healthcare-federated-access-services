@@ -1,0 +1,107 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Package v1 tokens provides protocol buffer versions of tokens API.
+package tokens.v1;
+
+// import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1";
+
+///////////////////////////////////////////////////
+
+// Tokens service.
+service Tokens {
+  // Gets the information for the specified token.
+  rpc GetToken(GetTokenRequest) returns (Token) {
+    // option (google.api.http) = {
+    //   get: "/v1/{name=tokens/*}"
+    // };
+  }
+
+  // Deletes the specified token.
+  rpc DeleteToken(DeleteTokenRequest) returns (google.protobuf.Empty) {
+    // option (google.api.http) = {
+    //   delete: "/v1/{name=tokens/*}"
+    // };
+  }
+
+  // Lists the tokens.
+  rpc ListTokens(ListTokensRequest) returns (ListTokensResponse) {
+    // option (google.api.http) = {
+    //   get: "/v1/tokens"
+    // };
+  }
+}
+
+message Token {
+  // Name of the token.
+  // Format: `tokens/{token_id}`.
+  string name = 1;
+
+  // string issuer = 2 [json_name = "iss"];
+  // string subject = 4 [json_name = "sub"];
+  string audience = 4 [json_name = "aud"];
+  int64 expires_at = 5 [json_name = "exp"];
+  // int64 not_before = 6 [json_name = "nbf"];
+  int64 issued_at = 7 [json_name = "iat"];
+  // string id = 8 [json_name = "jti"];
+
+  string scope = 9;
+
+  Client client = 10;
+
+  // Target of the token.
+  // For DAM, it is URL containing the resource & role & view.
+  // For IC, it is URL of the client requesting.
+  string target = 11;
+
+  // Metadata contains additional metadata.
+  // For DAM:
+  //   resource: description of the resource.
+  //   role: description of the role.
+  //   view: description of the view.
+  // For IC:
+  //   client_id:
+  //   client_desc: description of the client.
+  map<string, string> metadata = 12;
+}
+
+message Client {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message GetTokenRequest {
+  string name = 1;
+}
+
+message DeleteTokenRequest {
+  string name = 1;
+}
+
+message ListTokensRequest {
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListTokensResponse {
+  repeated Token tokens = 1;
+  string next_page_token = 2;
+}
