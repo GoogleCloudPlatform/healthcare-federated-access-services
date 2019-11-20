@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"google3/third_party/golang/protobuf/v2/testing/protocmp/protocmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/jsonutil"
 

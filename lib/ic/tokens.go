@@ -22,7 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 
-	epb "google.golang.org/genproto/googleapis/protobuf"
+	epb "github.com/golang/protobuf/ptypes/empty"
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1"
 )
 
