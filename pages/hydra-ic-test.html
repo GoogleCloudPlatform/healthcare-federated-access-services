@@ -82,6 +82,7 @@
       var scope = "openid+offline+profile+identities+account_admin+ga4gh_passport_v1";
       var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope="+ scope +"&state=_STATE_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
+      var userinfoURL = "_HYDRA_URL_/userinfo";
       var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
 
       function validateStateAndNonce(stateID) {
@@ -183,6 +184,25 @@
           }
         });
       }
+      function userinfo() {
+        var tok = $("#token").val();
+        if (!tok) {
+          $("#log").text("must login first...");
+          return;
+        }
+        var url = makeURL(userinfoURL);
+        $.ajax({
+          url: url,
+          type: "GET",
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Bearer ' + tok)},
+          success: function(resp) {
+            $("#log").text("Userinfo: " + JSON.stringify(resp, undefined, 2));
+          },
+          error: function(err) {
+            $("#log").text(JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
       function displayResult(result) {
         $("#log").text(JSON.stringify(result, undefined, 2));
       }
@@ -215,7 +235,7 @@
       <h3>3. fetch userinfo</h3>
       <textarea id="token" rows="7" style="width:100%" readonly></textarea>
       <div>
-        <a class="btn black">Fetch Userinfo (TODO)</a>
+        <a class="btn black" onclick="userinfo()">Fetch Userinfo</a>
       </div>
     </div>
 
