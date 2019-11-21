@@ -19,7 +19,7 @@ find . -type f -name "*.proto" -exec echo {} \;
 
 echo
 echo "Generating go packages for proto files"
-find . -type f -name "*.proto" -exec protoc --go_out=paths=source_relative:. {} \;
+find . -type f -name "*.proto" -exec protoc --go_out=plugins=grpc,paths=source_relative:. {} \;
 echo "Generating go packages for proto files: completed"
 
 # Install addlicense: go get -u github.com/google/addlicense
