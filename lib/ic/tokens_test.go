@@ -128,6 +128,6 @@ func TestTokenJSONFormat(t *testing.T) {
 
 	want := fakeTokenJSON
 	if diff := cmp.Diff(jsonutil.MustCanonical(want), jsonutil.MustCanonical(got)); diff != "" {
-		t.Errorf("Token JSON diff (-want +got):\n%s", name, diff)
+		t.Errorf("Token JSON diff (-want +got):\n%s", diff)
 	}
 }

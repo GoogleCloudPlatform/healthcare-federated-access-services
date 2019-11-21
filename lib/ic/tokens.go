@@ -19,44 +19,40 @@ import (
 	"net/http"
 
 	glog "github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
-
 	epb "github.com/golang/protobuf/ptypes/empty"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1"
+	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1"
 )
 
 // TokensHandler is a HTTP handler wrapping a GRPC server.
 type TokensHandler struct {
-	s tpb.TokensServer
+	s tgpb.TokensServer
 }
 
 // NewTokensHandler returns a new TokensHandler.
-func NewTokensHandler(s tpb.TokensServer) *TokensHandler {
+func NewTokensHandler(s tgpb.TokensServer) *TokensHandler {
 	return &TokensHandler{s: s}
 }
 
 // GetToken handles GetToken HTTP requests.
 func (h *TokensHandler) GetToken(w http.ResponseWriter, r *http.Request) {
 	req := &tpb.GetTokenRequest{Name: r.RequestURI}
-	resp := &tpb.Token{}
-	err := h.s.GetToken(r.Context(), req, resp)
+	resp, err := h.s.GetToken(r.Context(), req)
 	httputil.WriteRPCResp(w, resp, err)
 }
 
 // DeleteToken handles DeleteToken HTTP requests.
 func (h *TokensHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	req := &tpb.DeleteTokenRequest{Name: r.RequestURI}
-	resp := &epb.Empty{}
-	err := h.s.DeleteToken(r.Context(), req, resp)
+	resp, err := h.s.DeleteToken(r.Context(), req)
 	httputil.WriteRPCResp(w, resp, err)
 }
 
 // ListTokens handles ListTokens HTTP requests.
 func (h *TokensHandler) ListTokens(w http.ResponseWriter, r *http.Request) {
 	req := &tpb.ListTokensRequest{Parent: r.RequestURI}
-	resp := &tpb.ListTokensResponse{}
-	err := h.s.ListTokens(r.Context(), req, resp)
+	resp, err := h.s.ListTokens(r.Context(), req)
 	httputil.WriteRPCResp(w, resp, err)
 }
 
@@ -64,20 +60,17 @@ type stubTokens struct {
 	token *tpb.Token
 }
 
-func (s *stubTokens) GetToken(_ context.Context, req *tpb.GetTokenRequest, resp *tpb.Token) error {
+func (s *stubTokens) GetToken(_ context.Context, req *tpb.GetTokenRequest) (*tpb.Token, error) {
 	glog.Infof("GetToken %v", req)
-	proto.Merge(resp, s.token)
-	return nil
+	return s.token, nil
 }
 
-func (s *stubTokens) DeleteToken(_ context.Context, req *tpb.DeleteTokenRequest, resp *epb.Empty) error {
+func (s *stubTokens) DeleteToken(_ context.Context, req *tpb.DeleteTokenRequest) (*epb.Empty, error) {
 	glog.Infof("DeleteToken %v", req)
-	return nil
+	return &epb.Empty{}, nil
 }
 
-func (s *stubTokens) ListTokens(_ context.Context, req *tpb.ListTokensRequest, resp *tpb.ListTokensResponse) error {
+func (s *stubTokens) ListTokens(_ context.Context, req *tpb.ListTokensRequest) (*tpb.ListTokensResponse, error) {
 	glog.Infof("ListTokens %v", req)
-	tokens := &tpb.ListTokensResponse{Tokens: []*tpb.Token{s.token}}
-	proto.Merge(resp, tokens)
-	return nil
+	return &tpb.ListTokensResponse{Tokens: []*tpb.Token{s.token}}, nil
 }
