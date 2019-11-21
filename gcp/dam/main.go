@@ -71,7 +71,14 @@ func main() {
 	// ev := appengine.MustBuildEvaluator(ctx)
 	wh := appengine.MustBuildAccountWarehouse(ctx, store)
 
-	d := dam.NewService(ctx, domain, defaultBroker, store /*ev,*/, wh)
+	hydraAdminURL := os.Getenv("HYDRA_ADMIN_URL")
+	if hydraAdminURL == "" {
+		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
+	}
+	// TODO will remove this flag after hydra integration complete.
+	useHydra := os.Getenv("USE_HYDRA") != ""
+
+	d := dam.NewService(ctx, domain, defaultBroker, hydraAdminURL, store, wh, useHydra)
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"

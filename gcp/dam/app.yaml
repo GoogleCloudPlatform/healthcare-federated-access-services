@@ -28,5 +28,9 @@ env_variables:
   CONFIG_PATH: "deploy/config"
   # STORAGE is the one of: "memory", "datastore".
   STORAGE: "datastore"
+  # HYDRA_PUBLIC_URL sets the hydra public url for start login.
+  HYDRA_PUBLIC_URL: "https://your-hydra-public-url"
+  # HYDRA_ADMIN_URL sets the hydra admin url for callback.
+  HYDRA_ADMIN_URL: "https://your-hydra-admin-url"
   # DEFAULT_BROKER is the default identity broker.
   DEFAULT_BROKER: "your-broker"

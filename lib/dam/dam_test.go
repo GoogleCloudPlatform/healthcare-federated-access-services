@@ -34,6 +34,11 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
+const (
+	hydraAdminURL    = "https://admin.hydra.example.com"
+	notUseHydra      = false
+)
+
 // transformJSON is a cmp.Option that transform strings into structured objects
 // for properly comparing JSON in a way that is agnostic towards the trivial
 // changes in the output.
@@ -52,7 +57,7 @@ func TestHandlers(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", store, wh)
+	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, wh, notUseHydra)
 	tests := []test.HandlerTest{
 		{
 			Method: "GET",
@@ -879,7 +884,7 @@ func TestMinConfig(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", store, nil)
+	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, nil, notUseHydra)
 	tests := []test.HandlerTest{
 		{
 			Name:    "restricted access of 'dr_joe_elixir' (which only exists in min config subdirectory)",
@@ -927,7 +932,7 @@ func TestCheckAuthorization(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", store, nil)
+	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, nil, notUseHydra)
 
 	realm := "master"
 	cfg, err := s.loadConfig(nil, realm)
