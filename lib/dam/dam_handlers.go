@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/status"
@@ -440,6 +441,7 @@ func (h *configHandler) NormalizeInput(name string, vars map[string]string) erro
 		h.input.Item.Options = &pb.ConfigOptions{}
 	}
 	h.input.Item.Options = receiveConfigOptions(h.input.Item.Options, h.cfg)
+	normalizeConfig(h.input.Item)
 	return nil
 }
 func (h *configHandler) Get(name string) error {
@@ -1206,6 +1208,9 @@ func (h *configPersonaHandler) NormalizeInput(name string, vars map[string]strin
 	}
 	if h.input.Item.Ui == nil {
 		h.input.Item.Ui = make(map[string]string)
+	}
+	if h.input.Item.Access != nil {
+		sort.Strings(h.input.Item.Access)
 	}
 	return nil
 }

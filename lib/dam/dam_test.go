@@ -35,8 +35,8 @@ import (
 )
 
 const (
-	hydraAdminURL    = "https://admin.hydra.example.com"
-	notUseHydra      = false
+	hydraAdminURL = "https://admin.hydra.example.com"
+	notUseHydra   = false
 )
 
 // transformJSON is a cmp.Option that transform strings into structured objects
@@ -255,9 +255,10 @@ func TestHandlers(t *testing.T) {
 			Status: http.StatusOK,
 		},
 		{
+			Name:   "PUT /dam/v1alpha/test/config/resources/new-resource (unordered access list)",
 			Method: "PUT",
 			Path:   "/dam/v1alpha/test/config/resources/new-resource",
-			Input:  `{"item": $(GET /dam/v1alpha/test/config/resources/ga4gh-apis), "modification": {"testPersonas":{"dr_joe_elixir":{"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer","new-resource/beacon/discovery","new-resource/gcs_read/viewer"]}}}}`,
+			Input:  `{"item": $(GET /dam/v1alpha/test/config/resources/ga4gh-apis), "modification": {"testPersonas":{"dr_joe_elixir":{"access":["ga4gh-apis/gcs_read/viewer","ga4gh-apis/beacon/discovery","new-resource/beacon/discovery","new-resource/gcs_read/viewer"]}}}}`,
 			Status: http.StatusOK,
 		},
 		{
