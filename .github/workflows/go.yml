@@ -25,4 +25,8 @@ jobs:
         fi
 
     - name: Build
-      run: go build -v ...
+      run: go build -v ./...
+
+    - name: Test
+      run: export PROJECT_ROOT=`pwd`
+      run: go test -v ./...
