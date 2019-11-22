@@ -69,12 +69,6 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -84,6 +78,12 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	realm := u.Query().Get("realm")
 	if len(realm) == 0 {
 		realm = storage.DefaultRealm
+	}
+
+	cfg, err := s.loadConfig(nil, realm)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
 	}
 
 	scopes := login.RequestedScope
