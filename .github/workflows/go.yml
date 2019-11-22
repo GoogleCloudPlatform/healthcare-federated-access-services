@@ -27,8 +27,7 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Set root for testdata
-      run: export PROJECT_ROOT=`pwd`
-
     - name: Test
-      run: go test -v ./...
+      run: |
+        export PROJECT_ROOT=`pwd`
+        go test -v ./...

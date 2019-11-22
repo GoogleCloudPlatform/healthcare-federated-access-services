@@ -1,9 +1,9 @@
-name: Go
+name: runtest
 on: [push]
 jobs:
 
   build:
-    name: Build
+    name: runtest.bash
     runs-on: ubuntu-latest
     steps:
 
