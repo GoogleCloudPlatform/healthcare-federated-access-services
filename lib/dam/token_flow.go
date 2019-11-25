@@ -29,6 +29,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
@@ -77,25 +78,33 @@ func extractAuthCode(r *http.Request) (string, error) {
 	return "", fmt.Errorf("auth code not found")
 }
 
-func extractTTL(r *http.Request) (time.Duration, error) {
-	age, err := common.ParseSeconds(common.GetParam(r, "max_age"))
-	if err == nil && age > 0 {
-		return age, nil
+func parseTTL(maxAgeStr, ttlStr string) (time.Duration, error) {
+	if len(maxAgeStr) > 0 {
+		return common.ParseSeconds(maxAgeStr)
 	}
-	str := common.GetParam(r, "ttl")
-	if len(str) == 0 {
+	if len(ttlStr) == 0 {
 		return defaultTTL, nil
 	}
 
-	ttl, err := common.ParseDuration(str, defaultTTL)
+	ttl, err := common.ParseDuration(ttlStr, defaultTTL)
 	if err != nil {
-		return 0, fmt.Errorf("TTL parameter %q format error: %v", str, err)
+		return 0, fmt.Errorf("TTL parameter %q format error: %v", ttlStr, err)
 	}
+	return ttl, nil
+}
+
+func extractTTL(maxAgeStr, ttlStr string) (time.Duration, error) {
+	// TODO ttl params should remove.
+	ttl, err := parseTTL(maxAgeStr, ttlStr)
+	if err != nil {
+		return 0, err
+	}
+
 	if ttl == 0 {
 		return defaultTTL, nil
 	}
 	if ttl < 0 || ttl > maxTTL {
-		return 0, fmt.Errorf("TTL parameter %q out of range: must be positive and not exceed %s", str, maxTTLStr)
+		return 0, fmt.Errorf("TTL parameter %q out of range: must be positive and not exceed %s", ttlStr, maxTTLStr)
 	}
 	return ttl, nil
 }
@@ -148,7 +157,7 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 		grantRole = view.DefaultRole
 	}
 
-	ttl, err := extractTTL(r)
+	ttl, err := extractTTL(common.GetParam(r, "max_age"), common.GetParam(r, "max_age"))
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
@@ -265,9 +274,8 @@ func (s *Service) oauthConf(brokerName string, broker *pb.TrustedPassportIssuer,
 	}
 }
 
-func (s *Service) resourceViewRoleFromRequest(r *http.Request) ([]resourceViewRole, error) {
+func (s *Service) resourceViewRoleFromRequest(list []string) ([]resourceViewRole, error) {
 	out := []resourceViewRole{}
-	list := common.GetParamList(r, "resource")
 	if len(list) == 0 {
 		return nil, fmt.Errorf("resource parameter not found")
 	}
@@ -309,6 +317,7 @@ type resourceAuthHandlerIn struct {
 	clientID        string
 	responseKeyFile bool
 	resources       []resourceViewRole
+	challenge       string
 }
 
 type resourceAuthHandlerOut struct {
@@ -338,19 +347,21 @@ func (s *Service) resourceAuth(ctx context.Context, in resourceAuthHandlerIn) (*
 			return nil, http.StatusServiceUnavailable, err
 		}
 
-		for name, client := range cfg.Clients {
-			if client.ClientId != in.clientID {
-				continue
-			}
-			urlAllow := false
-			for _, uri := range client.RedirectUris {
-				if uri == in.redirect {
-					urlAllow = true
-					break
+		if !s.useHydra {
+			for name, client := range cfg.Clients {
+				if client.ClientId != in.clientID {
+					continue
 				}
-			}
-			if !urlAllow {
-				return nil, http.StatusBadRequest, fmt.Errorf("redirect url %q is not allow for client %q", in.redirect, name)
+				urlAllow := false
+				for _, uri := range client.RedirectUris {
+					if uri == in.redirect {
+						urlAllow = true
+						break
+					}
+				}
+				if !urlAllow {
+					return nil, http.StatusBadRequest, fmt.Errorf("redirect url %q is not allow for client %q", in.redirect, name)
+				}
 			}
 		}
 
@@ -400,7 +411,7 @@ func (s *Service) resourceAuth(ctx context.Context, in resourceAuthHandlerIn) (*
 	}
 
 	// TODO: need support real policy filter
-	scopes := []string{"openid", "ga4gh", "identities", "account_admin"}
+	scopes := []string{"openid", "ga4gh_passport_v1", "identities", "account_admin"}
 
 	sID := uuid.New()
 
@@ -412,6 +423,7 @@ func (s *Service) resourceAuth(ctx context.Context, in resourceAuthHandlerIn) (*
 		Ttl:             int64(in.ttl),
 		ResponseKeyFile: in.responseKeyFile,
 		Resources:       list,
+		Challenge:       in.challenge,
 	}
 
 	err = s.store.WriteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, sID, storage.LatestRev, state, nil, tx)
@@ -447,13 +459,13 @@ func (s *Service) ResourceAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ttl, err := extractTTL(r)
+	ttl, err := extractTTL(common.GetParam(r, "max_age"), common.GetParam(r, "max_age"))
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
 
-	resList, err := s.resourceViewRoleFromRequest(r)
+	resList, err := s.resourceViewRoleFromRequest(common.GetParamList(r, "resource"))
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
@@ -485,9 +497,11 @@ type loggedInHandlerIn struct {
 }
 
 type loggedInHandlerOut struct {
-	redirect string
-	authCode string
-	stateID  string
+	redirect  string
+	authCode  string
+	stateID   string
+	subject   string
+	challenge string
 }
 
 func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedInHandlerOut, int, error) {
@@ -591,9 +605,11 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 	}
 
 	return &loggedInHandlerOut{
-		redirect: state.Redirect,
-		authCode: respAuthCode,
-		stateID:  state.State,
+		redirect:  state.Redirect,
+		authCode:  respAuthCode,
+		stateID:   state.State,
+		subject:   id.Subject,
+		challenge: state.Challenge,
 	}, http.StatusOK, nil
 }
 
@@ -610,9 +626,14 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request must include state"), w)
 	}
 
-	out, status, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
+	out, status, err := s.loggedIn(s.ctx, loggedInHandlerIn{authCode: code, stateID: stateID})
 	if err != nil {
 		common.HandleError(status, err, w)
+		return
+	}
+
+	if s.useHydra {
+		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, out.challenge, out.subject, out.authCode)
 		return
 	}
 

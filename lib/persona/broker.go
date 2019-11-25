@@ -16,6 +16,7 @@
 package persona
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -288,9 +289,29 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID string, w http.R
 	common.SendHTML(page, w)
 }
 
+func basicAuthClientID(r *http.Request) string {
+	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+
+	if len(auth) != 2 || auth[0] != "Basic" {
+		return ""
+	}
+
+	payload, _ := base64.StdEncoding.DecodeString(auth[1])
+	pair := strings.SplitN(string(payload), ":", 2)
+	if len(pair) != 2 {
+		return ""
+	}
+
+	return pair[0]
+}
+
 func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	clientID := common.GetParam(r, "client_id")
+	if len(clientID) == 0 {
+		clientID = basicAuthClientID(r)
+	}
+
 	code := strings.Split(common.GetParam(r, "code"), ",")
 	pname := code[0]
 	if len(code) > 1 {

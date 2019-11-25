@@ -32,6 +32,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/fakeencryption"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra"
@@ -665,7 +666,7 @@ func TestAcceptLogin_Hydra_Reject(t *testing.T) {
 
 	resp, err := sendAcceptLogin(s, cfg, h, "", loginStateID, errName, errDesc)
 	if err != nil {
-		t.Fatalf("sendAcceptLogin(s, cfg, h, '', %s, %s, %s) failed: %v", stateIDInHydra, errName, errDesc, err)
+		t.Fatalf("sendAcceptLogin(s, cfg, h, '', %s, %s, %s) failed: %v", hydra.StateIDKey, errName, errDesc, err)
 	}
 
 	if h.RejectLoginRequestReq.Name != errName {
@@ -763,13 +764,13 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 		t.Errorf("Location wants %s got %s", hydraURL, l)
 	}
 
-	st, ok := h.AcceptLoginRequestReq.Context[stateIDInHydra]
+	st, ok := h.AcceptLoginRequestReq.Context[hydra.StateIDKey]
 	if !ok {
-		t.Errorf("AcceptLoginRequestReq.Context[%s] not exists", stateIDInHydra)
+		t.Errorf("AcceptLoginRequestReq.Context[%s] not exists", hydra.StateIDKey)
 	}
 	stateID, ok := st.(string)
 	if !ok {
-		t.Errorf("AcceptLoginRequestReq.Context[%s] in wrong type", stateIDInHydra)
+		t.Errorf("AcceptLoginRequestReq.Context[%s] in wrong type", hydra.StateIDKey)
 	}
 
 	state := &cpb.AuthTokenState{}

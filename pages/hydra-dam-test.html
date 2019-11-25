@@ -82,10 +82,10 @@
       var hydraClientId = "dam-test-page";
       var hydraClientSecret = "secret";
       var scope = "openid offline";
-      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + hydraClientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_&ttl=1h_RESOURCES_";
+      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + hydraClientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_&max_age=3600&resource=_RESOURCES_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
       var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
-      var resourceURL = "_DAM_URL_/dam/v1alpha/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
+      var resourceURL = "_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
       var resources = {};
 
       function validateState(stateID) {

@@ -35,7 +35,6 @@ import (
 	"sync"
 	"time"
 
-	glog "github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
@@ -46,8 +45,11 @@ import (
 	"golang.org/x/oauth2"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
+
+	glog "github.com/golang/glog"
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1"
 )
@@ -423,22 +425,6 @@ func extractState(r *http.Request) (string, error) {
 	// TODO: should return error after front end supports state field.
 	// return "", fmt.Errorf("request must include 'state'")
 	return "no-state", nil
-}
-
-func extractLoginChallenge(r *http.Request) (string, error) {
-	n := common.GetParam(r, "login_challenge")
-	if len(n) > 0 {
-		return n, nil
-	}
-	return "", fmt.Errorf("request must include 'login challenge' query parameter")
-}
-
-func extractConsentChallenge(r *http.Request) (string, error) {
-	n := common.GetParam(r, "consent_challenge")
-	if len(n) > 0 {
-		return n, nil
-	}
-	return "", fmt.Errorf("request must include query 'consent_challenge'")
 }
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -859,7 +845,7 @@ func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirec
 	challenge := ""
 
 	if s.useHydra {
-		challenge, err = extractLoginChallenge(r)
+		challenge, err = hydra.ExtractLoginChallenge(r)
 		if err != nil {
 			return nil, "", err
 		}
@@ -1347,7 +1333,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	}
 
 	if s.useHydra {
-		s.hydraLoginSuccess(w, r, challenge, subject, stateID)
+		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID)
 	} else {
 		s.sendInformationReleasePage(id, stateID, extractClientName(cfg, clientID), scope, realm, cfg, w)
 	}

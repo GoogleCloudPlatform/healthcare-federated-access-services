@@ -59,6 +59,16 @@
         "label": "nih passport issuer",
         "description": "nih passport issuer"
       }
+    },
+    "testBroker": {
+      "issuer": "https://example.com/oidc",
+      "authUrl": "https://example.com/authorize",
+      "tokenUrl": "https://example.com/oidc/token",
+      "clientId": "cid",
+      "ui": {
+        "label": "Local IC Dev",
+        "description": "Local IC Dev passport issuer"
+      }
     }
   },
   "trustedSources": {

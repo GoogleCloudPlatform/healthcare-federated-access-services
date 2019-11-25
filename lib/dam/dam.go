@@ -148,6 +148,7 @@ type Service struct {
 	permissions    *common.Permissions
 	Handler        *ServiceHandler
 	ctx            context.Context
+	httpClient     *http.Client
 	startTime      int64
 	translators    sync.Map
 	useHydra       bool
@@ -193,6 +194,7 @@ func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL string
 		permissions:    perms,
 		Handler:        sh,
 		ctx:            ctx,
+		httpClient:     http.DefaultClient,
 		startTime:      time.Now().Unix(),
 		hydraTestPage:  tp,
 		useHydra:       useHydra,

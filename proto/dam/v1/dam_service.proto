@@ -503,16 +503,17 @@ message ResourceTokenRequestState {
     string role = 4;
   }
   repeated Resource resources = 1;
-  string client_id = 2;
-  string state = 3;
+  string client_id = 2 [deprecated = true];
+  string state = 3 [deprecated = true];
   string broker = 4;
-  string redirect = 5;
+  string redirect = 5 [deprecated = true];
   int64 ttl = 6;
   bool response_key_file = 7;
+  string challenge = 8;
 }
 
 message AuthCode {
-  string client_id = 1;
+  string client_id = 1 [deprecated = true];
   bool response_key_file = 2;
   map<string, ResourceToken> tokens = 3;
 }

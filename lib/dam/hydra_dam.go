@@ -16,17 +16,76 @@ package dam
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 
 	glog "github.com/golang/glog"
 )
 
+const (
+	stateIDInHydra = "state"
+)
+
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
-	glog.Errorln("unimplemented")
+	// Use login_challenge fetch information from hydra.
+	challenge, err := hydra.ExtractLoginChallenge(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
+
+	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	if hydra.LoginSkip(w, r, s.httpClient, login, s.hydraAdminURL, challenge) {
+		return
+	}
+
+	u, err := url.Parse(login.RequestURL)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	ttl, err := extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
+
+	list := u.Query()["resource"]
+	resList, err := s.resourceViewRoleFromRequest(list)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
+
+	responseKeyFile := u.Query().Get("response_type") == "key-file-type"
+
+	in := resourceAuthHandlerIn{
+		ttl:             ttl,
+		responseKeyFile: responseKeyFile,
+		resources:       resList,
+		challenge:       challenge,
+	}
+
+	out, status, err := s.resourceAuth(r.Context(), in)
+	if err != nil {
+		common.HandleError(status, err, w)
+		return
+	}
+
+	auth := out.oauth.AuthCodeURL(out.stateID)
+
+	sendRedirect(auth, r, w)
 }
 
 // HydraConsent handles consent request from hydra.

@@ -17,26 +17,40 @@ package dam
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/gorilla/mux"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
 )
 
 const (
-	hydraAdminURL = "https://admin.hydra.example.com"
-	notUseHydra   = false
+	damURL         = "https://dam.example.com"
+	hydraAdminURL  = "https://admin.hydra.example.com"
+	hydraURL       = "https://example.com/oidc"
+	testBroker     = "testBroker"
+	notUseHydra    = false
+	useHydra       = true
+	loginChallenge = "lc-1234"
+	loginStateID   = "ls-1234"
 )
 
 // transformJSON is a cmp.Option that transform strings into structured objects
@@ -969,4 +983,361 @@ func TestCheckAuthorization(t *testing.T) {
 	}
 
 	// TODO: we need more tests for other condition in checkAuthorization()
+}
+
+func setupHydraTest() (*Service, *pb.DamConfig, *fakehydra.Server, error) {
+	store := storage.NewMemoryStorage("dam", "testdata/config")
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
+	}
+	ctx := server.ContextWithClient(context.Background())
+	wh := clouds.NewMockTokenCreator(false)
+	s := NewService(ctx, "https://test.org", testBroker, hydraAdminURL, store, wh, useHydra)
+
+	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	r := mux.NewRouter()
+	h := fakehydra.New(r)
+	s.httpClient = httptestclient.New(r)
+
+	return s, cfg, h, nil
+}
+
+func sendLogin(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, authParams string) *http.Response {
+	h.GetLoginRequestResp = &hydraapi.LoginRequest{
+		Challenge:  loginChallenge,
+		RequestURL: hydraURL + "/oauth2/auth?" + authParams,
+	}
+
+	w := httptest.NewRecorder()
+	params := fmt.Sprintf("?login_challenge=%s", loginChallenge)
+	u := damURL + hydraLoginPath + params
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+
+	s.Handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+
+	return resp
+}
+
+func TestLogin_Hydra_Success(t *testing.T) {
+	s, cfg, h, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	ga4ghGCS := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read")
+	ga4ghGCSViewer := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer")
+	ga4ghBeaconDiscovery := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/beacon/roles/discovery")
+
+	tests := []struct {
+		name              string
+		authParams        string
+		wantTTL           int64
+		wantResourceCount int
+	}{
+		{
+			name:              "single resource with role",
+			authParams:        "max_age=10&resource=" + ga4ghGCSViewer,
+			wantTTL:           int64(10 * time.Second),
+			wantResourceCount: 1,
+		},
+		{
+			name:              "single resource without role",
+			authParams:        "max_age=10&resource=" + ga4ghGCS,
+			wantTTL:           int64(10 * time.Second),
+			wantResourceCount: 1,
+		},
+		{
+			name:              "multi resources",
+			authParams:        "max_age=10&resource=" + ga4ghGCSViewer + "&resource=" + ga4ghBeaconDiscovery,
+			wantTTL:           int64(10 * time.Second),
+			wantResourceCount: 2,
+		},
+		{
+			// TODO should remove ttl support.
+			name:              "use ttl",
+			authParams:        "ttl=1h&resource=" + ga4ghGCSViewer,
+			wantTTL:           int64(time.Hour),
+			wantResourceCount: 1,
+		},
+		{
+			name:              "no ttl or maxAge",
+			authParams:        "resource=" + ga4ghGCSViewer,
+			wantTTL:           int64(defaultTTL),
+			wantResourceCount: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := sendLogin(s, cfg, h, tc.authParams)
+			if resp.StatusCode != http.StatusTemporaryRedirect {
+				t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+			}
+
+			idpc := cfg.TrustedPassportIssuers[s.defaultBroker]
+
+			l := resp.Header.Get("Location")
+			loc, err := url.Parse(l)
+			if err != nil {
+				t.Fatalf("url.Parse(%s) failed", l)
+			}
+
+			a, err := url.Parse(idpc.AuthUrl)
+			if err != nil {
+				t.Fatalf("url.Parse(%s) failed", idpc.AuthUrl)
+			}
+			if loc.Scheme != a.Scheme {
+				t.Errorf("Scheme wants %s got %s", a.Scheme, loc.Scheme)
+			}
+			if loc.Host != a.Host {
+				t.Errorf("Host wants %s got %s", a.Host, loc.Host)
+			}
+			if loc.Path != a.Path {
+				t.Errorf("Path wants %s got %s", a.Path, loc.Path)
+			}
+
+			q := loc.Query()
+			if q.Get("client_id") != idpc.ClientId {
+				t.Errorf("client_id wants %s got %s", idpc.ClientId, q.Get("client_id"))
+			}
+
+			stateID := q.Get("state")
+			state := &pb.ResourceTokenRequestState{}
+			err = s.store.Read(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state)
+			if err != nil {
+				t.Fatalf("read ResourceTokenRequestStateDataType failed: %v", err)
+			}
+
+			if state.Challenge != loginChallenge {
+				t.Errorf("state.Challenge wants %s got %s", loginChallenge, state.Challenge)
+			}
+			if state.Ttl != tc.wantTTL {
+				t.Errorf("state.Ttl wants %d got %d", tc.wantTTL, state.Ttl)
+			}
+			if len(state.Resources) != tc.wantResourceCount {
+				t.Errorf("len(state.Resources) wants %d got %d", tc.wantResourceCount, len(state.Resources))
+			}
+		})
+	}
+}
+
+func TestLogin_Hydra_Error(t *testing.T) {
+	s, cfg, h, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	ga4ghGCSViewer := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer")
+
+	tests := []struct {
+		name       string
+		authParams string
+		respCode   int
+	}{
+		{
+			name:       "max_age wrong format",
+			authParams: "max_age=1h&resource=" + ga4ghGCSViewer,
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "negative max_age",
+			authParams: "max_age=-1000&resource=" + ga4ghGCSViewer,
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "max_age more than maxTTL",
+			authParams: "max_age=9999999&resource=" + ga4ghGCSViewer,
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "negative ttl",
+			authParams: "ttl=-1d&resource=" + ga4ghGCSViewer,
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "ttl more than maxTTL",
+			authParams: "ttl=100d&resource=" + ga4ghGCSViewer,
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "no resource",
+			authParams: "",
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "resource without domain",
+			authParams: "resource=dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer",
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "resource wrong format",
+			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "resources", "invalid"),
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "resource not exist",
+			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "ga4gh-apis", "invalid"),
+			respCode:   http.StatusNotFound,
+		},
+		{
+			name:       "resource view not exist",
+			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "gcs_read", "invalid"),
+			respCode:   http.StatusNotFound,
+		},
+		{
+			name:       "resource view role not exist",
+			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "viewer", "invalid"),
+			respCode:   http.StatusBadRequest,
+		},
+		{
+			name:       "second resource invalid",
+			authParams: "resource=" + ga4ghGCSViewer + "resource=invalid",
+			respCode:   http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := sendLogin(s, cfg, h, tc.authParams)
+			if resp.StatusCode != tc.respCode {
+				t.Errorf("resp.StatusCode wants %d, got %d", tc.respCode, resp.StatusCode)
+			}
+		})
+	}
+}
+
+func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, state string) (*http.Response, error) {
+	// Ensure login state exists before request.
+	login := &pb.ResourceTokenRequestState{
+		Challenge: loginChallenge,
+		Resources: []*pb.ResourceTokenRequestState_Resource{
+			{
+				Realm:    storage.DefaultRealm,
+				Resource: "ga4gh-apis",
+				View:     "gcs_read",
+				Role:     "viewer",
+			},
+		},
+		Ttl:    int64(time.Hour),
+		Broker: testBroker,
+	}
+
+	err := s.store.Write(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, login, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Clear fakehydra server and set reject response.
+	h.Clear()
+	h.AcceptLoginRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	// Send Request.
+	query := fmt.Sprintf("?code=%s&state=%s", code, state)
+	u := damURL + loggedInPath + query
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+	s.Handler.ServeHTTP(w, r)
+
+	return w.Result(), nil
+}
+
+func TestLoggedIn_Hydra_Success(t *testing.T) {
+	s, cfg, h, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	pname := "dr_joe_elixir"
+
+	resp, err := sendLoggedIn(s, cfg, h, pname, loginStateID)
+	if err != nil {
+		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s) failed: %v", pname, loginStateID, err)
+	}
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	l := resp.Header.Get("Location")
+	if l != hydraURL {
+		t.Errorf("Location wants %s got %s", hydraURL, l)
+	}
+
+	if *h.AcceptLoginRequestReq.Subject != pname {
+		t.Errorf("h.AcceptLoginRequestReq.Subject wants %s got %s", pname, *h.AcceptLoginRequestReq.Subject)
+	}
+
+	st, ok := h.AcceptLoginRequestReq.Context[stateIDInHydra]
+	if !ok {
+		t.Errorf("AcceptLoginRequestReq.Context[%s] not exists", stateIDInHydra)
+	}
+	stateID, ok := st.(string)
+	if !ok {
+		t.Errorf("AcceptLoginRequestReq.Context[%s] in wrong type", stateIDInHydra)
+	}
+
+	state := &pb.AuthCode{}
+	err = s.store.Read(storage.AuthCodeDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state)
+	if err != nil {
+		t.Fatalf("read AuthTokenState failed: %v", err)
+	}
+
+	if len(state.Tokens) != 1 {
+		t.Errorf("len(state.Tokens) wants 1 got %d", len(state.Tokens))
+	}
+}
+
+func TestLoggedIn_Hydra_Errors(t *testing.T) {
+	s, cfg, h, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	pname := "dr_joe_elixir"
+
+	tests := []struct {
+		name       string
+		code       string
+		stateID    string
+		respStatus int
+	}{
+		{
+			name:       "code invalid",
+			code:       "invalid",
+			stateID:    loginStateID,
+			respStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:       "stateID invalid",
+			code:       pname,
+			stateID:    "invalid",
+			respStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:       "user does not have enough permission",
+			code:       "dr_joe_era_commons",
+			stateID:    loginStateID,
+			respStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := sendLoggedIn(s, cfg, h, tc.code, tc.stateID)
+			if err != nil {
+				t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s) failed: %v", tc.code, tc.stateID, err)
+			}
+
+			if resp.StatusCode != tc.respStatus {
+				t.Errorf("resp.StatusCode wants %d got %d", tc.respStatus, resp.StatusCode)
+			}
+		})
+	}
 }
