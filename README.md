@@ -1,7 +1,8 @@
 # `healthcare-federated-access-services`
 
 This repository contains an implementation of the
-[GA4GH](https://www.ga4gh.org/) [Passport](http://bit.ly/ga4gh-passport-v1) specification.
+[GA4GH](https://www.ga4gh.org/) Researcher Identity and
+Authentication Profile specifications.
 
 **IMPORTANT: This is an early pre-release that should only be used for testing and demo purposes. Only synthetic or public datasets should be used. Customer support is not currently provided.**
 
