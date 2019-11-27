@@ -19,6 +19,8 @@ import (
 	"net/http"
 
 	glog "github.com/golang/glog"
+	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/grpc/status"
 )
 
 // WriteRPCResp writes reponse and error.
@@ -43,10 +45,34 @@ func WriteRPCResp(w http.ResponseWriter, resp interface{}, err error) {
 		return
 	}
 
+	WriteCorsHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		glog.Errorf("json.NewEncoder(writer).Encode(resp) failed: %v", err)
 		http.Error(w, "encoding the response failed", http.StatusInternalServerError)
 		return
 	}
+}
+
+// WriteStatus writes an error status to the response.
+func WriteStatus(w http.ResponseWriter, stat *status.Status) {
+	WriteCorsHeaders(w)
+	if stat == nil {
+		return
+	}
+	w.WriteHeader(HTTPStatus(stat.Code()))
+	w.Header().Set("Content-Type", "application/json")
+	ma := jsonpb.Marshaler{}
+	if err := ma.Marshal(w, stat.Proto()); err != nil {
+		glog.Errorf("json.NewEncoder(writer).Encode(resp) failed: %v", err)
+		http.Error(w, "encoding the response status failed", http.StatusInternalServerError)
+		return
+	}
+}
+
+// WriteCorsHeaders writes CORS headers (https://www.w3.org/TR/cors) to the response.
+func WriteCorsHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization")
+	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 }

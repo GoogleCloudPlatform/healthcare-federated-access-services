@@ -29,6 +29,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/status"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 )
 
@@ -237,20 +238,15 @@ func HandleError(num int, err error, w http.ResponseWriter) {
 }
 
 func handleIntegrityError(stat *status.Status, w http.ResponseWriter) {
-	AddCorsHeaders(w)
-	w.WriteHeader(FromCode(stat.Code()))
 	if len(stat.Details()) > 0 {
-		SendStatus(stat, w)
-	} else {
-		msg := fmt.Sprintf("%d request error: %v\n", http.StatusFailedDependency, stat.Message())
-		w.Write([]byte(msg))
+		httputil.WriteStatus(w, stat)
+		return
 	}
+	HandleError(FromCode(stat.Code()), fmt.Errorf("%s", stat.Message()), w)
 }
 
 func AddCorsHeaders(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization")
-	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+	httputil.WriteCorsHeaders(w)
 }
 
 func GetRequest(pb proto.Message, r *http.Request) error {
@@ -273,11 +269,6 @@ func SendResponse(resp proto.Message, w http.ResponseWriter) error {
 	AddCorsHeaders(w)
 	ma := jsonpb.Marshaler{}
 	return ma.Marshal(w, resp)
-}
-
-// SendStatus puts a status.Status message in the response.
-func SendStatus(stat *status.Status, w http.ResponseWriter) error {
-	return SendResponse(stat.Proto(), w)
 }
 
 // SendHTML writes a "text/html" type string to the ResponseWriter.
