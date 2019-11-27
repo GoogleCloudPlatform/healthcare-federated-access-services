@@ -69,6 +69,9 @@ type Adapter interface {
 	// Name returns the name identifier of the adapter as used in configurations.
 	Name() string
 
+	// Platform returns the name identifier of the platform on which this adapter operates.
+	Platform() string
+
 	// Descriptor returns a TargetAdapter descriptor.
 	Descriptor() *pb.TargetAdapter
 

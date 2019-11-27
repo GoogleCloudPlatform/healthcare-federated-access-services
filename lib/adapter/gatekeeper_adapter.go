@@ -32,6 +32,7 @@ import (
 const (
 	gatekeeperName        = "gatekeeper"
 	gatekeeperAdapterName = "token:jwt:gatekeeper"
+	gatekeeperPlatform    = "dam"
 	secretsName           = "secrets"
 	mainID                = "main"
 	keyID                 = "kid"
@@ -70,6 +71,11 @@ func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCre
 // Name returns the name identifier of the adapter as used in configurations.
 func (a *GatekeeperAdapter) Name() string {
 	return gatekeeperAdapterName
+}
+
+// Platform returns the name identifier of the platform on which this adapter operates.
+func (a *GatekeeperAdapter) Platform() string {
+	return gatekeeperPlatform
 }
 
 // Descriptor returns a TargetAdapter descriptor.

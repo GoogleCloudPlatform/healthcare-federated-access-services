@@ -29,6 +29,7 @@ const (
 	// SawAdapterName is the name identifier exposed in config files.
 	SawAdapterName = "token:gcp:sa"
 	sawName        = "saw"
+	sawPlatform    = "gcp"
 	// SawMaxUserIDLength is the service account desc max length.
 	SawMaxUserIDLength = 100
 	sawBucketVar       = "bucket"
@@ -56,6 +57,11 @@ func NewSawAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, s
 // Name returns the name identifier of the adapter as used in configurations.
 func (a *SawAdapter) Name() string {
 	return SawAdapterName
+}
+
+// Platform returns the name identifier of the platform on which this adapter operates.
+func (a *SawAdapter) Platform() string {
+	return sawPlatform
 }
 
 // Descriptor returns a TargetAdapter descriptor.

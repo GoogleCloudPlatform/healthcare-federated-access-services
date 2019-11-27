@@ -60,9 +60,6 @@ message Policy {
 }
 
 message View {
-  message Interface {
-    repeated string uri = 1;
-  }
   message Item {
     map<string, string> vars = 1;
   }
@@ -81,6 +78,10 @@ message View {
   map<string, string> ui = 12;
   // Computed fields.
   map<string, Interface> computed_interfaces = 13 [json_name = "interfaces"];
+}
+
+message Interface {
+  repeated string uri = 1;
 }
 
 message Resource {
@@ -183,14 +184,6 @@ message PassportTranslator {
   map<string, string> ui = 2;
 }
 
-message ResourceToken {
-  string name = 1;
-  View view = 2;
-  string account = 3;
-  string token = 4;
-  string ttl = 5;
-}
-
 ///////////////////////////////////////////////////
 
 message BackgroundProcess {
@@ -285,6 +278,7 @@ message GetFlatViewsResponse {
     map<string, string> resource_ui = 18;
     map<string, string> view_ui = 19;
     map<string, string> role_ui = 20;
+    repeated string role_categories = 21;
   }
   map<string, FlatView> views = 1;
 }
@@ -328,14 +322,6 @@ message GetTokenRequest {
   string return = 1;
   string data_use = 2;
   string ttl = 3;
-}
-
-message GetTokenResponse {
-  string name = 1;
-  View view = 2;
-  string account = 3;
-  string token = 4;
-  string ttl = 5;
 }
 
 message GetTestResultsRequest {}
@@ -501,6 +487,7 @@ message ResourceTokenRequestState {
     string resource = 2;
     string view = 3;
     string role = 4;
+    string url = 5;
   }
   repeated Resource resources = 1;
   string client_id = 2 [deprecated = true];
@@ -510,12 +497,42 @@ message ResourceTokenRequestState {
   int64 ttl = 6;
   bool response_key_file = 7;
   string challenge = 8;
+  string issuer = 9;
+  string subject = 10;
+  int64 epoch_seconds = 11;
 }
 
 message AuthCode {
   string client_id = 1 [deprecated = true];
-  bool response_key_file = 2;
-  map<string, ResourceToken> tokens = 3;
+  string state = 2;
+  int64 epoch_seconds = 3;
+}
+
+message ResourceTokens {
+  message Descriptor {
+    map<string, Interface> interfaces = 1;
+    string access = 2;
+    repeated string permissions = 3;
+  }
+  // Extends:
+  // https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
+  message ResourceToken {
+    string account = 1;
+    string access_token = 2 [json_name = "access_token"];
+    string token_type = 3 [json_name = "token_type"];
+    string refresh_token = 4 [json_name = "access_token"];
+    uint32 expires_in = 5 [json_name = "expires_in"];
+    string id_token = 6 [json_name = "id_token"];
+    string key_file = 7 [json_name = "key_file"];
+    string platform = 8;
+    string name = 9 [deprecated = true];
+    View view = 10 [deprecated = true];
+    string ttl = 11 [deprecated = true];
+    string token = 12 [deprecated = true];
+  }
+  map<string, Descriptor> resources = 1;
+  map<string, ResourceToken> access = 2;
+  uint32 epoch_seconds = 3;
 }
 
 ///////////////////////////////////////////////////

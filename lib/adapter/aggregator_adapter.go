@@ -57,6 +57,11 @@ func (a *AggregatorAdapter) Name() string {
 	return "token:aggregate:view"
 }
 
+// Platform returns the name identifier of the platform on which this adapter operates.
+func (a *AggregatorAdapter) Platform() string {
+	return a.sawAdapter.Platform()
+}
+
 // Descriptor returns a TargetAdapter descriptor.
 func (a *AggregatorAdapter) Descriptor() *pb.TargetAdapter {
 	return a.desc
