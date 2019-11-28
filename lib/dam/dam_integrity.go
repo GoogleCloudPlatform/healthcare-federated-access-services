@@ -201,6 +201,16 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		if pmatch, ok := personaEmail[tid.Subject]; ok {
 			return common.NewInfoStatus(codes.AlreadyExists, common.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "sub"), fmt.Sprintf("persona subject %q conflicts with test persona %q", tid.Subject, pmatch))
 		}
+		for i, a := range tp.Passport.Ga4GhAssertions {
+			// Test Persona conditions should meet the same criteria as policies that have no variables / arguments.
+			policy := &pb.Policy{
+				AnyOf: a.AnyOfConditions,
+			}
+			if path, err := validator.ValidatePolicy(policy, cfg.ClaimDefinitions, cfg.TrustedSources, nil); err != nil {
+				path = strings.Replace(path, "anyOf/", "anyOfConditions/", 1)
+				return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, "passport", "ga4ghAssertions", strconv.Itoa(i), path), err.Error())
+			}
+		}
 		if path, err := common.CheckUI(tp.Ui, false); err != nil {
 			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgTestPersonas, n, path), fmt.Sprintf("test persona UI settings: %v", err))
 		}

@@ -231,23 +231,23 @@ func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sour
 	for i, any := range policy.AnyOf {
 		for j, clause := range any.AllOf {
 			if err := validateVisaType(clause.Type, defs); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "type"), err
+				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "type"), err
 			}
 			if _, err := expandSources(clause.Type, clause.Source, sources); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "source"), err
+				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "source"), err
 			}
 			if _, err := expandValues(clause.Value, valArgs); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "value"), err
+				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}
 			valArgs, err := common.ExtractVariables(clause.Value)
 			if err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "value"), err
+				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}
 			for arg := range valArgs {
 				usedArgs[arg] = true
 			}
 			if _, err := expandBy(clause.By); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "clauses", strconv.Itoa(j), "by"), err
+				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "by"), err
 			}
 		}
 	}
