@@ -73,7 +73,7 @@ func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, logi
 	// TODO: provide metrics / audit logs for this case
 
 	// Now it's time to grant the login request. You could also deny the request if something went terribly wrong
-	resp, err := AcceptLoginRequest(client, hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
+	resp, err := AcceptLogin(client, hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return true
@@ -99,7 +99,7 @@ func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, co
 		GrantedScope:    consent.RequestedScope,
 		// TODO: need double check token has correct info.
 	}
-	resp, err := AcceptConsentRequest(client, hydraAdminURL, challenge, consentReq)
+	resp, err := AcceptConsent(client, hydraAdminURL, challenge, consentReq)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return true
@@ -117,7 +117,7 @@ func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Clien
 			StateIDKey: stateID,
 		},
 	}
-	resp, err := AcceptLoginRequest(client, hydraAdminURL, challenge, req)
+	resp, err := AcceptLogin(client, hydraAdminURL, challenge, req)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return

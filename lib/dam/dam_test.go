@@ -1239,7 +1239,7 @@ func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, stat
 
 	// Clear fakehydra server and set reject response.
 	h.Clear()
-	h.AcceptLoginRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.AcceptLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
 
 	// Send Request.
 	query := fmt.Sprintf("?code=%s&state=%s", code, state)
@@ -1273,17 +1273,17 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 		t.Errorf("Location wants %s got %s", hydraURL, l)
 	}
 
-	if *h.AcceptLoginRequestReq.Subject != pname {
-		t.Errorf("h.AcceptLoginRequestReq.Subject wants %s got %s", pname, *h.AcceptLoginRequestReq.Subject)
+	if *h.AcceptLoginReq.Subject != pname {
+		t.Errorf("h.AcceptLoginReq.Subject wants %s got %s", pname, *h.AcceptLoginReq.Subject)
 	}
 
-	st, ok := h.AcceptLoginRequestReq.Context[stateIDInHydra]
+	st, ok := h.AcceptLoginReq.Context[stateIDInHydra]
 	if !ok {
-		t.Errorf("AcceptLoginRequestReq.Context[%s] not exists", stateIDInHydra)
+		t.Errorf("AcceptLoginReq.Context[%s] not exists", stateIDInHydra)
 	}
 	stateID, ok := st.(string)
 	if !ok {
-		t.Errorf("AcceptLoginRequestReq.Context[%s] in wrong type", stateIDInHydra)
+		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", stateIDInHydra)
 	}
 
 	code := &pb.AuthCode{}
@@ -1367,7 +1367,7 @@ func TestHydraConsent(t *testing.T) {
 		Client:  &hydraapi.Client{ClientID: clientID},
 		Context: map[string]interface{}{hydra.StateIDKey: consentStateID},
 	}
-	h.AcceptConsentRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
 
 	// Send Request.
 	query := fmt.Sprintf("?consent_challenge=%s", consentChallenge)
@@ -1387,11 +1387,11 @@ func TestHydraConsent(t *testing.T) {
 		t.Errorf("Location wants %s got %s", hydraURL, l)
 	}
 
-	if diff := cmp.Diff(h.AcceptConsentRequestReq.GrantedAudience, []string{clientID}); len(diff) != 0 {
+	if diff := cmp.Diff(h.AcceptConsentReq.GrantedAudience, []string{clientID}); len(diff) != 0 {
 		t.Errorf("GrantedAudience (-want +got): %s", diff)
 	}
 
-	if h.AcceptConsentRequestReq.Session.AccessToken["cart"] != consentStateID {
-		t.Errorf("AccessToken.cart = %v wants %v", h.AcceptConsentRequestReq.Session.AccessToken["cart"], consentStateID)
+	if h.AcceptConsentReq.Session.AccessToken["cart"] != consentStateID {
+		t.Errorf("AccessToken.cart = %v wants %v", h.AcceptConsentReq.Session.AccessToken["cart"], consentStateID)
 	}
 }

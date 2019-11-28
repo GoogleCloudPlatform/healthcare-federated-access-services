@@ -71,51 +71,51 @@ func TestGetLoginRequest(t *testing.T) {
 	}
 }
 
-func TestAcceptLoginRequest(t *testing.T) {
+func TestAcceptLogin(t *testing.T) {
 	serv, cli := setup()
 	req := &hydraapi.HandledLoginRequest{Subject: &subject}
 
-	serv.AcceptLoginRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
-	resp, err := AcceptLoginRequest(cli, hydraAdminURL, challenge, req)
+	serv.AcceptLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
+	resp, err := AcceptLogin(cli, hydraAdminURL, challenge, req)
 	if err != nil {
-		t.Errorf("AcceptLoginRequest return error: %v", err)
+		t.Errorf("AcceptLogin return error: %v", err)
 	}
 
-	if *serv.AcceptLoginRequestReq.Subject != subject {
-		t.Errorf("subject want %s got %s", subject, *serv.AcceptLoginRequestReq.Subject)
+	if *serv.AcceptLoginReq.Subject != subject {
+		t.Errorf("subject want %s got %s", subject, *serv.AcceptLoginReq.Subject)
 	}
 
 	if resp.RedirectTo != callbackURL {
 		t.Errorf("resp.RedirectTo want %s got %s", callbackURL, resp.RedirectTo)
 	}
 
-	serv.AcceptLoginRequestErr = genericError
-	if _, err = AcceptLoginRequest(cli, hydraAdminURL, challenge, req); err == nil {
-		t.Errorf("AcceptLoginRequest wants error")
+	serv.AcceptLoginErr = genericError
+	if _, err = AcceptLogin(cli, hydraAdminURL, challenge, req); err == nil {
+		t.Errorf("AcceptLogin wants error")
 	}
 }
 
-func TestRejectLoginRequest(t *testing.T) {
+func TestRejectLogin(t *testing.T) {
 	serv, cli := setup()
 	req := &hydraapi.RequestDeniedError{Code: rejectCode}
 
-	serv.RejectLoginRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
-	resp, err := RejectLoginRequest(cli, hydraAdminURL, challenge, req)
+	serv.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
+	resp, err := RejectLogin(cli, hydraAdminURL, challenge, req)
 	if err != nil {
-		t.Errorf("RejectLoginRequest return error: %v", err)
+		t.Errorf("RejectLogin return error: %v", err)
 	}
 
-	if serv.RejectLoginRequestReq.Code != rejectCode {
-		t.Errorf("rejectCode want %d got %d", rejectCode, serv.RejectLoginRequestReq.Code)
+	if serv.RejectLoginReq.Code != rejectCode {
+		t.Errorf("rejectCode want %d got %d", rejectCode, serv.RejectLoginReq.Code)
 	}
 
 	if resp.RedirectTo != callbackURL {
 		t.Errorf("resp.RedirectTo want %s got %s", callbackURL, resp.RedirectTo)
 	}
 
-	serv.RejectLoginRequestErr = genericError
-	if _, err = RejectLoginRequest(cli, hydraAdminURL, challenge, req); err == nil {
-		t.Errorf("RejectLoginRequest wants error")
+	serv.RejectLoginErr = genericError
+	if _, err = RejectLogin(cli, hydraAdminURL, challenge, req); err == nil {
+		t.Errorf("RejectLogin wants error")
 	}
 }
 
@@ -142,17 +142,17 @@ func TestGetConsentRequest(t *testing.T) {
 	}
 }
 
-func TestAcceptConsentRequest(t *testing.T) {
+func TestAcceptConsent(t *testing.T) {
 	serv, cli := setup()
 	req := &hydraapi.HandledConsentRequest{Remember: true}
 
-	serv.AcceptConsentRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
-	resp, err := AcceptConsentRequest(cli, hydraAdminURL, challenge, req)
+	serv.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
+	resp, err := AcceptConsent(cli, hydraAdminURL, challenge, req)
 	if err != nil {
-		t.Errorf("AcceptConsentRequest return error: %v", err)
+		t.Errorf("AcceptConsent return error: %v", err)
 	}
 
-	if !serv.AcceptConsentRequestReq.Remember {
+	if !serv.AcceptConsentReq.Remember {
 		t.Errorf("Remember want true got false")
 	}
 
@@ -160,32 +160,32 @@ func TestAcceptConsentRequest(t *testing.T) {
 		t.Errorf("resp.RedirectTo want %s got %s", callbackURL, resp.RedirectTo)
 	}
 
-	serv.AcceptConsentRequestErr = genericError
-	if _, err = AcceptConsentRequest(cli, hydraAdminURL, challenge, req); err == nil {
-		t.Errorf("AcceptConsentRequest wants error")
+	serv.AcceptConsentErr = genericError
+	if _, err = AcceptConsent(cli, hydraAdminURL, challenge, req); err == nil {
+		t.Errorf("AcceptConsent wants error")
 	}
 }
 
-func TestRejectConsentRequest(t *testing.T) {
+func TestRejectConsent(t *testing.T) {
 	serv, cli := setup()
 	req := &hydraapi.RequestDeniedError{Code: rejectCode}
 
-	serv.RejectConsentRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
-	resp, err := RejectConsentRequest(cli, hydraAdminURL, challenge, req)
+	serv.RejectConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: callbackURL}
+	resp, err := RejectConsent(cli, hydraAdminURL, challenge, req)
 	if err != nil {
-		t.Errorf("RejectConsentRequest return error: %v", err)
+		t.Errorf("RejectConsent return error: %v", err)
 	}
 
-	if serv.RejectConsentRequestReq.Code != rejectCode {
-		t.Errorf("rejectCode want %d got %d", rejectCode, serv.RejectConsentRequestReq.Code)
+	if serv.RejectConsentReq.Code != rejectCode {
+		t.Errorf("rejectCode want %d got %d", rejectCode, serv.RejectConsentReq.Code)
 	}
 
 	if resp.RedirectTo != callbackURL {
 		t.Errorf("resp.RedirectTo want %s got %s", callbackURL, resp.RedirectTo)
 	}
 
-	serv.RejectConsentRequestErr = genericError
-	if _, err = RejectConsentRequest(cli, hydraAdminURL, challenge, req); err == nil {
-		t.Errorf("RejectConsentRequest wants error")
+	serv.RejectConsentErr = genericError
+	if _, err = RejectConsent(cli, hydraAdminURL, challenge, req); err == nil {
+		t.Errorf("RejectConsent wants error")
 	}
 }

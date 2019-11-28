@@ -582,7 +582,7 @@ func sendAcceptLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, code, st
 
 	// Clear fakehydra server and set reject response.
 	h.Clear()
-	h.RejectLoginRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
 
 	// Send Request.
 	p := "?code=%s&state=%s&error=%s&error_description=%s"
@@ -629,11 +629,11 @@ func TestAcceptLogin_Hydra_ToFinishLogin(t *testing.T) {
 				t.Fatalf("sendAcceptLogin(s, cfg, h, %s, %s, '', '') failed: %v", tc.code, tc.state, err)
 			}
 
-			if h.AcceptLoginRequestReq != nil {
-				t.Errorf("AcceptLoginRequestReq wants nil got %v", h.AcceptLoginRequestReq)
+			if h.AcceptLoginReq != nil {
+				t.Errorf("AcceptLoginReq wants nil got %v", h.AcceptLoginReq)
 			}
-			if h.RejectLoginRequestReq != nil {
-				t.Errorf("RejectLoginRequestReq wants nil got %v", h.RejectLoginRequestReq)
+			if h.RejectLoginReq != nil {
+				t.Errorf("RejectLoginReq wants nil got %v", h.RejectLoginReq)
 			}
 
 			if resp.StatusCode != http.StatusTemporaryRedirect {
@@ -669,11 +669,11 @@ func TestAcceptLogin_Hydra_Reject(t *testing.T) {
 		t.Fatalf("sendAcceptLogin(s, cfg, h, '', %s, %s, %s) failed: %v", hydra.StateIDKey, errName, errDesc, err)
 	}
 
-	if h.RejectLoginRequestReq.Name != errName {
-		t.Errorf("RejectLoginRequestReq.Name wants %s got %s", errName, h.RejectLoginRequestReq.Name)
+	if h.RejectLoginReq.Name != errName {
+		t.Errorf("RejectLoginReq.Name wants %s got %s", errName, h.RejectLoginReq.Name)
 	}
-	if h.RejectLoginRequestReq.Description != errDesc {
-		t.Errorf("RejectLoginRequestReq.Description wants %s got %s", errDesc, h.RejectLoginRequestReq.Description)
+	if h.RejectLoginReq.Description != errDesc {
+		t.Errorf("RejectLoginReq.Description wants %s got %s", errDesc, h.RejectLoginReq.Description)
 	}
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
@@ -725,8 +725,8 @@ func sendFinishLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, idp, cod
 
 	// Clear fakehydra server and set reject response.
 	h.Clear()
-	h.AcceptLoginRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
-	h.RejectLoginRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.AcceptLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
 
 	// Send Request.
 	path := strings.ReplaceAll(finishLoginPath, "{name}", idp)
@@ -764,13 +764,13 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 		t.Errorf("Location wants %s got %s", hydraURL, l)
 	}
 
-	st, ok := h.AcceptLoginRequestReq.Context[hydra.StateIDKey]
+	st, ok := h.AcceptLoginReq.Context[hydra.StateIDKey]
 	if !ok {
-		t.Errorf("AcceptLoginRequestReq.Context[%s] not exists", hydra.StateIDKey)
+		t.Errorf("AcceptLoginReq.Context[%s] not exists", hydra.StateIDKey)
 	}
 	stateID, ok := st.(string)
 	if !ok {
-		t.Errorf("AcceptLoginRequestReq.Context[%s] in wrong type", hydra.StateIDKey)
+		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", hydra.StateIDKey)
 	}
 
 	state := &cpb.AuthTokenState{}
@@ -786,8 +786,8 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 	if state.LoginHint != loginHint {
 		t.Errorf("state.LoginHint wants %s got %s", loginHint, state.LoginHint)
 	}
-	if *h.AcceptLoginRequestReq.Subject != state.Subject {
-		t.Errorf("subject send to hydra and subject in state should be equals. got %s, %s", *h.AcceptLoginRequestReq.Subject, state.Subject)
+	if *h.AcceptLoginReq.Subject != state.Subject {
+		t.Errorf("subject send to hydra and subject in state should be equals. got %s, %s", *h.AcceptLoginReq.Subject, state.Subject)
 	}
 }
 
@@ -844,8 +844,8 @@ func TestFinishLogin_Hydra_Invalid(t *testing.T) {
 				t.Errorf("resp.StatusCode wants %d got %d", tc.status, resp.StatusCode)
 			}
 
-			if h.AcceptLoginRequestReq != nil {
-				t.Errorf("AcceptLoginRequestReq wants nil got %v", h.AcceptLoginRequestReq)
+			if h.AcceptLoginReq != nil {
+				t.Errorf("AcceptLoginReq wants nil got %v", h.AcceptLoginReq)
 			}
 		})
 	}
@@ -877,8 +877,8 @@ func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Ser
 
 	// Clear fakehydra server and set reject response.
 	h.Clear()
-	h.AcceptConsentRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
-	h.RejectConsentRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.RejectConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
 
 	// Send Request.
 	query := fmt.Sprintf("?agree=%s&state=%s", agree, stateID)
@@ -911,15 +911,15 @@ func TestAcceptInformationRelease_Hydra_Accept(t *testing.T) {
 		t.Errorf("resp.Location wants %s got %s", hydraURL, l)
 	}
 
-	if h.RejectConsentRequestReq != nil {
-		t.Errorf("RejectConsentRequestReq wants nil got %v", h.RejectConsentRequestReq)
+	if h.RejectConsentReq != nil {
+		t.Errorf("RejectConsentReq wants nil got %v", h.RejectConsentReq)
 	}
 
-	if diff := cmp.Diff(h.AcceptConsentRequestReq.GrantedScope, strings.Split(scope, " ")); len(diff) != 0 {
-		t.Errorf("AcceptConsentRequestReq.GrantedScope wants %s got %v", scope, h.AcceptConsentRequestReq.GrantedScope)
+	if diff := cmp.Diff(h.AcceptConsentReq.GrantedScope, strings.Split(scope, " ")); len(diff) != 0 {
+		t.Errorf("AcceptConsentReq.GrantedScope wants %s got %v", scope, h.AcceptConsentReq.GrantedScope)
 	}
 
-	email, ok := h.AcceptConsentRequestReq.Session.IDToken["email"].(string)
+	email, ok := h.AcceptConsentReq.Session.IDToken["email"].(string)
 	if !ok {
 		t.Fatalf("Email in id token in wrong type")
 	}
@@ -951,15 +951,15 @@ func TestAcceptInformationRelease_Hydra_Accept_Scoped(t *testing.T) {
 		t.Errorf("resp.Location wants %s got %s", hydraURL, l)
 	}
 
-	if h.RejectConsentRequestReq != nil {
-		t.Errorf("RejectConsentRequestReq wants nil got %v", h.RejectConsentRequestReq)
+	if h.RejectConsentReq != nil {
+		t.Errorf("RejectConsentReq wants nil got %v", h.RejectConsentReq)
 	}
 
-	if diff := cmp.Diff(h.AcceptConsentRequestReq.GrantedScope, strings.Split(scope, " ")); len(diff) != 0 {
-		t.Errorf("AcceptConsentRequestReq.GrantedScope wants %s got %v", scope, h.AcceptConsentRequestReq.GrantedScope)
+	if diff := cmp.Diff(h.AcceptConsentReq.GrantedScope, strings.Split(scope, " ")); len(diff) != 0 {
+		t.Errorf("AcceptConsentReq.GrantedScope wants %s got %v", scope, h.AcceptConsentReq.GrantedScope)
 	}
 
-	if _, ok := h.AcceptConsentRequestReq.Session.IDToken["email"]; ok {
+	if _, ok := h.AcceptConsentReq.Session.IDToken["email"]; ok {
 		t.Fatalf("Email in id token should not exists")
 	}
 }
@@ -985,12 +985,12 @@ func TestAcceptInformationRelease_Hydra_Reject(t *testing.T) {
 		t.Errorf("resp.Location wants %s got %s", hydraURL, l)
 	}
 
-	if h.AcceptConsentRequestReq != nil {
-		t.Errorf("AcceptConsentRequestReq wants nil got %v", h.RejectConsentRequestReq)
+	if h.AcceptConsentReq != nil {
+		t.Errorf("AcceptConsentReq wants nil got %v", h.RejectConsentReq)
 	}
 
-	if h.RejectConsentRequestReq == nil {
-		t.Errorf("RejectConsentRequestReq got nil")
+	if h.RejectConsentReq == nil {
+		t.Errorf("RejectConsentReq got nil")
 	}
 }
 
@@ -1011,11 +1011,11 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusInternalServerError, resp.StatusCode)
 	}
 
-	if h.AcceptConsentRequestReq != nil {
-		t.Errorf("AcceptConsentRequestReq wants nil got %v", h.AcceptConsentRequestReq)
+	if h.AcceptConsentReq != nil {
+		t.Errorf("AcceptConsentReq wants nil got %v", h.AcceptConsentReq)
 	}
 
-	if h.RejectConsentRequestReq != nil {
-		t.Errorf("RejectConsentRequestReq wants nil got %v", h.RejectConsentRequestReq)
+	if h.RejectConsentReq != nil {
+		t.Errorf("RejectConsentReq wants nil got %v", h.RejectConsentReq)
 	}
 }

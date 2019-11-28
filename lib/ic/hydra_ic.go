@@ -102,7 +102,7 @@ func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state,
 		Name:        errName,
 		Description: errDesc,
 	}
-	resp, err := hydra.RejectLoginRequest(s.httpClient, s.hydraAdminURL, loginState.Challenge, hyErr)
+	resp, err := hydra.RejectLogin(s.httpClient, s.hydraAdminURL, loginState.Challenge, hyErr)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
@@ -231,7 +231,7 @@ func (s *Service) hydraRejectConsent(w http.ResponseWriter, r *http.Request, sta
 		Description: "User deny consent",
 	}
 
-	resp, err := hydra.RejectConsentRequest(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
+	resp, err := hydra.RejectConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
@@ -298,7 +298,7 @@ func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, sta
 		},
 	}
 
-	resp, err := hydra.AcceptConsentRequest(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
+	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return

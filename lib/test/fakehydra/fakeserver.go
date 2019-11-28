@@ -18,68 +18,57 @@ package fakehydra
 import (
 	"net/http"
 
-	glog "github.com/golang/glog"
 	"github.com/gorilla/mux"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+
+	glog "github.com/golang/glog"
 )
+
+// Data stores data in fake hydra server. Make it easier to reset.
+type Data struct {
+	GetLoginRequestReq    string
+	GetLoginRequestErr    *hydraapi.GenericError
+	GetLoginRequestResp   *hydraapi.LoginRequest
+	AcceptLoginReq        *hydraapi.HandledLoginRequest
+	AcceptLoginErr        *hydraapi.GenericError
+	AcceptLoginResp       *hydraapi.RequestHandlerResponse
+	RejectLoginReq        *hydraapi.RequestDeniedError
+	RejectLoginErr        *hydraapi.GenericError
+	RejectLoginResp       *hydraapi.RequestHandlerResponse
+	GetConsentRequestReq  string
+	GetConsentRequestErr  *hydraapi.GenericError
+	GetConsentRequestResp *hydraapi.ConsentRequest
+	AcceptConsentReq      *hydraapi.HandledConsentRequest
+	AcceptConsentErr      *hydraapi.GenericError
+	AcceptConsentResp     *hydraapi.RequestHandlerResponse
+	RejectConsentReq      *hydraapi.RequestDeniedError
+	RejectConsentErr      *hydraapi.GenericError
+	RejectConsentResp     *hydraapi.RequestHandlerResponse
+}
 
 // Server is fake hydra server.
 type Server struct {
-	GetLoginRequestReq       string
-	GetLoginRequestErr       *hydraapi.GenericError
-	GetLoginRequestResp      *hydraapi.LoginRequest
-	AcceptLoginRequestReq    *hydraapi.HandledLoginRequest
-	AcceptLoginRequestErr    *hydraapi.GenericError
-	AcceptLoginRequestResp   *hydraapi.RequestHandlerResponse
-	RejectLoginRequestReq    *hydraapi.RequestDeniedError
-	RejectLoginRequestErr    *hydraapi.GenericError
-	RejectLoginRequestResp   *hydraapi.RequestHandlerResponse
-	GetConsentRequestReq     string
-	GetConsentRequestErr     *hydraapi.GenericError
-	GetConsentRequestResp    *hydraapi.ConsentRequest
-	AcceptConsentRequestReq  *hydraapi.HandledConsentRequest
-	AcceptConsentRequestErr  *hydraapi.GenericError
-	AcceptConsentRequestResp *hydraapi.RequestHandlerResponse
-	RejectConsentRequestReq  *hydraapi.RequestDeniedError
-	RejectConsentRequestErr  *hydraapi.GenericError
-	RejectConsentRequestResp *hydraapi.RequestHandlerResponse
+	Data
 }
 
 // New creates fake hydra server.
 func New(r *mux.Router) *Server {
-	s := &Server{}
+	s := &Server{Data{}}
 
 	r.HandleFunc("/oauth2/auth/requests/login", s.getLoginRequest)
-	r.HandleFunc("/oauth2/auth/requests/login/accept", s.acceptLoginRequest)
-	r.HandleFunc("/oauth2/auth/requests/login/reject", s.rejectLoginRequest)
+	r.HandleFunc("/oauth2/auth/requests/login/accept", s.acceptLogin)
+	r.HandleFunc("/oauth2/auth/requests/login/reject", s.rejectLogin)
 	r.HandleFunc("/oauth2/auth/requests/consent", s.getConsentRequest)
-	r.HandleFunc("/oauth2/auth/requests/consent/accept", s.acceptConsentRequest)
-	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsentRequest)
+	r.HandleFunc("/oauth2/auth/requests/consent/accept", s.acceptConsent)
+	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsent)
 
 	return s
 }
 
 // Clear states in fake hydra server.
 func (s *Server) Clear() {
-	s.GetLoginRequestReq = ""
-	s.GetLoginRequestErr = nil
-	s.GetLoginRequestResp = nil
-	s.AcceptLoginRequestReq = nil
-	s.AcceptLoginRequestErr = nil
-	s.AcceptLoginRequestResp = nil
-	s.RejectLoginRequestReq = nil
-	s.RejectLoginRequestErr = nil
-	s.RejectLoginRequestResp = nil
-	s.GetConsentRequestReq = ""
-	s.GetConsentRequestErr = nil
-	s.GetConsentRequestResp = nil
-	s.AcceptConsentRequestReq = nil
-	s.AcceptConsentRequestErr = nil
-	s.AcceptConsentRequestResp = nil
-	s.RejectConsentRequestReq = nil
-	s.RejectConsentRequestErr = nil
-	s.RejectConsentRequestResp = nil
+	s.Data = Data{}
 }
 
 func (s *Server) write(w http.ResponseWriter, e *hydraapi.GenericError, resp interface{}) {
@@ -101,16 +90,16 @@ func (s *Server) getLoginRequest(w http.ResponseWriter, r *http.Request) {
 	s.write(w, s.GetLoginRequestErr, s.GetLoginRequestResp)
 }
 
-func (s *Server) acceptLoginRequest(w http.ResponseWriter, r *http.Request) {
-	s.AcceptLoginRequestReq = &hydraapi.HandledLoginRequest{}
-	common.DecodeJSONFromBody(r.Body, s.AcceptLoginRequestReq)
-	s.write(w, s.AcceptLoginRequestErr, s.AcceptLoginRequestResp)
+func (s *Server) acceptLogin(w http.ResponseWriter, r *http.Request) {
+	s.AcceptLoginReq = &hydraapi.HandledLoginRequest{}
+	common.DecodeJSONFromBody(r.Body, s.AcceptLoginReq)
+	s.write(w, s.AcceptLoginErr, s.AcceptLoginResp)
 }
 
-func (s *Server) rejectLoginRequest(w http.ResponseWriter, r *http.Request) {
-	s.RejectLoginRequestReq = &hydraapi.RequestDeniedError{}
-	common.DecodeJSONFromBody(r.Body, s.RejectLoginRequestReq)
-	s.write(w, s.RejectLoginRequestErr, s.RejectLoginRequestResp)
+func (s *Server) rejectLogin(w http.ResponseWriter, r *http.Request) {
+	s.RejectLoginReq = &hydraapi.RequestDeniedError{}
+	common.DecodeJSONFromBody(r.Body, s.RejectLoginReq)
+	s.write(w, s.RejectLoginErr, s.RejectLoginResp)
 }
 
 func (s *Server) getConsentRequest(w http.ResponseWriter, r *http.Request) {
@@ -118,14 +107,14 @@ func (s *Server) getConsentRequest(w http.ResponseWriter, r *http.Request) {
 	s.write(w, s.GetConsentRequestErr, s.GetConsentRequestResp)
 }
 
-func (s *Server) acceptConsentRequest(w http.ResponseWriter, r *http.Request) {
-	s.AcceptConsentRequestReq = &hydraapi.HandledConsentRequest{}
-	common.DecodeJSONFromBody(r.Body, s.AcceptConsentRequestReq)
-	s.write(w, s.AcceptConsentRequestErr, s.AcceptConsentRequestResp)
+func (s *Server) acceptConsent(w http.ResponseWriter, r *http.Request) {
+	s.AcceptConsentReq = &hydraapi.HandledConsentRequest{}
+	common.DecodeJSONFromBody(r.Body, s.AcceptConsentReq)
+	s.write(w, s.AcceptConsentErr, s.AcceptConsentResp)
 }
 
-func (s *Server) rejectConsentRequest(w http.ResponseWriter, r *http.Request) {
-	s.RejectConsentRequestReq = &hydraapi.RequestDeniedError{}
-	common.DecodeJSONFromBody(r.Body, s.RejectConsentRequestReq)
-	s.write(w, s.RejectConsentRequestErr, s.RejectConsentRequestResp)
+func (s *Server) rejectConsent(w http.ResponseWriter, r *http.Request) {
+	s.RejectConsentReq = &hydraapi.RequestDeniedError{}
+	common.DecodeJSONFromBody(r.Body, s.RejectConsentReq)
+	s.write(w, s.RejectConsentErr, s.RejectConsentResp)
 }

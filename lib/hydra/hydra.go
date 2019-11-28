@@ -34,16 +34,16 @@ func GetLoginRequest(client *http.Client, hydraAdminURL, challenge string) (*hyd
 	return resp, err
 }
 
-// AcceptLoginRequest tells hydra to accept a login request.
-func AcceptLoginRequest(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.HandledLoginRequest) (*hydraapi.RequestHandlerResponse, error) {
+// AcceptLogin tells hydra to accept a login request.
+func AcceptLogin(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.HandledLoginRequest) (*hydraapi.RequestHandlerResponse, error) {
 	u := putURL(hydraAdminURL, "login", "accept", url.QueryEscape(challenge))
 	resp := &hydraapi.RequestHandlerResponse{}
 	err := httpPut(client, u, r, resp)
 	return resp, err
 }
 
-// RejectLoginRequest tells hydra to reject a login request.
-func RejectLoginRequest(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.RequestDeniedError) (*hydraapi.RequestHandlerResponse, error) {
+// RejectLogin tells hydra to reject a login request.
+func RejectLogin(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.RequestDeniedError) (*hydraapi.RequestHandlerResponse, error) {
 	u := putURL(hydraAdminURL, "login", "reject", url.QueryEscape(challenge))
 	resp := &hydraapi.RequestHandlerResponse{}
 	err := httpPut(client, u, r, resp)
@@ -58,16 +58,16 @@ func GetConsentRequest(client *http.Client, hydraAdminURL, challenge string) (*h
 	return resp, err
 }
 
-// AcceptConsentRequest tells hydra to accept a consent request.
-func AcceptConsentRequest(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.HandledConsentRequest) (*hydraapi.RequestHandlerResponse, error) {
+// AcceptConsent tells hydra to accept a consent request.
+func AcceptConsent(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.HandledConsentRequest) (*hydraapi.RequestHandlerResponse, error) {
 	u := putURL(hydraAdminURL, "consent", "accept", url.QueryEscape(challenge))
 	resp := &hydraapi.RequestHandlerResponse{}
 	err := httpPut(client, u, r, resp)
 	return resp, err
 }
 
-// RejectConsentRequest tells hydra to rejects a consent request.
-func RejectConsentRequest(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.RequestDeniedError) (*hydraapi.RequestHandlerResponse, error) {
+// RejectConsent tells hydra to rejects a consent request.
+func RejectConsent(client *http.Client, hydraAdminURL, challenge string, r *hydraapi.RequestDeniedError) (*hydraapi.RequestHandlerResponse, error) {
 	u := putURL(hydraAdminURL, "consent", "reject", url.QueryEscape(challenge))
 	resp := &hydraapi.RequestHandlerResponse{}
 	err := httpPut(client, u, r, resp)

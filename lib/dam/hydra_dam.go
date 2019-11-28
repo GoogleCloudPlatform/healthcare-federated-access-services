@@ -117,7 +117,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	resp, err := hydra.AcceptConsentRequest(s.httpClient, s.hydraAdminURL, challenge, req)
+	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
