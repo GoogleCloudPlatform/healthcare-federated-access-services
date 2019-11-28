@@ -25,6 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
@@ -35,9 +36,9 @@ import (
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	// Use login_challenge fetch information from hydra.
-	challenge, err := hydra.ExtractLoginChallenge(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
+	challenge, status := hydra.ExtractLoginChallenge(r)
+	if status != nil {
+		httputil.WriteStatus(w, status)
 		return
 	}
 
@@ -113,9 +114,9 @@ func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state,
 // HydraConsent handles consent request from hydra.
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 	// Use consent_challenge fetch information from hydra.
-	challenge, err := hydra.ExtractConsentChallenge(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
+	challenge, status := hydra.ExtractConsentChallenge(r)
+	if status != nil {
+		httputil.WriteStatus(w, status)
 		return
 	}
 
@@ -144,15 +145,9 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	st, ok := consent.Context[hydra.StateIDKey]
-	if !ok {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Context[%s] not found", hydra.StateIDKey), w)
-		return
-	}
-
-	stateID, ok := st.(string)
-	if !ok {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Context[%s] in wrong type", hydra.StateIDKey), w)
+	stateID, status := hydra.ExtractStateIDInConsent(consent)
+	if status != nil {
+		httputil.WriteStatus(w, status)
 		return
 	}
 
@@ -179,9 +174,9 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acct, status, err := s.loadAccount(sub, state.Realm, tx)
+	acct, st, err := s.loadAccount(sub, state.Realm, tx)
 	if err != nil {
-		common.HandleError(status, err, w)
+		common.HandleError(st, err, w)
 		return
 	}
 

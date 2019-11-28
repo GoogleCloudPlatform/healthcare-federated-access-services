@@ -20,10 +20,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
-
-	glog "github.com/golang/glog"
 )
 
 const (
@@ -33,9 +33,9 @@ const (
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	// Use login_challenge fetch information from hydra.
-	challenge, err := hydra.ExtractLoginChallenge(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
+	challenge, status := hydra.ExtractLoginChallenge(r)
+	if status != nil {
+		httputil.WriteStatus(w, status)
 		return
 	}
 
@@ -77,9 +77,9 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		challenge:       challenge,
 	}
 
-	out, status, err := s.resourceAuth(r.Context(), in)
+	out, st, err := s.resourceAuth(r.Context(), in)
 	if err != nil {
-		common.HandleError(status, err, w)
+		common.HandleError(st, err, w)
 		return
 	}
 
@@ -90,7 +90,40 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 // HydraConsent handles consent request from hydra.
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
-	glog.Errorln("unimplemented")
+	// Use consent_challenge fetch information from hydra.
+	challenge, status := hydra.ExtractConsentChallenge(r)
+	if status != nil {
+		httputil.WriteStatus(w, status)
+		return
+	}
+
+	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	stateID, status := hydra.ExtractStateIDInConsent(consent)
+	if status != nil {
+		httputil.WriteStatus(w, status)
+		return
+	}
+
+	req := &hydraapi.HandledConsentRequest{
+		GrantedAudience: append(consent.RequestedAudience, consent.Client.ClientID),
+		GrantedScope:    consent.RequestedScope,
+		Session: &hydraapi.ConsentRequestSessionData{
+			AccessToken: map[string]interface{}{"cart": stateID},
+		},
+	}
+
+	resp, err := hydra.AcceptConsentRequest(s.httpClient, s.hydraAdminURL, challenge, req)
+	if err != nil {
+		common.HandleError(http.StatusServiceUnavailable, err, w)
+		return
+	}
+
+	common.SendRedirect(resp.RedirectTo, r, w)
 }
 
 // HydraTestPage send hydra test page.

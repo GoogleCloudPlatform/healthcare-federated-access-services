@@ -843,11 +843,12 @@ func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirec
 	state := ""
 	nonce := ""
 	challenge := ""
+	var st *status.Status
 
 	if s.useHydra {
-		challenge, err = hydra.ExtractLoginChallenge(r)
-		if err != nil {
-			return nil, "", err
+		challenge, st = hydra.ExtractLoginChallenge(r)
+		if st != nil {
+			return nil, "", st.Err()
 		}
 	} else {
 		state, err = extractState(r)

@@ -31,6 +31,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra"
@@ -43,14 +44,16 @@ import (
 )
 
 const (
-	damURL         = "https://dam.example.com"
-	hydraAdminURL  = "https://admin.hydra.example.com"
-	hydraURL       = "https://example.com/oidc"
-	testBroker     = "testBroker"
-	notUseHydra    = false
-	useHydra       = true
-	loginChallenge = "lc-1234"
-	loginStateID   = "ls-1234"
+	damURL           = "https://dam.example.com"
+	hydraAdminURL    = "https://admin.hydra.example.com"
+	hydraURL         = "https://example.com/oidc"
+	testBroker       = "testBroker"
+	notUseHydra      = false
+	useHydra         = true
+	loginChallenge   = "lc-1234"
+	loginStateID     = "ls-1234"
+	consentChallenge = "cc-1234"
+	consentStateID   = "cs-1234"
 )
 
 // transformJSON is a cmp.Option that transform strings into structured objects
@@ -1349,5 +1352,46 @@ func TestLoggedIn_Hydra_Errors(t *testing.T) {
 				t.Errorf("resp.StatusCode wants %d got %d", tc.respStatus, resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestHydraConsent(t *testing.T) {
+	s, _, h, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	clientID := "cid"
+
+	h.GetConsentRequestResp = &hydraapi.ConsentRequest{
+		Client:  &hydraapi.Client{ClientID: clientID},
+		Context: map[string]interface{}{hydra.StateIDKey: consentStateID},
+	}
+	h.AcceptConsentRequestResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	// Send Request.
+	query := fmt.Sprintf("?consent_challenge=%s", consentChallenge)
+	u := damURL + hydraConsentPath + query
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+	s.Handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	l := resp.Header.Get("Location")
+	if l != hydraURL {
+		t.Errorf("Location wants %s got %s", hydraURL, l)
+	}
+
+	if diff := cmp.Diff(h.AcceptConsentRequestReq.GrantedAudience, []string{clientID}); len(diff) != 0 {
+		t.Errorf("GrantedAudience (-want +got): %s", diff)
+	}
+
+	if h.AcceptConsentRequestReq.Session.AccessToken["cart"] != consentStateID {
+		t.Errorf("AccessToken.cart = %v wants %v", h.AcceptConsentRequestReq.Session.AccessToken["cart"], consentStateID)
 	}
 }

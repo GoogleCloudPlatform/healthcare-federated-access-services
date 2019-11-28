@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 )
@@ -28,21 +30,36 @@ const (
 )
 
 // ExtractLoginChallenge extracts login_challenge from request.
-func ExtractLoginChallenge(r *http.Request) (string, error) {
+func ExtractLoginChallenge(r *http.Request) (string, *status.Status) {
 	n := common.GetParam(r, "login_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
-	return "", fmt.Errorf("request must include query 'login challenge'")
+	return "", common.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'login challenge'")
 }
 
 // ExtractConsentChallenge extracts consent_challenge from request.
-func ExtractConsentChallenge(r *http.Request) (string, error) {
+func ExtractConsentChallenge(r *http.Request) (string, *status.Status) {
 	n := common.GetParam(r, "consent_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
-	return "", fmt.Errorf("request must include query 'consent_challenge'")
+	return "", common.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'consent_challenge'")
+}
+
+// ExtractStateIDInConsent extracts stateID in ConsentRequest Context.
+func ExtractStateIDInConsent(consent *hydraapi.ConsentRequest) (string, *status.Status) {
+	st, ok := consent.Context[StateIDKey]
+	if !ok {
+		return "", common.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] not found", StateIDKey))
+	}
+
+	stateID, ok := st.(string)
+	if !ok {
+		return "", common.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] in wrong type", StateIDKey))
+	}
+
+	return stateID, nil
 }
 
 // LoginSkip if hydra was already able to authenticate the user, skip will be true and we do not need to re-authenticate the user.
