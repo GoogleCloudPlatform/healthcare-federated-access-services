@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	_ "github.com/golang/glog"
+	glog "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
@@ -96,9 +96,9 @@ func fakeAccessDataAndJWT(t *testing.T) (*AccessData, AccessJWT) {
 	}
 	j := AccessJWT(signed)
 
-	t.Logf("Data: %#v", d)
-	t.Logf("JWT: %v", j)
-	t.Logf("You can verify the Data and JWT match on https://jwt.io/")
+	glog.Infof("Data: %#v", d)
+	glog.Infof("JWT: %v", j)
+	glog.Infof("You can verify the Data and JWT match on https://jwt.io/")
 
 	return d, j
 }
