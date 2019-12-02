@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	glog "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
@@ -91,9 +92,9 @@ func fakeVisaDataAndJWT(t *testing.T) (*VisaData, VisaJWT) {
 	}
 	j := VisaJWT(signed)
 
-	t.Logf("Data: %#v", d)
-	t.Logf("JWT: %v", j)
-	t.Logf("You can verify the Data and JWT match on https://jwt.io/")
+	glog.Infof("Data: %#v", d)
+	glog.Infof("JWT: %v", j)
+	glog.Infof("You can verify the Data and JWT match on https://jwt.io/")
 
 	return d, j
 }
