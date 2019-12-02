@@ -45,6 +45,20 @@ type Data struct {
 	RejectConsentReq      *hydraapi.RequestDeniedError
 	RejectConsentErr      *hydraapi.GenericError
 	RejectConsentResp     *hydraapi.RequestHandlerResponse
+	ListClientsErr        *hydraapi.GenericError
+	ListClientsResp       []*hydraapi.Client
+	CreateClientReq       *hydraapi.Client
+	CreateClientErr       *hydraapi.GenericError
+	CreateClientResp      *hydraapi.Client
+	GetClientID           string
+	GetClientErr          *hydraapi.GenericError
+	GetClientResp         *hydraapi.Client
+	UpdateClientID        string
+	UpdateClientReq       *hydraapi.Client
+	UpdateClientErr       *hydraapi.GenericError
+	UpdateClientResp      *hydraapi.Client
+	DeleteClientID        string
+	DeleteClientErr       *hydraapi.GenericError
 }
 
 // Server is fake hydra server.
@@ -56,12 +70,23 @@ type Server struct {
 func New(r *mux.Router) *Server {
 	s := &Server{Data{}}
 
-	r.HandleFunc("/oauth2/auth/requests/login", s.getLoginRequest)
-	r.HandleFunc("/oauth2/auth/requests/login/accept", s.acceptLogin)
-	r.HandleFunc("/oauth2/auth/requests/login/reject", s.rejectLogin)
-	r.HandleFunc("/oauth2/auth/requests/consent", s.getConsentRequest)
-	r.HandleFunc("/oauth2/auth/requests/consent/accept", s.acceptConsent)
-	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsent)
+	// These follow the methods used by the real Hydra.
+	// See https://www.ory.sh/docs/hydra/sdk/api
+
+	// oauth endpoints
+	r.HandleFunc("/oauth2/auth/requests/login", s.getLoginRequest).Methods(http.MethodGet)
+	r.HandleFunc("/oauth2/auth/requests/login/accept", s.acceptLogin).Methods(http.MethodPut)
+	r.HandleFunc("/oauth2/auth/requests/login/reject", s.rejectLogin).Methods(http.MethodPut)
+	r.HandleFunc("/oauth2/auth/requests/consent", s.getConsentRequest).Methods(http.MethodGet)
+	r.HandleFunc("/oauth2/auth/requests/consent/accept", s.acceptConsent).Methods(http.MethodPut)
+	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsent).Methods(http.MethodPut)
+
+	// client endpoints
+	r.HandleFunc("/clients", s.listClients).Methods(http.MethodGet)
+	r.HandleFunc("/clients", s.createClient).Methods(http.MethodPost)
+	r.HandleFunc("/clients/{id}", s.getClient).Methods(http.MethodGet)
+	r.HandleFunc("/clients/{id}", s.updateClient).Methods(http.MethodPut)
+	r.HandleFunc("/clients/{id}", s.deleteClient).Methods(http.MethodDelete)
 
 	return s
 }
@@ -71,8 +96,7 @@ func (s *Server) Clear() {
 	s.Data = Data{}
 }
 
-func (s *Server) write(w http.ResponseWriter, e *hydraapi.GenericError, resp interface{}) {
-	code := http.StatusOK
+func (s *Server) write(w http.ResponseWriter, code int, e *hydraapi.GenericError, resp interface{}) {
 	body := resp
 	if e != nil {
 		code = int(e.Code)
@@ -87,34 +111,68 @@ func (s *Server) write(w http.ResponseWriter, e *hydraapi.GenericError, resp int
 
 func (s *Server) getLoginRequest(w http.ResponseWriter, r *http.Request) {
 	s.GetLoginRequestReq = r.URL.Query().Get("login_challenge")
-	s.write(w, s.GetLoginRequestErr, s.GetLoginRequestResp)
+	s.write(w, http.StatusOK, s.GetLoginRequestErr, s.GetLoginRequestResp)
 }
 
 func (s *Server) acceptLogin(w http.ResponseWriter, r *http.Request) {
 	s.AcceptLoginReq = &hydraapi.HandledLoginRequest{}
 	common.DecodeJSONFromBody(r.Body, s.AcceptLoginReq)
-	s.write(w, s.AcceptLoginErr, s.AcceptLoginResp)
+	s.write(w, http.StatusOK, s.AcceptLoginErr, s.AcceptLoginResp)
 }
 
 func (s *Server) rejectLogin(w http.ResponseWriter, r *http.Request) {
 	s.RejectLoginReq = &hydraapi.RequestDeniedError{}
 	common.DecodeJSONFromBody(r.Body, s.RejectLoginReq)
-	s.write(w, s.RejectLoginErr, s.RejectLoginResp)
+	s.write(w, http.StatusOK, s.RejectLoginErr, s.RejectLoginResp)
 }
 
 func (s *Server) getConsentRequest(w http.ResponseWriter, r *http.Request) {
 	s.GetConsentRequestReq = r.URL.Query().Get("consent_challenge")
-	s.write(w, s.GetConsentRequestErr, s.GetConsentRequestResp)
+	s.write(w, http.StatusOK, s.GetConsentRequestErr, s.GetConsentRequestResp)
 }
 
 func (s *Server) acceptConsent(w http.ResponseWriter, r *http.Request) {
 	s.AcceptConsentReq = &hydraapi.HandledConsentRequest{}
 	common.DecodeJSONFromBody(r.Body, s.AcceptConsentReq)
-	s.write(w, s.AcceptConsentErr, s.AcceptConsentResp)
+	s.write(w, http.StatusOK, s.AcceptConsentErr, s.AcceptConsentResp)
 }
 
 func (s *Server) rejectConsent(w http.ResponseWriter, r *http.Request) {
 	s.RejectConsentReq = &hydraapi.RequestDeniedError{}
 	common.DecodeJSONFromBody(r.Body, s.RejectConsentReq)
-	s.write(w, s.RejectConsentErr, s.RejectConsentResp)
+	s.write(w, http.StatusOK, s.RejectConsentErr, s.RejectConsentResp)
+}
+
+func (s *Server) listClients(w http.ResponseWriter, r *http.Request) {
+	s.write(w, http.StatusOK, s.ListClientsErr, s.ListClientsResp)
+}
+
+func (s *Server) createClient(w http.ResponseWriter, r *http.Request) {
+	s.CreateClientReq = &hydraapi.Client{}
+	common.DecodeJSONFromBody(r.Body, s.CreateClientReq)
+	s.write(w, http.StatusCreated, s.CreateClientErr, s.CreateClientResp)
+}
+
+func (s *Server) getClient(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	s.GetClientID = vars["id"]
+	s.write(w, http.StatusOK, s.GetClientErr, s.GetClientResp)
+}
+
+func (s *Server) updateClient(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	s.UpdateClientID = vars["id"]
+	s.UpdateClientReq = &hydraapi.Client{}
+	common.DecodeJSONFromBody(r.Body, s.UpdateClientReq)
+	s.write(w, http.StatusOK, s.UpdateClientErr, s.UpdateClientResp)
+}
+
+func (s *Server) deleteClient(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	s.DeleteClientID = vars["id"]
+	if s.DeleteClientErr != nil {
+		s.write(w, int(s.DeleteClientErr.Code), s.DeleteClientErr, nil)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -96,3 +96,29 @@ func HTTPStatus(code codes.Code) int {
 func FromError(err error) int {
 	return HTTPStatus(status.Code(err))
 }
+
+// IsHTTPSuccess check if http code is success code: 2xx
+// See: https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+func IsHTTPSuccess(code int) bool {
+	return code >= 200 && code < 300
+}
+
+// IsHTTPRedirect check if http code is redirect code: 3xx
+func IsHTTPRedirect(code int) bool {
+	return code >= 300 && code < 400
+}
+
+// IsHTTPClientError check if http code is client error code: 4xx
+func IsHTTPClientError(code int) bool {
+	return code >= 400 && code < 500
+}
+
+// IsHTTPServerError check if http code is server error code: 5xx
+func IsHTTPServerError(code int) bool {
+	return code >= 500 && code < 600
+}
+
+// IsHTTPError check if http code is error code: 4xx or 5xx
+func IsHTTPError(code int) bool {
+	return IsHTTPClientError(code) || IsHTTPServerError(code)
+}

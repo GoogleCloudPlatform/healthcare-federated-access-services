@@ -24,6 +24,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 )
 
 // GetLoginRequest fetches information on a login request.
@@ -74,6 +75,45 @@ func RejectConsent(client *http.Client, hydraAdminURL, challenge string, r *hydr
 	return resp, err
 }
 
+// ListClients list all OAuth clients in hydra.
+func ListClients(client *http.Client, hydraAdminURL string) ([]*hydraapi.Client, error) {
+	u := hydraAdminURL + "/clients"
+	resp := []*hydraapi.Client{}
+	err := httpGet(client, u, &resp)
+	return resp, err
+}
+
+// CreateClient creates OAuth client in hydra.
+func CreateClient(client *http.Client, hydraAdminURL string, oauthClient *hydraapi.Client) (*hydraapi.Client, error) {
+	u := hydraAdminURL + "/clients"
+	resp := &hydraapi.Client{}
+	err := httpPost(client, u, oauthClient, resp)
+	return resp, err
+}
+
+// GetClient gets an OAUth 2.0 client by its ID.
+func GetClient(client *http.Client, hydraAdminURL, id string) (*hydraapi.Client, error) {
+	u := hydraAdminURL + "/clients/" + id
+	resp := &hydraapi.Client{}
+	err := httpGet(client, u, resp)
+	return resp, err
+}
+
+// UpdateClient updates an existing OAuth 2.0 Client.
+func UpdateClient(client *http.Client, hydraAdminURL, id string, oauthClient *hydraapi.Client) (*hydraapi.Client, error) {
+	u := hydraAdminURL + "/clients/" + id
+	resp := &hydraapi.Client{}
+	err := httpPut(client, u, oauthClient, resp)
+	return resp, err
+}
+
+// DeleteClient delete an existing OAuth 2.0 Client by its ID.
+func DeleteClient(client *http.Client, hydraAdminURL, id string) error {
+	u := hydraAdminURL + "/clients/" + id
+	err := httpDelete(client, u)
+	return err
+}
+
 func getURL(hydraAdminURL, flow, challenge string) string {
 	const getURLPattern = "%s/oauth2/auth/requests/%s?%s_challenge=%s"
 	return fmt.Sprintf(getURLPattern, hydraAdminURL, flow, flow, url.QueryEscape(challenge))
@@ -85,7 +125,7 @@ func putURL(hydraAdminURL, flow, action, challenge string) string {
 }
 
 func httpResponse(resp *http.Response, response interface{}) error {
-	if resp.StatusCode != http.StatusOK {
+	if httputil.IsHTTPError(resp.StatusCode) {
 		gErr := &hydraapi.GenericError{}
 		if err := common.DecodeJSONFromBody(resp.Body, gErr); err != nil {
 			return err
@@ -109,12 +149,56 @@ func httpPut(client *http.Client, url string, request interface{}, response inte
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
 	return httpResponse(resp, response)
+}
+
+func httpPost(client *http.Client, url string, request interface{}, response interface{}) error {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	return httpResponse(resp, response)
+}
+
+func httpDelete(client *http.Client, url string) error {
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+	return httpResponse(resp, nil)
 }
 
 func httpGet(client *http.Client, url string, response interface{}) error {
@@ -124,6 +208,8 @@ func httpGet(client *http.Client, url string, response interface{}) error {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
