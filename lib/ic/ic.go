@@ -111,6 +111,11 @@ const (
 	accountPath        = methodPrefix + "accounts/{name}"
 	accountSubjectPath = accountPath + "/subjects/{subject}"
 
+	scimPrefix    = basePath + "/scim/v2/" + common.RealmVariable + "/"
+	scimUsersPath = scimPrefix + "Users"
+	scimUserPath  = scimPrefix + "Users/{name}"
+	scimMePath    = scimPrefix + "Me"
+
 	adminPathPrefix        = methodPrefix + "admin"
 	adminClaimsPath        = adminPathPrefix + "/subjects/{name}/account/claims"
 	adminTokenMetadataPath = adminPathPrefix + "/tokens"
@@ -521,6 +526,10 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(accountPath, common.MakeHandler(s, s.accountFactory()))
 	r.HandleFunc(accountSubjectPath, common.MakeHandler(s, s.accountSubjectFactory()))
 	r.HandleFunc(adminClaimsPath, common.MakeHandler(s, s.adminClaimsFactory()))
+
+	r.HandleFunc(scimMePath, common.MakeHandler(s, s.scimMeFactory()))
+	r.HandleFunc(scimUserPath, common.MakeHandler(s, s.scimUserFactory()))
+	r.HandleFunc(scimUsersPath, common.MakeHandler(s, s.scimUsersFactory()))
 
 	r.HandleFunc(oidcConfiguarePath, s.OidcWellKnownConfig).Methods("GET")
 	r.HandleFunc(oidcJwksPath, s.OidcKeys).Methods("GET")

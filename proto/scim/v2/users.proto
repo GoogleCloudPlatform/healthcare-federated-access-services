@@ -21,6 +21,8 @@ syntax = "proto3";
 // Protocol: https://tools.ietf.org/html/rfc7644
 package scim.v2;
 
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2";
+
 // SCIM representation of a 'User' as per
 // https://tools.ietf.org/html/rfc7643#section-4.1
 message User {
@@ -34,8 +36,8 @@ message User {
   // specified and MUST not impact behavior. REQUIRED.
   repeated string schemas = 1;
 
-  // Unique identifier for the SCIM Resource as defined by the Service Provider
-  // (Google). This is returned by Google when the resource is created.
+  // Unique identifier for the SCIM Resource as defined by the Service Provider.
+  // This is returned when the resource is created.
   // Each representation of the Resource MUST include a non-empty id value. This
   // identifier MUST be unique across the Service Provider's entire set of
   // Resources. It MUST be a stable, non-reassignable identifier that does not
@@ -62,7 +64,7 @@ message User {
   ResourceMetadata meta = 4;
 
   // Unique identifier for the User, typically used by the user to directly
-  // authenticate to the service provider (Google). Often displayed to the user
+  // authenticate to the service provider. Often displayed to the user
   // as their unique identifier within the system (as opposed to id or
   // externalId, which are generally opaque and not user-friendly identifiers).
   // Each User MUST include a non-empty userName value. This identifier MUST be
@@ -436,10 +438,10 @@ message Patch {
   repeated Operation operations = 2 [json_name = "Operations"];
 }
 
-// Response for ListUsers
+// Response for ListUsers per https://tools.ietf.org/html/rfc7644#section-3.4.2
 message ListUsersResponse {
-  // SCIM User resource.
-  repeated User user = 1 [json_name = "Resources"];
+  // List of SCIM User resources.
+  repeated User resources = 1 [json_name = "Resources"];
 
   // Index of the first element of the page.
   uint32 start_index = 2;

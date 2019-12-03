@@ -106,6 +106,12 @@ func TtlString(ttl time.Duration) string {
 	return str
 }
 
+// TimestampString returns a RFC3339 date/time string.
+func TimestampString(epoch int64) string {
+	tm := time.Unix(epoch, 0)
+	return tm.UTC().Format(time.RFC3339)
+}
+
 // PastTimestamp returns a timestamp string a given duration in the past.
 func PastTimestamp(ttl time.Duration) string {
 	return time.Now().UTC().Add(-1 * ttl).Format(time.RFC3339)
