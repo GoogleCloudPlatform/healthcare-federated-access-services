@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-// Package dam provides protocol buffer versions of the DAM API, allowing
+// Package ic provides protocol buffer versions of the DAM API, allowing
 // end points to receive requests and returns responses using these messages.
 package ic.v1;
 

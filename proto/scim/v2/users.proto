@@ -1,0 +1,462 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Package scim provides protocol buffer versions of the SCIM 2.0 User objects
+// and related operations, allowing endpoints to receive requests and return
+// responses using these messages.
+// Core Schema: https://tools.ietf.org/html/rfc7643
+// Protocol: https://tools.ietf.org/html/rfc7644
+package scim.v2;
+
+// SCIM representation of a 'User' as per
+// https://tools.ietf.org/html/rfc7643#section-4.1
+message User {
+  // The schemas attribute is an array of Strings which allows introspection of
+  // the supported schema version for a SCIM representation as well any schema
+  // extensions supported by that representation. Each String value must be a
+  // unique URI. This specification defines URIs for User, Group, and a standard
+  // "enterprise" extension. All representations of SCIM schema MUST include a
+  // non-zero value array with value(s) of the URIs supported by that
+  // representation. Duplicate values MUST NOT be included. Value order is not
+  // specified and MUST not impact behavior. REQUIRED.
+  repeated string schemas = 1;
+
+  // Unique identifier for the SCIM Resource as defined by the Service Provider
+  // (Google). This is returned by Google when the resource is created.
+  // Each representation of the Resource MUST include a non-empty id value. This
+  // identifier MUST be unique across the Service Provider's entire set of
+  // Resources. It MUST be a stable, non-reassignable identifier that does not
+  // change when the same Resource is returned in subsequent requests. The value
+  // of the id attribute is always issued by the Service Provider and MUST never
+  // be specified by the Service Consumer. bulkId: is a reserved keyword and
+  // MUST NOT be used in the unique identifier. REQUIRED and READ-ONLY.
+  string id = 2;
+
+  // An identifier for the Resource as defined by the Service Consumer. The
+  // externalId may simplify identification of the Resource between Service
+  // Consumer and Service provider by allowing the Consumer to refer to the
+  // Resource with its own identifier, obviating the need to store a local
+  // mapping between the local identifier of the Resource and the identifier
+  // used by the Service Provider. Each Resource MAY include a non-empty
+  // externalId value. The value of the externalId attribute is always issued be
+  // the Service Consumer and can never be specified by the Service Provider.
+  // The Service Provider MUST always interpret the externalId as scoped to the
+  // Service Consumer's tenant.
+  string external_id = 3;
+
+  // A complex attribute containing resource metadata. All sub-attributes are
+  // OPTIONAL.
+  ResourceMetadata meta = 4;
+
+  // Unique identifier for the User, typically used by the user to directly
+  // authenticate to the service provider (Google). Often displayed to the user
+  // as their unique identifier within the system (as opposed to id or
+  // externalId, which are generally opaque and not user-friendly identifiers).
+  // Each User MUST include a non-empty userName value. This identifier MUST be
+  // unique across the Service Consumer's entire set of Users. REQUIRED.
+  string user_name = 5;
+
+  // The components of the User's real name. Providers MAY return just the full
+  // name as a single string in the formatted sub-attribute, or they MAY return
+  // just the individual component attributes using the other sub-attributes, or
+  // they MAY return both. If both variants are returned, they SHOULD be
+  // describing the same name, with the formatted name indicating how the
+  // component attributes should be combined.
+  Name name = 6;
+
+  // The name of the User, suitable for display to end-users.  The name SHOULD
+  // be the full name of the User being described, if known.
+  string display_name = 7;
+
+  // The casual way to address the user in real life, e.g., 'Bob' or 'Bobby'
+  // instead of 'Robert'.  This attribute SHOULD NOT be used to represent a
+  // User's username (e.g., 'bjensen' or 'mpepperidge').
+  string nick_name = 8;
+
+  // A fully qualified URL to a page representing the User's online profile.
+  string profile_url = 9;
+
+  // The user's title, such as "Vice President."
+  string title = 10;
+
+  // Used to identify the relationship between the organization and the
+  // user.  Typical values used might be "Contractor", "Employee",
+  // "Intern", "Temp", "External", and "Unknown", but any value may be
+  // used.
+  string user_type = 11;
+
+  // Indicates the user's preferred written or spoken languages and is
+  // generally used for selecting a localized user interface.  The
+  // value indicates the set of natural languages that are preferred.
+  // The format of the value is the same as the HTTP Accept-Language
+  // header field (not including "Accept-Language:") and is specified
+  // in Section 5.3.5 of [RFC7231].  The intent of this value is to
+  // enable cloud applications to perform matching of language tags
+  // [RFC4647] to the user's language preferences, regardless of what
+  // may be indicated by a user agent (which might be shared), or in an
+  // interaction that does not involve a user (such as in a delegated
+  // OAuth 2.0 [RFC6749] style interaction) where normal HTTP
+  // Accept-Language header negotiation cannot take place.
+  string preferred_language = 12;
+
+  // Used to indicate the User's default location for purposes of
+  // localizing such items as currency, date time format, or numerical
+  // representations.  A valid value is a language tag as defined in
+  // [RFC5646].  Computer languages are explicitly excluded.
+  //
+  // A language tag is a sequence of one or more case-insensitive
+  // sub-tags, each separated by a hyphen character ("-", %x2D).  For
+  // backward compatibility, servers MAY accept tags separated by an
+  // underscore character ("_", %x5F).  In most cases, a language tag
+  // consists of a primary language sub-tag that identifies a broad
+  // family of related languages (e.g., "en" = English) and that is
+  // optionally followed by a series of sub-tags that refine or narrow
+  // that language's range (e.g., "en-CA" = the variety of English as
+  // communicated in Canada).  Whitespace is not allowed within a
+  // language tag.  Example tags include:
+  //
+  //       fr, en-US, es-419, az-Arab, x-pig-latin, man-Nkoo-GN
+  //
+  //  See [RFC5646] for further information.
+  string locale = 13;
+
+  // The User's time zone, in IANA Time Zone database format [RFC6557],
+  // also known as the "Olson" time zone database format [Olson-TZ]
+  // (e.g., "America/Los_Angeles").
+  string timezone = 14;
+
+  // A Boolean value indicating the User's administrative status. The definitive
+  // meaning of this attribute is determined by the Service Provider though a
+  // value of true infers the User is, for example, able to login while a value
+  // of false implies the User's account has been suspended.
+  bool active = 15;
+
+  // UNUSED but present for completeness.
+  string password = 16;
+
+  // E-mail addresses for the User. The value SHOULD be canonicalized by the
+  // Service Provider, e.g. bjensen@example.com instead of bjensen@EXAMPLE.COM.
+  // Canonical Type values of work, home, and other.
+  repeated Attribute emails = 17;
+
+  // Phone numbers for the User. The value SHOULD be canonicalized by the
+  // Service Provider according to format in RFC3966 e.g. 'tel:+1-201-555-0123'.
+  // Canonical Type values of work, home, mobile, fax, pager and other.
+  repeated Attribute phone_numbers = 18;
+
+  // Instant messaging address for the User. No official canonicalization rules
+  // exist for all instant messaging addresses, but Service Providers SHOULD,
+  // when appropriate, remove all whitespace and convert the address to
+  // lowercase. Instead of the standard Canonical Values for type, this
+  // attribute defines the following Canonical Values to represent currently
+  // popular IM services: gtalk, icq, xmpp, msn, skype, qq.
+  repeated Attribute ims = 19;
+
+  // A URI that is a uniform resource locator (as defined in
+  // Section 1.1.3 of [RFC3986]) that points to a resource location
+  // representing the user's image.  The resource MUST be a file (e.g.,
+  // a GIF, JPEG, or PNG image file) rather than a web page containing
+  // an image.  Service providers MAY return the same image in
+  // different sizes, although it is recognized that no standard for
+  // describing images of various sizes currently exists.  Note that
+  // this attribute SHOULD NOT be used to send down arbitrary photos
+  // taken by this user; instead, profile photos of the user that are
+  // suitable for display when describing the user should be sent.
+  // Instead of the standard canonical values for type, this attribute
+  // defines the following canonical values to represent popular photo
+  // sizes: "photo" and "thumbnail".
+  repeated Attribute photos = 20;
+
+  // Physical mailing addresses for this User. Canonical Type Values of work,
+  // home, and other.
+  repeated Address addresses = 21;
+
+  // A list of groups to which the user belongs, either through direct
+  // membership, through nested groups, or dynamically calculated.
+  repeated Attribute groups = 22;
+
+  // A list of entitlements for the user that represent a thing the
+  // user has.  An entitlement may be an additional right to a thing,
+  // object, or service.  No vocabulary or syntax is specified; service
+  // providers and clients are expected to encode sufficient
+  // information in the value so as to accurately and without ambiguity
+  // determine what the user has access to.  This value has no
+  // canonical types, although a type may be useful as a means to scope
+  // entitlements.
+  repeated Attribute entitlements = 23;
+
+  // A list of roles for the user that collectively represent who the
+  // user is, e.g., "Student", "Faculty".  No vocabulary or syntax is
+  // specified, although it is expected that a role value is a String
+  // or label representing a collection of entitlements.  This value
+  // has no canonical types.
+  repeated Attribute roles = 24;
+
+  // A list of certificates associated with the resource (e.g., a
+  // User).  Each value contains exactly one DER-encoded X.509
+  // certificate (see Section 4 of [RFC5280]), which MUST be base64
+  // encoded per Section 4 of [RFC4648].  A single value MUST NOT
+  // contain multiple certificates and so does not contain the encoding
+  // "SEQUENCE OF Certificate" in any guise.
+  repeated Attribute x509_certificates = 25;
+
+  // Attributes commonly used in representing users that belong to, or act on
+  // behalf of a business or enterprise.
+  EnterpriseUserExtension enterprise_extension = 26
+      [json_name =
+           "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"];
+}
+
+// Metadata about the resource.
+message ResourceMetadata {
+  // The name of the resource type of the resource.  This attribute has a
+  // mutability of "readOnly" and "caseExact" as "true".
+  string resource_type = 1;
+
+  // The DateTime the Resource was added to the Service Provider.
+  string created = 2;
+
+  // The most recent DateTime that the details of this resource were updated at
+  // the service provider.  If this resource has never been modified since its
+  // initial creation, the value MUST be the same as the value of "created".
+  string last_modified = 3;
+
+  // The URI of the resource being returned.  This value MUST be the same as
+  // the "Content-Location" HTTP response header (see Section 3.1.4.2 of
+  // [RFC7231]).
+  string location = 4;
+
+  // The version of the resource being returned.  This value must be the same
+  // as the entity-tag (ETag) HTTP response header (see Sections 2.1 and 2.3 of
+  // [RFC7232]).  This attribute has "caseExact" as "true".  Service provider
+  // support for this attribute is optional and subject to the service
+  // provider's support for versioning (see Section 3.14 of [RFC7644]).  If a
+  // service provider provides "version" (entity-tag) for a
+  // representation and the generation of that entity-tag does not
+  // satisfy all of the characteristics of a strong validator (see
+  // Section 2.1 of [RFC7232]), then the origin server MUST mark the
+  // "version" (entity-tag) as weak by prefixing its opaque value
+  // with "W/" (case sensitive).
+  string version = 5;
+}
+
+// Name of the user.
+message Name {
+  // The full name, including all middle names, titles, and suffixes as
+  // appropriate, formatted for display (e.g., "Ms. Barbara Jane Jensen, III").
+  string formatted = 1;
+
+  // The family name of the User, or "Last Name" in most Western languages (e.g.
+  // Jensen given the full name Ms. Barbara Jane Jensen, III.).
+  string family_name = 2;
+
+  // The given name of the User, or "First Name" in most Western languages (e.g.
+  // Barbara given the full name Ms. Barbara Jane Jensen, III.).
+  string given_name = 3;
+
+  // The middle name(s) of the User (e.g., "Jane" given the full name
+  // "Ms. Barbara Jane Jensen, III").
+  string middle_name = 4;
+
+  // The honorific prefix(es) of the User, or title in most Western languages
+  // (e.g., "Ms." given the full name "Ms. Barbara Jane Jensen, III").
+  string honorific_prefix = 5;
+
+  // The honorific suffix(es) of the User, or suffix in most Western languages
+  // (e.g., "III" given the full name "Ms. Barbara Jane Jensen, III").
+  string honorific_suffix = 6;
+}
+
+// Attribute encodes https://tools.ietf.org/html/rfc7643#section-2.4
+message Attribute {
+  // A label indicating the attribute's function, e.g., "work" or "home".
+  string type = 1;
+
+  // A Boolean value indicating the 'primary' or preferred attribute
+  // value for this attribute, e.g., the preferred mailing address or
+  // the primary email address.  The primary attribute value "true"
+  // MUST appear no more than once.  If not specified, the value of
+  // "primary" SHALL be assumed to be "false".
+  bool primary = 2;
+
+  // A human-readable name, primarily used for display purposes and
+  // having a mutability of "immutable".
+  string display = 3;
+
+  // The attribute's significant value, e.g., email address, phone number.
+  string value = 4;
+
+  // The reference URI of a target resource, if the attribute is a
+  // reference.  URIs are canonicalized per Section 6.2 of [RFC3986].
+  // While the representation of a resource may vary in different SCIM
+  // protocol API versions (see Section 3.13 of [RFC7644]), URIs for
+  // SCIM resources with an API version SHALL be considered comparable
+  // to URIs without a version or with a different version.  For
+  // example, "https://example.com/Users/12345" is equivalent to
+  // "https://example.com/v2/Users/12345".
+  string ref = 5 [json_name = "$ref"];
+
+  // CUSTOM EXTENSION. The attribute's value has been verified via a trusted
+  // source or a trusted protocol as evidence that this attribute's value
+  // belongs to the user.
+  bool extension_verified = 6 [json_name = "verified"];
+}
+
+// A physical mailing address for this User.
+message Address {
+  // A label indicating the attribute's function, e.g., "work" or "home".
+  string type = 1;
+
+  // A Boolean value indicating the 'primary' or preferred attribute
+  // value for this attribute, e.g., the preferred mailing address or
+  // the primary email address.  The primary attribute value "true"
+  // MUST appear no more than once.  If not specified, the value of
+  // "primary" SHALL be assumed to be "false".
+  bool primary = 2;
+
+  // The reference URI of a target resource, if the attribute is a
+  // reference.  URIs are canonicalized per Section 6.2 of [RFC3986].
+  // While the representation of a resource may vary in different SCIM
+  // protocol API versions (see Section 3.13 of [RFC7644]), URIs for
+  // SCIM resources with an API version SHALL be considered comparable
+  // to URIs without a version or with a different version.  For
+  // example, "https://example.com/Users/12345" is equivalent to
+  // "https://example.com/v2/Users/12345".
+  string ref = 3 [json_name = "$ref"];
+
+  // The full mailing address, formatted for display or use
+  // with a mailing label.  This attribute MAY contain newlines.
+  string formatted = 4;
+
+  // The full street address component, which may include house number, street
+  // name, P.O. box, and multi-line extended street address information. This
+  // attribute MAY contain newlines.
+  string street_address = 5;
+
+  // The city or locality component.
+  string locality = 6;
+
+  // The state or region component.
+  string region = 7;
+
+  // The zipcode or postal code component.
+  string postal_code = 8;
+
+  // The country name component. When specified the value MUST be in ISO 3166-1
+  // alpha 2 "short" code format; e.g., the United States and Sweden are "US"
+  // and "SE", respectively.
+  string country = 9;
+}
+
+// This SCIM extension defines attributes commonly used in representing users
+// that belong to, or act on behalf of a business or enterprise.
+// See: https://tools.ietf.org/html/rfc7643#section-4.3
+message EnterpriseUserExtension {
+  // Numeric or alphanumeric identifier assigned to a person, typically based on
+  // order of hire or association with an organization.
+  string employee_number = 1;
+
+  // Identifies the name of a cost center.
+  string cost_center = 2;
+
+  // Identifies the name of an organization.
+  string organization = 3;
+
+  // Identifies the name of a division.
+  string division = 5;
+
+  // Identifies the name of a department.
+  string department = 6;
+
+  // Represents organizational hierarchy by referencing another User.
+  Manager manager = 7;
+}
+
+// A complex type that optionally allows service providers to represent
+// organizational hierarchy by referencing the "id" attribute of another User.
+message Manager {
+  // The "id" of the SCIM resource representing the user's manager.
+  // RECOMMENDED.
+  string value = 1;
+
+  // The URI of the SCIM resource representing the User's manager.  RECOMMENDED.
+  string ref = 2 [json_name = "$ref"];
+
+  // The displayName of the user's manager.  This attribute is OPTIONAL, and
+  // mutability is "readOnly".
+  string display_name = 3;
+}
+
+// PATCH request operation as per
+// https://tools.ietf.org/html/rfc7644#section-3.5.2.
+message Patch {
+  // JavaScript Object Notation (JSON) Patch [RFC6902].
+  message Operation {
+    // Operation objects MUST have exactly one "op" member, whose value
+    // indicates the operation to perform.  Its value MUST be one of "add",
+    // "remove", "replace", "move", "copy", or "test"; other values are
+    // errors.
+    string op = 1;
+
+    // Objects MUST have exactly one "path" member. That member's value is a
+    // string containing a JSON-Pointer value [RFC6901] that references a
+    // location within the target document (the "target location") where the
+    // operation is performed.
+    string path = 2;
+
+    // The value to patch related to the given operation and path. Not supplied
+    // if operation is "remove".
+    string value = 3;
+  }
+
+  // The schemas attribute is an array of Strings which allows introspection of
+  // the supported schema version for a SCIM representation as well any schema
+  // extensions supported by that representation. Each String value must be a
+  // unique URI. This specification defines URIs for User, Group, and a standard
+  // "enterprise" extension. All representations of SCIM schema MUST include a
+  // non-zero value array with value(s) of the URIs supported by that
+  // representation. Duplicate values MUST NOT be included. Value order is not
+  // specified and MUST not impact behavior. REQUIRED.
+  repeated string schemas = 1;
+
+  // A batch of operations to perform as part of a PATCH.
+  repeated Operation operations = 2 [json_name = "Operations"];
+}
+
+// Response for ListUsers
+message ListUsersResponse {
+  // SCIM User resource.
+  repeated User user = 1 [json_name = "Resources"];
+
+  // Index of the first element of the page.
+  uint32 start_index = 2;
+
+  // Number of items in current page.
+  uint32 items_per_page = 3;
+
+  // Number of results matched for this query.
+  uint32 total_results = 4;
+
+  // The schemas attribute is an array of Strings which allows introspection of
+  // the supported schema version for a SCIM representation as well any schema
+  // extensions supported by that representation. Each String value must be a
+  // unique URI. This specification defines URIs for User, Group, and a standard
+  // "enterprise" extension. All representations of SCIM schema MUST include a
+  // non-zero value array with value(s) of the URIs supported by that
+  // representation. Duplicate values MUST NOT be included. Value order is not
+  // specified and MUST not impact behavior. REQUIRED.
+  repeated string schemas = 5;
+}
