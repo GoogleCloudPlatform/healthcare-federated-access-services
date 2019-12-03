@@ -2456,7 +2456,7 @@ func (c *account) Patch(name string) error {
 		if err != nil {
 			return err
 		}
-		if linkAcct.State != "ACTIVE" {
+		if linkAcct.State != storage.StateActive {
 			return fmt.Errorf("the link account is not found or no longer available")
 		}
 		for _, acct := range linkAcct.ConnectedAccounts {
@@ -2469,7 +2469,7 @@ func (c *account) Patch(name string) error {
 			lookup := &pb.AccountLookup{
 				Subject:  c.item.Properties.Subject,
 				Revision: acct.LinkRevision,
-				State:    "ACTIVE",
+				State:    storage.StateActive,
 			}
 			if err := c.s.saveAccountLookup(lookup, getRealm(c.r), acct.Properties.Subject, c.r, c.id, c.tx); err != nil {
 				return fmt.Errorf("service dependencies not available; try again later")
@@ -3423,7 +3423,7 @@ func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity
 		Profile:           setupAccountProfile(linkID),
 		Properties:        setupAccountProperties(linkID, subject, now, now),
 		ConnectedAccounts: make([]*pb.ConnectedAccount, 0),
-		State:             "ACTIVE",
+		State:             storage.StateActive,
 		Ui:                make(map[string]string),
 	}
 	err := s.populateAccountClaims(ctx, acct, linkID, provider)
@@ -3810,7 +3810,7 @@ func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*pb.Account, i
 	if err != nil {
 		return nil, status, err
 	}
-	if acct.State != "ACTIVE" {
+	if acct.State != storage.StateActive {
 		return nil, http.StatusNotFound, fmt.Errorf("not found")
 	}
 	return acct, http.StatusOK, nil
@@ -3838,7 +3838,7 @@ func (s *Service) saveNewLinkedAccount(newAcct *pb.Account, id *ga4gh.Identity, 
 	lookup = &pb.AccountLookup{
 		Subject:  newAcct.Properties.Subject,
 		Revision: rev,
-		State:    "ACTIVE",
+		State:    storage.StateActive,
 	}
 	if err := s.saveAccountLookup(lookup, getRealm(r), id.Subject, r, id, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
@@ -4068,7 +4068,7 @@ func (s *Service) realmReadTx(datatype, realm, user, id string, rev int64, item 
 }
 
 func isLookupActive(lookup *pb.AccountLookup) bool {
-	return lookup != nil && lookup.State == "ACTIVE"
+	return lookup != nil && lookup.State == storage.StateActive
 }
 
 func normalizeConfig(cfg *pb.IcConfig) error {

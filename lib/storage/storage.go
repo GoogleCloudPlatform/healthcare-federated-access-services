@@ -41,6 +41,13 @@ const (
 	TokensDatatype         = "tokens"
 
 	ResourceTokenRequestStateDataType = "resource_token_state"
+
+	// StateActive indicates an object is active.
+	StateActive = "ACTIVE"
+	// StateDeleted indicates an object is deleted (can still be referenced by an admin).
+	StateDeleted = "DELETED"
+	// StateDisabled indicates an object is disabled (may be reactived later).
+	StateDisabled = "DISABLED"
 )
 
 // Store is an interface to the storage layer.

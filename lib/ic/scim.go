@@ -155,8 +155,9 @@ func (h *scimUser) LookupItem(name string, vars map[string]string) bool {
 	if _, err := h.s.permissions.CheckSubjectOrAdmin(h.id, name); err != nil {
 		return false
 	}
-	acct, _, err := h.s.loadAccount(name, getRealm(h.r), h.tx)
-	if err != nil {
+	realm := getRealm(h.r)
+	acct := &pb.Account{}
+	if _, err := h.s.singleRealmReadTx(storage.AccountDatatype, realm, storage.DefaultUser, name, storage.LatestRev, acct, h.tx); err != nil {
 		return false
 	}
 	h.item = acct
@@ -199,22 +200,42 @@ func (h *scimUser) Patch(name string) error {
 		src := patch.Value
 		var dst *string
 		switch patch.Path {
+		case "active":
+			// TODO: support for boolean input for "active" field instead of strings
+			switch {
+			case (patch.Op == "remove" && len(src) == 0) || (patch.Op == "replace" && src == "false"):
+				h.save.State = storage.StateDisabled
+
+			case src == "true" && (patch.Op == "add" || patch.Op == "replace"):
+				h.save.State = storage.StateActive
+
+			default:
+				return fmt.Errorf("invalid active operation %q or value %q", patch.Op, patch.Value)
+			}
+
 		case "name.formatted":
 			dst = &h.save.Profile.Name
 			if patch.Op == "remove" {
 				return fmt.Errorf("operation %d: cannot set %q to an empty value", i, patch.Path)
 			}
+
 		case "name.familyName":
 			dst = &h.save.Profile.FamilyName
+
 		case "name.givenName":
 			dst = &h.save.Profile.GivenName
+
 		case "name.middleName":
 			dst = &h.save.Profile.MiddleName
+
 		default:
 			return fmt.Errorf("operation %d: invalid path %q", i, patch.Path)
 		}
 		if patch.Op != "remove" && len(src) == 0 {
 			return fmt.Errorf("operation %d: cannot set an empty value", i)
+		}
+		if dst == nil {
+			continue
 		}
 		switch patch.Op {
 		case "add":
@@ -395,5 +416,6 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 		},
 		UserName: acct.Properties.Subject,
 		Emails:   emails,
+		Active:   acct.State == storage.StateActive,
 	}
 }
