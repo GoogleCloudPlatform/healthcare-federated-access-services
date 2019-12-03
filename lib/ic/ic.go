@@ -45,6 +45,7 @@ import (
 	"golang.org/x/oauth2"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
@@ -434,47 +435,57 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	// Allow some requests to proceed without client IDs and/or secrets.
-	path := common.RequestAbstractPath(r)
-	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, tokenFlowTestPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcPath) || path == hydraLoginPath || path == hydraConsentPath || path == hydraTestPage {
-		sh.Handler.ServeHTTP(w, r)
+
+	if err := sh.s.checkClientCreds(r); err != nil {
+		httputil.WriteStatus(w, status.Convert(err))
 		return
 	}
 
-	// OAuth2 client logic will include in hydra.
-	// TODO: remove unused endpoints.
-	if sh.s.useHydra {
-		sh.Handler.ServeHTTP(w, r)
-		return
-	}
-
-	if status, err := sh.s.verifyClient(path, r); err != nil {
-		http.Error(w, err.Error(), status)
-		return
-	}
 	sh.Handler.ServeHTTP(w, r)
 }
 
-func (s *Service) verifyClient(abstractPath string, r *http.Request) (int, error) {
+func (s *Service) checkClientCreds(r *http.Request) error {
+	// TODO: will remove after integrate hydra.
+	if s.useHydra {
+		return nil
+	}
+
+	// Allow some requests to proceed without client IDs and/or secrets.
+	path := common.RequestAbstractPath(r)
+	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, tokenFlowTestPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcPath) || path == hydraLoginPath || path == hydraConsentPath || path == hydraTestPage {
+		return nil
+	}
+
+	return s.checkClient(path, r)
+}
+
+func (s *Service) checkClient(path string, r *http.Request) error {
 	cid := getClientID(r)
 	if len(cid) == 0 {
-		return http.StatusUnauthorized, fmt.Errorf("authorization requires a client ID")
+		return status.Error(codes.Unauthenticated, "authorization requires a client ID")
 	}
-	cliOnly := isClientOnly(abstractPath)
+
+	// TODO: should also check the client id in config.
+
+	if isClientOnly(path) {
+		return nil
+	}
+
 	cs := getClientSecret(r)
-	if len(cs) == 0 && !cliOnly {
-		return http.StatusUnauthorized, fmt.Errorf("authorization requires a client secret")
+	if len(cs) == 0 {
+		return status.Error(codes.Unauthenticated, "authorization requires a client secret")
 	}
 
 	secrets, err := s.loadSecrets(nil)
 	if err != nil {
-		return http.StatusServiceUnavailable, fmt.Errorf("configuration unavailable")
+		return status.Error(codes.Unavailable, "configuration unavailable")
 	}
 
-	if secret, ok := secrets.ClientSecrets[cid]; !ok || (secret != cs && !cliOnly) {
-		return http.StatusUnauthorized, fmt.Errorf("unauthorized client")
+	if secret, ok := secrets.ClientSecrets[cid]; !ok || secret != cs {
+		return status.Error(codes.Unauthenticated, "unauthorized client")
 	}
-	return http.StatusOK, nil
+
+	return nil
 }
 
 func isClientOnly(path string) bool {
@@ -536,7 +547,7 @@ func (s *Service) GetInfo(w http.ResponseWriter, r *http.Request) {
 		Versions:  []string{version},
 		StartTime: s.startTime,
 	}
-	if _, err := s.verifyClient(common.RequestAbstractPath(r), r); err == nil {
+	if err := s.checkClient(common.RequestAbstractPath(r), r); err == nil {
 		out.Modules = []string{}
 	}
 

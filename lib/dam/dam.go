@@ -38,11 +38,14 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/square/go-jose.v2"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator"
@@ -302,52 +305,53 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || strings.HasPrefix(r.URL.Path, oidcWellKnownPrefix) || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath || r.URL.Path == hydraTestPage {
-		sh.Handler.ServeHTTP(w, r)
+
+	if err := sh.s.checkClientCreds(r); err != nil {
+		httputil.WriteStatus(w, status.Convert(err))
 		return
+	}
+
+	sh.Handler.ServeHTTP(w, r)
+}
+
+func (s *Service) checkClientCreds(r *http.Request) error {
+	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || strings.HasPrefix(r.URL.Path, oidcWellKnownPrefix) || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath || r.URL.Path == hydraTestPage {
+		return nil
 	}
 	cid := getClientID(r)
 	if len(cid) == 0 {
-		http.Error(w, "authorization requires a client ID", http.StatusUnauthorized)
-		return
+		return status.Error(codes.Unauthenticated, "authorization requires a client ID")
 	}
+
+	// TODO: should also check the client id in config.
+
 	cs := getClientSecret(r)
 	if len(cs) == 0 {
 		// resource auth does not have realm in path.
 		if r.URL.Path == resourceAuthPath {
-			sh.Handler.ServeHTTP(w, r)
-			return
+			return nil
 		}
-		// Allow a request to allocate a client secret to proceed.
-		parts := strings.Split(r.URL.Path, "/")
-		// Path starts with a "/", so first part is always empty.
-		if len(parts) > 3 {
-			parts[3] = realmVariable
-		}
-		path := strings.Join(parts, "/")
+
+		path := common.RequestAbstractPath(r)
 		if strings.HasPrefix(path, clientSecretPath) {
-			sh.Handler.ServeHTTP(w, r)
-			return
+			return nil
 		}
 		if path == resourceAuthPath {
-			sh.Handler.ServeHTTP(w, r)
-			return
+			return nil
 		}
-		http.Error(w, "authorization requires a client secret", http.StatusUnauthorized)
-		return
+		return status.Error(codes.Unauthenticated, "authorization requires a client secret")
 	}
 
-	secrets, err := sh.s.loadSecrets(nil)
+	secrets, err := s.loadSecrets(nil)
 	if err != nil {
-		http.Error(w, "configuration unavailable", http.StatusServiceUnavailable)
-		return
+		return status.Error(codes.Unauthenticated, "configuration unavailable")
 	}
 
 	if secret, ok := secrets.ClientSecrets[cid]; !ok || secret != cs {
-		http.Error(w, "unauthorized client", http.StatusUnauthorized)
-		return
+		return status.Error(codes.Unauthenticated, "unauthorized client")
 	}
-	sh.Handler.ServeHTTP(w, r)
+
+	return nil
 }
 
 func (s *Service) buildHandlerMux() *mux.Router {
