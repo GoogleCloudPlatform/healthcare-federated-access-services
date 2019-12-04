@@ -282,7 +282,7 @@ func (s *DatastoreStorage) WriteTx(datatype, realm, user, id string, rev int64, 
 		}
 	}
 	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, storage.LatestRev), nil)
-	e, err := s.datastoreEntity(k, datatype, realm, user, id, rev, content)
+	e, err := s.datastoreEntity(k, datatype, realm, user, id, storage.LatestRev, content)
 	if err != nil {
 		dstx.Rollback()
 		return err
