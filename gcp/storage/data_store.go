@@ -165,7 +165,8 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, c
 	return nil
 }
 
-func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) error {
+// MultiReadTx reads a set of objects matching the input parameters and filters
+func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters []storage.Filter, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
@@ -189,11 +190,12 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, content map
 		if len(e.Content) == 0 {
 			continue
 		}
-		// v := reflect.New(reflect.TypeOf(typ))
-		// p := v.Elem().Interface().(proto.Message)
 		p := proto.Clone(typ)
 		if err := jsonpb.Unmarshal(strings.NewReader(e.Content), p); err != nil {
 			return err
+		}
+		if !storage.MatchProtoFilters(filters, p) {
+			continue
 		}
 		userContent, ok := content[e.User]
 		if !ok {

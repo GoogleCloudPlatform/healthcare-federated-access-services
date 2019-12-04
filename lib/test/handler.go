@@ -49,6 +49,7 @@ type HandlerTest struct {
 	Method     string
 	Path       string
 	Input      string
+	Params     string
 	IsForm     bool
 	Persona    string
 	Output     string
@@ -81,6 +82,9 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 			t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, issuerURL, err)
 		}
 		target := fmt.Sprintf("%s?client_id=%s&client_secret=%s", test.Path, TestClientID, TestClientSecret)
+		if len(test.Params) > 0 {
+			target += "&" + test.Params
+		}
 		var Input io.Reader
 		varInput := false
 		InputStr := test.Input

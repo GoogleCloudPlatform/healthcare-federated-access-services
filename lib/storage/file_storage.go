@@ -134,7 +134,8 @@ func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, conten
 	return nil
 }
 
-func (f *FileStorage) MultiReadTx(datatype, realm, user string, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error {
+// MultiReadTx reads a set of objects matching the input parameters and filters
+func (f *FileStorage) MultiReadTx(datatype, realm, user string, filters []Filter, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error {
 	return fmt.Errorf("file storage does not support MultiReadTx")
 }
 

@@ -104,7 +104,8 @@ func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, cont
 	return nil
 }
 
-func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error {
+// MultiReadTx reads a set of objects matching the input parameters and filters
+func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters []Filter, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
@@ -126,6 +127,9 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, content map[st
 		p := proto.Clone(typ)
 		if err := jsonpb.Unmarshal(file, p); err != nil && err != io.EOF {
 			return fmt.Errorf("file %q invalid JSON: %v", path, err)
+		}
+		if !MatchProtoFilters(filters, p) {
+			return nil
 		}
 		userContent, ok := content[userMatch]
 		if !ok {

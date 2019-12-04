@@ -31,7 +31,41 @@ import (
 	spb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2"
 )
 
+var (
+	// As used by storage.BuildFilters(), this maps the SCIM data model
+	// filter path names to a slice path of where the field exists in
+	// the storage data model. SCIM names are expected to be lowercase.
+	scimUserFilterMap = map[string]func(p proto.Message) string{
+		"id": func(p proto.Message) string {
+			return acctProto(p).GetProperties().Subject
+		},
+		"name.formatted": func(p proto.Message) string {
+			return acctProto(p).GetProfile().Name
+		},
+		"name.givenname": func(p proto.Message) string {
+			return acctProto(p).GetProfile().GivenName
+		},
+		"name.familyname": func(p proto.Message) string {
+			return acctProto(p).GetProfile().FamilyName
+		},
+		"name.middlename": func(p proto.Message) string {
+			return acctProto(p).GetProfile().MiddleName
+		},
+		"username": func(p proto.Message) string {
+			return acctProto(p).GetProperties().Subject
+		},
+	}
+)
+
 //////////////////////////////////////////////////////////////////
+
+func acctProto(p proto.Message) *pb.Account {
+	acct, ok := p.(*pb.Account)
+	if !ok {
+		return &pb.Account{}
+	}
+	return acct
+}
 
 func (s *Service) scimMeFactory() *common.HandlerFactory {
 	return &common.HandlerFactory{
@@ -327,8 +361,12 @@ func (h *scimUsers) NormalizeInput(name string, vars map[string]string) error {
 
 // Get sends a GET method response
 func (h *scimUsers) Get(name string) error {
+	filters, err := storage.BuildFilters(common.GetParam(h.r, "filter"), scimUserFilterMap)
+	if err != nil {
+		return err
+	}
 	m := make(map[string]map[string]proto.Message)
-	if err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, m, &pb.Account{}, h.tx); err != nil {
+	if err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, m, &pb.Account{}, h.tx); err != nil {
 		return err
 	}
 	accts := make(map[string]*pb.Account)
