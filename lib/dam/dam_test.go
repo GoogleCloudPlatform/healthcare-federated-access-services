@@ -960,7 +960,7 @@ func TestCheckAuthorization(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 	p := cfg.TestPersonas[pname]
-	acTok, _, err := persona.NewAccessToken(pname, test.TestIssuerURL, test.TestClientID, p)
+	acTok, _, err := persona.NewAccessToken(pname, test.TestIssuerURL, test.TestClientID, persona.DefaultScope, p)
 	if err != nil {
 		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, test.TestIssuerURL, err)
 	}

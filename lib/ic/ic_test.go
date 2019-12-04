@@ -34,6 +34,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/fakeencryption"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer"
@@ -286,6 +287,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users",
 			Persona: "non-admin",
+			Scope:   persona.AccountScope,
 			Output:  `^.*not an administrator.*`,
 			Status:  http.StatusForbidden,
 		},
@@ -294,14 +296,24 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
+			Scope:   persona.AccountScope,
 			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{"formatted":"Non Administrator"},"active":true,"emails":[{"value":"non-admin@example.org"}]}`,
 			Status:  http.StatusOK,
+		},
+		{
+			Name:    "Get SCIM me (default scope)",
+			Method:  "GET",
+			Path:    "/identity/scim/v2/test/Me",
+			Persona: "non-admin",
+			Output:  `^.*unauthorized.*`,
+			Status:  http.StatusUnauthorized,
 		},
 		{
 			Name:    "Patch SCIM me",
 			Method:  "PATCH",
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
+			Scope:   persona.AccountScope,
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"name.formatted","value":"Non-Administrator"},{"op":"replace","path":"active","value":"false"}]}`,
 			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{"formatted":"Non-Administrator"},"emails":[{"value":"non-admin@example.org"}]}`,
 			Status:  http.StatusOK,
@@ -320,6 +332,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "DELETE",
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
+			Scope:   persona.AccountScope,
 			Status:  http.StatusOK,
 		},
 		{
@@ -327,6 +340,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
+			Scope:   persona.AccountScope,
 			Output:  `^.*unauthorized.*`,
 			Status:  http.StatusUnauthorized,
 		},
@@ -343,14 +357,24 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
+			Scope:   persona.AccountScope,
 			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"active":true}`,
 			Status:  http.StatusOK,
+		},
+		{
+			Name:    "Get SCIM account (default scope)",
+			Method:  "GET",
+			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
+			Persona: "dr_joe_elixir",
+			Output:  `^.*unauthorized.*`,
+			Status:  http.StatusUnauthorized,
 		},
 		{
 			Name:    "Patch SCIM account",
 			Method:  "PATCH",
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
+			Scope:   persona.AccountScope,
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"name.formatted","value":"The good doc"},{"op":"replace","path":"name.givenName","value":"Joesph"},{"op":"replace","path":"name.familyName","value":"Doctor"}]}`,
 			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"The good doc","familyName":"Doctor","givenName":"Joesph"},"active":true}`,
 			Status:  http.StatusOK,
@@ -360,6 +384,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "DELETE",
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
+			Scope:   persona.AccountScope,
 			Status:  http.StatusOK,
 		},
 		{
@@ -367,6 +392,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
+			Scope:   persona.AccountScope,
 			Output:  `^.*unauthorized.*`,
 			Status:  http.StatusUnauthorized,
 		},

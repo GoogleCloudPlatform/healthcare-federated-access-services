@@ -52,6 +52,7 @@ type HandlerTest struct {
 	Params     string
 	IsForm     bool
 	Persona    string
+	Scope      string
 	Output     string
 	CmpOptions cmp.Options
 	Status     int
@@ -77,7 +78,7 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 		if cfg != nil {
 			p = cfg.TestPersonas[pname]
 		}
-		acTok, _, err := persona.NewAccessToken(pname, issuerURL, TestClientID, p)
+		acTok, _, err := persona.NewAccessToken(pname, issuerURL, TestClientID, test.Scope, p)
 		if err != nil {
 			t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, issuerURL, err)
 		}

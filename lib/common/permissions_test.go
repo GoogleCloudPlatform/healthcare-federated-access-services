@@ -98,7 +98,7 @@ func TestIncludeTags(t *testing.T) {
 	}
 }
 
-func TestCheckAdmin(t *testing.T) {
+func TestAdmin(t *testing.T) {
 	fs := storage.NewMemoryStorage(testService, testConfigPath)
 
 	perm, err := LoadPermissions(fs)
@@ -187,9 +187,13 @@ func TestCheckAdmin(t *testing.T) {
 			Identities: identities,
 			VisaJWTs:   []string{string(v.JWT())},
 		}
+		ok := perm.IsAdmin(id)
+		if ok != test.expectIsAdmin {
+			t.Errorf("Test case [%q] IsAdmin(id) = %v, want %v", test.testName, ok, test.expectIsAdmin)
+		}
 		_, err = perm.CheckAdmin(id)
 		if test.expectIsAdmin != (err == nil) {
-			t.Fatalf("Test case [%q] failed. expected IsAdmin is %v, actual is %v", test.testName, test.expectIsAdmin, err == nil)
+			t.Errorf("Test case [%q] failed. expected IsAdmin is %v, actual is %v", test.testName, test.expectIsAdmin, err == nil)
 		}
 	}
 }

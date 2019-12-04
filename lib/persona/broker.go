@@ -224,12 +224,13 @@ func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("redirect_uri must be specified"), w)
 		return
 	}
+	scope := common.GetParam(r, "scope")
 	state := common.GetParam(r, "state")
 	nonce := common.GetParam(r, "nonce")
 	clientID := common.GetParam(r, "client_id")
 	loginHint := common.GetParam(r, "login_hint")
 	if len(loginHint) == 0 {
-		s.sendLoginPage(redirect, state, nonce, clientID, w, r)
+		s.sendLoginPage(redirect, state, nonce, clientID, scope, w, r)
 		return
 	}
 	pname := loginHint
@@ -251,13 +252,14 @@ func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 	q := u.Query()
 	q.Set("code", code)
+	q.Set("scope", scope)
 	q.Set("state", state)
 	q.Set("nonce", nonce)
 	u.RawQuery = q.Encode()
 	common.SendRedirect(u.String(), r, w)
 }
 
-func (s *Server) sendLoginPage(redirect, state, nonce, clientID string, w http.ResponseWriter, r *http.Request) {
+func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w http.ResponseWriter, r *http.Request) {
 	list := &ipb.LoginPageProviders{
 		Personas: make(map[string]*ipb.LoginPageProviders_ProviderEntry),
 	}
@@ -270,7 +272,7 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID string, w http.R
 		if _, ok := ui[common.UILabel]; !ok {
 			ui[common.UILabel] = common.ToTitle(pname)
 		}
-		params := "?login_hint=" + url.QueryEscape(pname) + "&redirect_uri=" + url.QueryEscape(redirect) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce) + "&client_id=" + url.QueryEscape(clientID) + "&response_type=code"
+		params := "?login_hint=" + url.QueryEscape(pname) + "&scope=" + url.QueryEscape(scope) + "&redirect_uri=" + url.QueryEscape(redirect) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce) + "&client_id=" + url.QueryEscape(clientID) + "&response_type=code"
 		list.Personas[pname] = &ipb.LoginPageProviders_ProviderEntry{
 			Url: path + params,
 			Ui:  ui,
@@ -322,7 +324,7 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusNotFound, fmt.Errorf("persona %q not found", pname), w)
 		return
 	}
-	acTok, _, err := NewAccessToken(pname, s.issuerURL, clientID, persona)
+	acTok, _, err := NewAccessToken(pname, s.issuerURL, clientID, common.GetParam(r, "scope"), persona)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("error creating access token for persona %q: %v", pname, err), w)
 		return

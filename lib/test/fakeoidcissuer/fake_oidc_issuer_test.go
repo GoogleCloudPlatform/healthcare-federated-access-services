@@ -69,7 +69,7 @@ func TestServer(t *testing.T) {
 	if !ok {
 		t.Fatalf("test persona %q not found in config", pname)
 	}
-	acTok, sub, err := persona.NewAccessToken(pname, issuerURL, aud, p)
+	acTok, sub, err := persona.NewAccessToken(pname, issuerURL, aud, persona.DefaultScope, p)
 	if err != nil {
 		t.Fatalf("persona.PersonaAccessToken(%q, %q, _) failed: %v", pname, issuerURL, err)
 	}

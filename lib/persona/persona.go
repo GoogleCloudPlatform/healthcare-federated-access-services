@@ -45,6 +45,13 @@ var (
 		"sub":                "Subject (user identifier)",
 		"zoneinfo":           "Zone info (timezone)",
 	}
+
+	// DefaultScope is a list of standard scopes to request.
+	DefaultScope = "openid ga4gh ga4gh_passport_v1"
+
+	// AccountScope has default scopes and the account_admin scope.
+	AccountScope = DefaultScope + " account_admin"
+
 	// minPersonaFutureExpiry prevents users from setting expiries too close to now() that execution
 	// time across many personas may cause a test to accidently fail.
 	minPersonaFutureExpiry = 5 * time.Second
@@ -54,7 +61,7 @@ var (
 
 // NewAccessToken returns an access token for a persona at a given issuer.
 // The persona parameter may be nil.
-func NewAccessToken(name, issuer, clientID string, persona *cpb.TestPersona) (ga4gh.AccessJWT, string, error) {
+func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPersona) (ga4gh.AccessJWT, string, error) {
 	now := common.GetNowInUnix()
 	sub := name
 	email := name
@@ -67,6 +74,9 @@ func NewAccessToken(name, issuer, clientID string, persona *cpb.TestPersona) (ga
 			email = e
 		}
 	}
+	if len(scope) == 0 {
+		scope = DefaultScope
+	}
 	d := &ga4gh.AccessData{
 		StdClaims: ga4gh.StdClaims{
 			Issuer:    issuer,
@@ -76,7 +86,7 @@ func NewAccessToken(name, issuer, clientID string, persona *cpb.TestPersona) (ga
 			Audience:  ga4gh.NewAudience(clientID),
 			ID:        "token-id-" + name,
 		},
-		Scope: "openid ga4gh ga4gh_passport_v1",
+		Scope: scope,
 		Identities: map[string][]string{
 			email: []string{"IC", "DAM"},
 		},

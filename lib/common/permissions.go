@@ -53,7 +53,7 @@ func LoadPermissions(store storage.Store) (*Permissions, error) {
 
 // CheckAdmin returns http status forbidden and error message if user does not have validate admin permission.
 func (p *Permissions) CheckAdmin(id *ga4gh.Identity) (int, error) {
-	if !p.isAdmin(id) {
+	if !p.IsAdmin(id) {
 		return http.StatusForbidden, fmt.Errorf("user is not an administrator")
 	}
 	return http.StatusOK, nil
@@ -100,7 +100,13 @@ func extractIdentitiesFromVisas(id *ga4gh.Identity) []string {
 	return subjects
 }
 
-func (p *Permissions) isAdmin(id *ga4gh.Identity) bool {
+// IsAdmin returns true if the identity's underlying account has
+// administrative privileges without checking scopes or other
+// restrictions related to the auth token itself.
+func (p *Permissions) IsAdmin(id *ga4gh.Identity) bool {
+	if id == nil {
+		return false
+	}
 	now := GetNowInUnixNano()
 	if p.isAdminUser(id.Subject, now) {
 		return true

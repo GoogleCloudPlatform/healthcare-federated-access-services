@@ -181,6 +181,9 @@ func (h *scimUser) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
 	h.id = id
 	h.tx = tx
+	if id == nil || !h.s.permissions.IsAdmin(id) && !hasScopes("account_admin", id.Scope, false) {
+		return http.StatusUnauthorized, fmt.Errorf("unauthorized")
+	}
 	return status, err
 }
 
