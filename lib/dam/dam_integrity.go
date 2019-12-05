@@ -348,7 +348,7 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 		return path, err
 	}
 	if path, err := s.checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, true, cfg); err != nil {
-		return common.StatusPath("views", viewName, "accessRoles", path), fmt.Errorf("view %q roles: %v", viewName, err)
+		return common.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
 	desc := adapt.Descriptor()
 	if desc.Requirements.Aud && len(view.Aud) == 0 {
