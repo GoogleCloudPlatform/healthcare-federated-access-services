@@ -109,6 +109,18 @@ func IsURL(v string) bool {
 	return true
 }
 
+// IsImageURL returns true if the format of the string appears to be a URL image.
+func IsImageURL(src string) bool {
+	lower := strings.ToLower(src)
+	if !IsURL(src) {
+		return false
+	}
+	return strings.HasSuffix(lower, ".jpg") ||
+		strings.HasSuffix(lower, ".jpeg") ||
+		strings.HasSuffix(lower, ".png") ||
+		strings.HasSuffix(lower, ".gif")
+}
+
 // ReplaceVariables replaces all substrings of the form "${var-name}"
 // based on args like {"var-name":"var-value"}.
 func ReplaceVariables(v string, args map[string]string) (string, error) {

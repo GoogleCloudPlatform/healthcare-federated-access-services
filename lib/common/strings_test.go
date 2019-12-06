@@ -230,6 +230,62 @@ func TestIsURL(t *testing.T) {
 	}
 }
 
+func TestIsImageURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "simple string",
+			input: "hello",
+			want:  false,
+		},
+		{
+			name:  "simple non-image URL",
+			input: "https://my.example.com",
+			want:  false,
+		},
+		{
+			name:  "https image URL",
+			input: "https://my.example.com/images/me.jpg",
+			want:  true,
+		},
+		{
+			name:  "http image URL",
+			input: "http://my.example.com/images/me.jpg",
+			want:  true,
+		},
+		{
+			name:  "jpeg image URL",
+			input: "https://my.example.com/images/me.jpeg",
+			want:  true,
+		},
+		{
+			name:  "png image URL",
+			input: "https://my.example.com/images/me.png",
+			want:  true,
+		},
+		{
+			name:  "gif image URL",
+			input: "https://my.example.com/images/me.gif",
+			want:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		got := IsImageURL(tc.input)
+		if got != tc.want {
+			t.Errorf("test case %q: IsImageURL(%q) = %v, want %v", tc.name, tc.input, got, tc.want)
+		}
+	}
+}
+
 func TestReplaceVariables(t *testing.T) {
 	tests := []struct {
 		name  string
