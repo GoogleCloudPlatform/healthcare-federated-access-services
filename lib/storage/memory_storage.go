@@ -105,17 +105,21 @@ func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, cont
 }
 
 // MultiReadTx reads a set of objects matching the input parameters and filters
-func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters []Filter, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error {
+func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters []Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error) {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
 		if err != nil {
-			return fmt.Errorf("file read lock error: %v", err)
+			return 0, fmt.Errorf("file read lock error: %v", err)
 		}
 		defer tx.Finish()
 	}
 
-	return m.findPath(datatype, realm, user, func(path, userMatch, idMatch string) error {
+	if pageSize > MaxPageSize {
+		pageSize = MaxPageSize
+	}
+	count := 0
+	err := m.findPath(datatype, realm, user, func(path, userMatch, idMatch string) error {
 		if m.deleted[m.fname(datatype, realm, userMatch, idMatch, LatestRev)] {
 			return nil
 		}
@@ -131,14 +135,22 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters []Filt
 		if !MatchProtoFilters(filters, p) {
 			return nil
 		}
-		userContent, ok := content[userMatch]
-		if !ok {
-			content[userMatch] = make(map[string]proto.Message)
-			userContent = content[userMatch]
+		if offset > 0 {
+			offset--
+			return nil
 		}
-		userContent[idMatch] = p
+		if pageSize > count {
+			userContent, ok := content[userMatch]
+			if !ok {
+				content[userMatch] = make(map[string]proto.Message)
+				userContent = content[userMatch]
+			}
+			userContent[idMatch] = p
+		}
+		count++
 		return nil
 	})
+	return count, err
 }
 
 func (m *MemoryStorage) findPath(datatype, realm, user string, fn func(string, string, string) error) error {

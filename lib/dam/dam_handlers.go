@@ -138,7 +138,7 @@ func (h *processesHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 func (h *processesHandler) LookupItem(name string, vars map[string]string) bool {
 	h.item = make(map[string]*pb.BackgroundProcess)
 	m := make(map[string]map[string]proto.Message)
-	err := h.s.store.MultiReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, nil, m, &pb.BackgroundProcess{}, h.tx)
+	_, err := h.s.store.MultiReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &pb.BackgroundProcess{}, h.tx)
 	if err != nil {
 		return false
 	}

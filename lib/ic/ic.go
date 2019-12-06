@@ -2269,7 +2269,7 @@ func (h *adminTokenMetadataHandler) Setup(tx storage.Tx, isAdmin bool) (int, err
 func (h *adminTokenMetadataHandler) LookupItem(name string, vars map[string]string) bool {
 	h.item = make(map[string]*pb.TokenMetadata)
 	m := make(map[string]map[string]proto.Message)
-	err := h.s.store.MultiReadTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, nil, m, &pb.TokenMetadata{}, h.tx)
+	_, err := h.s.store.MultiReadTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &pb.TokenMetadata{}, h.tx)
 	if err != nil {
 		return false
 	}

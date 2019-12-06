@@ -50,6 +50,11 @@ const (
 	StateDeleted = "DELETED"
 	// StateDisabled indicates an object is disabled (may be reactived later).
 	StateDisabled = "DISABLED"
+
+	// DefaultPageSize is the default number of entries returned by a list.
+	DefaultPageSize = 50
+	// MaxPageSize is the maximum number of entries returned by a list.
+	MaxPageSize = 1000
 )
 
 var (
@@ -62,8 +67,8 @@ type Store interface {
 	Exists(datatype, realm, user, id string, rev int64) (bool, error)
 	Read(datatype, realm, user, id string, rev int64, content proto.Message) error
 	ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error
-	// MultiReadTx reads a set of objects matching the input parameters and filters
-	MultiReadTx(datatype, realm, user string, filters []Filter, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) error
+	// MultiReadTx reads a set of objects matching the input parameters and filters. Returns total count and error.
+	MultiReadTx(datatype, realm, user string, filters []Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error)
 	ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error
 	ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) error
 	Write(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message) error

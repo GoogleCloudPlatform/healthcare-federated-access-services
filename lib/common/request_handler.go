@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	glog "github.com/golang/glog"
@@ -210,6 +211,15 @@ func GetParam(r *http.Request, name string) string {
 		return set[0]
 	}
 	return ""
+}
+
+// ExtractIntParam return an integer parameter value, or 0 if missing or invalid.
+func ExtractIntParam(r *http.Request, name string) int {
+	v, err := strconv.Atoi(GetParam(r, name))
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
 // GetParamOrDefault returns a URL query parameter value or a default value if it is not present or empty.

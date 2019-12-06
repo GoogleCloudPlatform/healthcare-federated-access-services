@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"cloud.google.com/go/datastore"
+	"google.golang.org/api/iterator"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 
@@ -40,7 +41,6 @@ const (
 	metaKind    = "meta"
 
 	metaVersion = "version"
-	maxPageSize = 1000
 
 	multiDeleteChunkSize = 400 // must not exceed 500 as per Datastore API
 )
@@ -166,45 +166,69 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, c
 }
 
 // MultiReadTx reads a set of objects matching the input parameters and filters
-func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters []storage.Filter, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) error {
+func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters []storage.Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) (int, error) {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		defer tx.Finish()
 	}
+	if pageSize > storage.MaxPageSize {
+		pageSize = storage.MaxPageSize
+	}
 
-	// TODO: handle pagination.
 	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm)
 	if user != storage.DefaultUser {
 		q = q.Filter("user_id = ", user)
 	}
-	q = q.Filter("rev = ", storage.LatestRev).Order("id").Limit(maxPageSize)
-	results := make([]DatastoreEntity, maxPageSize)
-	if _, err := s.client.GetAll(s.ctx, q, &results); err != nil {
-		return err
+	q = q.Filter("rev = ", storage.LatestRev).Order("id")
+	if len(filters) == 0 {
+		// No post-filtering, so limit the query directly as an optimization.
+		// Still can't use q.Limit(pageSize) because we want the total number of matches.
+		q = q.Offset(offset)
+		offset = 0
 	}
-	for _, e := range results {
+
+	it := s.client.Run(s.ctx, q)
+	count := 0
+	for {
+		var e DatastoreEntity
+		_, err := it.Next(&e)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
 		if len(e.Content) == 0 {
 			continue
 		}
 		p := proto.Clone(typ)
 		if err := jsonpb.Unmarshal(strings.NewReader(e.Content), p); err != nil {
-			return err
+			return 0, err
 		}
 		if !storage.MatchProtoFilters(filters, p) {
 			continue
 		}
-		userContent, ok := content[e.User]
-		if !ok {
-			content[e.User] = make(map[string]proto.Message)
-			userContent = content[e.User]
+		// Offset cannot use q.Offset(x) because it must match complex filters above.
+		// For pagination, decrease any remaining offset before accepting this entry.
+		if offset > 0 {
+			offset--
+			continue
 		}
-		userContent[e.Id] = p
+		if pageSize > count {
+			userContent, ok := content[e.User]
+			if !ok {
+				content[e.User] = make(map[string]proto.Message)
+				userContent = content[e.User]
+			}
+			userContent[e.Id] = p
+		}
+		count++
 	}
-	return nil
+	return count, nil
 }
 
 func (s *DatastoreStorage) ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error {
@@ -222,8 +246,8 @@ func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, conte
 	}
 
 	// TODO: handle pagination.
-	q := datastore.NewQuery(historyKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("user_id =", user).Filter("id =", id).Order("rev").Limit(maxPageSize)
-	results := make([]DatastoreHistory, maxPageSize)
+	q := datastore.NewQuery(historyKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("user_id =", user).Filter("id =", id).Order("rev").Limit(storage.MaxPageSize)
+	results := make([]DatastoreHistory, storage.MaxPageSize)
 	if _, err := s.client.GetAll(s.ctx, q, &results); err != nil {
 		return err
 	}

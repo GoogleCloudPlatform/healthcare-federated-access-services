@@ -389,8 +389,21 @@ func (h *scimUsers) Get(name string) error {
 	if err != nil {
 		return err
 	}
+	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
+	start := common.ExtractIntParam(h.r, "startIndex")
+	if start == 0 {
+		start = 1
+	}
+	offset := start - 1
+	// "count" is the number of results desired on this request's page.
+	max := common.ExtractIntParam(h.r, "count")
+	if len(common.GetParam(h.r, "count")) == 0 {
+		max = storage.DefaultPageSize
+	}
+
 	m := make(map[string]map[string]proto.Message)
-	if err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, m, &pb.Account{}, h.tx); err != nil {
+	count, err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, offset, max, m, &pb.Account{}, h.tx)
+	if err != nil {
 		return err
 	}
 	accts := make(map[string]*pb.Account)
@@ -410,12 +423,14 @@ func (h *scimUsers) Get(name string) error {
 		list = append(list, h.s.newScimUser(accts[sub], realm))
 	}
 
-	count := uint32(len(subjects))
+	if max < count {
+		max = count
+	}
 	resp := &spb.ListUsersResponse{
 		Schemas:      []string{"urn:ietf:params:scim:api:messages:2.0:ListResponse"},
-		TotalResults: count,
-		ItemsPerPage: count,
-		StartIndex:   0,
+		TotalResults: uint32(offset + count),
+		ItemsPerPage: uint32(len(list)),
+		StartIndex:   uint32(start),
 		Resources:    list,
 	}
 	return common.SendResponse(resp, h.w)
