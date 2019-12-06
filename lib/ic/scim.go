@@ -179,12 +179,19 @@ type scimUser struct {
 // Setup initializes the handler
 func (h *scimUser) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	if err != nil {
+		return status, err
+	}
 	h.id = id
 	h.tx = tx
-	if id == nil || !h.s.permissions.IsAdmin(id) && !hasScopes("account_admin", id.Scope, false) {
+
+	if h.s.permissions.IsAdmin(id) || h.r.Method == http.MethodGet {
+		return http.StatusOK, nil
+	}
+	if !hasScopes("account_admin", id.Scope, false) {
 		return http.StatusUnauthorized, fmt.Errorf("unauthorized")
 	}
-	return status, err
+	return http.StatusOK, nil
 }
 
 // LookupItem returns true if the named object is found
