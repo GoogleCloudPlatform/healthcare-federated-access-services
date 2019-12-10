@@ -29,7 +29,7 @@ type ResourceTokenCreationParams struct {
 	Roles          []string
 	Scopes         []string
 	TokenFormat    string
-	UserProject    string
+	BillingProject string
 }
 
 // ResourceTokenResult is returned from GetTokenWithTTL().

@@ -476,8 +476,8 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 		var prevErr error
 		if err := backoff.Retry(func() error {
 			policyCall := wh.cs.Buckets.GetIamPolicy(bkt)
-			if params.UserProject != "" {
-				policyCall = policyCall.UserProject(params.UserProject)
+			if params.BillingProject != "" {
+				policyCall = policyCall.UserProject(params.BillingProject)
 			}
 			policy, err := policyCall.Context(ctx).Do()
 			if err != nil {
@@ -490,8 +490,8 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 				wh.configureBucketRole(policy, role, email)
 			}
 			set := wh.cs.Buckets.SetIamPolicy(bkt, policy)
-			if params.UserProject != "" {
-				set.UserProject(params.UserProject)
+			if params.BillingProject != "" {
+				set.UserProject(params.BillingProject)
 			}
 			_, err = set.Context(ctx).Do()
 			if err != nil {

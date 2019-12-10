@@ -142,7 +142,7 @@ message ConfigOptions {
   int32 gcp_managed_keys_per_account = 4;
   string gcp_service_account_project = 5;
   map<string, Descriptor> computed_descriptors = 6 [json_name = "descriptors"];
-  string gcp_user_project = 7;
+  string gcp_iam_billing_project = 7;
 }
 
 message ClaimDefinition {

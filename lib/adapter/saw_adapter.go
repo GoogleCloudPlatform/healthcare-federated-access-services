@@ -119,9 +119,9 @@ func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRol
 	for index, item := range view.Items {
 		items[index] = scrubVars(item.Vars)
 	}
-	userProject := cfg.Options.GcpUserProject
-	if len(userProject) == 0 {
-		userProject = cfg.Options.GcpServiceAccountProject
+	billingProject := cfg.Options.GcpIamBillingProject
+	if len(billingProject) == 0 {
+		billingProject = cfg.Options.GcpServiceAccountProject
 	}
 	return &clouds.ResourceTokenCreationParams{
 		AccountProject: cfg.Options.GcpServiceAccountProject,
@@ -129,7 +129,7 @@ func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRol
 		Roles:          roles,
 		Scopes:         scopes,
 		TokenFormat:    format,
-		UserProject:    userProject,
+		BillingProject: billingProject,
 	}, nil
 }
 
