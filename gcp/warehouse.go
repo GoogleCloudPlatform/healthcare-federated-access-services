@@ -475,7 +475,11 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 		var failedEtag string
 		var prevErr error
 		if err := backoff.Retry(func() error {
-			policy, err := wh.cs.Buckets.GetIamPolicy(bkt).Context(ctx).Do()
+			policyCall := wh.cs.Buckets.GetIamPolicy(bkt)
+			if params.UserProject != "" {
+				policyCall = policyCall.UserProject(params.UserProject)
+			}
+			policy, err := policyCall.Context(ctx).Do()
 			if err != nil {
 				return convertToPermanentErrorIfApplicable(err, fmt.Errorf("getting IAM policy for bucket %q: %v", bkt, err))
 			}
@@ -485,7 +489,11 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 			for _, role := range roles {
 				wh.configureBucketRole(policy, role, email)
 			}
-			_, err = wh.cs.Buckets.SetIamPolicy(bkt, policy).Context(ctx).Do()
+			set := wh.cs.Buckets.SetIamPolicy(bkt, policy)
+			if params.UserProject != "" {
+				set.UserProject(params.UserProject)
+			}
+			_, err = set.Context(ctx).Do()
 			if err != nil {
 				failedEtag = policy.Etag
 				prevErr = err

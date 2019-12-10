@@ -1800,6 +1800,12 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 			Type:        "string",
 			Regexp:      "^[A-Za-z][-A-Za-z0-9]{1,30}[A-Za-z]$",
 		},
+		"gcpUserProject": {
+			Label:       "GCP User Project",
+			Description: "The GCP Project ID that DAM can use for billing when making API calls that require a billing account (e.g. IAM calls on requester-pays buckets)",
+			Type:        "string",
+			Regexp:      "^[A-Za-z][-A-Za-z0-9]{1,30}[A-Za-z]$",
+		},
 	}
 	return out
 }

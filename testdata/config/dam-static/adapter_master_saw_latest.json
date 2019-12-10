@@ -21,18 +21,17 @@
         },
         "bucket": {
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
-          "optional": true,
           "ui": {
             "label": "GCS Bucket name",
             "description": "must be owned by the specified project ID"
           }
         },
-        "requester-pays-bucket": {
+        "type": {
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
           "optional": true,
           "ui": {
-            "label": "GCS Requester Pays Bucket name",
-            "description": "must be owned by the specified project ID"
+            "label": "GCS Bucket type",
+            "description": "Indicates the type of bucket, such as requester-pays buckets"
           }
         }
       },
@@ -51,7 +50,7 @@
           }
         },
         "dataset": {
-          "regexp":   "^[a-z]([-_a-z0-9]*[a-z0-9])?$",
+          "regexp": "^[a-z]([-_a-z0-9]*[a-z0-9])?$",
           "optional": true,
           "ui": {
             "label": "BigQuery Dataset name",

@@ -52,8 +52,8 @@ type User struct {
 	// representation. Duplicate values MUST NOT be included. Value order is not
 	// specified and MUST not impact behavior. REQUIRED.
 	Schemas []string `protobuf:"bytes,1,rep,name=schemas,proto3" json:"schemas,omitempty"`
-	// Unique identifier for the SCIM Resource as defined by the Service Provider
-	// (Google). This is returned by Google when the resource is created.
+	// Unique identifier for the SCIM Resource as defined by the Service Provider.
+	// This is returned when the resource is created.
 	// Each representation of the Resource MUST include a non-empty id value. This
 	// identifier MUST be unique across the Service Provider's entire set of
 	// Resources. It MUST be a stable, non-reassignable identifier that does not
@@ -77,7 +77,7 @@ type User struct {
 	// OPTIONAL.
 	Meta *ResourceMetadata `protobuf:"bytes,4,opt,name=meta,proto3" json:"meta,omitempty"`
 	// Unique identifier for the User, typically used by the user to directly
-	// authenticate to the service provider (Google). Often displayed to the user
+	// authenticate to the service provider. Often displayed to the user
 	// as their unique identifier within the system (as opposed to id or
 	// externalId, which are generally opaque and not user-friendly identifiers).
 	// Each User MUST include a non-empty userName value. This identifier MUST be
@@ -1110,7 +1110,7 @@ func (m *Patch_Operation) GetValue() string {
 	return ""
 }
 
-// Response for ListUsers
+// Response for ListUsers per https://tools.ietf.org/html/rfc7644#section-3.4.2
 type ListUsersResponse struct {
 	// List of SCIM User resources.
 	Resources []*User `protobuf:"bytes,1,rep,name=resources,json=Resources,proto3" json:"resources,omitempty"`
