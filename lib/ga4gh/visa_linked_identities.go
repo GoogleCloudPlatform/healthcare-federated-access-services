@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"strings"
 
-	glog "github.com/golang/glog"
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // ID identifies a subject at an issuer.

@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
 const (

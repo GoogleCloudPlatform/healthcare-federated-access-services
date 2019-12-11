@@ -21,12 +21,12 @@ import (
 	"context"
 	"fmt"
 
-	"cloud.google.com/go/kms/apiv1"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 
-	rpb "google.golang.org/genproto/googleapis/cloud/kms/v1"
-	kmspb "google.golang.org/genproto/googleapis/cloud/kms/v1"
+	rpb "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: resources_go_proto */
+	kmspb "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: service_go_proto */
 )
 
 // Client of GCP CloudKMS symmetric encryption service.

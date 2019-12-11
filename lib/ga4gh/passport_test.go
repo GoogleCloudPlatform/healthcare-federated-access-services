@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"testing"
 
-	glog "github.com/golang/glog"
-	"github.com/google/go-cmp/cmp"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
 const (

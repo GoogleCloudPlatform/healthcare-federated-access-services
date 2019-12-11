@@ -18,7 +18,7 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package dam.v1;
 
-import "proto/common/v1/common.proto";
+import "proto/common/v1/common.proto"; /* copybara-comment */
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1";
 

@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	glog "github.com/golang/glog"
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // Issuer is a Visa Issuer.

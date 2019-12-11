@@ -20,14 +20,14 @@ import (
 	"net"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"cloud.google.com/go/kms/apiv1"
-	"google.golang.org/api/option"
-	"google.golang.org/grpc"
+	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
+	"google.golang.org/api/option" /* copybara-comment: option */
+	"google.golang.org/grpc" /* copybara-comment */
 
-	rpb "google.golang.org/genproto/googleapis/cloud/kms/v1"
-	kmsgrpc "google.golang.org/genproto/googleapis/cloud/kms/v1"
-	kmspb "google.golang.org/genproto/googleapis/cloud/kms/v1"
+	rpb "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: resources_go_proto */
+	kmsgrpc "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: service_go_grpc */
+	kmspb "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: service_go_proto */
 )
 
 const (

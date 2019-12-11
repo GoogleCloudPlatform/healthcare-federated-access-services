@@ -20,12 +20,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/jsonutil"
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/jsonutil" /* copybara-comment: jsonutil */
 
-	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1"
+	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
 )
 
 var fakeToken = &tpb.Token{

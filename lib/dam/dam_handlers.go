@@ -20,16 +20,16 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/golang/protobuf/proto"
-	"google.golang.org/grpc/status"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp" /* copybara-comment: gcp */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
-	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
 /////////////////////////////////////////////////////////

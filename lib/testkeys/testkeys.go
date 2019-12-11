@@ -18,7 +18,7 @@ package testkeys
 import (
 	"crypto/rsa"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 )
 
 // Key is a pair of RSA private/public keys.

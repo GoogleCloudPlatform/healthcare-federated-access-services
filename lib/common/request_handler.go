@@ -25,13 +25,13 @@ import (
 	"strconv"
 	"strings"
 
-	glog "github.com/golang/glog"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/gorilla/mux"
-	"google.golang.org/grpc/status"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/gorilla/mux" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
 const (

@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/dgrijalva/jwt-go"
-	"github.com/coreos/go-oidc"
+	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/coreos/go-oidc" /* copybara-comment */
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
 const (

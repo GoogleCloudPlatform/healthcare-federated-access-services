@@ -15,7 +15,7 @@
 package ga4gh
 
 import (
-	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 // Assertion represents a GA4GH Passport Visa Object.

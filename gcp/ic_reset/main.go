@@ -19,9 +19,9 @@ import (
 	"context"
 	"os"
 
-	glog "github.com/golang/glog"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 )
 
 func main() {

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 type MockTokenCreatorEntry struct {

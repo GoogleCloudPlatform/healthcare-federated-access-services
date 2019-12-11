@@ -21,7 +21,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/pborman/uuid"
+	"github.com/pborman/uuid" /* copybara-comment */
 )
 
 const (

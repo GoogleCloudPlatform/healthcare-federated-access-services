@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	glog "github.com/golang/glog"
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 const indent = "  "

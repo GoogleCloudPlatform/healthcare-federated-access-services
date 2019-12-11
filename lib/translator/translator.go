@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"strings"
 
-	"golang.org/x/oauth2"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"golang.org/x/oauth2" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
 // Translator is used to convert an HTTP bearer authorization string that is _not_ in

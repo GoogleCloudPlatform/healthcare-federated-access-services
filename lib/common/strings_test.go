@@ -19,7 +19,7 @@ package common
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
 )
 
 func TestJoinNonEmpty(t *testing.T) {

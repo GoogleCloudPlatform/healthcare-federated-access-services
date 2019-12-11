@@ -17,7 +17,7 @@ package common
 import (
 	"testing"
 
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/codes" /* copybara-comment */
 )
 
 const (

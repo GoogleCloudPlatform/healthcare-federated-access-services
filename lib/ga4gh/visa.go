@@ -17,9 +17,9 @@ package ga4gh
 import (
 	"crypto/rsa"
 
-	glog "github.com/golang/glog"
-	"github.com/dgrijalva/jwt-go"
-	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 // Visa represents a GA4GH Passport Visa.

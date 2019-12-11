@@ -18,9 +18,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	glog "github.com/golang/glog"
-	"github.com/golang/protobuf/jsonpb"
-	"google.golang.org/grpc/status"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 )
 
 // WriteRPCResp writes reponse and error.

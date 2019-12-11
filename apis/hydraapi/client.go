@@ -20,7 +20,7 @@ package hydraapi
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt" /* copybara-comment */
 )
 
 // Client Client represents an OAuth 2.0 Client.

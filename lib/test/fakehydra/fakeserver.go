@@ -18,11 +18,11 @@ package fakehydra
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
+	"github.com/gorilla/mux" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 
-	glog "github.com/golang/glog"
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // Data stores data in fake hydra server. Make it easier to reset.

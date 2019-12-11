@@ -23,10 +23,10 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	glog "github.com/golang/glog"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 )
 
 // Handler handles HTTP requests.

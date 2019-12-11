@@ -18,11 +18,11 @@ import (
 	"context"
 	"net/http"
 
-	glog "github.com/golang/glog"
-	epb "github.com/golang/protobuf/ptypes/empty"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
-	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1"
-	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1"
+	glog "github.com/golang/glog" /* copybara-comment */
+	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
+	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto_grpc */
 )
 
 // TokensHandler is a HTTP handler wrapping a GRPC server.

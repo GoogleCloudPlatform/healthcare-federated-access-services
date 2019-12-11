@@ -18,8 +18,8 @@ import (
 	"crypto/rsa"
 	"fmt"
 
-	glog "github.com/golang/glog"
-	"github.com/dgrijalva/jwt-go"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 )
 
 const (

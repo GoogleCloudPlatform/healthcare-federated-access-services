@@ -17,8 +17,8 @@ package httputil
 import (
 	"net/http"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 )
 
 // WARNING: do not change the mappings in this file.

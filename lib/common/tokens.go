@@ -21,11 +21,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/coreos/go-oidc"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/coreos/go-oidc" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 
-	jose "gopkg.in/square/go-jose.v2"
-	josejwt "gopkg.in/square/go-jose.v2/jwt"
+	jose "gopkg.in/square/go-jose.v2" /* copybara-comment */
+	josejwt "gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 )
 
 // IsAudience returns true if the token's "azp" or "aud" contains the self string or clientID.

@@ -20,9 +20,9 @@ import (
 	"context"
 	"flag"
 
-	glog "github.com/golang/glog"
-	"cloud.google.com/go/kms/apiv1"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 )
 
 var (

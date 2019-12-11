@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test"
+	"github.com/gorilla/mux" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 )
 
 // Requirement is the client credentials requirement.

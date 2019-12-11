@@ -20,11 +20,11 @@ import (
 	"context"
 	"os"
 
-	glog "github.com/golang/glog"
-	"golang.org/x/oauth2/google"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	glog "github.com/golang/glog" /* copybara-comment */
+	"golang.org/x/oauth2/google" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp" /* copybara-comment: gcp */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
 // MustBuildAccountWarehouse builds a *gcp.AccountWarehouse from the

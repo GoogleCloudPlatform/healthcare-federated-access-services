@@ -21,8 +21,8 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/golang/mock/gomock"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/golang/mock/gomock" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
 // MockValidator is a mock of Validator interface

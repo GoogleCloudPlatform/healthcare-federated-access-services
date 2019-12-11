@@ -17,7 +17,7 @@ package validator
 import (
 	"context"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
 // Validator is used to determine whether a given Identity is "valid" in a

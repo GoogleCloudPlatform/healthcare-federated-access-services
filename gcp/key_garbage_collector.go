@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	glog "github.com/golang/glog"
-	iam "google.golang.org/api/iam/v1"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	glog "github.com/golang/glog" /* copybara-comment */
+	iam "google.golang.org/api/iam/v1" /* copybara-comment: iam */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
 const (

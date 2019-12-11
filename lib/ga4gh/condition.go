@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	glog "github.com/golang/glog"
-	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
+	glog "github.com/golang/glog" /* copybara-comment */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 // Conditions represent a GA4GH Passport Visa condition field sub-object.

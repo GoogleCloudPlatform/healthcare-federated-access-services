@@ -18,9 +18,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 )
 
 type Resp struct {

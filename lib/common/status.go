@@ -17,12 +17,12 @@ package common
 import (
 	"strings"
 
-	"github.com/golang/protobuf/proto"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil"
+	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 
-	errpb "google.golang.org/genproto/googleapis/rpc/errdetails"
+	errpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
 )
 
 var (
