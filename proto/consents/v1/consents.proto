@@ -1,0 +1,94 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Package v1 provides protocol buffer versions of OAuth Consents API for
+// listing and revoking OAuth consents.
+package consents.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1";
+
+///////////////////////////////////////////////////
+
+// OAuth Consents service.
+service Consents {
+  // Deletes the specified OAuth Consent.
+  rpc DeleteConsent(DeleteConsentRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/{name=consents/*}"
+    };
+  }
+
+  // Lists the OAuth Consents.
+  rpc ListConsents(ListConsentsRequest) returns (ListConsentsResponse) {
+    option (google.api.http) = {
+      get: "/v1/consents"
+    };
+  }
+}
+
+// OAuth Consent.
+message Consent {
+  // Name of the OAuth Consent.
+  // Format: `consents/{consent_id}`.
+  string name = 1;
+
+  // Identifies the user who gave the OAuth consent.
+  // E.g. subject or account number
+  string user = 2;
+
+  // Identifies the client for which the OAuth consent was given.
+  string client = 3;
+
+  // Identifies the items for which the OAuth consent was given.
+  // E.g. JTI of a Visa JWT.
+  repeated string items = 4;
+
+  // Identifies the scopes for which the OAuth consent was given.
+  repeated string scopes = 5;
+
+  // Identifies the resources for which the OAuth consent was given.
+  repeated string resouces = 6;
+
+  // Time at which OAuth consent was first given.
+  google.protobuf.Timestamp create_time = 7;
+
+  // Time at which consent was last updated.
+  google.protobuf.Timestamp update_time = 8;
+}
+
+message GetConsentRequest {
+  string name = 1;
+}
+
+message DeleteConsentRequest {
+  string name = 1;
+}
+
+message ListConsentsRequest {
+  string parent = 1;
+  string filter = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListConsentsResponse {
+  repeated Consent consents = 1;
+  string next_page_token = 2;
+}
