@@ -15,14 +15,24 @@
          "ui": {
             "label": "Test Page",
             "description": "The service test page /identity/v1alpha/master/test. Delete from production systems."
-         }
+         },
+         "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+         "grantTypes": ["authorization_code"],
+         "responseTypes": ["token", "code", "id_token"]
       },
+
       "ga4gh_dam": {
          "clientId": "6126e2e5-7139-46a4-9457-e2b7341d6bdd",
          "ui": {
             "label": "Data Access Manager",
             "description": "The audience of passport tokens"
-         }
+         },
+         "redirectUris": [
+            "/"
+         ],
+         "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+         "grantTypes": ["authorization_code"],
+         "responseTypes": ["token", "code", "id_token"]
       }
    },
    "accountTags": {

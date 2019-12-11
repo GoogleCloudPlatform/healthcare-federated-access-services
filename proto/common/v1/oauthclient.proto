@@ -1,0 +1,58 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package common;
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
+
+///////////////////////////////////////////////////
+// oauth clients
+
+message Client {
+  string client_id = 1;
+  string scope = 5;
+  repeated string redirect_uris = 2;
+  repeated string grant_types = 6;
+  repeated string response_types = 7;
+  map<string, string> ui = 3;
+}
+
+message ClientResponse {
+  Client client = 1;
+  string client_secret = 2 [json_name = "client_secret"];
+}
+
+message ConfigModification {
+  message PersonaModification {
+    repeated string access = 1;
+    repeated string add_access = 2;
+    repeated string remove_access = 3;
+  }
+
+  int64 revision = 1;
+  map<string, PersonaModification> test_personas = 2;
+  bool dry_run = 3;
+}
+
+message ConfigClientRequest {
+  Client item = 1;
+  ConfigModification modification = 2;
+}
+
+message ConfigClientResponse {
+  Client client = 1;
+  string client_secret = 2 [json_name = "client_secret"];
+}

@@ -27,7 +27,23 @@
       },
       "redirectUris": [
         "http://example.com"
-      ]
+      ],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
+    },
+    "test_client2": {
+      "clientId": "00000000-0000-0000-0000-000000000002",
+      "ui": {
+        "label": "Test Client",
+        "description": "Unit test client 2"
+      },
+      "redirectUris": [
+        "http://example.com"
+      ],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
     }
   },
   "options": {

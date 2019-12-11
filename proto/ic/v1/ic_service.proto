@@ -14,11 +14,12 @@
 
 syntax = "proto3";
 
-// Package ic provides protocol buffer versions of the DAM API, allowing
+// Package v1 ic provides protocol buffer versions of the DAM API, allowing
 // end points to receive requests and returns responses using these messages.
 package ic.v1;
 
 import "proto/common/v1/common.proto"; /* copybara-comment */
+import "proto/common/v1/oauthclient.proto"; /* copybara-comment */
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1";
 
@@ -29,7 +30,7 @@ message IcConfig {
   int64 revision = 2;
   double commit_time = 3;
   map<string, IdentityProvider> identity_providers = 4;
-  map<string, Client> clients = 5;
+  map<string, common.Client> clients = 5;
   map<string, common.AccountTag> account_tags = 6;
   ConfigOptions options = 7;
   map<string, string> ui = 8;
@@ -45,12 +46,6 @@ message IdentityProvider {
   string client_id = 7;
   map<string, string> ui = 8;
   bool use_passport_visa = 9;
-}
-
-message Client {
-  string client_id = 1;
-  repeated string redirect_uris = 2;
-  map<string, string> ui = 3;
 }
 
 message ConfigOptions {
@@ -182,16 +177,6 @@ message GetIdentityProvidersResponse {
 
 message GetTokenRequest {}
 
-message ClientRequest {
-  Client item = 1;
-  string client_secret = 2 [json_name = "client_secret"];
-}
-
-message ClientResponse {
-  Client client = 1;
-  string client_secret = 2 [json_name = "client_secret"];
-}
-
 message ConfigRequest {
   IcConfig item = 1;
   ConfigModification modification = 2;
@@ -205,13 +190,6 @@ message ConfigIdentityProviderRequest {
 }
 
 message ConfigIdProviderResponse {}
-
-message ConfigClientRequest {
-  Client item = 1;
-  ConfigModification modification = 2;
-}
-
-message ConfigClientResponse {}
 
 message ConfigOptionsRequest {
   ConfigOptions item = 1;
