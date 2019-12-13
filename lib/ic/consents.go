@@ -1,0 +1,64 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package ic
+
+import (
+	"context"
+	"net/http"
+
+	glog "github.com/golang/glog" /* copybara-comment */
+	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_grpc_proto */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
+)
+
+// ConsentsHandler is a HTTP handler wrapping a GRPC server.
+type ConsentsHandler struct {
+	s tgpb.ConsentsServer
+}
+
+// NewConsentsHandler returns a new ConsentsHandler.
+func NewConsentsHandler(s tgpb.ConsentsServer) *ConsentsHandler {
+	return &ConsentsHandler{s: s}
+}
+
+// DeleteConsent handles DeleteConsent HTTP requests.
+func (h *ConsentsHandler) DeleteConsent(w http.ResponseWriter, r *http.Request) {
+	req := &cpb.DeleteConsentRequest{Name: r.RequestURI}
+	resp, err := h.s.DeleteConsent(r.Context(), req)
+	httputil.WriteRPCResp(w, resp, err)
+}
+
+// ListConsents handles ListConsents HTTP requests.
+func (h *ConsentsHandler) ListConsents(w http.ResponseWriter, r *http.Request) {
+	req := &cpb.ListConsentsRequest{Parent: r.RequestURI}
+	resp, err := h.s.ListConsents(r.Context(), req)
+	httputil.WriteRPCResp(w, resp, err)
+}
+
+type stubConsents struct {
+	consent *cpb.Consent
+}
+
+func (s *stubConsents) DeleteConsent(_ context.Context, req *cpb.DeleteConsentRequest) (*epb.Empty, error) {
+	glog.Infof("DeleteConsent %v", req)
+	return &epb.Empty{}, nil
+}
+
+func (s *stubConsents) ListConsents(_ context.Context, req *cpb.ListConsentsRequest) (*cpb.ListConsentsResponse, error) {
+	glog.Infof("ListConsents %v", req)
+	return &cpb.ListConsentsResponse{Consents: []*cpb.Consent{s.consent}}, nil
+}

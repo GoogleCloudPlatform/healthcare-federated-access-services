@@ -66,6 +66,8 @@ var paths = map[string]credtest.Requirement{
 	hydraTestPage:                {ClientID: false, ClientSecret: false},
 	"/tokens":                    {ClientID: true, ClientSecret: true},
 	"/tokens/":                   {ClientID: true, ClientSecret: true},
+	"/consents":                  {ClientID: true, ClientSecret: true},
+	"/consents/":                 {ClientID: true, ClientSecret: true},
 	staticFilePath:               {ClientID: false, ClientSecret: false},
 }
 
