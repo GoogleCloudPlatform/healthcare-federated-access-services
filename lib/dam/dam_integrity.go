@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 
@@ -166,11 +167,8 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 	}
 
 	for n, cl := range cfg.Clients {
-		if _, err := common.ParseGUID(cl.ClientId); err != nil || len(cl.ClientId) != clientIdLen {
-			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgClients, n, "clientId"), fmt.Sprintf("missing client ID or invalid format: %q", cl.ClientId))
-		}
-		if path, err := common.CheckUI(cl.Ui, true); err != nil {
-			return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgClients, n, path), fmt.Sprintf("client UI settings: %v", err))
+		if err := oathclients.CheckClientIntegrity(n, cl); err != nil {
+			return status.Convert(err)
 		}
 	}
 

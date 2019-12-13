@@ -65,6 +65,7 @@ const (
 	infoPath              = basePath
 	versionPath           = basePath + "/" + version
 	realmPath             = versionPath + "/" + common.RealmVariable
+	clientPath            = methodPrefix + "client/{name}"
 	resourcesPath         = methodPrefix + "resources"
 	resourcePath          = methodPrefix + "resources/{name}"
 	flatViewsPath         = methodPrefix + "flatViews"
@@ -315,7 +316,11 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) checkClientCreds(r *http.Request) error {
-	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || strings.HasPrefix(r.URL.Path, oidcWellKnownPrefix) || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath || r.URL.Path == hydraTestPage {
+	// TODO: will remove after integrate hydra.
+	if s.useHydra {
+		return nil
+	}
+	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || strings.HasPrefix(r.URL.Path, oidcWellKnownPrefix) || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath || r.URL.Path == hydraTestPage || r.URL.Path == clientPath {
 		return nil
 	}
 	cid := getClientID(r)
@@ -357,6 +362,7 @@ func (s *Service) checkClientCreds(r *http.Request) error {
 func (s *Service) buildHandlerMux() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc(infoPath, s.GetInfo)
+	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
 	r.HandleFunc(resourcesPath, s.GetResources)
 	r.HandleFunc(resourcePath, s.GetResource)
 	r.HandleFunc(viewsPath, s.GetViews)
@@ -1220,7 +1226,7 @@ func (s *Service) ClientSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cid := getClientID(r)
-	var client *pb.Client
+	var client *cpb.Client
 	for _, c := range cfg.Clients {
 		if c.ClientId == cid {
 			client = c
@@ -1551,18 +1557,6 @@ func (s *Service) configPersonaFactory() *common.HandlerFactory {
 	}
 }
 
-func (s *Service) configClientFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "configClient",
-		PathPrefix:          configClientPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return NewConfigClientHandler(s, w, r)
-		},
-	}
-}
-
 /////////////////////////////////////////////////////////
 
 func (s *Service) makeViews(r *pb.Resource, cfg *pb.DamConfig) map[string]*pb.View {
@@ -1824,7 +1818,7 @@ func receiveConfigOptions(opts *pb.ConfigOptions, cfg *pb.DamConfig) *pb.ConfigO
 
 func normalizeConfig(cfg *pb.DamConfig) error {
 	if cfg.Clients == nil {
-		cfg.Clients = make(map[string]*pb.Client)
+		cfg.Clients = make(map[string]*cpb.Client)
 	}
 	for _, p := range cfg.TestPersonas {
 		sort.Strings(p.Access)

@@ -1500,7 +1500,7 @@ func TestConfigClients_Create_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsCreate(t, pname, clientName, cli.ClientId, cli, s, iss)
+	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -1579,7 +1579,7 @@ func TestConfigClients_Create_Success_Storage(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsCreate(t, pname, clientName, cli.ClientId, cli, s, iss)
+	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -1794,7 +1794,7 @@ func TestConfigClients_Update_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsUpdate(t, pname, clientName, cli.ClientId, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -1846,7 +1846,7 @@ func TestConfigClients_Update_Success_Storage(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsUpdate(t, pname, clientName, cli.ClientId, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}

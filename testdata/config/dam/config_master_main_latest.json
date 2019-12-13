@@ -64,7 +64,7 @@
       "issuer": "https://example.com/oidc",
       "authUrl": "https://example.com/authorize",
       "tokenUrl": "https://example.com/oidc/token",
-      "clientId": "cid",
+      "clientId": "00000000-0000-0000-0000-000000000000",
       "ui": {
         "label": "Local IC Dev",
         "description": "Local IC Dev passport issuer"
@@ -681,6 +681,30 @@
     }
   },
   "testPersonas": {
+    "non-admin": {
+      "ui": {
+        "label": "Non Admin"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://ic-dot-example.appspot.com/oidc",
+          "email": "non-admin@faculty.example.edu"
+        },
+        "ga4ghAssertions": []
+      }
+    },
+    "admin": {
+      "ui": {
+        "label": "Admin"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://ic-dot-example.appspot.com/oidc",
+          "email": "admin@faculty.example.edu"
+        },
+        "ga4ghAssertions": []
+      }
+    },
     "dr_joe_elixir": {
       "ui": {
         "label": "Dr. Joe (Elixir)"
@@ -769,7 +793,26 @@
       "ui": {
         "label": "Test Client",
         "description": "Unit test client"
-      }
+      },
+      "redirectUris": [
+        "http://example.com"
+      ],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
+    },
+    "test_client2": {
+      "clientId": "00000000-0000-0000-0000-000000000002",
+      "ui": {
+        "label": "Test Client",
+        "description": "Unit test client 2"
+      },
+      "redirectUris": [
+        "http://example.com"
+      ],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
     }
   },
   "options": {

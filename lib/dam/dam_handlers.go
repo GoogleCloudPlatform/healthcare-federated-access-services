@@ -435,7 +435,7 @@ func (h *configHandler) NormalizeInput(name string, vars map[string]string) erro
 		h.input.Modification = &pb.ConfigModification{}
 	}
 	if h.input.Item.Clients == nil {
-		h.input.Item.Clients = make(map[string]*pb.Client)
+		h.input.Item.Clients = make(map[string]*cpb.Client)
 	}
 	if h.input.Item.Options == nil {
 		h.input.Item.Options = &pb.ConfigOptions{}
@@ -1247,93 +1247,3 @@ func (h *configPersonaHandler) CheckIntegrity() *status.Status {
 func (h *configPersonaHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
 }
-
-//////////////////////////////////////////////////////////////////
-
-type configClientHandler struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.ConfigClientRequest
-	item  *pb.Client
-	save  *pb.Client
-	cfg   *pb.DamConfig
-	id    *ga4gh.Identity
-	tx    storage.Tx
-}
-
-func NewConfigClientHandler(s *Service, w http.ResponseWriter, r *http.Request) *configClientHandler {
-	return &configClientHandler{
-		s:     s,
-		w:     w,
-		r:     r,
-		input: &pb.ConfigClientRequest{},
-	}
-}
-func (h *configClientHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
-	h.cfg = cfg
-	h.id = id
-	h.tx = tx
-	return status, err
-}
-func (h *configClientHandler) LookupItem(name string, vars map[string]string) bool {
-	item, ok := h.cfg.Clients[name]
-	if !ok {
-		return false
-	}
-	h.item = item
-	return true
-}
-func (h *configClientHandler) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(h.input, h.r); err != nil {
-		return err
-	}
-	if h.input.Item == nil {
-		h.input.Item = &pb.Client{}
-	}
-	// TODO: add some checks for client ID being allocated and/or matching the config.
-	//if len(h.input.Item.ClientId) > 0 {
-	//	return fmt.Errorf("client IDs are assigned and should not be provided by the API caller")
-	//}
-	if h.input.Item.Ui == nil {
-		h.input.Item.Ui = make(map[string]string)
-	}
-	return nil
-}
-func (h *configClientHandler) Get(name string) error {
-	common.SendResponse(h.item, h.w)
-	return nil
-}
-func (h *configClientHandler) Post(name string) error {
-	h.input.Item.ClientId = common.GenerateGUID()
-	h.cfg.Clients[name] = h.input.Item
-	h.save = h.input.Item
-	return nil
-}
-func (h *configClientHandler) Put(name string) error {
-	h.input.Item.ClientId = h.item.ClientId
-	h.cfg.Clients[name] = h.input.Item
-	h.save = h.input.Item
-	return nil
-}
-func (h *configClientHandler) Patch(name string) error {
-	h.input.Item.ClientId = h.item.ClientId
-	proto.Merge(h.item, h.input.Item)
-	h.item.Ui = h.input.Item.Ui
-	h.save = h.item
-	return nil
-}
-func (h *configClientHandler) Remove(name string) error {
-	delete(h.cfg.Clients, name)
-	h.save = &pb.Client{}
-	return nil
-}
-func (h *configClientHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
-}
-func (h *configClientHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
-}
-
-/////////////////////////////////////////////////////////
