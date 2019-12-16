@@ -1462,6 +1462,7 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 	page := strings.Replace(s.infomationReleasePage, "${APPLICATION_NAME}", clientName, -1)
 	page = strings.Replace(page, "${INFORMATION}", strings.Join(info, ","), -1)
 	page = strings.Replace(page, "${STATE}", stateID, -1)
+	page = strings.Replace(page, "${ASSET_DIR}", assetPath, -1)
 	page = strings.Replace(page, "${PATH}", strings.Replace(acceptInformationReleasePath, "{realm}", realm, -1), -1)
 
 	common.SendHTML(page, w)

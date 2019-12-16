@@ -18,18 +18,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Title</title>
+  <title>${APPLICATION_NAME}: Permissions</title>
+  <link rel="icon" href="${ASSET_DIR}/favicon.png" type="image/png"/>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css">
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      font-size: 16px;
+      color: #2B2B2B;
+    }
+    #main-container {
+      background: url(${ASSET_DIR}/info_bg.jpg) center center / cover no-repeat;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-grow: 1;
+    }
+    #information-release {
+      padding: 2rem;
+      width: 65%;
+      max-width: 40rem;
+      background: #ffffff;
+    }
+    #list {
+      padding-left: 1rem;
+    }
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .actions button {
+      font-size: 0.9rem;
+    }
+    #agree {
+      background: #005F6B;
+      color: #ffffff;
+    }
+    #disagree {
+      background: #e2e2e2;
+      margin-right: 0.2rem;
+    }
+    .mdl-card__title-text{
+      font-size: 2rem;
+      font-weight: bold;
+    }
+    .mdl-card__supporting-text {
+      color: rgba(0,0,0,.64);
+    }
+  </style>
 </head>
 <body>
 
-<div id="information-release">
-  By clicking "Agree", you agree to release your following information to ${APPLICATION_NAME}
-  <ul id="list">
-  </ul>
+<div id="main-container">
+  <div id="information-release" class="mdl-card mdl-shadow--2dp">
+    <div class="mdl-card__title">
+      <h2 class="mdl-card__title-text">We need your permission</h2>
+    </div>
+    <div class="mdl-card__supporting-text">
+      <p>By clicking "Agree", you agree to release your following information to ${APPLICATION_NAME}</p>
+      <ul id="list">
+      </ul>
+    </div>
+    <div class="mdl-card__actions actions">
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect" id="disagree">Disagree</button>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect" id="agree">Agree</button>
+    </div>
+  </div>
 </div>
-
-<button id="agree">Agree</button>
-<button id="disagree">Disagree</button>
 
 <script>
   let ul = document.getElementById("list");

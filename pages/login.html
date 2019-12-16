@@ -137,6 +137,10 @@
         background: url(${ASSET_DIR}/background.png) center center / cover no-repeat;
     }
 
+    #main-container.persona {
+      background: url(${ASSET_DIR}/persona_bg.png) center center / cover no-repeat;
+    }
+
     #main-container .mdl-card {
       padding: 2rem;
       width: 65%;
@@ -176,8 +180,10 @@
 
       function getProviderHeaderHtml(id) {
           if (id === 'idps') {
-              return '<h4>Log in</h4><p>Verify your identity to discover and access data.</p>';
+            $('#main-container').removeClass('persona');
+            return '<h4>Log in / Create an account</h4><p>Verify your identity to discover and access data.</p>';
           } else if (id === 'personas') {
+              $('#main-container').addClass('persona');
               return '<h4 class="playground">Testing personas</h4><p class="playground">Log in using one of these existing testing personas.</p>';
           }
       }
