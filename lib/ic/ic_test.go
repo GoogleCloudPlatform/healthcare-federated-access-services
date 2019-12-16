@@ -717,11 +717,11 @@ func TestAddLinkedIdentities(t *testing.T) {
 	}
 }
 
-func setupHydraTest() (*Service, *pb.IcConfig, *fakehydra.Server, *fakeoidcissuer.Server, error) {
+func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server, *fakeoidcissuer.Server, error) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
@@ -729,18 +729,23 @@ func setupHydraTest() (*Service, *pb.IcConfig, *fakehydra.Server, *fakeoidcissue
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
+	}
+
+	sec, err := s.loadSecrets(nil)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
 	}
 
 	r := mux.NewRouter()
 	h := fakehydra.New(r)
 	s.httpClient = httptestclient.New(r)
 
-	return s, cfg, h, server, nil
+	return s, cfg, sec, h, server, nil
 }
 
 func TestLogin_Hydra(t *testing.T) {
-	s, cfg, _, _, err := setupHydraTest()
+	s, cfg, _, _, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -838,7 +843,7 @@ func sendAcceptLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, code, st
 }
 
 func TestAcceptLogin_Hydra_ToFinishLogin(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -896,7 +901,7 @@ func TestAcceptLogin_Hydra_ToFinishLogin(t *testing.T) {
 }
 
 func TestAcceptLogin_Hydra_Reject(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -908,7 +913,7 @@ func TestAcceptLogin_Hydra_Reject(t *testing.T) {
 
 	resp, err := sendAcceptLogin(s, cfg, h, "", loginStateID, errName, errDesc)
 	if err != nil {
-		t.Fatalf("sendAcceptLogin(s, cfg, h, '', %s, %s, %s) failed: %v", hydra.StateIDKey, errName, errDesc, err)
+		t.Fatalf("sendAcceptLogin(s, cfg, sec, h, '', %s, %s, %s) failed: %v", hydra.StateIDKey, errName, errDesc, err)
 	}
 
 	if h.RejectLoginReq.Name != errName {
@@ -930,7 +935,7 @@ func TestAcceptLogin_Hydra_Reject(t *testing.T) {
 }
 
 func TestAcceptLogin_Hydra_InvalidState(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -982,7 +987,7 @@ func sendFinishLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, idp, cod
 }
 
 func TestFinishLogin_Hydra_Success(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1034,7 +1039,7 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 }
 
 func TestFinishLogin_Hydra_Invalid(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1133,7 +1138,7 @@ func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Ser
 }
 
 func TestAcceptInformationRelease_Hydra_Accept(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1173,7 +1178,7 @@ func TestAcceptInformationRelease_Hydra_Accept(t *testing.T) {
 }
 
 func TestAcceptInformationRelease_Hydra_Accept_Scoped(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1207,7 +1212,7 @@ func TestAcceptInformationRelease_Hydra_Accept_Scoped(t *testing.T) {
 }
 
 func TestAcceptInformationRelease_Hydra_Reject(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1237,7 +1242,7 @@ func TestAcceptInformationRelease_Hydra_Reject(t *testing.T) {
 }
 
 func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
-	s, cfg, h, _, err := setupHydraTest()
+	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1262,7 +1267,7 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 	}
 }
 
-func sendClientsGet(t *testing.T, pname, clientName, clientID string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1277,13 +1282,16 @@ func sendClientsGet(t *testing.T, pname, clientName, clientID string, s *Service
 
 	path := strings.ReplaceAll(clientPath, "{realm}", "test")
 	path = strings.ReplaceAll(path, "{name}", clientName)
-	q := url.Values{"client_id": []string{clientID}}
+	q := url.Values{
+		"client_id":     []string{clientID},
+		"client_secret": []string{clientSecret},
+	}
 	h := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
 	return testhttp.SendTestRequest(t, s.Handler, http.MethodGet, path, q, nil, h)
 }
 
 func TestClients_Get(t *testing.T) {
-	s, cfg, _, iss, err := setupHydraTest()
+	s, cfg, sec, _, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1292,7 +1300,7 @@ func TestClients_Get(t *testing.T) {
 	pname := "non-admin"
 	cli := cfg.Clients[clientName]
 
-	resp := sendClientsGet(t, pname, clientName, cli.ClientId, s, iss)
+	resp := sendClientsGet(t, pname, clientName, cli.ClientId, sec.ClientSecrets[cli.ClientId], s, iss)
 
 	got := &cpb.ClientResponse{}
 	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
@@ -1307,7 +1315,7 @@ func TestClients_Get(t *testing.T) {
 }
 
 func TestClients_Get_Error(t *testing.T) {
-	s, _, _, iss, err := setupHydraTest()
+	s, _, sec, _, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1330,18 +1338,13 @@ func TestClients_Get_Error(t *testing.T) {
 			clientName: "test_client2",
 			status:     http.StatusNotFound,
 		},
-		{
-			name:       "client id empty",
-			clientName: "test_client2",
-			status:     http.StatusBadRequest,
-		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			pname := "non-admin"
 
-			resp := sendClientsGet(t, pname, tc.clientName, tc.clientID, s, iss)
+			resp := sendClientsGet(t, pname, tc.clientName, tc.clientID, sec.ClientSecrets[tc.clientID], s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -1350,7 +1353,7 @@ func TestClients_Get_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsGet(t *testing.T, pname, clientName, clientID string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1365,13 +1368,16 @@ func sendConfigClientsGet(t *testing.T, pname, clientName, clientID string, s *S
 
 	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
 	path = strings.ReplaceAll(path, "{name}", clientName)
-	q := url.Values{"client_id": []string{clientID}}
+	q := url.Values{
+		"client_id":     []string{clientID},
+		"client_secret": []string{clientSecret},
+	}
 	h := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
 	return testhttp.SendTestRequest(t, s.Handler, http.MethodGet, path, q, nil, h)
 }
 
 func TestConfigClients_Get(t *testing.T) {
-	s, cfg, _, iss, err := setupHydraTest()
+	s, cfg, sec, _, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1380,7 +1386,7 @@ func TestConfigClients_Get(t *testing.T) {
 	pname := "admin"
 	cli := cfg.Clients[clientName]
 
-	resp := sendConfigClientsGet(t, pname, clientName, cli.ClientId, s, iss)
+	resp := sendConfigClientsGet(t, pname, clientName, cli.ClientId, sec.ClientSecrets[cli.ClientId], s, iss)
 
 	got := &cpb.ConfigClientResponse{}
 	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
@@ -1395,7 +1401,7 @@ func TestConfigClients_Get(t *testing.T) {
 }
 
 func TestConfigClients_Get_Error(t *testing.T) {
-	s, _, _, iss, err := setupHydraTest()
+	s, _, sec, _, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1415,13 +1421,6 @@ func TestConfigClients_Get_Error(t *testing.T) {
 			status:     http.StatusNotFound,
 		},
 		{
-			name:       "client id empty",
-			persona:    "admin",
-			clientName: "test_client2",
-			// TODO: should fix after integrated hydra client id.
-			status: http.StatusOK,
-		},
-		{
 			name:       "not admin",
 			persona:    "non-admin",
 			clientID:   testClientID,
@@ -1432,7 +1431,7 @@ func TestConfigClients_Get_Error(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := sendConfigClientsGet(t, tc.persona, tc.clientName, tc.clientID, s, iss)
+			resp := sendConfigClientsGet(t, tc.persona, tc.clientName, tc.clientID, sec.ClientSecrets[tc.clientID], s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -1445,7 +1444,7 @@ func diffOfHydraClientIgnoreClientIDAndSecret(c1 *hydraapi.Client, c2 *hydraapi.
 	return cmp.Diff(c1, c2, cmpopts.IgnoreFields(hydraapi.Client{}, "ClientID", "Secret"), cmpopts.IgnoreUnexported(strfmt.DateTime{}))
 }
 
-func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1466,13 +1465,16 @@ func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID string, c
 
 	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
 	path = strings.ReplaceAll(path, "{name}", clientName)
-	q := url.Values{"client_id": []string{clientID}}
+	q := url.Values{
+		"client_id":     []string{clientID},
+		"client_secret": []string{clientSecret},
+	}
 	h := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
 	return testhttp.SendTestRequest(t, s.Handler, http.MethodPost, path, q, &buf, h)
 }
 
 func TestConfigClients_Create_Success(t *testing.T) {
-	s, _, h, iss, err := setupHydraTest()
+	s, _, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1500,7 +1502,7 @@ func TestConfigClients_Create_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, cli, s, iss)
+	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -1551,7 +1553,7 @@ func TestConfigClients_Create_Success(t *testing.T) {
 }
 
 func TestConfigClients_Create_Success_Storage(t *testing.T) {
-	s, _, h, iss, err := setupHydraTest()
+	s, _, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1579,7 +1581,7 @@ func TestConfigClients_Create_Success_Storage(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, cli, s, iss)
+	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -1603,7 +1605,7 @@ func TestConfigClients_Create_Success_Storage(t *testing.T) {
 }
 
 func TestConfigClients_Create_Error(t *testing.T) {
-	s, _, h, iss, err := setupHydraTest()
+	s, _, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1622,7 +1624,6 @@ func TestConfigClients_Create_Error(t *testing.T) {
 	tests := []struct {
 		name       string
 		persona    string
-		clientID   string
 		clientName string
 		client     *cpb.Client
 		status     int
@@ -1630,7 +1631,6 @@ func TestConfigClients_Create_Error(t *testing.T) {
 		{
 			name:       "client exists",
 			persona:    "admin",
-			clientID:   testClientID,
 			clientName: "test_client",
 			client:     cli,
 			status:     http.StatusConflict,
@@ -1638,7 +1638,6 @@ func TestConfigClients_Create_Error(t *testing.T) {
 		{
 			name:       "not admin",
 			persona:    "non-admin",
-			clientID:   testClientID,
 			clientName: clientName,
 			client:     cli,
 			status:     http.StatusForbidden,
@@ -1646,7 +1645,6 @@ func TestConfigClients_Create_Error(t *testing.T) {
 		{
 			name:       "no redirect",
 			persona:    "admin",
-			clientID:   testClientID,
 			clientName: clientName,
 			client:     &cpb.Client{Ui: cli.Ui},
 			status:     http.StatusBadRequest,
@@ -1654,7 +1652,6 @@ func TestConfigClients_Create_Error(t *testing.T) {
 		{
 			name:       "no ui",
 			persona:    "admin",
-			clientID:   testClientID,
 			clientName: clientName,
 			client:     &cpb.Client{RedirectUris: cli.RedirectUris},
 			status:     http.StatusBadRequest,
@@ -1670,7 +1667,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 				Secret:   "secret",
 			}
 
-			resp := sendConfigClientsCreate(t, tc.persona, tc.clientName, tc.clientID, tc.client, s, iss)
+			resp := sendConfigClientsCreate(t, tc.persona, tc.clientName, testClientID, testClientSecret, tc.client, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -1692,7 +1689,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 }
 
 func TestConfigClients_Create_Hydra_Error(t *testing.T) {
-	s, _, h, iss, err := setupHydraTest()
+	s, _, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1719,7 +1716,7 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 	}
 	h.CreateClientErr = &hydraapi.GenericError{Code: http.StatusServiceUnavailable}
 
-	resp := sendConfigClientsCreate(t, "admin", clientName, testClientID, cli, s, iss)
+	resp := sendConfigClientsCreate(t, "admin", clientName, testClientID, testClientSecret, cli, s, iss)
 
 	// TODO should use better http status.
 	if resp.StatusCode != http.StatusBadRequest {
@@ -1735,7 +1732,7 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1756,13 +1753,16 @@ func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID string, c
 
 	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
 	path = strings.ReplaceAll(path, "{name}", clientName)
-	q := url.Values{"client_id": []string{clientID}}
+	q := url.Values{
+		"client_id":     []string{clientID},
+		"client_secret": []string{clientSecret},
+	}
 	h := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
 	return testhttp.SendTestRequest(t, s.Handler, http.MethodPatch, path, q, &buf, h)
 }
 
 func TestConfigClients_Update_Success(t *testing.T) {
-	s, cfg, h, iss, err := setupHydraTest()
+	s, cfg, sec, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1771,10 +1771,6 @@ func TestConfigClients_Update_Success(t *testing.T) {
 
 	before := cfg.Clients[clientName]
 
-	sec, err := s.loadSecrets(nil)
-	if err != nil {
-		t.Fatalf("s.loadSecrets() failed: %v", err)
-	}
 	beforeSec := sec.ClientSecrets[before.ClientId]
 
 	// Update the client RedirectUris.
@@ -1794,7 +1790,7 @@ func TestConfigClients_Update_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -1822,7 +1818,7 @@ func TestConfigClients_Update_Success(t *testing.T) {
 }
 
 func TestConfigClients_Update_Success_Storage(t *testing.T) {
-	s, _, h, iss, err := setupHydraTest()
+	s, _, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1846,7 +1842,7 @@ func TestConfigClients_Update_Success_Storage(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -1870,7 +1866,7 @@ func TestConfigClients_Update_Success_Storage(t *testing.T) {
 }
 
 func TestConfigClients_Update_Error(t *testing.T) {
-	s, cfg, h, iss, err := setupHydraTest()
+	s, cfg, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1884,21 +1880,18 @@ func TestConfigClients_Update_Error(t *testing.T) {
 	tests := []struct {
 		name       string
 		persona    string
-		clientID   string
 		clientName string
 		status     int
 	}{
 		{
 			name:       "client not exists",
 			persona:    "admin",
-			clientID:   testClientID,
 			clientName: "invalid",
 			status:     http.StatusNotFound,
 		},
 		{
 			name:       "not admin",
 			persona:    "non-admin",
-			clientID:   testClientID,
 			clientName: clientName,
 			status:     http.StatusForbidden,
 		},
@@ -1917,7 +1910,7 @@ func TestConfigClients_Update_Error(t *testing.T) {
 				ResponseTypes: defaultResponseTypes,
 			}
 
-			resp := sendConfigClientsUpdate(t, tc.persona, tc.clientName, tc.clientID, cli, s, iss)
+			resp := sendConfigClientsUpdate(t, tc.persona, tc.clientName, testClientID, testClientSecret, cli, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -1939,7 +1932,7 @@ func TestConfigClients_Update_Error(t *testing.T) {
 }
 
 func TestConfigClients_Update_Hydra_Error(t *testing.T) {
-	s, cfg, h, iss, err := setupHydraTest()
+	s, cfg, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1961,7 +1954,7 @@ func TestConfigClients_Update_Hydra_Error(t *testing.T) {
 	}
 	h.UpdateClientErr = &hydraapi.GenericError{Code: http.StatusServiceUnavailable}
 
-	resp := sendConfigClientsUpdate(t, "admin", clientName, testClientID, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, "admin", clientName, testClientID, testClientSecret, cli, s, iss)
 
 	// TODO should use better http status.
 	if resp.StatusCode != http.StatusBadRequest {
@@ -1977,7 +1970,7 @@ func TestConfigClients_Update_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1992,13 +1985,16 @@ func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID string, s
 
 	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
 	path = strings.ReplaceAll(path, "{name}", clientName)
-	q := url.Values{"client_id": []string{clientID}}
+	q := url.Values{
+		"client_id":     []string{clientID},
+		"client_secret": []string{clientSecret},
+	}
 	h := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
 	return testhttp.SendTestRequest(t, s.Handler, http.MethodDelete, path, q, nil, h)
 }
 
 func TestConfigClients_Delete_Success(t *testing.T) {
-	s, _, _, iss, err := setupHydraTest()
+	s, _, _, _, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -2007,7 +2003,7 @@ func TestConfigClients_Delete_Success(t *testing.T) {
 
 	pname := "admin"
 
-	resp := sendConfigClientsDelete(t, pname, clientName, testClientID, s, iss)
+	resp := sendConfigClientsDelete(t, pname, clientName, testClientID, testClientSecret, s, iss)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusOK)
@@ -2031,7 +2027,7 @@ func TestConfigClients_Delete_Success(t *testing.T) {
 }
 
 func TestConfigClients_Delete_Error(t *testing.T) {
-	s, cfg, h, iss, err := setupHydraTest()
+	s, cfg, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -2041,21 +2037,18 @@ func TestConfigClients_Delete_Error(t *testing.T) {
 	tests := []struct {
 		name       string
 		persona    string
-		clientID   string
 		clientName string
 		status     int
 	}{
 		{
 			name:       "client not exists",
 			persona:    "admin",
-			clientID:   testClientID,
 			clientName: "invalid",
 			status:     http.StatusNotFound,
 		},
 		{
 			name:       "not admin",
 			persona:    "non-admin",
-			clientID:   testClientID,
 			clientName: clientName,
 			status:     http.StatusForbidden,
 		},
@@ -2065,7 +2058,7 @@ func TestConfigClients_Delete_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h.Clear()
 
-			resp := sendConfigClientsDelete(t, tc.persona, tc.clientName, tc.clientID, s, iss)
+			resp := sendConfigClientsDelete(t, tc.persona, tc.clientName, testClientID, testClientSecret, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -2083,7 +2076,7 @@ func TestConfigClients_Delete_Error(t *testing.T) {
 }
 
 func TestConfigClients_Delete_Hydra_Error(t *testing.T) {
-	s, cfg, h, iss, err := setupHydraTest()
+	s, cfg, _, h, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -2092,7 +2085,7 @@ func TestConfigClients_Delete_Hydra_Error(t *testing.T) {
 
 	h.DeleteClientErr = &hydraapi.GenericError{Code: http.StatusServiceUnavailable}
 
-	resp := sendConfigClientsDelete(t, "admin", clientName, testClientID, s, iss)
+	resp := sendConfigClientsDelete(t, "admin", clientName, testClientID, testClientSecret, s, iss)
 
 	// TODO should use better http status.
 	if resp.StatusCode != http.StatusBadRequest {

@@ -102,7 +102,8 @@ const (
 	tokenMetadataPath            = methodPrefix + "token/{sub}/{jti}"
 	revocationPath               = methodPrefix + "revoke"
 	loginPagePath                = methodPrefix + "login"
-	loginPath                    = methodPrefix + "login/{name}"
+	loginPathPrefix              = methodPrefix + "login/"
+	loginPath                    = loginPathPrefix + "{name}"
 	finishLoginPrefix            = methodPrefix + "loggedin/"
 	finishLoginPath              = finishLoginPrefix + "{name}"
 	acceptInformationReleasePath = methodPrefix + "inforelease"
@@ -264,6 +265,25 @@ var (
 	skipURLValidationInTokenURL = regexp.MustCompile("^[A-Z_]*=https://.*$")
 
 	importDefault = os.Getenv("IMPORT")
+
+	// skipClientCredsPaths are the paths for which we don't check client credentials.
+	skipClientCredsPaths = map[string]bool{
+		infoPath:                     true,
+		hydraLoginPath:               true,
+		hydraConsentPath:             true,
+		acceptInformationReleasePath: true,
+		testPath:                     true,
+		tokenFlowTestPath:            true,
+		hydraTestPage:                true,
+	}
+	// skipClientCredsPaths are the path prefixes for which we don't check client credentials.
+	skipClientCredPrefixes = []string{
+		staticFilePath,
+		loginPathPrefix,
+		acceptLoginPath,
+		finishLoginPrefix,
+		oidcPath,
+	}
 )
 
 type Service struct {
@@ -451,15 +471,19 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) checkClientCreds(r *http.Request) error {
-	// TODO: will remove after integrate hydra.
-	if s.useHydra {
-		return nil
-	}
-
 	// Allow some requests to proceed without client IDs and/or secrets.
 	path := common.RequestAbstractPath(r)
-	if path == infoPath || strings.HasPrefix(path, staticFilePath) || strings.HasPrefix(path, testPath) || strings.HasPrefix(path, tokenFlowTestPath) || strings.HasPrefix(path, acceptLoginPath) || path == acceptInformationReleasePath || strings.HasPrefix(path, oidcPath) || path == hydraLoginPath || path == hydraConsentPath || path == hydraTestPage {
-		return nil
+
+	for p := range skipClientCredsPaths {
+		if path == p {
+			return nil
+		}
+	}
+
+	for _, p := range skipClientCredPrefixes {
+		if strings.HasPrefix(path, p) {
+			return nil
+		}
 	}
 
 	return s.checkClient(path, r)
@@ -981,6 +1005,10 @@ func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig
 			common.HandleError(http.StatusBadRequest, err, w)
 			return
 		}
+		if clientID := getClientID(r); len(clientID) == 0 {
+			common.HandleError(http.StatusBadRequest, err, w)
+			return
+		}
 	}
 
 	idp, ok := cfg.IdentityProviders[idpName]
@@ -1085,8 +1113,7 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("bad redirect format: %v", err), w)
 		return
 	}
-	r.Form.Set("client_id", loginState.ClientId)
-	u.RawQuery = r.Form.Encode()
+	u.RawQuery = r.URL.RawQuery
 	common.SendRedirect(u.String(), r, w)
 }
 
@@ -1175,13 +1202,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	scope := loginState.Scope
 	state := loginState.State
 	nonce := loginState.Nonce
-	clientID := getClientID(r)
-	if !s.useHydra {
-		if clientID != loginState.ClientId {
-			common.HandleError(http.StatusUnauthorized, fmt.Errorf("request client id does not match login state, want %q, got %q", loginState.ClientId, clientID), w)
-			return
-		}
-	}
+	clientID := loginState.ClientId
 
 	if idpName != loginState.IdpName {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request idp does not match login state, want %q, got %q", loginState.IdpName, idpName), w)
