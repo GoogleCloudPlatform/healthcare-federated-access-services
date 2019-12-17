@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
@@ -112,6 +113,34 @@ func DeleteClient(client *http.Client, hydraAdminURL, id string) error {
 	u := hydraAdminURL + "/clients/" + id
 	err := httpDelete(client, u)
 	return err
+}
+
+// Introspect token, validate the given token and return token claims.
+func Introspect(client *http.Client, hydraAdminURL, token string) (*hydraapi.Introspection, error) {
+	u := hydraAdminURL + "/oauth2/introspection"
+
+	data := url.Values{}
+	data.Set("token", token)
+
+	response := &hydraapi.Introspection{}
+
+	req, err := http.NewRequest(http.MethodPost, u, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := httpResponse(resp, response); err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func getURL(hydraAdminURL, flow, challenge string) string {

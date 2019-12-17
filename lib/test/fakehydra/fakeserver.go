@@ -16,7 +16,9 @@
 package fakehydra
 
 import (
+	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -59,6 +61,9 @@ type Data struct {
 	UpdateClientResp      *hydraapi.Client
 	DeleteClientID        string
 	DeleteClientErr       *hydraapi.GenericError
+	IntrospectionReqToken string
+	IntrospectionResp     *hydraapi.Introspection
+	IntrospectionErr      *hydraapi.GenericError
 }
 
 // Server is fake hydra server.
@@ -80,6 +85,7 @@ func New(r *mux.Router) *Server {
 	r.HandleFunc("/oauth2/auth/requests/consent", s.getConsentRequest).Methods(http.MethodGet)
 	r.HandleFunc("/oauth2/auth/requests/consent/accept", s.acceptConsent).Methods(http.MethodPut)
 	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsent).Methods(http.MethodPut)
+	r.HandleFunc("/oauth2/introspection", s.introspection).Methods(http.MethodPost)
 
 	// client endpoints
 	r.HandleFunc("/clients", s.listClients).Methods(http.MethodGet)
@@ -141,6 +147,24 @@ func (s *Server) rejectConsent(w http.ResponseWriter, r *http.Request) {
 	s.RejectConsentReq = &hydraapi.RequestDeniedError{}
 	common.DecodeJSONFromBody(r.Body, s.RejectConsentReq)
 	s.write(w, http.StatusOK, s.RejectConsentErr, s.RejectConsentResp)
+}
+
+func (s *Server) introspection(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		glog.Infof("ioutil.ReadAll() failed: %s", err)
+	}
+
+	q, _ := url.ParseQuery(string(b))
+	if err != nil {
+		glog.Infof("url.ParseQuery(%s) failed: %s", string(b), err)
+	}
+
+	s.IntrospectionReqToken = q.Get("token")
+
+	s.write(w, http.StatusOK, s.IntrospectionErr, s.IntrospectionResp)
 }
 
 func (s *Server) listClients(w http.ResponseWriter, r *http.Request) {

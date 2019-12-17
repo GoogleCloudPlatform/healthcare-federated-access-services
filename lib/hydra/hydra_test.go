@@ -404,3 +404,34 @@ func TestDeleteClient_Error(t *testing.T) {
 		t.Errorf("DeleteClient wants error")
 	}
 }
+
+func TestIntrospect(t *testing.T) {
+	s, c := setup()
+
+	tok := "tok"
+	s.IntrospectionResp = &hydraapi.Introspection{ClientID: "cid"}
+
+	i, err := Introspect(c, hydraAdminURL, tok)
+	if err != nil {
+		t.Errorf("Introspect return error: %v", err)
+	}
+
+	if s.IntrospectionReqToken != tok {
+		t.Errorf("s.IntrospectionReqToken = %s, wants %s", s.IntrospectionReqToken, tok)
+	}
+
+	if i.ClientID != s.IntrospectionResp.ClientID {
+		t.Errorf("i.ClientID = %s, wants %s", i.ClientID, s.IntrospectionResp.ClientID)
+	}
+}
+
+func TestIntrospect_Error(t *testing.T) {
+	s, c := setup()
+
+	tok := "tok"
+	s.IntrospectionErr = genericError
+
+	if _, err := Introspect(c, hydraAdminURL, tok); err == nil {
+		t.Errorf("Introspect wants error: %v", err)
+	}
+}
