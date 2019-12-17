@@ -564,12 +564,14 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
 	r.HandleFunc(hydraTestPage, s.HydraTestPage).Methods(http.MethodGet)
 
-	r.HandleFunc("/tokens", NewTokensHandler(&stubTokens{}).ListTokens).Methods(http.MethodGet)
-	r.HandleFunc("/tokens/", NewTokensHandler(&stubTokens{}).GetToken).Methods(http.MethodGet)
-	r.HandleFunc("/tokens/", NewTokensHandler(&stubTokens{}).DeleteToken).Methods(http.MethodDelete)
+	tokens := &stubTokens{token: fakeToken}
+	r.HandleFunc("/tokens", NewTokensHandler(tokens).ListTokens).Methods(http.MethodGet)
+	r.HandleFunc("/tokens/", NewTokensHandler(tokens).GetToken).Methods(http.MethodGet)
+	r.HandleFunc("/tokens/", NewTokensHandler(tokens).DeleteToken).Methods(http.MethodDelete)
 
-	r.HandleFunc("/consents", NewConsentsHandler(&stubConsents{}).ListConsents).Methods(http.MethodGet)
-	r.HandleFunc("/consents/", NewConsentsHandler(&stubConsents{}).DeleteConsent).Methods(http.MethodDelete)
+	consents := &stubConsents{consent: fakeConsent}
+	r.HandleFunc("/consents", NewConsentsHandler(consents).ListConsents).Methods(http.MethodGet)
+	r.HandleFunc("/consents/", NewConsentsHandler(consents).DeleteConsent).Methods(http.MethodDelete)
 
 	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(storage.ProjectRoot, staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)

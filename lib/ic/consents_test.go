@@ -26,8 +26,6 @@ import (
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
 )
 
-var fakeConsent = &cpb.Consent{}
-
 func TestListConsents(t *testing.T) {
 	ts := NewConsentsHandler(&stubConsents{consent: fakeConsent})
 	s := httptest.NewServer(http.HandlerFunc(ts.ListConsents))

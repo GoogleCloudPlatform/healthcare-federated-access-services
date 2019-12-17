@@ -28,38 +28,6 @@ import (
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
 )
 
-var fakeToken = &tpb.Token{
-	Name:      "fake-token",
-	IssuedAt:  1573850929,
-	ExpiresAt: 1573847329,
-	Scope:     "fake-scope",
-	Client: &tpb.Client{
-		Id:          "fake-client-id",
-		Name:        "fake-client-name",
-		Description: "fake-client-description",
-	},
-	Target: "fake-target",
-	Metadata: map[string]string{
-		"client_desc": "fake-client-ui-description",
-	},
-}
-
-const fakeTokenJSON = `{
-  "client": {
-    "description": "fake-client-description",
-    "id": "fake-client-id",
-    "name": "fake-client-name"
-  },
-  "expires_at": 1573847329,
-  "issued_at": 1573850929,
-  "metadata": {
-    "client_desc": "fake-client-ui-description"
-  },
-  "name": "fake-token",
-  "scope": "fake-scope",
-  "target": "fake-target"
-}`
-
 func TestGetToken(t *testing.T) {
 	ts := NewTokensHandler(&stubTokens{token: fakeToken})
 	s := httptest.NewServer(http.HandlerFunc(ts.GetToken))

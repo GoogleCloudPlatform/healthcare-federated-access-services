@@ -20,6 +20,7 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
+	"google3/net/proto2/go/ptypes"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_grpc_proto */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
@@ -61,4 +62,16 @@ func (s *stubConsents) DeleteConsent(_ context.Context, req *cpb.DeleteConsentRe
 func (s *stubConsents) ListConsents(_ context.Context, req *cpb.ListConsentsRequest) (*cpb.ListConsentsResponse, error) {
 	glog.Infof("ListConsents %v", req)
 	return &cpb.ListConsentsResponse{Consents: []*cpb.Consent{s.consent}}, nil
+}
+
+// TODO: move these fakes to test file once implemented.
+var fakeConsent = &cpb.Consent{
+	Name:       "consents/fake-consent",
+	User:       "fake-user",
+	Client:     "fake-client",
+	Items:      []string{"fake-visa-1", "fake-visa-2", "fake-visa-3"},
+	Scopes:     []string{"fake-scope-1", "fake-scope-2"},
+	Resouces:   []string{"fake-resource-1", "fake-resource-2"},
+	CreateTime: ptypes.TimestampNow(),
+	UpdateTime: ptypes.TimestampNow(),
 }
