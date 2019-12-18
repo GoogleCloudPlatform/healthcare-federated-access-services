@@ -2100,3 +2100,51 @@ func TestConfigClients_Delete_Hydra_Error(t *testing.T) {
 		t.Errorf("config should not update, (-want, +got): %s", diff)
 	}
 }
+
+func TestConfigReset_Hydra(t *testing.T) {
+	s, _, _, h, iss, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	cid := "c1"
+
+	h.ListClientsResp = []*hydraapi.Client{
+		{ClientID: cid},
+	}
+
+	h.CreateClientResp = &hydraapi.Client{
+		ClientID: cid,
+	}
+
+	pname := "admin"
+	var p *cpb.TestPersona
+	if iss.Config() != nil {
+		p = iss.Config().TestPersonas[pname]
+	}
+
+	tok, _, err := persona.NewAccessToken(pname, oidcIssuer, testClientID, noScope, p)
+	if err != nil {
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, oidcIssuer, err)
+	}
+
+	q := url.Values{
+		"client_id":     []string{testClientID},
+		"client_secret": []string{testClientSecret},
+	}
+	path := strings.ReplaceAll(configResetPath, common.RealmVariable, "test")
+	header := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
+	resp := testhttp.SendTestRequest(t, s.Handler, http.MethodGet, path, q, nil, header)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+
+	if h.DeleteClientID != cid {
+		t.Errorf("h.DeleteClientID = %s, wants %s", h.DeleteClientID, cid)
+	}
+
+	if h.CreateClientReq.Name != "test_client" && h.CreateClientReq.Name != "test_client2" {
+		t.Errorf("h.CreateClientReq.Name = %s, wants test_client or test_client2", h.CreateClientReq.Name)
+	}
+}

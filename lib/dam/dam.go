@@ -46,6 +46,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
@@ -1124,6 +1125,26 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if err = s.ImportFiles(importDefault); err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
+	}
+
+	// Reset clients in Hyrdra
+	if s.useHydra {
+		conf, err := s.loadConfig(nil, storage.DefaultRealm)
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+
+		secrets, err := s.loadSecrets(nil)
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+
+		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, conf.Clients, secrets.ClientSecrets); err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
 	}
 }
 

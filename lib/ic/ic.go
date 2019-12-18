@@ -661,6 +661,26 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
+
+	// Reset clients in Hyrdra
+	if s.useHydra {
+		conf, err := s.loadConfig(nil, storage.DefaultRealm)
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+
+		secrets, err := s.loadSecrets(nil)
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+
+		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, conf.Clients, secrets.ClientSecrets); err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+	}
 }
 
 func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {

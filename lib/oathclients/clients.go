@@ -20,8 +20,10 @@ import (
 	"net/http"
 	"strings"
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
@@ -90,4 +92,35 @@ func ExtractClientSecret(r *http.Request) string {
 		return cs
 	}
 	return common.GetParam(r, "clientSecret")
+}
+
+// ResetClients resets clients in hydra with given clients and secrets.
+func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[string]*pb.Client, secrets map[string]string) error {
+	cs, err := hydra.ListClients(httpClient, hydraAdminURL)
+	if err != nil {
+		return err
+	}
+
+	// Delete all existing clients.
+	for _, c := range cs {
+		if err := hydra.DeleteClient(httpClient, hydraAdminURL, c.ClientID); err != nil {
+			return err
+		}
+	}
+
+	// Add clients to hydra.
+	for n, c := range clients {
+		sec, ok := secrets[c.ClientId]
+		if !ok {
+			glog.Errorf("Client %s has no secret.", n)
+		}
+
+		hc := toHydraClient(c, sec)
+		hc.Name = n
+		if _, err := hydra.CreateClient(httpClient, hydraAdminURL, hc); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

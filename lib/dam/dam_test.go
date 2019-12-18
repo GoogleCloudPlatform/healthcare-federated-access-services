@@ -35,6 +35,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -2303,5 +2304,53 @@ func TestConfigClients_Delete_Hydra_Error(t *testing.T) {
 	}
 	if diff := cmp.Diff(cfg, conf, protocmp.Transform()); len(diff) != 0 {
 		t.Errorf("config should not update, (-want, +got): %s", diff)
+	}
+}
+
+func TestConfigReset_Hydra(t *testing.T) {
+	s, _, _, h, iss, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	cid := "c1"
+
+	h.ListClientsResp = []*hydraapi.Client{
+		{ClientID: cid},
+	}
+
+	h.CreateClientResp = &hydraapi.Client{
+		ClientID: cid,
+	}
+
+	pname := "admin"
+	var p *cpb.TestPersona
+	if iss.Config() != nil {
+		p = iss.Config().TestPersonas[pname]
+	}
+
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, test.TestClientID, noScope, p)
+	if err != nil {
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
+	}
+
+	q := url.Values{
+		"client_id":     []string{test.TestClientID},
+		"client_secret": []string{test.TestClientSecret},
+	}
+	path := strings.ReplaceAll(configResetPath, common.RealmVariable, "test")
+	header := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
+	resp := testhttp.SendTestRequest(t, s.Handler, http.MethodGet, path, q, nil, header)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+
+	if h.DeleteClientID != cid {
+		t.Errorf("h.DeleteClientID = %s, wants %s", h.DeleteClientID, cid)
+	}
+
+	if h.CreateClientReq.Name != "test_client" && h.CreateClientReq.Name != "test_client2" {
+		t.Errorf("h.CreateClientReq.Name = %s, wants test_client or test_client2", h.CreateClientReq.Name)
 	}
 }
