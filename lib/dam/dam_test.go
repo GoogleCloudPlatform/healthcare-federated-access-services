@@ -1382,6 +1382,102 @@ func TestHydraConsent(t *testing.T) {
 	}
 }
 
+func sendResourceTokens(t *testing.T, s *Service) *http.Response {
+	t.Helper()
+
+	state := &pb.ResourceTokenRequestState{
+		Challenge: loginChallenge,
+		Resources: []*pb.ResourceTokenRequestState_Resource{
+			{
+				Realm:    storage.DefaultRealm,
+				Resource: "ga4gh-apis",
+				View:     "gcs_read",
+				Role:     "viewer",
+			},
+		},
+		Ttl:          int64(time.Hour),
+		Broker:       testBroker,
+		Issuer:       test.TestIssuerURL,
+		Subject:      "subject",
+		EpochSeconds: time.Now().Unix(),
+	}
+	err := s.store.Write(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, consentStateID, storage.LatestRev, state, nil)
+	if err != nil {
+		t.Fatalf("Write state failed: %v", err)
+	}
+
+	q := url.Values{
+		"client_id":     []string{test.TestClientID},
+		"client_secret": []string{test.TestClientSecret},
+	}
+	header := http.Header{"Authorization": []string{"Bearer this_is_a_token"}}
+	return testhttp.SendTestRequest(t, s.Handler, http.MethodPost, resourceTokensPath, q, nil, header)
+}
+
+func TestResourceTokens(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.IntrospectionResp = &hydraapi.Introspection{
+		Extra: map[string]interface{}{"cart": consentStateID},
+	}
+
+	resp := sendResourceTokens(t, s)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func TestResourceTokens_HydraError(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	n := "token expired"
+	h.IntrospectionErr = &hydraapi.GenericError{
+		Code: http.StatusUnauthorized,
+		Name: &n,
+	}
+
+	resp := sendResourceTokens(t, s)
+	// TODO: Should convert Hydra API error to grpc status.
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusInternalServerError)
+	}
+}
+
+func TestResourceTokens_CartNotExistsInToken(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.IntrospectionResp = &hydraapi.Introspection{}
+	resp := sendResourceTokens(t, s)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusUnauthorized)
+	}
+}
+
+func TestResourceTokens_CartNotExistsInStorage(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.IntrospectionResp = &hydraapi.Introspection{
+		Extra: map[string]interface{}{"cart": "invalid"},
+	}
+
+	resp := sendResourceTokens(t, s)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
+	}
+}
+
 func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
 	t.Helper()
 

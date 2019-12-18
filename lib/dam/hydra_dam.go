@@ -20,6 +20,8 @@ import (
 	"os"
 	"strings"
 
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -132,4 +134,23 @@ func (s *Service) HydraTestPage(w http.ResponseWriter, r *http.Request) {
 	page := strings.ReplaceAll(s.hydraTestPage, "${HYDRA_URL}", hydraURL)
 	page = strings.ReplaceAll(page, "${DAM_URL}", s.domainURL)
 	common.SendHTML(page, w)
+}
+
+func (s *Service) extractCartFromAccessToken(token string) (string, error) {
+	claims, err := hydra.Introspect(s.httpClient, s.hydraAdminURL, token)
+	if err != nil {
+		return "", err
+	}
+
+	v, ok := claims.Extra["cart"]
+	if !ok {
+		return "", status.Errorf(codes.Unauthenticated, "token does not have 'cart' claim")
+	}
+
+	cart, ok := v.(string)
+	if !ok {
+		return "", status.Errorf(codes.Internal, "token 'cart' claim have unwanted type")
+	}
+
+	return cart, nil
 }

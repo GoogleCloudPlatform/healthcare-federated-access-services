@@ -120,7 +120,7 @@ func Introspect(client *http.Client, hydraAdminURL, token string) (*hydraapi.Int
 	u := hydraAdminURL + "/oauth2/introspection"
 
 	data := url.Values{}
-	data.Set("token", token)
+	data.Set("token", url.QueryEscape(token))
 
 	response := &hydraapi.Introspection{}
 
