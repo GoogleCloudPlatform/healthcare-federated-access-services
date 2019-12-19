@@ -79,7 +79,7 @@ func main() {
 	useHydra := os.Getenv("USE_HYDRA") != ""
 
 	d := dam.NewService(ctx, domain, defaultBroker, hydraAdminURL, store, wh, useHydra)
-	port := os.Getenv("PORT")
+	port := os.Getenv("DAM_PORT")
 	if len(port) == 0 {
 		port = "8080"
 	}

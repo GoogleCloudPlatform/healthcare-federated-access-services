@@ -88,7 +88,7 @@ func main() {
 	}
 
 	s := ic.NewService(ctx, domain, acctDomain, hydraAdminURL, store, gcpkms, useHydra)
-	port := os.Getenv("PORT")
+	port := os.Getenv("IC_PORT")
 	if len(port) == 0 {
 		port = "8080"
 	}
