@@ -224,12 +224,6 @@ message SubjectClaimsResponse {
   repeated common.Assertion assertions = 1;
 }
 
-message ClientSecretRequest {}
-
-message ClientSecretResponse {
-  string secret = 1;
-}
-
 message TokenMetadata {
   string token_type = 1;
   int64 issued_at = 2;

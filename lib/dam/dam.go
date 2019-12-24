@@ -73,7 +73,6 @@ const (
 	viewTokenPath         = methodPrefix + "resources/{name}/views/{view}/token"
 	roleTokenPath         = methodPrefix + "resources/{name}/views/{view}/roles/{role}/token"
 	testPath              = methodPrefix + "tests"
-	clientSecretPath      = methodPrefix + "clientSecret"
 	adaptersPath          = methodPrefix + "targetAdapters"
 	translatorsPath       = methodPrefix + "passportTranslators"
 	damRoleCategoriesPath = methodPrefix + "damRoleCategories"
@@ -102,7 +101,6 @@ const (
 	configHistoryPath               = configPath + "/history"
 	configHistoryRevisionPath       = configHistoryPath + "/{name}"
 	configResetPath                 = configPath + "/reset"
-	configClientSecretPath          = configPath + "/clientSecret/{name}"
 
 	hydraLoginPath   = basePath + "/login"
 	hydraConsentPath = basePath + "/consent"
@@ -320,10 +318,6 @@ func (s *Service) checkClientCreds(r *http.Request) error {
 
 	cs := getClientSecret(r)
 	if len(cs) == 0 {
-		path := common.RequestAbstractPath(r)
-		if strings.HasPrefix(path, clientSecretPath) {
-			return nil
-		}
 		return status.Error(codes.Unauthenticated, "authorization requires a client secret")
 	}
 
@@ -353,7 +347,6 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(viewTokenPath, s.GetResourceToken)
 	r.HandleFunc(roleTokenPath, s.GetResourceToken)
 	r.HandleFunc(testPath, s.GetTestResults)
-	r.HandleFunc(clientSecretPath, s.ClientSecret)
 	r.HandleFunc(adaptersPath, s.GetTargetAdapters)
 	r.HandleFunc(translatorsPath, s.GetPassportTranslators)
 	r.HandleFunc(damRoleCategoriesPath, s.GetDamRoleCategories)
@@ -370,7 +363,6 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(configHistoryPath, s.ConfigHistory)
 	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
 	r.HandleFunc(configResetPath, s.ConfigReset)
-	r.HandleFunc(configClientSecretPath, s.ConfigClientSecret)
 	r.HandleFunc(configTestPersonasPath, s.ConfigTestPersonas)
 
 	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
@@ -1126,51 +1118,6 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ConfigClientSecret implements the ClientSecretConfig RPC method.
-func (s *Service) ConfigClientSecret(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	name := getName(r)
-
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("configuration not available; try again later"), w)
-		return
-	}
-	defer tx.Finish()
-
-	cfg, err := s.loadConfig(tx, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	id, status, err := s.getPassportIdentity(cfg, tx, r)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	if status, err := s.permissions.CheckAdmin(id); err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	c := &pb.DamSecrets{}
-	if status, err := s.realmReadTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, c, tx); err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	if _, ok := c.ClientSecrets[name]; !ok {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("secret for client %q not found", name), w)
-		return
-	}
-	delete(c.ClientSecrets, name)
-	if err := s.saveSecrets(c, "DELETE client secret", "secret", r, id, tx); err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-}
-
 // ConfigTestPersonas implements the ConfigTestPersonas RPC method.
 func (s *Service) ConfigTestPersonas(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -1193,76 +1140,6 @@ func (s *Service) ConfigTestPersonas(w http.ResponseWriter, r *http.Request) {
 	}
 	out := &pb.GetTestPersonasResponse{
 		Personas: cfg.TestPersonas,
-	}
-	common.SendResponse(out, w)
-}
-
-// ClientSecret implements the ClientSecret RPC method.
-func (s *Service) ClientSecret(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodPatch {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("configuration not available"), w)
-		return
-	}
-	defer tx.Finish()
-
-	cfg, err := s.loadConfig(tx, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	id, status, err := s.getPassportIdentity(cfg, tx, r)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	cid := getClientID(r)
-	var client *cpb.Client
-	for _, c := range cfg.Clients {
-		if c.ClientId == cid {
-			client = c
-			break
-		}
-	}
-	if client == nil {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("client %q not found", cid), w)
-		return
-	}
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("configuration unavailable; try again later"), w)
-		return
-	}
-	desc := "Generate secret"
-	qcs := getClientSecret(r)
-	prev, ok := secrets.ClientSecrets[client.ClientId]
-	if r.Method == http.MethodPost && ok {
-		if qcs == prev {
-			common.HandleError(http.StatusBadRequest, fmt.Errorf("update secret must be done via PATCH"), w)
-			return
-		}
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("unauthorized client"), w)
-		return
-	} else if r.Method == http.MethodPatch {
-		desc = "Update secret"
-		if qcs != prev {
-			common.HandleError(http.StatusUnauthorized, fmt.Errorf("unauthorized client"), w)
-			return
-		}
-	}
-
-	secret := common.GenerateGUID()
-	secrets.ClientSecrets[client.ClientId] = secret
-	if err := s.saveSecrets(secrets, desc, "secret", r, id, tx); err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	out := &pb.ClientSecretResponse{
-		Secret: secret,
 	}
 	common.SendResponse(out, w)
 }

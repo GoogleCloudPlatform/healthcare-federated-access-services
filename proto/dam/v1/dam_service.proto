@@ -341,12 +341,6 @@ message GetTestResultsResponse {
   string error = 9;
 }
 
-message ClientSecretRequest {}
-
-message ClientSecretResponse {
-  string secret = 1;
-}
-
 message TargetAdaptersRequest {}
 
 message TargetAdaptersResponse {
