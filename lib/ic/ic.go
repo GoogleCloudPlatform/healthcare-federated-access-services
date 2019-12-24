@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -40,7 +39,6 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
@@ -57,12 +55,7 @@ import (
 )
 
 const (
-	oidcPath           = "/oidc"
-	oidcWellKnownPath  = oidcPath + "/.well-known"
-	oidcConfiguarePath = oidcWellKnownPath + "/openid-configuration"
-	oidcJwksPath       = oidcWellKnownPath + "/jwks"
-	oidcUserInfoPath   = oidcPath + "/userinfo"
-	keyID              = "kid"
+	keyID = "kid"
 
 	maxClaimsLength = 1900
 
@@ -98,10 +91,8 @@ const (
 
 	identityProvidersPath        = methodPrefix + "identityProviders"
 	translatorsPath              = methodPrefix + "passportTranslators"
-	tokenPath                    = methodPrefix + "token"
 	tokenMetadataPath            = methodPrefix + "token/{sub}/{jti}"
 	revocationPath               = methodPrefix + "revoke"
-	loginPagePath                = methodPrefix + "login"
 	loginPathPrefix              = methodPrefix + "login/"
 	loginPath                    = loginPathPrefix + "{name}"
 	finishLoginPrefix            = methodPrefix + "loggedin/"
@@ -128,7 +119,6 @@ const (
 
 	testPath          = methodPrefix + "test"
 	tokenFlowTestPath = basePath + "/new-flow-test"
-	authorizePath     = methodPrefix + "authorize"
 
 	serviceTitle         = "Identity Concentrator"
 	loginInfoTitle       = "Data Discovery and Access Platform"
@@ -148,8 +138,6 @@ func defaultPath(path string) string {
 }
 
 var (
-	defaultAuthorizePath  = defaultPath(authorizePath)
-	defaultTokenPath      = defaultPath(tokenPath)
 	defaultRevocationPath = defaultPath(revocationPath)
 
 	secretParams = map[string]bool{
@@ -282,7 +270,6 @@ var (
 		loginPathPrefix,
 		acceptLoginPath,
 		finishLoginPrefix,
-		oidcPath,
 	}
 )
 
@@ -439,11 +426,6 @@ func getNonce(r *http.Request) (string, error) {
 	return "no-nonce", nil
 }
 
-func isUserInfo(r *http.Request) bool {
-	path := common.RequestAbstractPath(r)
-	return path == oidcUserInfoPath
-}
-
 func extractState(r *http.Request) (string, error) {
 	n := common.GetParam(r, "state")
 	if len(n) > 0 {
@@ -519,7 +501,7 @@ func (s *Service) checkClient(path string, r *http.Request) error {
 }
 
 func isClientOnly(path string) bool {
-	return strings.HasPrefix(path, authorizePath) || strings.HasPrefix(path, loginPagePath) || strings.HasPrefix(path, finishLoginPrefix) || strings.HasPrefix(path, personasPath) || strings.HasPrefix(path, clientPath) || strings.HasPrefix(path, translatorsPath) || strings.HasPrefix(path, identityProvidersPath)
+	return strings.HasPrefix(path, finishLoginPrefix) || strings.HasPrefix(path, personasPath) || strings.HasPrefix(path, clientPath) || strings.HasPrefix(path, translatorsPath) || strings.HasPrefix(path, identityProvidersPath)
 }
 
 func (s *Service) buildHandlerMux() *mux.Router {
@@ -536,18 +518,15 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
 	r.HandleFunc(identityProvidersPath, s.IdentityProviders)
 	r.HandleFunc(translatorsPath, s.PassportTranslators)
-	r.HandleFunc(tokenPath, s.Token)
 	r.HandleFunc(tokenMetadataPath, common.MakeHandler(s, s.tokenMetadataFactory()))
 	r.HandleFunc(adminTokenMetadataPath, common.MakeHandler(s, s.adminTokenMetadataFactory()))
 	r.HandleFunc(revocationPath, s.Revocation)
-	r.HandleFunc(loginPagePath, s.LoginPage)
 	r.HandleFunc(loginPath, s.Login)
 	r.HandleFunc(acceptLoginPath, s.AcceptLogin)
 	r.HandleFunc(finishLoginPath, s.FinishLogin)
 	r.HandleFunc(acceptInformationReleasePath, s.acceptInformationRelease).Methods("GET")
 	r.HandleFunc(testPath, s.Test)
 	r.HandleFunc(tokenFlowTestPath, s.TokenFlowTest)
-	r.HandleFunc(authorizePath, s.Authorize)
 	r.HandleFunc(accountPath, common.MakeHandler(s, s.accountFactory()))
 	r.HandleFunc(accountSubjectPath, common.MakeHandler(s, s.accountSubjectFactory()))
 	r.HandleFunc(adminClaimsPath, common.MakeHandler(s, s.adminClaimsFactory()))
@@ -555,10 +534,6 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(scimMePath, common.MakeHandler(s, s.scimMeFactory()))
 	r.HandleFunc(scimUserPath, common.MakeHandler(s, s.scimUserFactory()))
 	r.HandleFunc(scimUsersPath, common.MakeHandler(s, s.scimUsersFactory()))
-
-	r.HandleFunc(oidcConfiguarePath, s.OidcWellKnownConfig).Methods("GET")
-	r.HandleFunc(oidcJwksPath, s.OidcKeys).Methods("GET")
-	r.HandleFunc(oidcUserInfoPath, s.OidcUserInfo).Methods("GET", "POST")
 
 	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
 	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
@@ -712,72 +687,6 @@ func (s *Service) PassportTranslators(w http.ResponseWriter, r *http.Request) {
 	common.SendResponse(out, w)
 }
 
-func (s *Service) Token(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	typ := common.GetParam(r, "grant_type")
-	if typ != "authorization_code" && typ != "refresh_token" {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("grant type not supported: %q", typ), w)
-		return
-	}
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	var identity *ga4gh.Identity
-	var status int
-	genRefresh := generateRefreshToken
-	if typ == "authorization_code" {
-		redirect := common.GetParam(r, "redirect_uri")
-		if len(redirect) == 0 {
-			common.HandleError(http.StatusBadRequest, fmt.Errorf("redirect not specified"), w)
-			return
-		}
-		// TODO: match redirect_uri with the one in the auth code.
-		if !matchRedirect(getClient(cfg, r), redirect) {
-			common.HandleError(http.StatusBadRequest, fmt.Errorf("redirect not registered"), w)
-			return
-		}
-		code, status, err := getAuthCode(r)
-		if err != nil {
-			common.HandleError(status, err, w)
-			return
-		}
-		identity, status, err = s.authCodeToIdentity(code, r, cfg, secrets, nil)
-		if err != nil {
-			common.HandleError(status, err, w)
-			return
-		}
-	} else {
-		genRefresh = noRefreshToken
-		identity, status, err = s.refreshTokenToIdentity(common.GetParam(r, "refresh_token"), r, cfg, secrets, nil)
-		if err != nil {
-			common.HandleError(status, err, w)
-			return
-		}
-		if !hasScopes("refresh", identity.Scope, matchFullScope) {
-			common.HandleError(http.StatusBadRequest, fmt.Errorf("token provided is not a refresh_token"), w)
-			return
-		}
-	}
-	resp, err := s.createTokens(identity, genRefresh, r, cfg, nil)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	common.SendResponse(resp, w)
-}
-
 // Revocation implements the /revoke endpoint for revoking tokens.
 func (s *Service) Revocation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -825,54 +734,6 @@ func (s *Service) Revocation(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusInternalServerError, fmt.Errorf("failed to revoke token: %v", err), w)
 	}
 	return
-}
-
-func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	redirect, err := s.getAndValidateStateRedirect(r, cfg)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-	}
-
-	scope, err := getScope(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	state, err := extractState(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	nonce, err := getNonce(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	params := "?client_id=" + getClientID(r) + "&redirect_uri=" + url.QueryEscape(redirect) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce)
-	if len(scope) > 0 {
-		params += "&scope=" + url.QueryEscape(scope)
-	}
-	vars := mux.Vars(r)
-
-	page, err := s.renderLoginPage(cfg, vars, params)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-	}
-	common.SendHTML(page, w)
 }
 
 func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, queryParams string) (string, error) {
@@ -1269,38 +1130,6 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.finishLogin(login, idpName, redirect, scope, clientID, state, loginState.Challenge, tx, cfg, secrets, r, w)
-}
-
-func (s *Service) Authorize(w http.ResponseWriter, r *http.Request) {
-	typ := common.GetParam(r, "response_type")
-	if len(typ) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("response type required"), w)
-		return
-	}
-	if typ != "code" {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("response type not supported: %q", typ), w)
-		return
-	}
-
-	// skip login page if request include login_hint.
-	loginHint := common.GetParam(r, "login_hint")
-	if !strings.Contains(loginHint, ":") {
-		s.LoginPage(w, r)
-		return
-	}
-
-	hint := strings.SplitN(loginHint, ":", 2)
-	loginHintProvider := hint[0]
-	loginHintAccount := hint[1]
-
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	// Idp login
-	s.login(w, r, cfg, loginHintProvider, loginHintAccount)
 }
 
 func getStateRedirect(r *http.Request) (string, error) {
@@ -2725,7 +2554,7 @@ func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcCon
 	return s.getTokenAccountIdentity(s.ctx, id, realm, cfg, secrets, tx)
 }
 
-func (s *Service) getTokenIdentity(tok, scope, clientID string, anyAudience bool, tx storage.Tx) (*ga4gh.Identity, int, error) {
+func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
@@ -2739,7 +2568,7 @@ func (s *Service) getTokenIdentity(tok, scope, clientID string, anyAudience bool
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for issuer %q", id.Issuer)
 	} else if len(scope) > 0 && !hasScopes(scope, id.Scope, matchFullScope) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for scope %q", scope)
-	} else if !anyAudience && !common.IsAudience(id, clientID, iss) {
+	} else if !common.IsAudience(id, clientID, iss) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized party")
 	}
 	return id, http.StatusOK, nil
@@ -2767,7 +2596,7 @@ func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Iden
 }
 
 func (s *Service) tokenToIdentity(tok string, r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	token, status, err := s.getTokenIdentity(tok, scope, getClientID(r), isUserInfo(r), tx)
+	token, status, err := s.getTokenIdentity(tok, scope, getClientID(r), tx)
 	if err != nil {
 		return token, status, err
 	}
@@ -2775,7 +2604,7 @@ func (s *Service) tokenToIdentity(tok string, r *http.Request, scope, realm stri
 }
 
 func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, status, err := s.getTokenIdentity(tok, "", getClientID(r), isUserInfo(r), tx)
+	id, status, err := s.getTokenIdentity(tok, "", getClientID(r), tx)
 	if err != nil {
 		return nil, status, fmt.Errorf("inspecting token: %v", err)
 	}
@@ -3987,120 +3816,4 @@ func (s *Service) ImportFiles(importType string) error {
 		return err
 	}
 	return nil
-}
-
-/////////////////////////////////////////////////////////
-// OIDC related
-
-// OidcWellKnownConfig handle OpenID Provider configuration request.
-func (s *Service) OidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
-	scopeSet := map[string]bool{}
-	for k, v := range filterAccessTokScope {
-		scopeSet[k] = v
-	}
-	for k, v := range filterIDTokScope {
-		scopeSet[k] = v
-	}
-	scopes := []string{}
-	for k := range scopeSet {
-		scopes = append(scopes, k)
-	}
-
-	conf := &cpb.OidcConfig{
-		Issuer:       s.getIssuerString(),
-		JwksUri:      s.getDomainURL() + oidcJwksPath,
-		AuthEndpoint: s.getDomainURL() + defaultAuthorizePath,
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint:      s.getDomainURL() + defaultTokenPath,
-		RevocationEndpoint: s.getDomainURL() + defaultRevocationPath,
-		UserinfoEndpoint:   s.getDomainURL() + oidcUserInfoPath,
-		ScopesSupported:    scopes,
-	}
-	common.SendResponse(conf, w)
-}
-
-// OidcKeys handle OpenID Provider jwks request.
-func (s *Service) OidcKeys(w http.ResponseWriter, r *http.Request) {
-	pub, err := s.getIssuerPublicKey(s.getIssuerString(), nil)
-	if err != nil {
-		glog.Infof("getIssuerPublicKey %q failed: %q", s.getIssuerString(), err)
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	jwks := jose.JSONWebKeySet{
-		Keys: []jose.JSONWebKey{
-			{
-				Key:       pub,
-				Algorithm: "RS256",
-				Use:       "sig",
-				KeyID:     "kid",
-			},
-		},
-	}
-
-	data, err := json.Marshal(jwks)
-	if err != nil {
-		glog.Infof("Marshal failed: %q", err)
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	common.AddCorsHeaders(w)
-	w.Write(data)
-}
-
-// OidcUserInfo /oidc/userinfo handler
-func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	defer tx.Finish()
-
-	realm, status, err := s.tokenRealm(r)
-	if err != nil {
-		common.HandleError(status, err, w)
-	}
-
-	cfg, err := s.loadConfig(tx, realm)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	id, status, err := s.getIdentity(r, "", realm, cfg, secrets, tx)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-
-	// TODO: should also check the client id of access token is same as request client id.
-
-	// scope down identity information based on the token scope.
-	claims := scopedIdentity(id, id.Scope, id.Issuer, id.Subject, noNonce, id.IssuedAt, id.NotBefore, id.Expiry, nil, "")
-	if hasScopes(passportScope, id.Scope, matchFullScope) || hasScopes(ga4ghScope, id.Scope, matchFullScope) {
-		claims.VisaJWTs = id.VisaJWTs
-	}
-
-	data, err := json.Marshal(claims)
-	if err != nil {
-		glog.Infof("cannot encode user identity into JSON: %v", err)
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	common.AddCorsHeaders(w)
-	w.Write(data)
 }

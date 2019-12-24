@@ -460,59 +460,6 @@ func (s *Service) resourceAuth(ctx context.Context, in resourceAuthHandlerIn) (*
 	}, http.StatusOK, nil
 }
 
-// ResourceAuthHandler implements OAuth2 endpoint "/authorize" for resource authorize.
-// Extended params:
-// - resource: multi-value, format: DAM_URL/dam/{version}/{realm}/resources/{resourceName}/views/{viewName}[/roles/{roleName}]
-// - max_age: request ttl for resource token
-func (s *Service) ResourceAuthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method %s not allowed", r.Method), w)
-		return
-	}
-
-	stateID := common.GetParam(r, "state")
-	if len(stateID) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request must include state"), w)
-	}
-
-	redirectURL := common.GetParam(r, "redirect_uri")
-	if len(redirectURL) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request must include redirect"), w)
-		return
-	}
-
-	ttl, err := extractTTL(common.GetParam(r, "max_age"), common.GetParam(r, "max_age"))
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	resList, err := s.resourceViewRoleFromRequest(common.GetParamList(r, "resource"))
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	in := resourceAuthHandlerIn{
-		stateID:         stateID,
-		redirect:        redirectURL,
-		ttl:             ttl,
-		clientID:        getClientID(r),
-		responseKeyFile: responseKeyFile(r),
-		resources:       resList,
-	}
-
-	out, status, err := s.resourceAuth(r.Context(), in)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-
-	u := out.oauth.AuthCodeURL(out.stateID)
-
-	sendRedirect(u, r, w)
-}
-
 type loggedInHandlerIn struct {
 	authCode string
 	stateID  string
@@ -786,31 +733,4 @@ func (s *Service) exchangeResourceToken(ctx context.Context, in exchangeResource
 		AccessToken: authCode.State,
 		ExpiresIn:   uint32(common.GetNowInUnix() - authCode.EpochSeconds),
 	}, http.StatusOK, nil
-}
-
-// ExchangeResourceTokenHandler implements oauth2 auth code token exchange.
-func (s *Service) ExchangeResourceTokenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method %s not allowed", r.Method), w)
-		return
-	}
-
-	code, err := extractAuthCode(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	in := exchangeResourceTokenHandlerIn{
-		authCode: code,
-		clientID: getClientID(r),
-	}
-
-	out, status, err := s.exchangeResourceToken(r.Context(), in)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-
-	common.SendResponse(out, w)
 }

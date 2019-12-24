@@ -17,9 +17,6 @@ package dam
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,13 +31,11 @@ import (
 	"time"
 	"unicode"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
@@ -52,6 +47,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -88,13 +84,8 @@ const (
 	tokenPath             = methodPrefix + "tokens/{name}"
 	resourceTokensPath    = basePath + "/checkout"
 
-	oidcPrefix          = basePath + "/oidc/"
-	loggedInPath        = oidcPrefix + "loggedin"
-	resourceAuthPath    = oidcPrefix + "authorize"
-	resourceTokenPath   = oidcPrefix + "token"
-	oidcWellKnownPrefix = oidcPrefix + ".well-known"
-	oidcConfiguarePath  = oidcWellKnownPrefix + "/openid-configuration"
-	oidcJwksPath        = oidcWellKnownPrefix + "/jwks"
+	oidcPrefix   = basePath + "/oidc/"
+	loggedInPath = oidcPrefix + "loggedin"
 
 	configPath                      = methodPrefix + "config"
 	configResourcePath              = configPath + "/resources/{name}"
@@ -317,7 +308,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) checkClientCreds(r *http.Request) error {
-	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || strings.HasPrefix(r.URL.Path, oidcWellKnownPrefix) || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath || r.URL.Path == hydraTestPage {
+	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath || r.URL.Path == hydraTestPage {
 		return nil
 	}
 	cid := getClientID(r)
@@ -329,16 +320,8 @@ func (s *Service) checkClientCreds(r *http.Request) error {
 
 	cs := getClientSecret(r)
 	if len(cs) == 0 {
-		// resource auth does not have realm in path.
-		if r.URL.Path == resourceAuthPath {
-			return nil
-		}
-
 		path := common.RequestAbstractPath(r)
 		if strings.HasPrefix(path, clientSecretPath) {
-			return nil
-		}
-		if path == resourceAuthPath {
 			return nil
 		}
 		return status.Error(codes.Unauthenticated, "authorization requires a client secret")
@@ -381,13 +364,8 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(tokensPath, common.MakeHandler(s, s.tokensFactory()))
 	r.HandleFunc(tokenPath, common.MakeHandler(s, s.tokenFactory()))
 
-	r.HandleFunc(resourceAuthPath, s.ResourceAuthHandler)
-	r.HandleFunc(resourceTokenPath, s.ExchangeResourceTokenHandler)
 	r.HandleFunc(loggedInPath, s.LoggedInHandler)
 	r.HandleFunc(resourceTokensPath, s.ResourceTokens).Methods("GET", "POST")
-
-	r.HandleFunc(oidcConfiguarePath, s.OidcWellKnownConfig)
-	r.HandleFunc(oidcJwksPath, s.OidcKeys)
 
 	r.HandleFunc(configHistoryPath, s.ConfigHistory)
 	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
@@ -2006,62 +1984,4 @@ func getFileStore(store storage.Store, service string) storage.Store {
 	}
 	path := info["path"]
 	return storage.NewFileStorage(service, path)
-}
-
-/////////////////////////////////////////////////////////
-// OIDC related
-
-// OidcWellKnownConfig handle OpenID Provider configuration request.
-func (s *Service) OidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
-	conf := &pb.OidcConfig{
-		Issuer:  s.damIssuerString(),
-		JwksUri: s.domainURL + oidcJwksPath,
-		AuthUrl: s.domainURL + resourceAuthPath,
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint: s.domainURL + resourceTokenPath,
-	}
-	common.SendResponse(conf, w)
-}
-
-// OidcKeys handle OpenID Provider jwks request.
-func (s *Service) OidcKeys(w http.ResponseWriter, r *http.Request) {
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("loadSecrets failed: %v", err), w)
-		return
-	}
-
-	if len(secrets.GatekeeperTokenKeys.PublicKey) == 0 {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("gatekeeper token not found"), w)
-		return
-	}
-
-	block, _ := pem.Decode([]byte(secrets.GatekeeperTokenKeys.PublicKey))
-	pub, err := x509.ParsePKCS1PublicKey(block.Bytes)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("parsing public key for gatekeeper token: %v", err), w)
-		return
-	}
-
-	jwks := jose.JSONWebKeySet{
-		Keys: []jose.JSONWebKey{
-			{
-				Key:       pub,
-				Algorithm: "RS256",
-				Use:       "sig",
-				KeyID:     "kid",
-			},
-		},
-	}
-
-	data, err := json.Marshal(jwks)
-	if err != nil {
-		glog.Infof("Marshal failed: %q", err)
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	common.SendJSONResponse(string(data), w)
 }
