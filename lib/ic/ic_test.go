@@ -229,7 +229,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users",
 			Persona: "admin",
-			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{"formatted":"Administrator"},"active":true,"emails":[{}]},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{"formatted":"Non Administrator"},"active":true,"emails":[{"value":"non-admin@example.org"}]},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"someone-account","externalId":"someone-account","meta":{"resourceType":"User","created":"2019-06-22T13:29:36Z","lastModified":"2019-06-22T18:07:11Z","location":"https://example.com/identity/scim/v2/test/Users/someone-account","version":"1"},"userName":"someone-account","name":{"formatted":"Someone Account"},"active":true}],"startIndex":1,"itemsPerPage":4,"totalResults":4,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
+			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{},"displayName":"Administrator","active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{},"displayName":"Dr. Joe (ELIXIR)","active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{},"displayName":"Non Administrator","active":true,"emails":[{"value":"non-admin@example.org","$ref":"email/persona/non-admin"}]},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"someone-account","externalId":"someone-account","meta":{"resourceType":"User","created":"2019-06-22T13:29:36Z","lastModified":"2019-06-22T18:07:11Z","location":"https://example.com/identity/scim/v2/test/Users/someone-account","version":"1"},"userName":"someone-account","name":{"formatted":"Someone at Somewhere","familyName":"Somewhere","givenName":"Someone","middleName":"at"},"displayName":"Someone Account","profileUrl":"https://example.org/users/someone","locale":"en-us","timezone":"America/New_York","active":true}],"startIndex":1,"itemsPerPage":4,"totalResults":4,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -247,7 +247,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users",
 			Persona: "admin",
 			Params:  `filter=id%20co%20"admin"`,
-			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{"formatted":"Administrator"},"active":true,"emails":[{}]},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{"formatted":"Non Administrator"},"active":true,"emails":[{"value":"non-admin@example.org"}]}],"startIndex":1,"itemsPerPage":2,"totalResults":2,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
+			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{},"displayName":"Administrator","active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{},"displayName":"Non Administrator","active":true,"emails":[{"value":"non-admin@example.org","$ref":"email/persona/non-admin"}]}],"startIndex":1,"itemsPerPage":2,"totalResults":2,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -256,7 +256,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users",
 			Persona: "admin",
 			Params:  `filter=name.formatted%20co%20"administrator"`,
-			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{"formatted":"Administrator"},"active":true,"emails":[{}]},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{"formatted":"Non Administrator"},"active":true,"emails":[{"value":"non-admin@example.org"}]}],"startIndex":1,"itemsPerPage":2,"totalResults":2,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
+			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{},"displayName":"Administrator","active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{},"displayName":"Non Administrator","active":true,"emails":[{"value":"non-admin@example.org","$ref":"email/persona/non-admin"}]}],"startIndex":1,"itemsPerPage":2,"totalResults":2,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -265,7 +265,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users",
 			Persona: "admin",
 			Params:  `filter=name.formatted%20co%20"administrator"%20or%20userName%20co%20"joe"`,
-			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{"formatted":"Administrator"},"active":true,"emails":[{}]},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{"formatted":"Non Administrator"},"active":true,"emails":[{"value":"non-admin@example.org"}]}],"startIndex":1,"itemsPerPage":3,"totalResults":3,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
+			Output:  `{"Resources":[{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"admin","externalId":"admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:50Z","lastModified":"2019-06-22T18:07:30Z","location":"https://example.com/identity/scim/v2/test/Users/admin","version":"1"},"userName":"admin","name":{},"displayName":"Administrator","active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{},"displayName":"Dr. Joe (ELIXIR)","active":true},{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{},"displayName":"Non Administrator","active":true,"emails":[{"value":"non-admin@example.org","$ref":"email/persona/non-admin"}]}],"startIndex":1,"itemsPerPage":3,"totalResults":3,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -283,7 +283,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
 			Scope:   persona.AccountScope,
-			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{"formatted":"Non Administrator"},"active":true,"emails":[{"value":"non-admin@example.org"}]}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"non-admin","externalId":"non-admin","meta":{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"2019-06-22T18:08:19Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"1"},"userName":"non-admin","name":{},"displayName":"Non Administrator","active":true,"emails":[{"value":"non-admin@example.org","$ref":"email/persona/non-admin"}]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -324,13 +324,33 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 		{
+			Name:    "Patch SCIM me (set primary email)",
+			Method:  "PATCH",
+			Path:    "/identity/scim/v2/test/Me",
+			Persona: "non-admin",
+			Scope:   persona.AccountScope,
+			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"emails[$ref eq \"email/persona/non-admin\"].primary","value":"true"}]}`,
+			Output:  `^.*"primary":true,"value":"non-admin@example.org".*`,
+			Status:  http.StatusOK,
+		},
+		{
+			Name:    "Patch SCIM me (remove primary email)",
+			Method:  "PATCH",
+			Path:    "/identity/scim/v2/test/Me",
+			Persona: "non-admin",
+			Scope:   persona.AccountScope,
+			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"remove","path":"emails[primary eq \"true\"].primary"}]}`,
+			Output:  `^.*"emails":\[\{"value":"non-admin@example.org","\$ref":"email/persona/non-admin"\}\].*`,
+			Status:  http.StatusOK,
+		},
+		{
 			Name:    "Patch SCIM me (multiple ops)",
 			Method:  "PATCH",
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
 			Scope:   persona.AccountScope,
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"name.formatted","value":"Non-Administrator"},{"op":"replace","path":"active","value":"false"}]}`,
-			Output:  `^\{"schemas":\["urn:ietf:params:scim:schemas:core:2.0:User"\],"id":"non-admin","externalId":"non-admin","meta":\{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"....-..-..T..:..:..Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"2"\},"userName":"non-admin","name":\{"formatted":"Non-Administrator"\},"emails":\[\{"value":"non-admin@example.org"\}\],"photos":\[\{"primary":true,"value":"https://my.example.org/photos/me.jpeg"\}\]\}`,
+			Output:  `^\{"schemas":\["urn:ietf:params:scim:schemas:core:2.0:User"\],"id":"non-admin","externalId":"non-admin","meta":\{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"....-..-..T..:..:..Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"4"\},"userName":"non-admin","name":\{"formatted":"Non-Administrator"\},"displayName":"Non Administrator","emails":\[\{"value":"non-admin@example.org","\$ref":"email/persona/non-admin"\}\],"photos":\[\{"primary":true,"value":"https://my.example.org/photos/me.jpeg"\}\]\}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -338,8 +358,8 @@ func TestHandlers(t *testing.T) {
 			Method:  "PATCH",
 			Path:    "/identity/scim/v2/test/Users/non-admin",
 			Persona: "admin",
-			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"active","value":"true"}]}`,
-			Output:  `^\{"schemas":\["urn:ietf:params:scim:schemas:core:2.0:User"\],"id":"non-admin","externalId":"non-admin","meta":\{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"20..-..-..T..:..:..Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"3"},"userName":"non-admin","name":\{"formatted":"Non-Administrator"\},"active":true,"emails":\[\{"value":"non-admin@example.org"\}\],"photos":\[\{"primary":true,"value":"https://my.example.org/photos/me.jpeg"\}\]\}`,
+			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"active","value":"true"},{"op":"replace","path":"displayName","value":"Updated Non Admin"},{"op":"replace","path":"profileUrl","value":"https://example.org/users/non-admin"},{"op":"replace","path":"locale","value":"fr-ca"},{"op":"replace","path":"timezone","value":"America/Montreal"}]}`,
+			Output:  `^\{"schemas":\["urn:ietf:params:scim:schemas:core:2.0:User"\],"id":"non-admin","externalId":"non-admin","meta":\{"resourceType":"User","created":"2019-06-22T13:29:59Z","lastModified":"20..-..-..T..:..:..Z","location":"https://example.com/identity/scim/v2/test/Users/non-admin","version":"5"},"userName":"non-admin","name":\{"formatted":"Non-Administrator"\},"displayName":"Updated Non Admin","profileUrl":"https://example.org/users/non-admin","locale":"fr-ca","timezone":"America/Montreal","active":true,"emails":\[\{"value":"non-admin@example.org","\$ref":"email/persona/non-admin"\}\],"photos":\[\{"primary":true,"value":"https://my.example.org/photos/me.jpeg"\}\]\}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -372,7 +392,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "admin",
-			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"active":true}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{},"displayName":"Dr. Joe (ELIXIR)","active":true}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -381,7 +401,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
 			Scope:   persona.AccountScope,
-			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"active":true}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{},"displayName":"Dr. Joe (ELIXIR)","active":true}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -399,7 +419,7 @@ func TestHandlers(t *testing.T) {
 			Persona: "dr_joe_elixir",
 			Scope:   persona.AccountScope,
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"name.formatted","value":"The good doc"},{"op":"replace","path":"name.givenName","value":"Joesph"},{"op":"replace","path":"name.familyName","value":"Doctor"}]}`,
-			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"The good doc","familyName":"Doctor","givenName":"Joesph"},"active":true}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/identity/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"The good doc","familyName":"Doctor","givenName":"Joesph"},"displayName":"Dr. Joe (ELIXIR)","active":true}`,
 			Status:  http.StatusOK,
 		},
 		{

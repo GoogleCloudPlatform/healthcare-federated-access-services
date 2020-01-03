@@ -123,6 +123,7 @@ message AccountProfile {
   string picture = 8;
   string zone_info = 9;
   string locale = 10;
+  string formatted_name = 11;
 }
 
 message ConnectedAccount {
@@ -137,6 +138,7 @@ message ConnectedAccount {
   IdentityProvider computed_identity_provider = 9
       [json_name = "identityProvider"];
   string computed_login_hint = 10 [json_name = "loginHint"];
+  bool primary = 11;
 }
 
 message AccountLookup {

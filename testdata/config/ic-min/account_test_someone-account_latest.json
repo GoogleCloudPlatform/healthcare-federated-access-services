@@ -2,7 +2,13 @@
   "revision": "1",
   "profile": {
     "username": "someone_account",
-    "name": "Someone Account"
+    "name": "Someone Account",
+    "givenName": "Someone",
+    "middleName": "at",
+    "familyName": "Somewhere",
+    "profile": "https://example.org/users/someone",
+    "locale": "en-us",
+    "zoneInfo": "America/New_York"
   },
   "properties": {
     "subject": "someone-account",

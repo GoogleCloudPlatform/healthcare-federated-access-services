@@ -57,6 +57,22 @@ var (
 		},
 	}
 
+	scimEmailFilterMap = map[string]func(p proto.Message) string{
+		"$ref": func(p proto.Message) string {
+			return emailRef(linkProto(p))
+		},
+		"value": func(p proto.Message) string {
+			return linkProto(p).GetProperties().Email
+		},
+		"primary": func(p proto.Message) string {
+			if linkProto(p).Primary {
+				return "true"
+			}
+			return "false"
+		},
+	}
+
+	emailPathRE = regexp.MustCompile(`^emails\[(.*)\]\.primary$`)
 	photoPathRE = regexp.MustCompile(`^photos.*\.value$`)
 )
 
@@ -68,6 +84,14 @@ func acctProto(p proto.Message) *pb.Account {
 		return &pb.Account{}
 	}
 	return acct
+}
+
+func linkProto(p proto.Message) *pb.ConnectedAccount {
+	link, ok := p.(*pb.ConnectedAccount)
+	if !ok {
+		return &pb.ConnectedAccount{}
+	}
+	return link
 }
 
 func (s *Service) scimMeFactory() *common.HandlerFactory {
@@ -250,6 +274,8 @@ func (h *scimUser) Patch(name string) error {
 		// When updating a photo from the list, always update the photo in the primary profile.
 		if photoPathRE.MatchString(path) {
 			path = "photo"
+		} else if emailPathRE.MatchString(path) {
+			path = "email"
 		}
 		switch path {
 		case "active":
@@ -266,8 +292,8 @@ func (h *scimUser) Patch(name string) error {
 			}
 
 		case "name.formatted":
-			dst = &h.save.Profile.Name
-			if patch.Op == "remove" {
+			dst = &h.save.Profile.FormattedName
+			if patch.Op == "remove" || len(src) == 0 {
 				return fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
 			}
 
@@ -279,6 +305,45 @@ func (h *scimUser) Patch(name string) error {
 
 		case "name.middleName":
 			dst = &h.save.Profile.MiddleName
+
+		case "displayName":
+			dst = &h.save.Profile.Name
+			if patch.Op == "remove" || len(src) == 0 {
+				return fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
+			}
+
+		case "profileUrl":
+			dst = &h.save.Profile.Profile
+
+		case "locale":
+			dst = &h.save.Profile.Locale
+			if len(src) > 0 && !common.IsLocale(src) {
+				return fmt.Errorf("operation %d: %q is not a recognized locale", i, path)
+			}
+
+		case "timezone":
+			dst = &h.save.Profile.ZoneInfo
+			if len(src) > 0 && !common.IsTimeZone(src) {
+				return fmt.Errorf("operation %d: %q is not a recognized time zone", i, path)
+			}
+
+		case "email":
+			link, err := selectLink(patch.Path, emailPathRE, scimEmailFilterMap, h.save)
+			if err != nil {
+				return err
+			}
+			if link != nil {
+				// This logic is valid for all patch.Op operations.
+				primary := strings.ToLower(patch.Value) == "true" && patch.Op != "remove"
+				if primary {
+					// Make all entries not primary, then set the primary below
+					for _, entry := range h.save.ConnectedAccounts {
+						entry.Primary = false
+					}
+				}
+				link.Primary = primary
+			}
+			dst = nil // operation can be skipped by logic below (i.e. no destination to write)
 
 		case "photo":
 			dst = &h.save.Profile.Picture
@@ -474,10 +539,14 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 		photos = append(photos, &spb.Attribute{Value: primaryPic, Primary: true})
 	}
 	for _, ca := range acct.ConnectedAccounts {
-		emails = append(emails, &spb.Attribute{
-			Value:             ca.Properties.Email,
-			ExtensionVerified: ca.Properties.EmailVerified,
-		})
+		if len(ca.Properties.Email) > 0 {
+			emails = append(emails, &spb.Attribute{
+				Value:             ca.Properties.Email,
+				ExtensionVerified: ca.Properties.EmailVerified,
+				Primary:           ca.Primary,
+				Ref:               emailRef(ca),
+			})
+		}
 		if ca.Profile == nil {
 			continue
 		}
@@ -485,6 +554,11 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 			photos = append(photos, &spb.Attribute{Value: pic})
 		}
 	}
+	formatted := acct.Profile.FormattedName
+	if len(formatted) == 0 {
+		formatted = common.JoinNonEmpty([]string{acct.Profile.GivenName, acct.Profile.MiddleName, acct.Profile.FamilyName}, " ")
+	}
+
 	return &spb.User{
 		Schemas:    []string{"urn:ietf:params:scim:schemas:core:2.0:User"},
 		Id:         acct.Properties.Subject,
@@ -497,14 +571,39 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 			Version:      strconv.FormatInt(acct.Revision, 10),
 		},
 		Name: &spb.Name{
-			Formatted:  acct.Profile.Name,
+			Formatted:  formatted,
 			FamilyName: acct.Profile.FamilyName,
 			GivenName:  acct.Profile.GivenName,
 			MiddleName: acct.Profile.MiddleName,
 		},
-		UserName: acct.Properties.Subject,
-		Emails:   emails,
-		Photos:   photos,
-		Active:   acct.State == storage.StateActive,
+		DisplayName: acct.Profile.Name,
+		ProfileUrl:  acct.Profile.Profile,
+		Locale:      acct.Profile.Locale,
+		Timezone:    acct.Profile.ZoneInfo,
+		UserName:    acct.Properties.Subject,
+		Emails:      emails,
+		Photos:      photos,
+		Active:      acct.State == storage.StateActive,
 	}
+}
+
+func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p proto.Message) string, acct *pb.Account) (*pb.ConnectedAccount, error) {
+	match := re.FindStringSubmatch(selector)
+	if match == nil {
+		return nil, nil
+	}
+	filter, err := storage.BuildFilters(match[1], filterMap)
+	if err != nil {
+		return nil, err
+	}
+	for _, link := range acct.ConnectedAccounts {
+		if storage.MatchProtoFilters(filter, link) {
+			return link, nil
+		}
+	}
+	return nil, nil
+}
+
+func emailRef(link *pb.ConnectedAccount) string {
+	return "email/" + link.Provider + "/" + link.Properties.Subject
 }
