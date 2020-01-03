@@ -652,9 +652,9 @@ func TestAddLinkedIdentities(t *testing.T) {
 		VisaJWTs: []string{},
 	}
 
-	link := &pb.ConnectedAccount{
+	link := &cpb.ConnectedAccount{
 		Provider: idp,
-		Properties: &pb.AccountProperties{
+		Properties: &cpb.AccountProperties{
 			Subject: subjectInIdp,
 			Email:   emailInIdp,
 		},
@@ -666,8 +666,8 @@ func TestAddLinkedIdentities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
 	}
-	cfg.IdentityProviders = map[string]*pb.IdentityProvider{
-		idp: &pb.IdentityProvider{Issuer: idpIss},
+	cfg.IdentityProviders = map[string]*cpb.IdentityProvider{
+		idp: &cpb.IdentityProvider{Issuer: idpIss},
 	}
 
 	err = s.addLinkedIdentities(id, link, testkeys.Default.Private, cfg)
@@ -1108,8 +1108,8 @@ func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Ser
 	}
 
 	// Ensure identity exists before request.
-	acct := &pb.Account{
-		Properties: &pb.AccountProperties{Subject: LoginSubject},
+	acct := &cpb.Account{
+		Properties: &cpb.AccountProperties{Subject: LoginSubject},
 		State:      "ACTIVE",
 	}
 	err = s.store.Write(storage.AccountDatatype, storage.DefaultRealm, storage.DefaultUser, LoginSubject, storage.LatestRev, acct, nil)

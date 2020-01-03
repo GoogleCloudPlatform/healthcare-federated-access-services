@@ -18,6 +18,7 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package ic.v1;
 
+import "proto/common/v1/account.proto"; /* copybara-comment */
 import "proto/common/v1/common.proto"; /* copybara-comment */
 import "proto/common/v1/oauthclient.proto"; /* copybara-comment */
 
@@ -29,23 +30,11 @@ message IcConfig {
   string version = 1;
   int64 revision = 2;
   double commit_time = 3;
-  map<string, IdentityProvider> identity_providers = 4;
+  map<string, common.IdentityProvider> identity_providers = 4;
   map<string, common.Client> clients = 5;
   map<string, common.AccountTag> account_tags = 6;
   ConfigOptions options = 7;
   map<string, string> ui = 8;
-}
-
-message IdentityProvider {
-  string issuer = 1;
-  string authorize_url = 2;
-  string response_type = 3;
-  string token_url = 4;
-  repeated string scopes = 5;
-  string translate_using = 6;
-  string client_id = 7;
-  map<string, string> ui = 8;
-  bool use_passport_visa = 9;
 }
 
 message ConfigOptions {
@@ -95,61 +84,6 @@ message Realm {}
 
 ///////////////////////////////////////////////////
 
-message Account {
-  int64 revision = 1;
-  AccountProfile profile = 2;
-  AccountProperties properties = 3;
-  repeated ConnectedAccount connected_accounts = 4;
-  string state = 5;
-  string owner = 6;
-  map<string, string> ui = 7;
-}
-
-message AccountProperties {
-  string subject = 1;
-  string email = 2;
-  bool email_verified = 3;
-  double created = 4;
-  double modified = 5;
-}
-
-message AccountProfile {
-  string username = 2;
-  string name = 3;
-  string given_name = 4;
-  string family_name = 5;
-  string middle_name = 6;
-  string profile = 7;
-  string picture = 8;
-  string zone_info = 9;
-  string locale = 10;
-  string formatted_name = 11;
-}
-
-message ConnectedAccount {
-  AccountProfile profile = 1;
-  AccountProperties properties = 2;
-  string provider = 3;
-  double refreshed = 4;
-  int64 revision = 5;
-  int64 link_revision = 6;
-  common.Passport passport = 7;
-  repeated string tags = 8;
-  IdentityProvider computed_identity_provider = 9
-      [json_name = "identityProvider"];
-  string computed_login_hint = 10 [json_name = "loginHint"];
-  bool primary = 11;
-}
-
-message AccountLookup {
-  string subject = 1;
-  int64 revision = 2;
-  double commit_time = 3;
-  string state = 4;
-}
-
-///////////////////////////////////////////////////
-
 message ConfigModification {
   int64 revision = 1;
   bool dry_run = 3;
@@ -174,7 +108,7 @@ message RealmResponse {}
 message GetIdentityProvidersRequest {}
 
 message GetIdentityProvidersResponse {
-  map<string, IdentityProvider> identity_providers = 1;
+  map<string, common.IdentityProvider> identity_providers = 1;
 }
 
 message GetTokenRequest {}
@@ -187,7 +121,7 @@ message ConfigRequest {
 message ConfigResponse {}
 
 message ConfigIdentityProviderRequest {
-  IdentityProvider item = 1;
+  common.IdentityProvider item = 1;
   ConfigModification modification = 2;
 }
 
@@ -201,21 +135,21 @@ message ConfigOptionsRequest {
 message ConfigOptionsResponse {}
 
 message AccountRequest {
-  Account item = 1;
+  common.Account item = 1;
   ConfigModification modification = 2;
 }
 
 message AccountResponse {
-  Account account = 1;
+  common.Account account = 1;
 }
 
 message AccountSubjectRequest {
-  ConnectedAccount item = 1;
+  common.ConnectedAccount item = 1;
   ConfigModification modification = 2;
 }
 
 message AccountSubjectResponse {
-  ConnectedAccount item = 1;
+  common.ConnectedAccount item = 1;
 }
 
 message SubjectClaimsRequest {

@@ -28,7 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	spb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2" /* copybara-comment: go_proto */
 )
 
@@ -107,18 +107,18 @@ var (
 
 //////////////////////////////////////////////////////////////////
 
-func acctProto(p proto.Message) *pb.Account {
-	acct, ok := p.(*pb.Account)
+func acctProto(p proto.Message) *cpb.Account {
+	acct, ok := p.(*cpb.Account)
 	if !ok {
-		return &pb.Account{}
+		return &cpb.Account{}
 	}
 	return acct
 }
 
-func linkProto(p proto.Message) *pb.ConnectedAccount {
-	link, ok := p.(*pb.ConnectedAccount)
+func linkProto(p proto.Message) *cpb.ConnectedAccount {
+	link, ok := p.(*cpb.ConnectedAccount)
 	if !ok {
-		return &pb.ConnectedAccount{}
+		return &cpb.ConnectedAccount{}
 	}
 	return link
 }
@@ -225,9 +225,9 @@ type scimUser struct {
 	s     *Service
 	w     http.ResponseWriter
 	r     *http.Request
-	item  *pb.Account
+	item  *cpb.Account
 	input *spb.Patch
-	save  *pb.Account
+	save  *cpb.Account
 	id    *ga4gh.Identity
 	tx    storage.Tx
 }
@@ -256,7 +256,7 @@ func (h *scimUser) LookupItem(name string, vars map[string]string) bool {
 		return false
 	}
 	realm := getRealm(h.r)
-	acct := &pb.Account{}
+	acct := &cpb.Account{}
 	if _, err := h.s.singleRealmReadTx(storage.AccountDatatype, realm, storage.DefaultUser, name, storage.LatestRev, acct, h.tx); err != nil {
 		return false
 	}
@@ -294,7 +294,7 @@ func (h *scimUser) Put(name string) error {
 
 // Patch receives a PATCH method request
 func (h *scimUser) Patch(name string) error {
-	h.save = &pb.Account{}
+	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for i, patch := range h.input.Operations {
 		src := patch.Value
@@ -405,7 +405,7 @@ func (h *scimUser) Patch(name string) error {
 
 // Remove receives a DELETE method request
 func (h *scimUser) Remove(name string) error {
-	h.save = &pb.Account{}
+	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for _, link := range h.save.ConnectedAccounts {
 		if link.Properties == nil || len(link.Properties.Subject) == 0 {
@@ -415,7 +415,7 @@ func (h *scimUser) Remove(name string) error {
 			return fmt.Errorf("service dependencies not available; try again later")
 		}
 	}
-	h.save.ConnectedAccounts = []*pb.ConnectedAccount{}
+	h.save.ConnectedAccounts = []*cpb.ConnectedAccount{}
 	h.save.State = "DELETED"
 	return nil
 }
@@ -496,15 +496,15 @@ func (h *scimUsers) Get(name string) error {
 	}
 
 	m := make(map[string]map[string]proto.Message)
-	count, err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, offset, max, m, &pb.Account{}, h.tx)
+	count, err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, offset, max, m, &cpb.Account{}, h.tx)
 	if err != nil {
 		return err
 	}
-	accts := make(map[string]*pb.Account)
+	accts := make(map[string]*cpb.Account)
 	subjects := []string{}
 	for _, u := range m {
 		for _, v := range u {
-			if acct, ok := v.(*pb.Account); ok {
+			if acct, ok := v.(*cpb.Account); ok {
 				accts[acct.Properties.Subject] = acct
 				subjects = append(subjects, acct.Properties.Subject)
 			}
@@ -560,7 +560,7 @@ func (h *scimUsers) Save(tx storage.Tx, name string, vars map[string]string, des
 	return nil
 }
 
-func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
+func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 	var emails []*spb.Attribute
 	var photos []*spb.Attribute
 	primaryPic := acct.GetProfile().GetPicture()
@@ -613,7 +613,7 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 	}
 }
 
-func formattedName(acct *pb.Account) string {
+func formattedName(acct *cpb.Account) string {
 	profile := acct.GetProfile()
 	name := profile.FormattedName
 	if len(name) == 0 {
@@ -625,7 +625,7 @@ func formattedName(acct *pb.Account) string {
 	return name
 }
 
-func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p proto.Message) string, acct *pb.Account) (*pb.ConnectedAccount, error) {
+func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p proto.Message) string, acct *cpb.Account) (*cpb.ConnectedAccount, error) {
 	match := re.FindStringSubmatch(selector)
 	if match == nil {
 		return nil, nil
@@ -642,6 +642,6 @@ func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p 
 	return nil, nil
 }
 
-func emailRef(link *pb.ConnectedAccount) string {
+func emailRef(link *cpb.ConnectedAccount) string {
 	return "email/" + link.Provider + "/" + link.Properties.Subject
 }

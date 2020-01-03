@@ -1,0 +1,88 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package common;
+
+import "proto/common/v1/common.proto"; /* copybara-comment */
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
+
+///////////////////////////////////////////////////
+
+message Account {
+  int64 revision = 1;
+  AccountProfile profile = 2;
+  AccountProperties properties = 3;
+  repeated ConnectedAccount connected_accounts = 4;
+  string state = 5;
+  string owner = 6;
+  map<string, string> ui = 7;
+}
+
+message AccountProperties {
+  string subject = 1;
+  string email = 2;
+  bool email_verified = 3;
+  double created = 4;
+  double modified = 5;
+}
+
+message AccountProfile {
+  string username = 2;
+  string name = 3;
+  string given_name = 4;
+  string family_name = 5;
+  string middle_name = 6;
+  string profile = 7;
+  string picture = 8;
+  string zone_info = 9;
+  string locale = 10;
+  string formatted_name = 11;
+}
+
+message ConnectedAccount {
+  AccountProfile profile = 1;
+  AccountProperties properties = 2;
+  string provider = 3;
+  double refreshed = 4;
+  int64 revision = 5;
+  int64 link_revision = 6;
+  Passport passport = 7;
+  repeated string tags = 8;
+  IdentityProvider computed_identity_provider = 9
+      [json_name = "identityProvider"];
+  string computed_login_hint = 10 [json_name = "loginHint"];
+  bool primary = 11;
+}
+
+message AccountLookup {
+  string subject = 1;
+  int64 revision = 2;
+  double commit_time = 3;
+  string state = 4;
+}
+
+message IdentityProvider {
+  string issuer = 1;
+  string authorize_url = 2;
+  string response_type = 3;
+  string token_url = 4;
+  repeated string scopes = 5;
+  string translate_using = 6;
+  string client_id = 7;
+  map<string, string> ui = 8;
+  bool use_passport_visa = 9;
+}

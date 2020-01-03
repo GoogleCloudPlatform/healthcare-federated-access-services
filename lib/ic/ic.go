@@ -669,7 +669,7 @@ func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := &pb.GetIdentityProvidersResponse{
-		IdentityProviders: make(map[string]*pb.IdentityProvider),
+		IdentityProviders: make(map[string]*cpb.IdentityProvider),
 	}
 	for name, idp := range cfg.IdentityProviders {
 		resp.IdentityProviders[name] = makeIdentityProvider(idp)
@@ -760,7 +760,7 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 	return page, nil
 }
 
-func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirect string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
+func (s *Service) idpAuthorize(idpName string, idp *cpb.IdentityProvider, redirect string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
 	scope, err := getScope(r)
 	if err != nil {
 		return nil, "", err
@@ -799,7 +799,7 @@ func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirec
 	return idpConfig(idp, s.getDomainURL(), nil), stateID, nil
 }
 
-func idpConfig(idp *pb.IdentityProvider, domainURL string, secrets *pb.IcSecrets) *oauth2.Config {
+func idpConfig(idp *cpb.IdentityProvider, domainURL string, secrets *pb.IcSecrets) *oauth2.Config {
 	scopes := idp.Scopes
 	if scopes == nil || len(scopes) == 0 {
 		scopes = defaultIdpScopes
@@ -853,7 +853,7 @@ func buildPath(muxPath string, name string, vars map[string]string) string {
 	return out
 }
 
-func buildRedirectNonOIDC(idp *pb.IdentityProvider, idpc *oauth2.Config, state string) string {
+func buildRedirectNonOIDC(idp *cpb.IdentityProvider, idpc *oauth2.Config, state string) string {
 	url, err := url.Parse(idpc.RedirectURL)
 	if err != nil {
 		return idpc.RedirectURL
@@ -1547,7 +1547,7 @@ func (c *config) NormalizeInput(name string, vars map[string]string) error {
 		c.input.Modification = &pb.ConfigModification{}
 	}
 	if c.input.Item.IdentityProviders == nil {
-		c.input.Item.IdentityProviders = make(map[string]*pb.IdentityProvider)
+		c.input.Item.IdentityProviders = make(map[string]*cpb.IdentityProvider)
 	}
 	if c.input.Item.Clients == nil {
 		c.input.Item.Clients = make(map[string]*cpb.Client)
@@ -1627,8 +1627,8 @@ type configIDP struct {
 	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigIdentityProviderRequest
-	item  *pb.IdentityProvider
-	save  *pb.IdentityProvider
+	item  *cpb.IdentityProvider
+	save  *cpb.IdentityProvider
 	cfg   *pb.IcConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -1653,7 +1653,7 @@ func (c *configIDP) NormalizeInput(name string, vars map[string]string) error {
 		return err
 	}
 	if c.input.Item == nil {
-		c.input.Item = &pb.IdentityProvider{}
+		c.input.Item = &cpb.IdentityProvider{}
 	}
 	if c.input.Item.Scopes == nil {
 		c.input.Item.Scopes = []string{}
@@ -1678,7 +1678,7 @@ func (c *configIDP) Put(name string) error {
 	return nil
 }
 func (c *configIDP) Patch(name string) error {
-	c.save = &pb.IdentityProvider{}
+	c.save = &cpb.IdentityProvider{}
 	proto.Merge(c.save, c.item)
 	proto.Merge(c.save, c.input.Item)
 	c.save.Scopes = c.input.Item.Scopes
@@ -1688,7 +1688,7 @@ func (c *configIDP) Patch(name string) error {
 }
 func (c *configIDP) Remove(name string) error {
 	delete(c.cfg.IdentityProviders, name)
-	c.save = &pb.IdentityProvider{}
+	c.save = &cpb.IdentityProvider{}
 	return nil
 }
 func (c *configIDP) CheckIntegrity() *status.Status {
@@ -2030,9 +2030,9 @@ type account struct {
 	s     *Service
 	w     http.ResponseWriter
 	r     *http.Request
-	item  *pb.Account
+	item  *cpb.Account
 	input *pb.AccountRequest
-	save  *pb.Account
+	save  *cpb.Account
 	cfg   *pb.IcConfig
 	sec   *pb.IcSecrets
 	id    *ga4gh.Identity
@@ -2072,26 +2072,26 @@ func (c *account) NormalizeInput(name string, vars map[string]string) error {
 		return err
 	}
 	if c.input.Item == nil {
-		c.input.Item = &pb.Account{}
+		c.input.Item = &cpb.Account{}
 	}
 	if c.input.Modification == nil {
 		c.input.Modification = &pb.ConfigModification{}
 	}
 	if c.input.Item.Profile == nil {
-		c.input.Item.Profile = &pb.AccountProfile{}
+		c.input.Item.Profile = &cpb.AccountProfile{}
 	}
 	if c.input.Item.Ui == nil {
 		c.input.Item.Ui = make(map[string]string)
 	}
 	if c.input.Item.ConnectedAccounts == nil {
-		c.input.Item.ConnectedAccounts = []*pb.ConnectedAccount{}
+		c.input.Item.ConnectedAccounts = []*cpb.ConnectedAccount{}
 	}
 	for _, a := range c.input.Item.ConnectedAccounts {
 		if a.Profile == nil {
-			a.Profile = &pb.AccountProfile{}
+			a.Profile = &cpb.AccountProfile{}
 		}
 		if a.Properties == nil {
-			a.Properties = &pb.AccountProperties{}
+			a.Properties = &cpb.AccountProperties{}
 		}
 		if a.Passport == nil {
 			a.Passport = &cpb.Passport{}
@@ -2118,7 +2118,7 @@ func (c *account) Put(name string) error {
 	return fmt.Errorf("PUT not allowed")
 }
 func (c *account) Patch(name string) error {
-	c.save = &pb.Account{}
+	c.save = &cpb.Account{}
 	proto.Merge(c.save, c.item)
 	link := common.GetParam(c.r, "link_token")
 	if len(link) > 0 {
@@ -2148,7 +2148,7 @@ func (c *account) Patch(name string) error {
 			if c.input.Modification != nil && c.input.Modification.DryRun {
 				continue
 			}
-			lookup := &pb.AccountLookup{
+			lookup := &cpb.AccountLookup{
 				Subject:  c.item.Properties.Subject,
 				Revision: acct.LinkRevision,
 				State:    storage.StateActive,
@@ -2159,7 +2159,7 @@ func (c *account) Patch(name string) error {
 			acct.LinkRevision++
 			c.save.ConnectedAccounts = append(c.save.ConnectedAccounts, acct)
 		}
-		linkAcct.ConnectedAccounts = make([]*pb.ConnectedAccount, 0)
+		linkAcct.ConnectedAccounts = make([]*cpb.ConnectedAccount, 0)
 		linkAcct.State = "LINKED"
 		linkAcct.Owner = c.item.Properties.Subject
 		if c.input.Modification == nil || !c.input.Modification.DryRun {
@@ -2181,7 +2181,7 @@ func (c *account) Remove(name string) error {
 	if c.input.Modification != nil && c.input.Modification.DryRun {
 		return nil
 	}
-	c.save = &pb.Account{}
+	c.save = &cpb.Account{}
 	proto.Merge(c.save, c.item)
 	for _, link := range c.save.ConnectedAccounts {
 		if link.Properties == nil || len(link.Properties.Subject) == 0 {
@@ -2191,7 +2191,7 @@ func (c *account) Remove(name string) error {
 			return fmt.Errorf("service dependencies not available; try again later")
 		}
 	}
-	c.save.ConnectedAccounts = []*pb.ConnectedAccount{}
+	c.save.ConnectedAccounts = []*cpb.ConnectedAccount{}
 	c.save.State = "DELETED"
 	return nil
 }
@@ -2236,11 +2236,11 @@ type accountLink struct {
 	s         *Service
 	w         http.ResponseWriter
 	r         *http.Request
-	acct      *pb.Account
-	item      *pb.ConnectedAccount
+	acct      *cpb.Account
+	item      *cpb.ConnectedAccount
 	itemIndex int
 	input     *pb.AccountSubjectRequest
-	save      *pb.Account
+	save      *cpb.Account
 	cfg       *pb.IcConfig
 	id        *ga4gh.Identity
 	tx        storage.Tx
@@ -2271,10 +2271,10 @@ func (c *accountLink) NormalizeInput(name string, vars map[string]string) error 
 		return err
 	}
 	if c.input.Item == nil {
-		c.input.Item = &pb.ConnectedAccount{}
+		c.input.Item = &cpb.ConnectedAccount{}
 	}
 	if c.input.Item.Profile == nil {
-		c.input.Item.Profile = &pb.AccountProfile{}
+		c.input.Item.Profile = &cpb.AccountProfile{}
 	}
 	if c.input.Item.Passport == nil {
 		c.input.Item.Passport = &cpb.Passport{}
@@ -2306,7 +2306,7 @@ func (c *accountLink) Remove(name string) error {
 	if c.input.Modification != nil && c.input.Modification.DryRun {
 		return nil
 	}
-	c.save = &pb.Account{}
+	c.save = &cpb.Account{}
 	proto.Merge(c.save, c.acct)
 	c.save.ConnectedAccounts = append(c.save.ConnectedAccounts[:c.itemIndex], c.save.ConnectedAccounts[c.itemIndex+1:]...)
 	if len(c.save.ConnectedAccounts) == 0 {
@@ -2357,9 +2357,9 @@ type adminClaims struct {
 	s     *Service
 	w     http.ResponseWriter
 	r     *http.Request
-	item  *pb.Account
+	item  *cpb.Account
 	input *pb.SubjectClaimsRequest
-	save  *pb.Account
+	save  *cpb.Account
 	cfg   *pb.IcConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -2416,7 +2416,7 @@ func (c *adminClaims) Remove(name string) error {
 	if c.input.Modification != nil && c.input.Modification.DryRun {
 		return nil
 	}
-	c.save = &pb.Account{}
+	c.save = &cpb.Account{}
 	proto.Merge(c.save, c.item)
 	for _, link := range c.save.ConnectedAccounts {
 		link.Passport = &cpb.Passport{}
@@ -2618,7 +2618,7 @@ func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.Ic
 	return s.getTokenAccountIdentity(s.ctx, id, getRealm(r), cfg, secrets, tx)
 }
 
-func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
+func (s *Service) accountToIdentity(ctx context.Context, acct *cpb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
 	email := acct.Properties.Subject + "@" + s.accountDomain
 	id := &ga4gh.Identity{
 		Subject: acct.Properties.Subject,
@@ -2661,7 +2661,7 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 	return id, nil
 }
 
-func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
+func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
 	t, err := s.getIssuerTranslator(s.ctx, idp.Issuer, cfg, secrets)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
@@ -2692,7 +2692,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProv
 	return nil, http.StatusBadRequest, fmt.Errorf("fetching identity: the IdP is not configured to fetch passports and the IdP did not provide an ID token")
 }
 
-func (s *Service) idpProvidesPassports(idp *pb.IdentityProvider) bool {
+func (s *Service) idpProvidesPassports(idp *cpb.IdentityProvider) bool {
 	if len(idp.TranslateUsing) > 0 {
 		return true
 	}
@@ -2704,7 +2704,7 @@ func (s *Service) idpProvidesPassports(idp *pb.IdentityProvider) bool {
 	return false
 }
 
-func (s *Service) accountLinkToClaims(ctx context.Context, acct *pb.Account, subject string, cfg *pb.IcConfig, secrets *pb.IcSecrets) (map[string][]ga4gh.OldClaim, error) {
+func (s *Service) accountLinkToClaims(ctx context.Context, acct *cpb.Account, subject string, cfg *pb.IcConfig, secrets *pb.IcSecrets) (map[string][]ga4gh.OldClaim, error) {
 	id := &ga4gh.Identity{
 		GA4GH: make(map[string][]ga4gh.OldClaim),
 	}
@@ -2726,7 +2726,7 @@ func linkedIdentityValue(sub, iss string) string {
 	return fmt.Sprintf("%s,%s", sub, iss)
 }
 
-func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAccount, privateKey *rsa.PrivateKey, cfg *pb.IcConfig) error {
+func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAccount, privateKey *rsa.PrivateKey, cfg *pb.IcConfig) error {
 	if len(id.Subject) == 0 {
 		return nil
 	}
@@ -2786,7 +2786,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAcco
 	return nil
 }
 
-func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.Duration, cfg *pb.IcConfig, secrets *pb.IcSecrets) error {
+func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, link *cpb.ConnectedAccount, ttl time.Duration, cfg *pb.IcConfig, secrets *pb.IcSecrets) error {
 	passport := link.Passport
 	if passport == nil {
 		passport = &cpb.Passport{}
@@ -3093,18 +3093,18 @@ func matchRedirect(client *cpb.Client, redirect string) bool {
 	return false
 }
 
-func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) (*pb.Account, error) {
+func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) (*cpb.Account, error) {
 	now := common.GetNowInUnixNano()
 	genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
 	accountPrefix := "ic_"
 	genlen -= len(accountPrefix)
 	subject := accountPrefix + strings.Replace(common.GenerateGUID(), "-", "", -1)[:genlen]
 
-	acct := &pb.Account{
+	acct := &cpb.Account{
 		Revision:          0,
 		Profile:           setupAccountProfile(linkID),
 		Properties:        setupAccountProperties(linkID, subject, now, now),
-		ConnectedAccounts: make([]*pb.ConnectedAccount, 0),
+		ConnectedAccounts: make([]*cpb.ConnectedAccount, 0),
 		State:             storage.StateActive,
 		Ui:                make(map[string]string),
 	}
@@ -3141,11 +3141,11 @@ func (s *Service) decryptEmbeddedTokens(ctx context.Context, tokens [][]byte) ([
 	return res, nil
 }
 
-func (s *Service) populateAccountClaims(ctx context.Context, acct *pb.Account, id *ga4gh.Identity, provider string) error {
+func (s *Service) populateAccountClaims(ctx context.Context, acct *cpb.Account, id *ga4gh.Identity, provider string) error {
 	link, _ := findLinkedAccount(acct, id.Subject)
 	now := common.GetNowInUnixNano()
 	if link == nil {
-		link = &pb.ConnectedAccount{
+		link = &cpb.ConnectedAccount{
 			Profile:      setupAccountProfile(id),
 			Properties:   setupAccountProperties(id, id.Subject, now, now),
 			Provider:     provider,
@@ -3170,8 +3170,8 @@ func (s *Service) populateAccountClaims(ctx context.Context, acct *pb.Account, i
 	return nil
 }
 
-func setupAccountProfile(id *ga4gh.Identity) *pb.AccountProfile {
-	return &pb.AccountProfile{
+func setupAccountProfile(id *ga4gh.Identity) *cpb.AccountProfile {
+	return &cpb.AccountProfile{
 		Username:   id.Username,
 		Name:       id.Name,
 		GivenName:  id.GivenName,
@@ -3184,8 +3184,8 @@ func setupAccountProfile(id *ga4gh.Identity) *pb.AccountProfile {
 	}
 }
 
-func setupAccountProperties(id *ga4gh.Identity, subject string, created, modified float64) *pb.AccountProperties {
-	return &pb.AccountProperties{
+func setupAccountProperties(id *ga4gh.Identity, subject string, created, modified float64) *cpb.AccountProperties {
+	return &cpb.AccountProperties{
 		Subject:       subject,
 		Email:         id.Email,
 		EmailVerified: id.EmailVerified,
@@ -3222,7 +3222,7 @@ func claimsAreEqual(a, b map[string][]ga4gh.OldClaim) bool {
 	return true
 }
 
-func findLinkedAccount(acct *pb.Account, subject string) (*pb.ConnectedAccount, int) {
+func findLinkedAccount(acct *cpb.Account, subject string) (*cpb.ConnectedAccount, int) {
 	if acct.ConnectedAccounts == nil {
 		return nil, -1
 	}
@@ -3266,7 +3266,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 		}
 		return t, nil
 	}
-	var cfgIdp *pb.IdentityProvider
+	var cfgIdp *cpb.IdentityProvider
 	for _, idp := range cfg.IdentityProviders {
 		if idp.Issuer == issuer {
 			cfgIdp = idp
@@ -3284,7 +3284,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 	return t, err
 }
 
-func (s *Service) createIssuerTranslator(ctx context.Context, cfgIdp *pb.IdentityProvider, secrets *pb.IcSecrets) (translator.Translator, error) {
+func (s *Service) createIssuerTranslator(ctx context.Context, cfgIdp *cpb.IdentityProvider, secrets *pb.IcSecrets) (translator.Translator, error) {
 	iss := cfgIdp.Issuer
 	publicKey := ""
 	k, ok := secrets.TokenKeys[iss]
@@ -3422,26 +3422,26 @@ func receiveConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 	return out
 }
 
-func makeIdentityProvider(idp *pb.IdentityProvider) *pb.IdentityProvider {
-	return &pb.IdentityProvider{
+func makeIdentityProvider(idp *cpb.IdentityProvider) *cpb.IdentityProvider {
+	return &cpb.IdentityProvider{
 		Issuer: idp.Issuer,
 		Ui:     idp.Ui,
 	}
 }
 
-func (s *Service) makeAccount(ctx context.Context, acct *pb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) *pb.Account {
-	out := &pb.Account{}
+func (s *Service) makeAccount(ctx context.Context, acct *cpb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) *cpb.Account {
+	out := &cpb.Account{}
 	proto.Merge(out, acct)
 	out.State = ""
-	out.ConnectedAccounts = []*pb.ConnectedAccount{}
+	out.ConnectedAccounts = []*cpb.ConnectedAccount{}
 	for _, ca := range acct.ConnectedAccounts {
 		out.ConnectedAccounts = append(out.ConnectedAccounts, s.makeConnectedAccount(ctx, ca, cfg, secrets))
 	}
 	return out
 }
 
-func (s *Service) makeConnectedAccount(ctx context.Context, ca *pb.ConnectedAccount, cfg *pb.IcConfig, secrets *pb.IcSecrets) *pb.ConnectedAccount {
-	out := &pb.ConnectedAccount{}
+func (s *Service) makeConnectedAccount(ctx context.Context, ca *cpb.ConnectedAccount, cfg *pb.IcConfig, secrets *pb.IcSecrets) *cpb.ConnectedAccount {
+	out := &cpb.ConnectedAccount{}
 	proto.Merge(out, ca)
 	if out.Passport == nil {
 		out.Passport = &cpb.Passport{}
@@ -3470,8 +3470,8 @@ func makeLoginHint(provider, subject string) string {
 	return provider + ":" + subject
 }
 
-func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*pb.Account, int, error) {
-	acct := &pb.Account{}
+func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*cpb.Account, int, error) {
+	acct := &cpb.Account{}
 	status, err := s.singleRealmReadTx(storage.AccountDatatype, realm, storage.DefaultUser, name, storage.LatestRev, acct, tx)
 	if err != nil {
 		return nil, status, err
@@ -3482,7 +3482,7 @@ func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*pb.Account, i
 	return acct, http.StatusOK, nil
 }
 
-func (s *Service) lookupAccount(fedAcct, realm string, tx storage.Tx) (*pb.Account, int, error) {
+func (s *Service) lookupAccount(fedAcct, realm string, tx storage.Tx) (*cpb.Account, int, error) {
 	lookup, err := s.accountLookup(realm, fedAcct, tx)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
@@ -3493,7 +3493,7 @@ func (s *Service) lookupAccount(fedAcct, realm string, tx storage.Tx) (*pb.Accou
 	return s.loadAccount(lookup.Subject, realm, tx)
 }
 
-func (s *Service) saveNewLinkedAccount(newAcct *pb.Account, id *ga4gh.Identity, desc string, r *http.Request, tx storage.Tx, lookup *pb.AccountLookup) error {
+func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity, desc string, r *http.Request, tx storage.Tx, lookup *cpb.AccountLookup) error {
 	if err := s.saveAccount(nil, newAcct, desc, r, id.Subject, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
 	}
@@ -3501,7 +3501,7 @@ func (s *Service) saveNewLinkedAccount(newAcct *pb.Account, id *ga4gh.Identity, 
 	if lookup != nil {
 		rev = lookup.Revision
 	}
-	lookup = &pb.AccountLookup{
+	lookup = &cpb.AccountLookup{
 		Subject:  newAcct.Properties.Subject,
 		Revision: rev,
 		State:    storage.StateActive,
@@ -3652,8 +3652,8 @@ func (s *Service) saveSecrets(secrets *pb.IcSecrets, desc, resType string, r *ht
 	return nil
 }
 
-func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*pb.AccountLookup, error) {
-	lookup := &pb.AccountLookup{}
+func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*cpb.AccountLookup, error) {
+	lookup := &cpb.AccountLookup{}
 	status, err := s.singleRealmReadTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, acct, storage.LatestRev, lookup, tx)
 	if err != nil && status == http.StatusNotFound {
 		return nil, nil
@@ -3661,7 +3661,7 @@ func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*pb.AccountL
 	return lookup, err
 }
 
-func (s *Service) saveAccountLookup(lookup *pb.AccountLookup, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
+func (s *Service) saveAccountLookup(lookup *cpb.AccountLookup, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
 	lookup.Revision++
 	lookup.CommitTime = common.GetNowInUnixNano()
 	if err := s.store.WriteTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, fedAcct, lookup.Revision, lookup, storage.MakeConfigHistory("link account", storage.AccountLookupDatatype, lookup.Revision, lookup.CommitTime, r, id.Subject, nil, lookup), tx); err != nil {
@@ -3671,7 +3671,7 @@ func (s *Service) saveAccountLookup(lookup *pb.AccountLookup, realm, fedAcct str
 }
 
 func (s *Service) removeAccountLookup(rev int64, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
-	lookup := &pb.AccountLookup{
+	lookup := &cpb.AccountLookup{
 		Subject:  "",
 		Revision: rev,
 		State:    "DELETED",
@@ -3682,7 +3682,7 @@ func (s *Service) removeAccountLookup(rev int64, realm, fedAcct string, r *http.
 	return nil
 }
 
-func (s *Service) saveAccount(oldAcct, newAcct *pb.Account, desc string, r *http.Request, subject string, tx storage.Tx) error {
+func (s *Service) saveAccount(oldAcct, newAcct *cpb.Account, desc string, r *http.Request, subject string, tx storage.Tx) error {
 	newAcct.Revision++
 	newAcct.Properties.Modified = common.GetNowInUnixNano()
 	if newAcct.Properties.Created == 0 {
@@ -3733,7 +3733,7 @@ func (s *Service) realmReadTx(datatype, realm, user, id string, rev int64, item 
 	return http.StatusServiceUnavailable, fmt.Errorf("service storage unavailable: %v, retry later", err)
 }
 
-func isLookupActive(lookup *pb.AccountLookup) bool {
+func isLookupActive(lookup *cpb.AccountLookup) bool {
 	return lookup != nil && lookup.State == storage.StateActive
 }
 
