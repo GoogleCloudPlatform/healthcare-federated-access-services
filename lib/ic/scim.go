@@ -35,13 +35,39 @@ import (
 var (
 	// As used by storage.BuildFilters(), this maps the SCIM data model
 	// filter path names to a slice path of where the field exists in
-	// the storage data model. SCIM names are expected to be lowercase.
+	// the storage data model. SCIM names are expected to be the lowercase
+	// version of the names from the SCIM spec.
 	scimUserFilterMap = map[string]func(p proto.Message) string{
+		"active": func(p proto.Message) string {
+			if acctProto(p).State == storage.StateActive {
+				return "true"
+			}
+			return "false"
+		},
+		"displayname": func(p proto.Message) string {
+			return acctProto(p).GetProfile().Name
+		},
+		"emails": func(p proto.Message) string {
+			list := []string{}
+			for _, link := range acctProto(p).ConnectedAccounts {
+				list = append(list, link.GetProperties().Email)
+			}
+			return common.JoinNonEmpty(list, " ")
+		},
+		"externalid": func(p proto.Message) string {
+			return acctProto(p).GetProperties().Subject
+		},
 		"id": func(p proto.Message) string {
 			return acctProto(p).GetProperties().Subject
 		},
+		"locale": func(p proto.Message) string {
+			return acctProto(p).GetProfile().Locale
+		},
+		"preferredlanguage": func(p proto.Message) string {
+			return acctProto(p).GetProfile().Locale
+		},
 		"name.formatted": func(p proto.Message) string {
-			return acctProto(p).GetProfile().Name
+			return formattedName(acctProto(p))
 		},
 		"name.givenname": func(p proto.Message) string {
 			return acctProto(p).GetProfile().GivenName
@@ -51,6 +77,9 @@ var (
 		},
 		"name.middlename": func(p proto.Message) string {
 			return acctProto(p).GetProfile().MiddleName
+		},
+		"timezone": func(p proto.Message) string {
+			return acctProto(p).GetProfile().ZoneInfo
 		},
 		"username": func(p proto.Message) string {
 			return acctProto(p).GetProperties().Subject
@@ -554,10 +583,6 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 			photos = append(photos, &spb.Attribute{Value: pic})
 		}
 	}
-	formatted := acct.Profile.FormattedName
-	if len(formatted) == 0 {
-		formatted = common.JoinNonEmpty([]string{acct.Profile.GivenName, acct.Profile.MiddleName, acct.Profile.FamilyName}, " ")
-	}
 
 	return &spb.User{
 		Schemas:    []string{"urn:ietf:params:scim:schemas:core:2.0:User"},
@@ -571,20 +596,33 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 			Version:      strconv.FormatInt(acct.Revision, 10),
 		},
 		Name: &spb.Name{
-			Formatted:  formatted,
+			Formatted:  formattedName(acct),
 			FamilyName: acct.Profile.FamilyName,
 			GivenName:  acct.Profile.GivenName,
 			MiddleName: acct.Profile.MiddleName,
 		},
-		DisplayName: acct.Profile.Name,
-		ProfileUrl:  acct.Profile.Profile,
-		Locale:      acct.Profile.Locale,
-		Timezone:    acct.Profile.ZoneInfo,
-		UserName:    acct.Properties.Subject,
-		Emails:      emails,
-		Photos:      photos,
-		Active:      acct.State == storage.StateActive,
+		DisplayName:       acct.Profile.Name,
+		ProfileUrl:        acct.Profile.Profile,
+		PreferredLanguage: acct.Profile.Locale,
+		Locale:            acct.Profile.Locale,
+		Timezone:          acct.Profile.ZoneInfo,
+		UserName:          acct.Properties.Subject,
+		Emails:            emails,
+		Photos:            photos,
+		Active:            acct.State == storage.StateActive,
 	}
+}
+
+func formattedName(acct *pb.Account) string {
+	profile := acct.GetProfile()
+	name := profile.FormattedName
+	if len(name) == 0 {
+		name = common.JoinNonEmpty([]string{profile.GivenName, profile.MiddleName, profile.FamilyName}, " ")
+	}
+	if len(name) == 0 {
+		name = profile.Name
+	}
+	return name
 }
 
 func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p proto.Message) string, acct *pb.Account) (*pb.ConnectedAccount, error) {

@@ -7,7 +7,7 @@
     "middleName": "at",
     "familyName": "Somewhere",
     "profile": "https://example.org/users/someone",
-    "locale": "en-us",
+    "locale": "en-US",
     "zoneInfo": "America/New_York"
   },
   "properties": {
