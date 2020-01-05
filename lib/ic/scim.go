@@ -101,7 +101,7 @@ var (
 		},
 	}
 
-	emailPathRE = regexp.MustCompile(`^emails\[(.*)\]\.primary$`)
+	emailPathRE = regexp.MustCompile(`^emails\[(.*)\](\.primary)?$`)
 	photoPathRE = regexp.MustCompile(`^photos.*\.value$`)
 )
 
@@ -353,15 +353,37 @@ func (h *scimUser) Patch(name string) error {
 		case "timezone":
 			dst = &h.save.Profile.ZoneInfo
 			if len(src) > 0 && !common.IsTimeZone(src) {
-				return fmt.Errorf("operation %d: %q is not a recognized time zone", i, path)
+				return fmt.Errorf("operation %d: %q is not a recognized time zone", i, src)
 			}
 
 		case "email":
-			link, err := selectLink(patch.Path, emailPathRE, scimEmailFilterMap, h.save)
+			link, match, err := selectLink(patch.Path, emailPathRE, scimEmailFilterMap, h.save)
 			if err != nil {
 				return err
 			}
-			if link != nil {
+			dst = nil // operation can be skipped by logic after this switch block (i.e. no destination to write)
+			if link == nil {
+				break
+			}
+			if len(match[2]) == 0 {
+				// When match[2] is empty, the operation applies to the entire email object.
+				if patch.Op != "remove" {
+					return fmt.Errorf("operation %d: path %q only supported for remove", i, path)
+				}
+				if len(h.save.ConnectedAccounts) < 2 {
+					return fmt.Errorf("operation %d: cannot unlink the only email address for a given account", i)
+				}
+				// Unlink account
+				for idx, connect := range h.save.ConnectedAccounts {
+					if connect.Properties.Subject == link.Properties.Subject {
+						h.save.ConnectedAccounts = append(h.save.ConnectedAccounts[:idx], h.save.ConnectedAccounts[idx+1:]...)
+						if err := h.s.removeAccountLookup(link.LinkRevision, getRealm(h.r), link.Properties.Subject, h.r, h.id, h.tx); err != nil {
+							return fmt.Errorf("service dependencies not available; try again later")
+						}
+						break
+					}
+				}
+			} else {
 				// This logic is valid for all patch.Op operations.
 				primary := strings.ToLower(patch.Value) == "true" && patch.Op != "remove"
 				if primary {
@@ -372,7 +394,6 @@ func (h *scimUser) Patch(name string) error {
 				}
 				link.Primary = primary
 			}
-			dst = nil // operation can be skipped by logic below (i.e. no destination to write)
 
 		case "photo":
 			dst = &h.save.Profile.Picture
@@ -625,21 +646,21 @@ func formattedName(acct *cpb.Account) string {
 	return name
 }
 
-func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p proto.Message) string, acct *cpb.Account) (*cpb.ConnectedAccount, error) {
+func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p proto.Message) string, acct *cpb.Account) (*cpb.ConnectedAccount, []string, error) {
 	match := re.FindStringSubmatch(selector)
 	if match == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	filter, err := storage.BuildFilters(match[1], filterMap)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, link := range acct.ConnectedAccounts {
 		if storage.MatchProtoFilters(filter, link) {
-			return link, nil
+			return link, match, nil
 		}
 	}
-	return nil, nil
+	return nil, match, nil
 }
 
 func emailRef(link *cpb.ConnectedAccount) string {
