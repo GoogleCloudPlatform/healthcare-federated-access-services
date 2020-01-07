@@ -247,7 +247,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users",
 			Persona: "admin",
 			Params:  `filter=active%20eq%20"false"`,
-			Output:  `{"startIndex":1,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
+			Output:  `^\{("Resources":\[\],)?"startIndex":1,"schemas":\["urn:ietf:params:scim:api:messages:2.0:ListResponse"\]}`,
 			Status:  http.StatusOK,
 		},
 		{
