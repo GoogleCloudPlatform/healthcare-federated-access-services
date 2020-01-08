@@ -109,6 +109,12 @@ const (
 	scimUserPath  = scimPrefix + "Users/{name}"
 	scimMePath    = scimPrefix + "Me"
 
+	tokensPath = "/tokens"
+	tokenPath  = "/tokens/"
+
+	consentsPath = "/consents"
+	consentPath  = "/consents/"
+
 	adminPathPrefix        = methodPrefix + "admin"
 	adminClaimsPath        = adminPathPrefix + "/subjects/{name}/account/claims"
 	adminTokenMetadataPath = adminPathPrefix + "/tokens"
@@ -540,13 +546,13 @@ func (s *Service) buildHandlerMux() *mux.Router {
 	r.HandleFunc(hydraTestPage, s.HydraTestPage).Methods(http.MethodGet)
 
 	tokens := &stubTokens{token: fakeToken}
-	r.HandleFunc("/tokens", NewTokensHandler(tokens).ListTokens).Methods(http.MethodGet)
-	r.HandleFunc("/tokens/", NewTokensHandler(tokens).GetToken).Methods(http.MethodGet)
-	r.HandleFunc("/tokens/", NewTokensHandler(tokens).DeleteToken).Methods(http.MethodDelete)
+	r.HandleFunc(tokensPath, NewTokensHandler(tokens).ListTokens).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, NewTokensHandler(tokens).GetToken).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, NewTokensHandler(tokens).DeleteToken).Methods(http.MethodDelete)
 
 	consents := &stubConsents{consent: fakeConsent}
-	r.HandleFunc("/consents", NewConsentsHandler(consents).ListConsents).Methods(http.MethodGet)
-	r.HandleFunc("/consents/", NewConsentsHandler(consents).DeleteConsent).Methods(http.MethodDelete)
+	r.HandleFunc(consentsPath, NewConsentsHandler(consents).ListConsents).Methods(http.MethodGet)
+	r.HandleFunc(consentPath, NewConsentsHandler(consents).DeleteConsent).Methods(http.MethodDelete)
 
 	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(storage.ProjectRoot, staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)

@@ -58,10 +58,10 @@ var paths = map[string]credtest.Requirement{
 	hydraLoginPath:               {ClientID: false, ClientSecret: false},
 	hydraConsentPath:             {ClientID: false, ClientSecret: false},
 	hydraTestPage:                {ClientID: false, ClientSecret: false},
-	"/tokens":                    {ClientID: true, ClientSecret: true},
-	"/tokens/":                   {ClientID: true, ClientSecret: true},
-	"/consents":                  {ClientID: true, ClientSecret: true},
-	"/consents/":                 {ClientID: true, ClientSecret: true},
+	tokensPath:                   {ClientID: true, ClientSecret: true},
+	tokenPath:                    {ClientID: true, ClientSecret: true},
+	consentsPath:                 {ClientID: true, ClientSecret: true},
+	consentPath:                  {ClientID: true, ClientSecret: true},
 	staticFilePath:               {ClientID: false, ClientSecret: false},
 }
 
