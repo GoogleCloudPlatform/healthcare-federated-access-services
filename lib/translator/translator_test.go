@@ -71,3 +71,27 @@ func testTranslator(t *testing.T, tests []testCase) {
 		}
 	}
 }
+
+func Test_mergeIdentityWithUserinfo(t *testing.T) {
+	id := &ga4gh.Identity{
+		Subject: "s",
+		Expiry:  1,
+	}
+
+	userinfo := &ga4gh.Identity{
+		Expiry:   2,
+		VisaJWTs: []string{"aaa"},
+	}
+
+	want := &ga4gh.Identity{
+		Subject:  "s",
+		Expiry:   1,
+		VisaJWTs: []string{"aaa"},
+	}
+
+	mergeIdentityWithUserinfo(id, userinfo)
+
+	if diff := cmp.Diff(want, id); len(diff) != 0 {
+		t.Errorf("mergeIdentityWithUserinfo() (-want,+got): %s", diff)
+	}
+}

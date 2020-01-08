@@ -48,12 +48,12 @@ func TestHasUserinfoClaims(t *testing.T) {
 		},
 		{
 			name: "ga4gh_passport_v1 claim in scp",
-			id:   &ga4gh.Identity{Scp: []string{"ga4gh"}},
+			id:   &ga4gh.Identity{Scp: []string{"ga4gh_passport_v1"}},
 			want: true,
 		},
 		{
 			name: "ga4gh_passport_v1 claim in scope",
-			id:   &ga4gh.Identity{Scope: "ga4gh"},
+			id:   &ga4gh.Identity{Scope: "ga4gh_passport_v1"},
 			want: true,
 		},
 	}

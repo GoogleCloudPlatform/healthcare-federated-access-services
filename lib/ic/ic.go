@@ -2681,7 +2681,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityPro
 		if !common.HasUserinfoClaims(tid) {
 			return tid, http.StatusOK, nil
 		}
-		id, err := translator.FetchUserinfoClaims(s.ctx, acTok, idp.Issuer, tid.Subject, t)
+		id, err := translator.FetchUserinfoClaims(s.ctx, tid, acTok, t)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
 		}
@@ -2913,6 +2913,9 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 			claims.Locale = identity.Locale
 			claims.Email = identity.Email
 			claims.Picture = identity.Picture
+		}
+		if hasScopes("ga4gh_passport_v1", scope, matchFullScope) {
+			claims.VisaJWTs = identity.VisaJWTs
 		}
 	}
 
