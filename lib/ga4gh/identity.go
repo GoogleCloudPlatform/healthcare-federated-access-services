@@ -46,6 +46,7 @@ type Identity struct {
 	NotBefore        int64                 `json:"nbf,omitempty"`
 	Expiry           int64                 `json:"exp,omitempty"`
 	Scope            string                `json:"scope,omitempty"`
+	Scp              []string              `json:"scp,omitempty"`
 	Audiences        Audiences             `json:"aud,omitempty"`
 	AuthorizedParty  string                `json:"azp,omitempty"`
 	ID               string                `json:"jti,omitempty"`
