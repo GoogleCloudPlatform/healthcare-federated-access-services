@@ -125,6 +125,28 @@
       .available.reveal > .revealed {
         display: inline;
       }
+      .error-info {
+        margin: 10px 10px;
+        padding: 5px 5px;
+        border: 1px solid red;
+        background: lightpink;
+        color: red;
+      }
+      .error {
+        margin: 5px 10px;
+        padding: 5px 5px;
+        border-bottom: 1px solid red;
+        font-weight: bold;
+      }
+      .error-desc, .error-hint {
+        padding: 5px 5px;
+      }
+      .error-hint {
+        color: black;
+      }
+      .hidden {
+        display: none;
+      }
     </style>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script>
@@ -140,16 +162,18 @@
       var checkoutURL = "_DAM_URL_/dam/checkout?client_id="+clientId+"&client_secret="+clientSecret;
 
       function validateState(stateID) {
+        if (!stateID) {
+          return false
+        }
         var state = window.localStorage.getItem('state');
         if (!state) {
-          $("#log").text(`request with invalid 'state' ${stateID}, no 'state' in database`)
-          window.alert(`app maybe under attack.`);
+          displayError(`request with invalid 'state' ${stateID}, no 'state' in database`,
+                       `app maybe under attack.`);
           return false;
         }
         var s = JSON.parse(state)
         if (s.id !== stateID) {
-          $("#log").text(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`)
-          window.alert(`app maybe under attack.`);
+          displayError(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`, `app maybe under attack.`);
           return false;
         }
 
@@ -162,9 +186,8 @@
         var params = new URLSearchParams(window.location.search);
         var code = params.get('code');
         if (code) {
-          $("#auth_code").val(code);
-          var state = params.get('state');
-          validateState(state)
+          $("#auth_code").text(code);
+          $("#auth_code_div").addClass("available");
         }
         var damUrl = $("#dam_url").val();
         if (damUrl.includes("//localhost:")) {
@@ -173,6 +196,14 @@
           $("#dam_url").val(damUrl);
         }
         populateResources();
+        var error = params.get('error');
+        if (error) {
+          displayError(error, params.get("error_description"), params.get("error_hint"))
+        }
+        if (validateState(params.get('state'))) {
+          code && tokenExchange();
+          window.history.replaceState({}, document.title, makeURL("_PATH_"));
+        }
         resourceListChanged();
       }
 
@@ -235,7 +266,7 @@
       function auth() {
         var resources = $("#resources").val().trim();
         if (!resources) {
-          $("#log").text("must include resources first...");
+          displayError("must include resources first...");
           return;
         }
         var stateID = randomString(16);
@@ -248,9 +279,9 @@
         window.location.href = url;
       }
       function tokenExchange() {
-        var authCode = $("#auth_code").val();
+        var authCode = $("#auth_code").text();
         if (!authCode) {
-          $("#log").text("must login first...");
+          displayError("must authorize resources first...");
           return;
         }
         var url = makeURL(tokenURL);
@@ -260,16 +291,18 @@
           data: makeURL(tokenQuery, authCode),
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
-            $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#token").val(resp.access_token);
+            clearError();
+            $("#token").text(resp.access_token);
+            $("#access_token_div").addClass("available");
+            $("#cart-btn").removeClass("white").addClass("blue");
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("token exchanged failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
       function cartTokens() {
-        var token = $("#token").val();
+        var token = $("#token").text();
         if (!token) {
           $("#log").text("must authorize resources first...");
           return;
@@ -281,11 +314,12 @@
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + token);},
           success: function(resp) {
             cart = resp;
+            clearError();
             $("#log").text("Cart Tokens: " + JSON.stringify(resp, undefined, 2));
             populateCartTable(resp);
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("cart token request failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
@@ -338,10 +372,17 @@
         $("#log").text(JSON.stringify(result, undefined, 2));
       }
       function displaySuccess(str) {
+        clearError();
         $("#log").text(str);
       }
-      function displayError(str) {
-        $("#log").text(str);
+      function clearError() {
+        $('#error_info').addClass("hidden");
+      }
+      function displayError(error, desc, hint) {
+        $('#error').text(error);
+        $('#error_desc').text(desc || "");
+        $('#error_hint').text(hint || "");
+        $('#error_info').removeClass("hidden");
       }
       function resourceChanged() {
         var val = $('#resource_name').val();
@@ -375,6 +416,7 @@
         resources = resources ? resources + "\n" + resURL : resURL;
         $("#resources").val(resources);
         $("#auth-btn").removeClass("white").addClass("blue");
+        clearError();
       }
       function jwt(id) {
         var token = $("#"+id).val();
@@ -433,10 +475,10 @@
           url: url,
           type: "GET",
           success: function(resp) {
-            $("#log").text(JSON.stringify(resp, undefined, 2));
+            displaySuccess(JSON.stringify(resp, undefined, 2));
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("browse request failed", "", JSON.stringify(err, undefined, 2));
           }
         });
 
@@ -448,7 +490,12 @@
     </script>
   </head>
   <body onload="init()">
-    <h1>New Token Flow Test</h1>
+    <h1>Hydra Token Flow DAM Test</h1>
+    <div id="error_info" class="error-info hidden">
+      <div id="error" class="error"></div>
+      <div id="error_desc" class="error-desc"></div>
+      <div id="error_hint" class="error-hint"></div>
+    </div>
     <div class="box">
       <h3>1. Select Resource on DAM</h3>
       <label for="hydra_url">Hydra URL: </label>
@@ -484,7 +531,6 @@
       </div>
       <table id="cart_table" class="cart-table"></table>
       <div>
-        <a class="btn white" onclick="tokenExchange()">Token Exchange</a>
         <a id="cart-btn" class="btn white" onclick="cartTokens()">Cart Tokens</a>
       </div>
     </div>
