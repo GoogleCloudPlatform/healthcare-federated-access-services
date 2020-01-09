@@ -133,9 +133,11 @@
       var scope = "openid offline";
       var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_&max_age=_MAX_AGE_&resource=_RESOURCES_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
+      var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
       var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
       var resourceURL = "_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
       var resources = {};
+      var checkoutURL = "_DAM_URL_/dam/checkout?client_id="+clientId+"&client_secret="+clientSecret;
 
       function validateState(stateID) {
         var state = window.localStorage.getItem('state');
@@ -226,6 +228,7 @@
                       .replace(/_HYDRA_URL_/g, encodeURI($("#hydra_url").val()))
                       .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
                       .replace(/_STATE_/g, state)
+                      .replace(/_NONCE_/g, state)
                       .replace(/_RESOURCES_/g, resEncoded)
                       .replace(/_RESOURCE_/g, encodeURIComponent($("#resource_name").val()))
       }
@@ -250,14 +253,15 @@
           $("#log").text("must login first...");
           return;
         }
-        var url = makeURL(tokenURL, authCode);
+        var url = makeURL(tokenURL);
         $.ajax({
           url: url,
           type: "POST",
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + authCode);},
+          data: makeURL(tokenQuery, authCode),
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
             $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#token").val(resp.token);
+            $("#token").val(resp.access_token);
           },
           error: function(err) {
             $("#log").text(JSON.stringify(err, undefined, 2));
@@ -265,12 +269,12 @@
         });
       }
       function cartTokens() {
-        var token = $("#token").text();
+        var token = $("#token").val();
         if (!token) {
           $("#log").text("must authorize resources first...");
           return;
         }
-        var url = makeURL(checkoutURL, token);
+        var url = makeURL(checkoutURL);
         $.ajax({
           url: url,
           type: "POST",
@@ -480,6 +484,7 @@
       </div>
       <table id="cart_table" class="cart-table"></table>
       <div>
+        <a class="btn white" onclick="tokenExchange()">Token Exchange</a>
         <a id="cart-btn" class="btn white" onclick="cartTokens()">Cart Tokens</a>
       </div>
     </div>
