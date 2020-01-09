@@ -1273,18 +1273,8 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", stateIDInHydra)
 	}
 
-	code := &pb.AuthCode{}
-	err = s.store.Read(storage.AuthCodeDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, code)
-	if err != nil {
-		t.Fatalf("read AuthTokenState failed: %v", err)
-	}
-
-	if len(code.State) == 0 {
-		t.Errorf("len(code.State) want >0 got 0")
-	}
-
 	state := &pb.ResourceTokenRequestState{}
-	err = s.store.Read(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, code.State, storage.LatestRev, state)
+	err = s.store.Read(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state)
 	if err != nil {
 		t.Fatalf("read ResourceTokenRequestStateDataType failed: %v", err)
 	}

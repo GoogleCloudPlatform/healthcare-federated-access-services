@@ -551,7 +551,7 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 	return &loggedInHandlerOut{
 		redirect:  state.Redirect,
 		authCode:  respAuthCode,
-		stateID:   state.State,
+		stateID:   in.stateID,
 		subject:   id.Subject,
 		challenge: state.Challenge,
 	}, http.StatusOK, nil
@@ -679,7 +679,7 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.useHydra {
-		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, out.challenge, out.subject, out.authCode)
+		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, out.challenge, out.subject, out.stateID)
 		return
 	}
 
