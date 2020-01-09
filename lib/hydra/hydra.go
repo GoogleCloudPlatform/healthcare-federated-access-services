@@ -117,7 +117,7 @@ func DeleteClient(client *http.Client, hydraAdminURL, id string) error {
 
 // Introspect token, validate the given token and return token claims.
 func Introspect(client *http.Client, hydraAdminURL, token string) (*hydraapi.Introspection, error) {
-	u := hydraAdminURL + "/oauth2/introspection"
+	u := hydraAdminURL + "/oauth2/introspect"
 
 	data := url.Values{}
 	data.Set("token", url.QueryEscape(token))

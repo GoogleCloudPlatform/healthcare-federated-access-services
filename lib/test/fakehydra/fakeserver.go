@@ -85,7 +85,7 @@ func New(r *mux.Router) *Server {
 	r.HandleFunc("/oauth2/auth/requests/consent", s.getConsentRequest).Methods(http.MethodGet)
 	r.HandleFunc("/oauth2/auth/requests/consent/accept", s.acceptConsent).Methods(http.MethodPut)
 	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsent).Methods(http.MethodPut)
-	r.HandleFunc("/oauth2/introspection", s.introspection).Methods(http.MethodPost)
+	r.HandleFunc("/oauth2/introspect", s.introspection).Methods(http.MethodPost)
 
 	// client endpoints
 	r.HandleFunc("/clients", s.listClients).Methods(http.MethodGet)
