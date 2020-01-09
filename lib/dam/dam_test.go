@@ -55,7 +55,6 @@ const (
 	hydraAdminURL    = "https://admin.hydra.example.com"
 	hydraURL         = "https://example.com/oidc"
 	testBroker       = "testBroker"
-	notUseHydra      = false
 	useHydra         = true
 	loginChallenge   = "lc-1234"
 	loginStateID     = "ls-1234"
@@ -87,7 +86,7 @@ func TestHandlers(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, wh, notUseHydra)
+	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, wh, useHydra)
 	tests := []test.HandlerTest{
 		{
 			Method: "GET",
@@ -884,7 +883,7 @@ func TestMinConfig(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, nil, notUseHydra)
+	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, nil, useHydra)
 	tests := []test.HandlerTest{
 		{
 			Name:    "restricted access of 'dr_joe_elixir' (which only exists in min config subdirectory)",
@@ -932,7 +931,7 @@ func TestCheckAuthorization(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, nil, notUseHydra)
+	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, store, nil, useHydra)
 
 	realm := "master"
 	cfg, err := s.loadConfig(nil, realm)

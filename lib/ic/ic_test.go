@@ -59,7 +59,6 @@ const (
 	oidcIssuer       = "https://" + domain + "/oidc"
 	testClientID     = "00000000-0000-0000-0000-000000000000"
 	testClientSecret = "00000000-0000-0000-0000-000000000001"
-	notUseHydra      = false
 	useHydra         = true
 	loginChallenge   = "lc-1234"
 	consentChallenge = "cc-1234"
@@ -92,7 +91,7 @@ func TestHandlers(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt, notUseHydra)
+	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt, useHydra)
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -621,7 +620,7 @@ func TestAdminHandlers(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 
-	s := NewService(ctx, domain, domain, hydraAdminURL, store, fakeencryption.New(), notUseHydra)
+	s := NewService(ctx, domain, domain, hydraAdminURL, store, fakeencryption.New(), useHydra)
 	tests := []test.HandlerTest{
 		{
 			Name:    "List all tokens of all users as a non-admin",
@@ -690,7 +689,7 @@ func TestAddLinkedIdentities(t *testing.T) {
 	}
 
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, hydraAdminURL, store, fakeencryption.New(), notUseHydra)
+	s := NewService(context.Background(), domain, domain, hydraAdminURL, store, fakeencryption.New(), useHydra)
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)

@@ -28,12 +28,12 @@ import (
 
 const (
 	hydraAdminURL = "https://admin.hydra.example.com"
-	notUseHydra   = false
+	useHydra      = true
 )
 
 func TestCheckIntegrity(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	s := dam.NewService(context.Background(), "test.org", "no-broker", hydraAdminURL, store, nil, notUseHydra)
+	s := dam.NewService(context.Background(), "test.org", "no-broker", hydraAdminURL, store, nil, useHydra)
 	cfg := &pb.DamConfig{}
 	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		t.Fatalf("error reading config: %v", err)

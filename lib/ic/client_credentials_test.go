@@ -73,7 +73,7 @@ func setup(t *testing.T) *Service {
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt, notUseHydra)
+	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt, useHydra)
 	return s
 }
 

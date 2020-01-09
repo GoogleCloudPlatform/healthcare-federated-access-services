@@ -80,7 +80,7 @@ func setup(t *testing.T) *Service {
 		t.Fatalf("fakeoidcissuer.New() failed: %v", err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "example.com", "no-broker", hydraAdminURL, store, wh, notUseHydra)
+	s := NewService(ctx, "example.com", "no-broker", hydraAdminURL, store, wh, useHydra)
 	return s
 }
 
