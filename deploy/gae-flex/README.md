@@ -33,7 +33,7 @@ gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:se
 
 ## Create user and database in CloudSQL
 
-Currently, it is using username: hydra, password: hydra, database name: GAE service name (eg. ic-staging).
+Currently, it is using username: hydra, password: hydra, database name: GAE service name (eg. ic, dam).
 
 ## Update the base image
 
@@ -49,10 +49,9 @@ gcloud builds submit --config cloudbuild.yaml .
 Replace `Your_Project_ID` in `deploy/gae-flex/build/Dockerfile` and yaml files under `deploy/gae-flex/build/config/`. Then
 
 ```bash
-# in the example config, ENV=demo
-gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_ENV_="${ENV?}" .
-gcloud -q app deploy deploy/gae-flex/config/dam-${ENV?}.yaml --image-url=gcr.io/${Your_Project_ID?}/hcls-fa-gae:${ENV?}
-gcloud -q app deploy deploy/gae-flex/config/ic-${ENV?}.yaml --image-url=gcr.io/${Your_Project_ID?}/hcls-fa-gae:${ENV?}
+gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_VERSION_="latest" .
+gcloud -q app deploy deploy/gae-flex/config/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
+gcloud -q app deploy deploy/gae-flex/config/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
 ```
 
 ## Appendix:

@@ -13,13 +13,13 @@
 # limitations under the License.
 
 # build gae-flex image with cloudbuild:
-# gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_ENV_="${enviroment}" .
-# _ENV_ can be: staging, prod or any dev environment.
+# gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_VERSION_="${enviroment}" .
+# _VERSION_ can be: staging, prod or any dev environment.
 
 substitutions:
-  _ENV_:
+  _VERSION_:
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'build', '-f', "deploy/gae-flex/build/Dockerfile", '-t', 'gcr.io/$PROJECT_ID/hcls-fa-gae:${_ENV_}', '.' ]
+    args: [ 'build', '-f', "deploy/gae-flex/build/Dockerfile", '-t', 'gcr.io/$PROJECT_ID/hcls-fa-gae:${_VERSION_}', '.' ]
 images:
 - 'gcr.io/$PROJECT_ID/hcls-fa-gae'

@@ -23,7 +23,7 @@ RUN cd /healthcare-federated-access-services && \
     go build ./gcp/ic && \
     go build ./gcp/dam
 
-COPY deploy/gae-flex/build/entrypoint.sh /entrypoint.sh
+COPY deploy/gae-flex/build/entrypoint.bash /entrypoint.sh
 
 EXPOSE 8080
 

@@ -14,13 +14,11 @@
 
 runtime: custom
 env: flex
-service: "ic-demo"
+service: "ic"
 
 env_variables:
   # Serivice type: ic or dam
   TYPE: "ic"
-  # ENV: dev, staging, prod...
-  ENV: "demo"
   # Project id
   PROJECT: "${Your-Project-ID}"
 
