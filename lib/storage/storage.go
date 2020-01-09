@@ -33,7 +33,6 @@ const (
 
 	AccountDatatype        = "account"
 	AccountLookupDatatype  = "acct_lookup"
-	AuthCodeDatatype       = "auth_code"
 	ClientDatatype         = "client"
 	ConfigDatatype         = "config"
 	LoginStateDatatype     = "login_state"

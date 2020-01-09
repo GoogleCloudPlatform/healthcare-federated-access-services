@@ -18,13 +18,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
@@ -467,7 +468,6 @@ type loggedInHandlerIn struct {
 
 type loggedInHandlerOut struct {
 	redirect  string
-	authCode  string
 	stateID   string
 	subject   string
 	challenge string
@@ -537,20 +537,8 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 	state.Subject = id.Subject
 	s.store.WriteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, in.stateID, storage.LatestRev, state, nil, tx)
 
-	respAuthCode := uuid.New()
-	authCode := &pb.AuthCode{
-		ClientId:     state.ClientId,
-		State:        in.stateID,
-		EpochSeconds: state.EpochSeconds,
-	}
-	err = s.store.WriteTx(storage.AuthCodeDatatype, storage.DefaultRealm, storage.DefaultUser, respAuthCode, storage.LatestRev, authCode, nil, tx)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
-	}
-
 	return &loggedInHandlerOut{
 		redirect:  state.Redirect,
-		authCode:  respAuthCode,
 		stateID:   in.stateID,
 		subject:   id.Subject,
 		challenge: state.Challenge,
@@ -672,9 +660,9 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request must include state"), w)
 	}
 
-	out, status, err := s.loggedIn(s.ctx, loggedInHandlerIn{authCode: code, stateID: stateID})
+	out, st, err := s.loggedIn(s.ctx, loggedInHandlerIn{authCode: code, stateID: stateID})
 	if err != nil {
-		common.HandleError(status, err, w)
+		common.HandleError(st, err, w)
 		return
 	}
 
@@ -683,54 +671,5 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := url.Parse(out.redirect)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("url.Parse(%q) failed, %s", out.redirect, err), w)
-		return
-	}
-
-	q := u.Query()
-	q.Add("code", out.authCode)
-	q.Add("state", out.stateID)
-	u.RawQuery = q.Encode()
-
-	sendRedirect(u.String(), r, w)
-}
-
-type exchangeResourceTokenHandlerIn struct {
-	authCode string
-	clientID string
-}
-
-func (s *Service) exchangeResourceToken(ctx context.Context, in exchangeResourceTokenHandlerIn) (*pb.ResourceTokens_ResourceToken, int, error) {
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		return nil, http.StatusInternalServerError, err
-	}
-	defer tx.Finish()
-
-	authCode := &pb.AuthCode{}
-	err = s.store.ReadTx(storage.AuthCodeDatatype, storage.DefaultRealm, storage.DefaultUser, in.authCode, storage.LatestRev, authCode, tx)
-	if err != nil {
-		if storage.ErrNotFound(err) {
-			return nil, http.StatusUnauthorized, fmt.Errorf("auth code invalid or has already been exchanged")
-		}
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("reading auth code metadata from storage: %v", err)
-	}
-
-	if authCode.ClientId != in.clientID {
-		// TODO: auth_code used with invalid client, consider auto revoke and audit the client.
-		return nil, http.StatusBadRequest, fmt.Errorf("token exchange with wrong client id, wants %q, got %q", authCode.ClientId, in.clientID)
-	}
-
-	// auth code is one time usage.
-	err = s.store.DeleteTx(storage.AuthCodeDatatype, storage.DefaultRealm, storage.DefaultUser, in.authCode, storage.LatestRev, tx)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
-	}
-
-	return &pb.ResourceTokens_ResourceToken{
-		AccessToken: authCode.State,
-		ExpiresIn:   uint32(common.GetNowInUnix() - authCode.EpochSeconds),
-	}, http.StatusOK, nil
+	httputil.WriteStatus(w, status.New(codes.Unimplemented, "oidc service not supported"))
 }

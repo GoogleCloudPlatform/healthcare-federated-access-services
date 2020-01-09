@@ -1242,32 +1242,6 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	}
 }
 
-func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, state, nonce, loginHint string, cfg *pb.IcConfig, tx storage.Tx, r *http.Request, w http.ResponseWriter) {
-	auth, err := s.createAuthToken(subject, scope, provider, realm, nonce, time.Now(), cfg, tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	if len(redirect) == 0 {
-		common.SendResponse(&cpb.OidcTokenResponse{
-			AccessToken: auth,
-			TokenType:   "code",
-		}, w)
-		return
-	}
-	url, err := url.Parse(redirect)
-	if err != nil {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("invalid redirect URL format: %v", err), w)
-		return
-	}
-	q := url.Query()
-	q.Set("code", auth)
-	q.Set("login_hint", loginHint)
-	q.Set("state", state)
-	url.RawQuery = q.Encode()
-	common.SendRedirect(url.String(), r, w)
-}
-
 func extractClientName(cfg *pb.IcConfig, clientID string) string {
 	clientName := "the application"
 	for name, cli := range cfg.Clients {
@@ -1368,9 +1342,9 @@ func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Reques
 
 	if s.useHydra {
 		s.hydraAcceptConsent(w, r, state, cfg, tx)
-	} else {
-		s.sendAuthTokenToRedirect(state.Redirect, state.Subject, state.Scope, state.Provider, state.Realm, state.State, state.Nonce, state.LoginHint, cfg, tx, r, w)
 	}
+
+	httputil.WriteStatus(w, status.New(codes.Unimplemented, "oidc service not supported"))
 }
 
 func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
@@ -2533,33 +2507,6 @@ func getAuthCode(r *http.Request) (string, int, error) {
 	return tok, http.StatusOK, nil
 }
 
-func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(code)
-	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
-	}
-	if err := id.Valid(); err != nil {
-		return nil, http.StatusUnauthorized, err
-	}
-	realm := getRealm(r)
-	var tokenMetadata pb.TokenMetadata
-	if err := s.store.ReadTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, id.ID, storage.LatestRev, &tokenMetadata, tx); err != nil {
-		if storage.ErrNotFound(err) {
-			return nil, http.StatusUnauthorized, fmt.Errorf("auth code invalid or has already been exchanged")
-		}
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("reading auth code metadata from storage: %v", err)
-	}
-	if err := s.store.DeleteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, id.ID, storage.LatestRev, tx); err != nil {
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("removing auth code metadata from storage: %v", err)
-	}
-
-	id.Subject = tokenMetadata.Subject
-	id.Scope = tokenMetadata.Scope
-	id.IdentityProvider = tokenMetadata.IdentityProvider
-	id.Nonce = tokenMetadata.Nonce
-	return s.getTokenAccountIdentity(s.ctx, id, realm, cfg, secrets, tx)
-}
-
 func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
@@ -2936,34 +2883,6 @@ func (auth *authToken) Valid() error {
 		return fmt.Errorf("token is expired")
 	}
 	return nil
-}
-
-func (s *Service) createAuthToken(subject, scope, provider, realm, nonce string, now time.Time, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
-	ttl := getDurationOption(cfg.Options.AuthCodeTokenTtl, descAuthCodeTokenTTL)
-	token := &authToken{
-		ID:     common.GenerateGUID(),
-		Expiry: now.Add(ttl).Unix(),
-	}
-	tokenMetadata := &pb.TokenMetadata{
-		TokenType:        "code",
-		IssuedAt:         now.Unix(),
-		Scope:            scope,
-		IdentityProvider: provider,
-		Subject:          subject,
-		Nonce:            nonce,
-	}
-	err := s.store.WriteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, tokenMetadata, nil, tx)
-	if err != nil {
-		return "", fmt.Errorf("writing refresh token metadata to storage: %v", err)
-	}
-	priv, err := s.getIssuerPrivateKey(s.getIssuerString(), tx)
-	if err != nil {
-		return "", err
-	}
-	jot := jwt.NewWithClaims(jwt.SigningMethodRS256, token)
-	// TODO: should set key id properly and sync with JWKS.
-	jot.Header[keyID] = keyID
-	return jot.SignedString(priv)
 }
 
 func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm, nonce string, now time.Time, ttl time.Duration, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
