@@ -787,15 +787,6 @@ func (s *Service) idpAuthorize(idpName string, idp *cpb.IdentityProvider, redire
 		if st != nil {
 			return nil, "", st.Err()
 		}
-	} else {
-		state, err = extractState(r)
-		if err != nil {
-			return nil, "", err
-		}
-		nonce, err = getNonce(r)
-		if err != nil {
-			return nil, "", err
-		}
 	}
 
 	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, state, nonce, challenge, tx)
@@ -882,23 +873,6 @@ func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig
 	nonce := ""
 	redirect := ""
 	var err error
-
-	if !s.useHydra {
-		nonce, err = getNonce(r)
-		if err != nil {
-			common.HandleError(http.StatusBadRequest, err, w)
-			return
-		}
-		redirect, err = s.getAndValidateStateRedirect(r, cfg)
-		if err != nil {
-			common.HandleError(http.StatusBadRequest, err, w)
-			return
-		}
-		if clientID := getClientID(r); len(clientID) == 0 {
-			common.HandleError(http.StatusBadRequest, err, w)
-			return
-		}
-	}
 
 	idp, ok := cfg.IdentityProviders[idpName]
 	if !ok {

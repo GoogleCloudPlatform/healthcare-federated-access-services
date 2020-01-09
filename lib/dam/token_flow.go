@@ -368,23 +368,6 @@ func (s *Service) resourceAuth(ctx context.Context, in resourceAuthHandlerIn) (*
 		if rvr.realm != realm {
 			return nil, http.StatusConflict, fmt.Errorf("cannot authorize resources using different realms")
 		}
-		if !s.useHydra {
-			for name, client := range cfg.Clients {
-				if client.ClientId != in.clientID {
-					continue
-				}
-				urlAllow := false
-				for _, uri := range client.RedirectUris {
-					if uri == in.redirect {
-						urlAllow = true
-						break
-					}
-				}
-				if !urlAllow {
-					return nil, http.StatusBadRequest, fmt.Errorf("redirect url %q is not allow for client %q", in.redirect, name)
-				}
-			}
-		}
 
 		resName := rvr.resource
 		viewName := rvr.view
@@ -560,7 +543,7 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cart := auth
+	cart := ""
 	if s.useHydra {
 		cart, err = s.extractCartFromAccessToken(auth)
 		if err != nil {
