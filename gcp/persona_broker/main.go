@@ -25,24 +25,37 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
+var (
+	cfgPath  = envStrWithDefault("CONFIG_PATH", "deploy/config")
+	service  = envStrWithDefault("DAM_SERVICE_NAME", "dam")
+	oidcAddr = mustEnvStr("OIDC_URL")
+	port     = os.Getenv("PORT")
+)
+
 func main() {
-	key := &testkeys.PersonaBrokerKey
-	service := os.Getenv("DAM_SERVICE_NAME")
-	if len(service) == 0 {
-		service = "dam"
-	}
-	path := os.Getenv("CONFIG_PATH")
-	if len(path) == 0 {
-		path = "deploy/config"
-	}
-	oidcURL := os.Getenv("OIDC_URL")
-	if len(oidcURL) == 0 {
-		glog.Fatalf("OIDC_URL must be provided")
-	}
-	port := os.Getenv("PORT")
-	broker, err := persona.NewBroker(oidcURL, key, service, path)
+	broker, err := persona.NewBroker(oidcAddr, &testkeys.PersonaBrokerKey, service, cfgPath)
 	if err != nil {
-		glog.Fatalf("starting broker: %v", err)
+		glog.Exitf("persona.NewBroker() failed: %v", err)
 	}
 	broker.Serve(port)
+}
+
+// mustEnvStr reads the value of an environment string variable.
+// if it is not set, exits.
+func mustEnvStr(name string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		glog.Exitf("Environment variable %q is not set.", name)
+	}
+	return v
+}
+
+// envStrWithDefault reads the value of an environment string variable.
+// if it is not set, returns the provided default value.
+func envStrWithDefault(name string, d string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		return d
+	}
+	return v
 }

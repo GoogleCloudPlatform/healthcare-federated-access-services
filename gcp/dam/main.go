@@ -29,60 +29,63 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
-const (
-	DefaultServiceName = "dam"
+var (
+	// srvName is the name of this service.
+	srvName = envStrWithDefault("SERVICE_NAME", "dam")
+	// srvAddr is the service URL in GA4GH passports targetting this service.
+	srvAddr = mustEnvStr("DAM_URL")
+	// cfgPath is the path to the config file.
+	cfgPath = mustEnvStr("CONFIG_PATH")
+	// project is default GCP project for hosting storage and service accounts,
+	// config options can override this.
+	project = mustEnvStr("PROJECT")
+	// storageType determines we should be using in-mem storage or not.
+	storageType = mustEnvStr("STORAGE")
+	// hydraAdminAddr is the address for the Hydra.
+	hydraAdminAddr = mustEnvStr("HYDRA_ADMIN_URL")
+	// defaultBroker is the default Identity Broker.
+	defaultBroker = mustEnvStr("DEFAULT_BROKER")
+
+	useHydra = os.Getenv("USE_HYDRA") != ""
+	port     = envStrWithDefault("DAM_PORT", "8081")
 )
 
 func main() {
 	ctx := context.Background()
-	domain := os.Getenv("DAM_URL")
-	if domain == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "DAM_URL")
-	}
-	path := os.Getenv("CONFIG_PATH")
-	if path == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
-	}
-	storeName := os.Getenv("STORAGE")
-	if storeName == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
-	}
-	defaultBroker := os.Getenv("DEFAULT_BROKER")
-	if len(defaultBroker) == 0 {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "DEFAULT_BROKER")
-	}
-	serviceName := os.Getenv("SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = DefaultServiceName
-	}
+
 	var store storage.Store
-	switch storeName {
+	switch storageType {
 	case "datastore":
-		project := os.Getenv("PROJECT")
-		if project == "" {
-			glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
-		}
-		store = gcp_storage.NewDatastoreStorage(ctx, project, serviceName, path)
+		store = gcp_storage.NewDatastoreStorage(ctx, project, srvName, cfgPath)
 	case "memory":
-		store = storage.NewMemoryStorage(serviceName, path)
+		store = storage.NewMemoryStorage(srvName, cfgPath)
 	default:
-		glog.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
+		glog.Fatalf("Unknown storage type %q", storageType)
 	}
-	// ev := appengine.MustBuildEvaluator(ctx)
+
 	wh := appengine.MustBuildAccountWarehouse(ctx, store)
+	s := dam.NewService(ctx, srvAddr, defaultBroker, hydraAdminAddr, store, wh, useHydra)
 
-	hydraAdminURL := os.Getenv("HYDRA_ADMIN_URL")
-	if hydraAdminURL == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
-	}
-	// TODO will remove this flag after hydra integration complete.
-	useHydra := os.Getenv("USE_HYDRA") != ""
+	glog.Infof("Listening on port %v", port)
+	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
+}
 
-	d := dam.NewService(ctx, domain, defaultBroker, hydraAdminURL, store, wh, useHydra)
-	port := os.Getenv("DAM_PORT")
-	if len(port) == 0 {
-		port = "8080"
+// mustEnvStr reads the value of an environment string variable.
+// if it is not set, exits.
+func mustEnvStr(name string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		glog.Exitf("Environment variable %q is not set.", name)
 	}
-	glog.Infof("Using port %v", port)
-	glog.Fatal(http.ListenAndServe(":"+port, d.Handler))
+	return v
+}
+
+// envStrWithDefault reads the value of an environment string variable.
+// if it is not set, returns the provided default value.
+func envStrWithDefault(name string, d string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		return d
+	}
+	return v
 }

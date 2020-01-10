@@ -30,68 +30,72 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
-const (
-	ProductName        = "Identity Concentrator"
-	DefaultServiceName = "ic"
+var (
+	// srvName is the name of this service.
+	srvName = envStrWithDefault("SERVICE_NAME", "ic")
+	// srvAddr determines the URL for "issuer" field of objects issued by this and
+	// the address identity providers use to redirect back to IC.
+	srvAddr = mustEnvStr("SERVICE_DOMAIN")
+	// accDomain is the postfix for accounts created by IC.
+	acctDomain = mustEnvStr("ACCOUNT_DOMAIN")
+	// cfgPath is the path to the config file.
+	cfgPath = mustEnvStr("CONFIG_PATH")
+	// project is default GCP project for hosting storage,
+	// config options can override this.
+	project = mustEnvStr("PROJECT")
+	// storageType determines we should be using in-mem storage or not.
+	storageType = mustEnvStr("STORAGE")
+	// hydraAdminAddr is the address for the Hydra.
+	hydraAdminAddr = mustEnvStr("HYDRA_ADMIN_URL")
+
+	useHydra = os.Getenv("USE_HYDRA") != ""
+	port     = envStrWithDefault("IC_PORT", "8080")
 )
 
 func main() {
 	ctx := context.Background()
-	domain := os.Getenv("SERVICE_DOMAIN")
-	if domain == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "SERVICE_DOMAIN")
-	}
-	acctDomain := os.Getenv("ACCOUNT_DOMAIN")
-	if acctDomain == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "ACCOUNT_DOMAIN")
-	}
-	path := os.Getenv("CONFIG_PATH")
-	if path == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
-	}
-	project := os.Getenv("PROJECT")
-	if project == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
-	}
-	storeName := os.Getenv("STORAGE")
-	if storeName == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
-	}
-	serviceName := os.Getenv("SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = DefaultServiceName
-	}
-	hydraAdminURL := os.Getenv("HYDRA_ADMIN_URL")
-	if hydraAdminURL == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
-	}
-	// TODO will remove this flag after hydra integration complete.
-	useHydra := os.Getenv("USE_HYDRA") != ""
 
 	var store storage.Store
-	switch storeName {
+	switch storageType {
 	case "datastore":
-		store = gcp_storage.NewDatastoreStorage(ctx, project, serviceName, path)
+		store = gcp_storage.NewDatastoreStorage(ctx, project, srvName, cfgPath)
 	case "memory":
-		store = storage.NewMemoryStorage(serviceName, path)
+		store = storage.NewMemoryStorage(srvName, cfgPath)
 	default:
-		glog.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
+		glog.Exitf("Unknown storage type: %q", storageType)
 	}
 
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
-		glog.Fatalf("NewKeyManagementClient(ctx, clientOpt) failed: %v", err)
+		glog.Fatalf("kms.NewKeyManagementClient(ctx) failed: %v", err)
 	}
-	gcpkms, err := gcpcrypt.New(ctx, project, "global", serviceName+"_ring", serviceName+"_key", client)
+	gcpkms, err := gcpcrypt.New(ctx, project, "global", srvName+"_ring", srvName+"_key", client)
 	if err != nil {
-		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
+		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
 	}
 
-	s := ic.NewService(ctx, domain, acctDomain, hydraAdminURL, store, gcpkms, useHydra)
-	port := os.Getenv("IC_PORT")
-	if len(port) == 0 {
-		port = "8080"
+	s := ic.NewService(ctx, srvAddr, acctDomain, hydraAdminAddr, store, gcpkms, useHydra)
+
+	glog.Infof("Listening on port %v", port)
+	glog.Exit(http.ListenAndServe(":"+port, s.Handler))
+}
+
+// mustEnvStr reads the value of an environment string variable.
+// if it is not set, exits.
+func mustEnvStr(name string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		glog.Exitf("Environment variable %q is not set.", name)
 	}
-	glog.Infof("%s using port %v", ProductName, port)
-	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
+	return v
+}
+
+// envStrWithDefault reads the value of an environment string variable.
+// if it is not set, returns the provided default value.
+func envStrWithDefault(name string, d string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		return d
+	}
+	return v
 }
