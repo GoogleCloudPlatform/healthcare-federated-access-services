@@ -543,8 +543,8 @@ func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, reso
 			}
 			ok, err = v.Validate(ctxWithTTL, id)
 			if err != nil {
-				// TODO: strip internal error
-				return http.StatusInternalServerError, fmt.Errorf("cannot validate identity: %v", err)
+				// Strip internal error in case it contains any sensitive data.
+				return http.StatusInternalServerError, fmt.Errorf("cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer)
 			}
 			if !ok {
 				return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (policy requirements failed)", resourceName, viewName, roleName)

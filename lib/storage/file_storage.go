@@ -19,6 +19,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -40,8 +41,9 @@ var (
 )
 
 type FileStorage struct {
-	service string
-	path    string
+	service   string
+	path      string
+	pathParts []string
 
 	mu    sync.Mutex
 	cache *StorageCache
@@ -60,9 +62,10 @@ func NewFileStorage(service, path string) *FileStorage {
 	}
 	glog.Infof("file storage for service %q using path %q.", service, path)
 	f := &FileStorage{
-		service: strings.Split(service, "-")[0],
-		path:    path,
-		cache:   NewStorageCache(),
+		service:   strings.Split(service, "-")[0],
+		path:      path,
+		pathParts: strings.Split(path, "/"),
+		cache:     NewStorageCache(),
 	}
 
 	return f
@@ -212,12 +215,15 @@ func (f *FileStorage) fname(datatype, realm, user, id string, rev int64) string 
 	if rev > 0 {
 		r = fmt.Sprintf("%06d", rev)
 	}
-	// TODO: use path.Join(...)
-	return fmt.Sprintf("%s/%s_%s%s_%s_%s.json", f.path, datatype, realm, UserFragment(user), id, r)
+	name := fmt.Sprintf("%s_%s%s_%s_%s.json", datatype, realm, UserFragment(user), id, r)
+	seg := append(f.pathParts, name)
+	return path.Join(seg...)
 }
 
 func (f *FileStorage) historyName(datatype, realm, user, id string) string {
-	return fmt.Sprintf("%s/%s_%s%s_%s_%s.json", f.path, datatype, realm, UserFragment(user), id, HistoryRevName)
+	name := fmt.Sprintf("%s_%s%s_%s_%s.json", datatype, realm, UserFragment(user), id, HistoryRevName)
+	seg := append(f.pathParts, name)
+	return path.Join(seg...)
 }
 
 func checkFile(path string) error {

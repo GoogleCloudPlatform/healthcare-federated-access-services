@@ -364,7 +364,10 @@ func (wh *AccountWarehouse) getBackingAccount(ctx context.Context, id string, pa
 	name := accountName(proj, hid)
 	account, err := service.Get(name).Context(ctx).Do()
 	if err == nil {
-		// TODO: verify there are no user_id->SA_account collisions.
+		// The DisplayName is used as a managed field for auditing and collision detection.
+		if account.DisplayName != id {
+			return "", fmt.Errorf("user account unavailable for use by user %q", id)
+		}
 		if err := wh.configureRoles(ctx, account.Email, params); err != nil {
 			return "", fmt.Errorf("configuring role for existing account: %v", err)
 		}

@@ -18,8 +18,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -32,22 +34,24 @@ const (
 
 // MemoryStorage is designed as a single threading storage. Will throw exception if multiple TX request.
 type MemoryStorage struct {
-	service string
-	path    string
-	cache   *StorageCache
-	fs      *FileStorage
-	deleted map[string]bool
-	lock    chan bool
+	service   string
+	path      string
+	pathParts []string
+	cache     *StorageCache
+	fs        *FileStorage
+	deleted   map[string]bool
+	lock      chan bool
 }
 
 func NewMemoryStorage(service, path string) *MemoryStorage {
 	return &MemoryStorage{
-		service: service,
-		path:    path,
-		cache:   NewStorageCache(),
-		fs:      NewFileStorage(service, path),
-		deleted: make(map[string]bool),
-		lock:    make(chan bool, 1),
+		service:   service,
+		path:      path,
+		pathParts: strings.Split(path, "/"),
+		cache:     NewStorageCache(),
+		fs:        NewFileStorage(service, path),
+		deleted:   make(map[string]bool),
+		lock:      make(chan bool, 1),
 	}
 }
 
@@ -330,12 +334,15 @@ func (m *MemoryStorage) fname(datatype, realm, user, id string, rev int64) strin
 	if rev > 0 {
 		r = fmt.Sprintf("%06d", rev)
 	}
-	// TODO: use path.Join(...)
-	return fmt.Sprintf("%s/%s/%s_%s%s_%s_%s.json", m.path, m.service, datatype, realm, UserFragment(user), id, r)
+	name := fmt.Sprintf("%s_%s%s_%s_%s.json", datatype, realm, UserFragment(user), id, r)
+	seg := append(m.pathParts, name)
+	return path.Join(seg...)
 }
 
 func (m *MemoryStorage) historyName(datatype, realm, user, id string) string {
-	return fmt.Sprintf("%s/%s/%s_%s%s_%s_%s.json", m.path, m.service, datatype, realm, UserFragment(user), id, HistoryRevName)
+	name := fmt.Sprintf("%s_%s%s_%s_%s.json", datatype, realm, UserFragment(user), id, HistoryRevName)
+	seg := append(m.pathParts, name)
+	return path.Join(seg...)
 }
 
 type MemTx struct {
