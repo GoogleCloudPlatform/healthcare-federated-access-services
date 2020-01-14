@@ -564,7 +564,19 @@ func TestHandlers(t *testing.T) {
 		{
 			Method: "PATCH",
 			Path:   "/dam/v1alpha/test/config/serviceTemplates/new-service",
-			Input:  `{"item":{"interfaces":{"gcp:gs":"gs://${bucket}"},"ui":{"label":"foo","description":"bar"}}}`,
+			Input: `{"item":{"interfaces":{"gcp:gs":"gs://${bucket}"},"ui":{"label":"foo","description":"bar"}, "roles": {
+        "viewer": {
+          "targetRoles": ["roles/storage.objectViewer"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "File Viewer",
+            "description": "List and read files"
+          }
+        }
+			}}}`,
 			Status: http.StatusOK,
 		},
 		{

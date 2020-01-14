@@ -311,7 +311,7 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 	if _, ok = adapt.Descriptor().ItemFormats[template.ItemFormat]; !ok {
 		return common.NewInfoStatus(codes.InvalidArgument, common.StatusPath(cfgServiceTemplates, name, "itemFormat"), fmt.Sprintf("item format %q is invalid", template.ItemFormat))
 	}
-	if path, err := s.checkServiceRoles(template.ServiceRoles, name, template.TargetAdapter, template.ItemFormat, false, cfg); err != nil {
+	if path, err := s.checkServiceRoles(template.ServiceRoles, name, template.TargetAdapter, template.ItemFormat, cfg); err != nil {
 		return common.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	varNames := make(map[string]bool)
@@ -345,7 +345,7 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, s.adapters); err != nil {
 		return path, err
 	}
-	if path, err := s.checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, true, cfg); err != nil {
+	if path, err := s.checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, cfg); err != nil {
 		return common.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
 	desc := adapt.Descriptor()
@@ -370,8 +370,8 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 	return "", nil
 }
 
-func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) (string, error) {
-	if requirementCheck && len(roles) == 0 {
+func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig) (string, error) {
+	if len(roles) == 0 {
 		return "", fmt.Errorf("does not provide any roles")
 	}
 	desc := s.adapters.Descriptors[targetAdapter]
@@ -396,15 +396,15 @@ func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName
 				}
 			}
 		}
-		if requirementCheck && len(role.Policies) == 0 && !desc.Properties.IsAggregate {
+		if len(role.Policies) == 0 && !desc.Properties.IsAggregate {
 			return common.StatusPath(rname, "policies"), fmt.Errorf("must provice at least one target policy")
 		}
 	}
 	return "", nil
 }
 
-func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, targetAdapter, itemFormat string, requirementCheck bool, cfg *pb.DamConfig) (string, error) {
-	if requirementCheck && len(roles) == 0 {
+func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig) (string, error) {
+	if len(roles) == 0 {
 		return common.StatusPath(cfgServiceTemplates, templateName, "roles"), fmt.Errorf("no roles provided")
 	}
 	desc := s.adapters.Descriptors[targetAdapter]
@@ -412,7 +412,7 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateNa
 		if err := checkName(rname); err != nil {
 			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
 		}
-		if requirementCheck && len(role.DamRoleCategories) == 0 {
+		if len(role.DamRoleCategories) == 0 {
 			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories"), fmt.Errorf("role %q does not provide a DAM role category", rname)
 		}
 		for i, pt := range role.DamRoleCategories {
@@ -420,7 +420,7 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateNa
 				return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories", strconv.Itoa(i)), fmt.Errorf("role %q DAM role category %q is not defined (valid types are: %s)", rname, pt, strings.Join(roleCategorySet(s.roleCategories), ", "))
 			}
 		}
-		if requirementCheck && desc.Requirements.TargetRole && len(role.TargetRoles) == 0 {
+		if desc.Requirements.TargetRole && len(role.TargetRoles) == 0 {
 			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetRoles"), fmt.Errorf("role %q does not provide any target role assignments", rname)
 		}
 		for ri, rv := range role.TargetRoles {
@@ -428,7 +428,7 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateNa
 				return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetRoles", strconv.Itoa(ri)), fmt.Errorf("target role is empty")
 			}
 		}
-		if requirementCheck && desc.Requirements.TargetScope && len(role.TargetScopes) == 0 {
+		if desc.Requirements.TargetScope && len(role.TargetScopes) == 0 {
 			return common.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetScopes"), fmt.Errorf("role %q does not provide any target scopes assignments", rname)
 		}
 		if path, err := common.CheckUI(role.Ui, true); err != nil {
