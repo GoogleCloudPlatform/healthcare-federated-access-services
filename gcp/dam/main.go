@@ -26,28 +26,29 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/internal/appengine" /* copybara-comment: appengine */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
 var (
 	// srvName is the name of this service.
-	srvName = envStrWithDefault("SERVICE_NAME", "dam")
+	srvName = osenv.VarWithDefault("SERVICE_NAME", "dam")
 	// srvAddr is the service URL in GA4GH passports targetting this service.
-	srvAddr = mustEnvStr("DAM_URL")
+	srvAddr = osenv.MustVar("DAM_URL")
 	// cfgPath is the path to the config file.
-	cfgPath = mustEnvStr("CONFIG_PATH")
+	cfgPath = osenv.MustVar("CONFIG_PATH")
 	// project is default GCP project for hosting storage and service accounts,
 	// config options can override this.
-	project = mustEnvStr("PROJECT")
+	project = osenv.MustVar("PROJECT")
 	// storageType determines we should be using in-mem storage or not.
-	storageType = mustEnvStr("STORAGE")
+	storageType = osenv.MustVar("STORAGE")
 	// hydraAdminAddr is the address for the Hydra.
-	hydraAdminAddr = mustEnvStr("HYDRA_ADMIN_URL")
+	hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
 	// defaultBroker is the default Identity Broker.
-	defaultBroker = mustEnvStr("DEFAULT_BROKER")
+	defaultBroker = osenv.MustVar("DEFAULT_BROKER")
 
 	useHydra = os.Getenv("USE_HYDRA") != ""
-	port     = envStrWithDefault("DAM_PORT", "8081")
+	port     = osenv.VarWithDefault("DAM_PORT", "8081")
 )
 
 func main() {
@@ -68,24 +69,4 @@ func main() {
 
 	glog.Infof("Listening on port %v", port)
 	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
-}
-
-// mustEnvStr reads the value of an environment string variable.
-// if it is not set, exits.
-func mustEnvStr(name string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		glog.Exitf("Environment variable %q is not set.", name)
-	}
-	return v
-}
-
-// envStrWithDefault reads the value of an environment string variable.
-// if it is not set, returns the provided default value.
-func envStrWithDefault(name string, d string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		return d
-	}
-	return v
 }

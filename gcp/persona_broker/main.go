@@ -21,14 +21,15 @@ import (
 	"os"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
 var (
-	cfgPath  = envStrWithDefault("CONFIG_PATH", "deploy/config")
-	service  = envStrWithDefault("DAM_SERVICE_NAME", "dam")
-	oidcAddr = mustEnvStr("OIDC_URL")
+	cfgPath  = osenv.VarWithDefault("CONFIG_PATH", "deploy/config")
+	service  = osenv.VarWithDefault("DAM_SERVICE_NAME", "dam")
+	oidcAddr = osenv.MustVar("OIDC_URL")
 	port     = os.Getenv("PORT")
 )
 
@@ -38,24 +39,4 @@ func main() {
 		glog.Exitf("persona.NewBroker() failed: %v", err)
 	}
 	broker.Serve(port)
-}
-
-// mustEnvStr reads the value of an environment string variable.
-// if it is not set, exits.
-func mustEnvStr(name string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		glog.Exitf("Environment variable %q is not set.", name)
-	}
-	return v
-}
-
-// envStrWithDefault reads the value of an environment string variable.
-// if it is not set, returns the provided default value.
-func envStrWithDefault(name string, d string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		return d
-	}
-	return v
 }

@@ -27,26 +27,27 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
 var (
 	// srvName is the name of this service.
-	srvName = envStrWithDefault("SERVICE_NAME", "ic")
+	srvName = osenv.VarWithDefault("SERVICE_NAME", "ic")
 	// srvAddr determines the URL for "issuer" field of objects issued by this and
 	// the address identity providers use to redirect back to IC.
-	srvAddr = mustEnvStr("SERVICE_DOMAIN")
+	srvAddr = osenv.MustVar("SERVICE_DOMAIN")
 	// accDomain is the postfix for accounts created by IC.
-	acctDomain = mustEnvStr("ACCOUNT_DOMAIN")
+	acctDomain = osenv.MustVar("ACCOUNT_DOMAIN")
 	// cfgPath is the path to the config file.
-	cfgPath = mustEnvStr("CONFIG_PATH")
+	cfgPath = osenv.MustVar("CONFIG_PATH")
 	// project is default GCP project for hosting storage,
 	// config options can override this.
-	project = mustEnvStr("PROJECT")
+	project = osenv.MustVar("PROJECT")
 	// storageType determines we should be using in-mem storage or not.
-	storageType = mustEnvStr("STORAGE")
+	storageType = osenv.MustVar("STORAGE")
 
-	port = envStrWithDefault("IC_PORT", "8080")
+	port = osenv.VarWithDefault("IC_PORT", "8080")
 
 	useHydra = os.Getenv("USE_HYDRA") != ""
 	// hydraAdminAddr is the address for the Hydra admin endpoint.
@@ -78,32 +79,12 @@ func main() {
 	}
 
 	if useHydra {
-		hydraAdminAddr = mustEnvStr("HYDRA_ADMIN_URL")
-		hydraPublicAddr = mustEnvStr("HYDRA_PUBLIC_URL")
+		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
+		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
 	}
 
 	s := ic.NewService(ctx, srvAddr, acctDomain, hydraAdminAddr, hydraPublicAddr, store, gcpkms, useHydra)
 
 	glog.Infof("Listening on port %v", port)
 	glog.Exit(http.ListenAndServe(":"+port, s.Handler))
-}
-
-// mustEnvStr reads the value of an environment string variable.
-// if it is not set, exits.
-func mustEnvStr(name string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		glog.Exitf("Environment variable %q is not set.", name)
-	}
-	return v
-}
-
-// envStrWithDefault reads the value of an environment string variable.
-// if it is not set, returns the provided default value.
-func envStrWithDefault(name string, d string) string {
-	v := os.Getenv(name)
-	if v == "" {
-		return d
-	}
-	return v
 }
