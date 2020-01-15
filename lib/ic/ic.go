@@ -39,7 +39,6 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -2470,10 +2469,6 @@ func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
 	return realm, http.StatusOK, nil
 }
 
-func defaultPermissionTTL(cfg *pb.IcConfig) time.Duration {
-	return getDurationOption(cfg.Options.MaxPassportTokenTtl, descMaxPassportTokenTTL)
-}
-
 func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
@@ -2739,25 +2734,6 @@ func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, lin
 	return nil
 }
 
-func findSimilarClaim(claims []ga4gh.OldClaim, match *ga4gh.OldClaim) *ga4gh.OldClaim {
-	for _, c := range claims {
-		if c.Value == match.Value && c.Source == match.Source && c.By == match.By && conditionEqual(c.Condition, match.Condition) {
-			return &c
-		}
-	}
-	return nil
-}
-
-func conditionEqual(a, b map[string]ga4gh.OldClaimCondition) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return reflect.DeepEqual(a, b)
-}
-
 func getBearerToken(r *http.Request) string {
 	tok := common.GetParam(r, "access_token")
 	if len(tok) > 0 {
@@ -2776,18 +2752,6 @@ func getScope(r *http.Request) (string, error) {
 		return "", fmt.Errorf("scope must include 'openid'")
 	}
 	return s, nil
-}
-
-func filterScopes(scope string, filter map[string]bool) string {
-	parts := strings.Split(scope, " ")
-	out := []string{}
-	for _, p := range parts {
-		baseScope := strings.Split(p, ":")[0]
-		if _, ok := filter[baseScope]; ok {
-			out = append(out, p)
-		}
-	}
-	return strings.Join(out, " ")
 }
 
 func hasScopes(want, got string, matchPrefix bool) bool {
@@ -2859,97 +2823,6 @@ func (auth *authToken) Valid() error {
 		return fmt.Errorf("token is expired")
 	}
 	return nil
-}
-
-func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm, nonce string, now time.Time, ttl time.Duration, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
-	subject := identity.Subject
-	iss := s.getIssuerString()
-	exp := now.Add(ttl)
-	var audiences []string
-	if aud == "" || hasScopes("link", scope, matchPrefixScope) {
-		// This token is designed to be ONLY consumed by the IC itself.
-		audiences = append(audiences, iss)
-	} else {
-		audiences = append(audiences, aud)
-		// TODO: we will change the token flow in phase 2, after that we just set the DAM needed to be audience here.
-		for name, client := range cfg.Clients {
-			if strings.HasPrefix(name, "ga4gh_") {
-				audiences = append(audiences, client.ClientId)
-			}
-		}
-		if hasScopes("account_admin", scope, matchFullScope) {
-			audiences = append(audiences, iss)
-		}
-	}
-	priv, err := s.getIssuerPrivateKey(iss, tx)
-	if err != nil {
-		return "", err
-	}
-
-	claims := scopedIdentity(identity, scope, iss, subject, nonce, now.Unix(), now.Add(-1*time.Minute).Unix(), exp.Unix(), audiences, azp)
-	claims.Realm = realm
-
-	jot := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	// TODO: should set key id properly and sync with JWKS.
-	jot.Header[keyID] = keyID
-	token, err := jot.SignedString(priv)
-	if err != nil {
-		return "", err
-	}
-
-	if hasScopes("refresh", scope, matchFullScope) {
-		tokenMetadata := &pb.TokenMetadata{
-			TokenType:        "refresh",
-			IssuedAt:         claims.IssuedAt,
-			Scope:            claims.Scope,
-			IdentityProvider: claims.IdentityProvider,
-		}
-		err := s.store.WriteTx(storage.TokensDatatype, realm, claims.Subject, claims.ID, storage.LatestRev, tokenMetadata, nil, tx)
-		if err != nil {
-			return "", fmt.Errorf("writing refresh token metadata to storage: %v", err)
-		}
-	}
-
-	return token, nil
-}
-
-func (s *Service) createTokens(identity *ga4gh.Identity, includeRefresh bool, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*cpb.OidcTokenResponse, error) {
-	now := time.Now()
-	ttl := common.GetParam(r, "ttl")
-	if len(ttl) == 0 {
-		ttl = cfg.Options.DefaultPassportTokenTtl
-	}
-	duration := getDurationOption(ttl, descDefaultPassportTokenTTL)
-	maxTTL := getDurationOption(cfg.Options.MaxPassportTokenTtl, descMaxPassportTokenTTL)
-	if duration > maxTTL {
-		duration = maxTTL
-	}
-
-	clientID := getClientID(r)
-	realm := getRealm(r)
-	accessTok, err := s.createToken(identity, filterScopes(identity.Scope, filterAccessTokScope), clientID, clientID, realm, noNonce, now, duration, cfg, tx)
-	if err != nil {
-		return nil, fmt.Errorf("creating access token: %v", err)
-	}
-	idTok, err := s.createToken(identity, filterScopes(identity.Scope, filterIDTokScope), clientID, clientID, realm, identity.Nonce, now, duration, cfg, tx)
-	if err != nil {
-		return nil, fmt.Errorf("creating id token: %v", err)
-	}
-	refreshTok := ""
-	if includeRefresh {
-		if refreshTok, err = s.createToken(identity, "refresh "+identity.Scope, "", "", realm, noNonce, now, getDurationOption(cfg.Options.RefreshTokenTtl, descRefreshTokenTTL), cfg, tx); err != nil {
-			return nil, fmt.Errorf("creating refresh token: %v", err)
-		}
-	}
-
-	return &cpb.OidcTokenResponse{
-		AccessToken:  accessTok,
-		IdToken:      idTok,
-		RefreshToken: refreshTok,
-		TokenType:    "bearer",
-		ExpiresIn:    int32(duration.Seconds()),
-		Uid:          common.GenerateGUID(),
-	}, nil
 }
 
 func (s *Service) getVisaIssuerString() string {
@@ -3501,45 +3374,6 @@ func (s *Service) loadSecrets(tx storage.Tx) (*pb.IcSecrets, error) {
 		return nil, err
 	}
 	return secrets, nil
-}
-
-func (s *Service) getIssuerKeys(iss string, tx storage.Tx) (*pb.IcSecrets_TokenKeys, error) {
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		return nil, fmt.Errorf("error loading secrets: %v", err)
-	}
-	k, ok := secrets.TokenKeys[iss]
-	if !ok {
-		return nil, fmt.Errorf("token keys not found for passport issuer %q", iss)
-	}
-	return k, nil
-}
-
-func (s *Service) getIssuerPublicKey(iss string, tx storage.Tx) (*rsa.PublicKey, error) {
-	k, err := s.getIssuerKeys(iss, tx)
-	if err != nil {
-		// TODO: Use OIDC JWKS to look up the public key.
-		return nil, fmt.Errorf("fetching public key for issuer %q: %v", iss, err)
-	}
-	block, _ := pem.Decode([]byte(k.PublicKey))
-	pub, err := x509.ParsePKCS1PublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parsing public key for issuer %q: %v", iss, err)
-	}
-	return pub, nil
-}
-
-func (s *Service) getIssuerPrivateKey(iss string, tx storage.Tx) (*rsa.PrivateKey, error) {
-	k, err := s.getIssuerKeys(iss, tx)
-	if err != nil {
-		return nil, fmt.Errorf("fetching private key for issuer %q: %v", iss, err)
-	}
-	block, _ := pem.Decode([]byte(k.PrivateKey))
-	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parsing private key for issuer %q: %v", iss, err)
-	}
-	return priv, nil
 }
 
 func (s *Service) privateKeyFromSecrets(iss string, secrets *pb.IcSecrets) (*rsa.PrivateKey, error) {
