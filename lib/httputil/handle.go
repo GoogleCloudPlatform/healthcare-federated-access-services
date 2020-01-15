@@ -76,3 +76,10 @@ func WriteCorsHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 }
+
+// WriteHTMLResp writes a "text/html" type string to the ResponseWriter.
+func WriteHTMLResp(w http.ResponseWriter, html []byte) {
+	WriteCorsHeaders(w)
+	w.Header().Set("Content-Type", "text/html")
+	w.Write(html)
+}
