@@ -27,6 +27,7 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -36,8 +37,9 @@ const (
 )
 
 var (
-	// ProjectRoot locates resources of project.
-	ProjectRoot = os.Getenv("PROJECT_ROOT")
+	// ProjectRoot points to root of the repo relative to which the paths for
+	// reading files are computed. Deprecated, use srcutil package instead.
+	ProjectRoot = srcutil.ProjectRoot
 )
 
 type FileStorage struct {
