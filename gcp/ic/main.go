@@ -45,11 +45,14 @@ var (
 	project = mustEnvStr("PROJECT")
 	// storageType determines we should be using in-mem storage or not.
 	storageType = mustEnvStr("STORAGE")
-	// hydraAdminAddr is the address for the Hydra.
-	hydraAdminAddr = mustEnvStr("HYDRA_ADMIN_URL")
+
+	port = envStrWithDefault("IC_PORT", "8080")
 
 	useHydra = os.Getenv("USE_HYDRA") != ""
-	port     = envStrWithDefault("IC_PORT", "8080")
+	// hydraAdminAddr is the address for the Hydra admin endpoint.
+	hydraAdminAddr = ""
+	// hydraPublicAddr is the address for the Hydra public endpoint.
+	hydraPublicAddr = ""
 )
 
 func main() {
@@ -74,7 +77,12 @@ func main() {
 		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
 	}
 
-	s := ic.NewService(ctx, srvAddr, acctDomain, hydraAdminAddr, store, gcpkms, useHydra)
+	if useHydra {
+		hydraAdminAddr = mustEnvStr("HYDRA_ADMIN_URL")
+		hydraPublicAddr = mustEnvStr("HYDRA_PUBLIC_URL")
+	}
+
+	s := ic.NewService(ctx, srvAddr, acctDomain, hydraAdminAddr, hydraPublicAddr, store, gcpkms, useHydra)
 
 	glog.Infof("Listening on port %v", port)
 	glog.Exit(http.ListenAndServe(":"+port, s.Handler))

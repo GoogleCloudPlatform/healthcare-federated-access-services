@@ -295,6 +295,7 @@ type Service struct {
 	domain                string
 	accountDomain         string
 	hydraAdminURL         string
+	hydraPublicURL        string
 	translators           sync.Map
 	encryption            Encryption
 	useHydra              bool
@@ -315,9 +316,10 @@ type Encryption interface {
 // - domain: domain used to host ic service
 // - accountDomain: domain used to host service account warehouse
 // - hydraAdminURL: hydra admin endpoints url
+// - hydraPublicURL: hydra public endpoints url
 // - store: data storage and configuration storage
 // - encryption: the encryption use for storing tokens safely in database
-func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string, store storage.Store, encryption Encryption, useHydra bool) *Service {
+func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL, hydraPublicURL string, store storage.Store, encryption Encryption, useHydra bool) *Service {
 	sh := &ServiceHandler{}
 	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
@@ -369,6 +371,7 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string
 		domain:                domain,
 		accountDomain:         accountDomain,
 		hydraAdminURL:         hydraAdminURL,
+		hydraPublicURL:        hydraPublicURL,
 		encryption:            encryption,
 		useHydra:              useHydra,
 	}
@@ -1316,6 +1319,7 @@ func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Reques
 
 	if s.useHydra {
 		s.hydraAcceptConsent(w, r, state, cfg, tx)
+		return
 	}
 
 	httputil.WriteStatus(w, status.New(codes.Unimplemented, "oidc service not supported"))
@@ -2443,17 +2447,17 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 }
 
 func (s *Service) getIdentity(r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	tok, status, err := getAuthCode(r)
-	if err != nil {
-		return nil, status, err
+	tok := getBearerToken(r)
+	if len(tok) == 0 {
+		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token not found")
 	}
 	return s.tokenToIdentity(tok, r, scope, realm, cfg, secrets, tx)
 }
 
 func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
-	tok, status, err := getAuthCode(r)
-	if err != nil {
-		return "", status, err
+	tok := getBearerToken(r)
+	if len(tok) == 0 {
+		return "", http.StatusUnauthorized, fmt.Errorf("bearer token not found")
 	}
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
@@ -2470,21 +2474,19 @@ func defaultPermissionTTL(cfg *pb.IcConfig) time.Duration {
 	return getDurationOption(cfg.Options.MaxPassportTokenTtl, descMaxPassportTokenTTL)
 }
 
-func getAuthCode(r *http.Request) (string, int, error) {
-	tok := common.GetParam(r, "code")
-	if tok == "" {
-		tok = getBearerToken(r)
-		if len(tok) == 0 {
-			return "", http.StatusUnauthorized, fmt.Errorf("authorization requires a bearer token")
-		}
-	}
-	return tok, http.StatusOK, nil
-}
-
 func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
+	}
+
+	v, err := common.GetOIDCTokenVerifier(s.ctx, clientID, id.Issuer)
+	if err != nil {
+		return nil, http.StatusServiceUnavailable, fmt.Errorf("GetOIDCTokenVerifier failed: %v", err)
+	}
+
+	if _, err = v.Verify(s.ctx, tok); err != nil {
+		return nil, http.StatusServiceUnavailable, fmt.Errorf("token unauthorized: %v", err)
 	}
 
 	// TODO: add more checks here as appropriate.
@@ -2691,7 +2693,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAcc
 	d := &ga4gh.VisaData{
 		StdClaims: ga4gh.StdClaims{
 			Subject:   id.Subject,
-			Issuer:    s.getIssuerString(),
+			Issuer:    s.getVisaIssuerString(),
 			IssuedAt:  now,
 			ExpiresAt: exp,
 		},
@@ -2700,7 +2702,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAcc
 			Type:     ga4gh.LinkedIdentities,
 			Asserted: int64(link.Refreshed),
 			Value:    ga4gh.Value(strings.Join(linked, ";")),
-			Source:   ga4gh.Source(s.getIssuerString()),
+			Source:   ga4gh.Source(s.getVisaIssuerString()),
 		},
 	}
 
@@ -2723,7 +2725,7 @@ func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, lin
 		return err
 	}
 
-	priv, err := s.privateKeyFromSecrets(s.getIssuerString(), secrets)
+	priv, err := s.privateKeyFromSecrets(s.getVisaIssuerString(), secrets)
 	if err != nil {
 		return err
 	}
@@ -2950,8 +2952,16 @@ func (s *Service) createTokens(identity *ga4gh.Identity, includeRefresh bool, r 
 	}, nil
 }
 
-func (s *Service) getIssuerString() string {
+func (s *Service) getVisaIssuerString() string {
 	return s.getDomainURL() + "/oidc"
+}
+
+func (s *Service) getIssuerString() string {
+	if s.useHydra {
+		return strings.TrimRight(s.hydraPublicURL, "/") + "/"
+	}
+
+	return ""
 }
 
 func (s *Service) getDomainURL() string {

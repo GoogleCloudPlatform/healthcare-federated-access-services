@@ -69,7 +69,7 @@ type Server struct {
 }
 
 // NewBroker returns a Persona Broker Server
-func NewBroker(issuerURL string, key *testkeys.Key, service, path string) (*Server, error) {
+func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOIDCPrefix bool) (*Server, error) {
 	var cfg *dampb.DamConfig
 	if len(service) > 0 && len(path) > 0 {
 		cfg = &dampb.DamConfig{}
@@ -96,11 +96,16 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string) (*Serv
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc(oidcPrefix+oidcConfiguarePath, s.oidcWellKnownConfig)
-	r.HandleFunc(oidcPrefix+oidcJwksPath, s.oidcKeys)
-	r.HandleFunc(oidcPrefix+oidcAuthorizePath, s.oidcAuthorize)
-	r.HandleFunc(oidcPrefix+oidcTokenPath, s.oidcToken)
-	r.HandleFunc(oidcPrefix+oidcUserInfoPath, s.oidcUserInfo)
+	prefix := ""
+
+	if useOIDCPrefix {
+		prefix = oidcPrefix
+	}
+	r.HandleFunc(prefix+oidcConfiguarePath, s.oidcWellKnownConfig)
+	r.HandleFunc(prefix+oidcJwksPath, s.oidcKeys)
+	r.HandleFunc(prefix+oidcAuthorizePath, s.oidcAuthorize)
+	r.HandleFunc(prefix+oidcTokenPath, s.oidcToken)
+	r.HandleFunc(prefix+oidcUserInfoPath, s.oidcUserInfo)
 
 	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(storage.ProjectRoot, staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)

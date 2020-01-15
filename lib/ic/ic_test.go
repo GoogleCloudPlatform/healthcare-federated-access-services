@@ -55,8 +55,7 @@ import (
 const (
 	domain           = "example.com"
 	hydraAdminURL    = "https://admin.hydra.example.com"
-	hydraURL         = "https://hydra.example.com"
-	oidcIssuer       = "https://" + domain + "/oidc"
+	hydraURL         = "https://hydra.example.com/"
 	testClientID     = "00000000-0000-0000-0000-000000000000"
 	testClientSecret = "00000000-0000-0000-0000-000000000001"
 	useHydra         = true
@@ -85,23 +84,19 @@ func init() {
 
 func TestHandlers(t *testing.T) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
 	if err != nil {
-		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", oidcIssuer, err)
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt, useHydra)
-	cfg, err := s.loadConfig(nil, "test")
-	if err != nil {
-		t.Fatalf("loading config: %v", err)
-	}
+	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, crypt, useHydra)
 	identity := &ga4gh.Identity{
 		Issuer:  s.getIssuerString(),
 		Subject: "someone-account",
 	}
-	refreshToken1 := createTestToken(t, s, identity, "openid refresh", cfg)
-	refreshToken2 := createTestToken(t, s, identity, "openid refresh", cfg)
+	refreshToken1 := createTestToken(t, s, server, identity, "openid refresh", "refreshToken1")
+	refreshToken2 := createTestToken(t, s, server, identity, "openid refresh", "refreshToken2")
 	tests := []test.HandlerTest{
 		{
 			Name:   "Get a self-owned token",
@@ -601,26 +596,40 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 	}
-	test.HandlerTests(t, s.Handler, tests, oidcIssuer, server.Config())
+	test.HandlerTests(t, s.Handler, tests, hydraURL, server.Config())
 }
 
-func createTestToken(t *testing.T, s *Service, id *ga4gh.Identity, scope string, cfg *pb.IcConfig) string {
-	token, err := s.createToken(id, scope, "", "", "test", noNonce, time.Now(), time.Hour, cfg, nil)
+func createTestToken(t *testing.T, s *Service, iss *fakeoidcissuer.Server, id *ga4gh.Identity, scope, jti string) string {
+	id.Scope = scope
+	id.Realm = "test"
+	id.IssuedAt = time.Now().Unix()
+	id.Expiry = time.Now().Add(time.Hour).Unix()
+	id.Audiences = ga4gh.NewAudience(testClientID)
+	id.ID = jti
+	tok, err := iss.Sign(map[string]string{}, id)
 	if err != nil {
 		t.Fatalf("creating test token: %v", err)
 	}
-	return token
+
+	tokenMetadata := &pb.TokenMetadata{
+		TokenType:        "refresh",
+		IssuedAt:         id.IssuedAt,
+		Scope:            id.Scope,
+		IdentityProvider: id.IdentityProvider,
+	}
+	s.store.Write(storage.TokensDatatype, "test", id.Subject, id.ID, storage.LatestRev, tokenMetadata, nil)
+	return tok
 }
 
 func TestAdminHandlers(t *testing.T) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
 	if err != nil {
-		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", oidcIssuer, err)
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
 
-	s := NewService(ctx, domain, domain, hydraAdminURL, store, fakeencryption.New(), useHydra)
+	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, fakeencryption.New(), useHydra)
 	tests := []test.HandlerTest{
 		{
 			Name:    "List all tokens of all users as a non-admin",
@@ -663,7 +672,7 @@ func TestAdminHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 	}
-	test.HandlerTests(t, s.Handler, tests, oidcIssuer, server.Config())
+	test.HandlerTests(t, s.Handler, tests, hydraURL, server.Config())
 }
 
 func TestAddLinkedIdentities(t *testing.T) {
@@ -689,7 +698,7 @@ func TestAddLinkedIdentities(t *testing.T) {
 	}
 
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, hydraAdminURL, store, fakeencryption.New(), useHydra)
+	s := NewService(context.Background(), domain, domain, hydraAdminURL, hydraURL, store, fakeencryption.New(), useHydra)
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -742,13 +751,13 @@ func TestAddLinkedIdentities(t *testing.T) {
 
 func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server, *fakeoidcissuer.Server, error) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt, useHydra)
+	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, crypt, useHydra)
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -1298,9 +1307,9 @@ func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret stri
 		p = iss.Config().TestPersonas[pname]
 	}
 
-	tok, _, err := persona.NewAccessToken(pname, oidcIssuer, clientID, noScope, p)
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, clientID, noScope, p)
 	if err != nil {
-		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, oidcIssuer, err)
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
 	path := strings.ReplaceAll(clientPath, "{realm}", "test")
@@ -1384,9 +1393,9 @@ func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecre
 		p = iss.Config().TestPersonas[pname]
 	}
 
-	tok, _, err := persona.NewAccessToken(pname, oidcIssuer, clientID, noScope, p)
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, clientID, noScope, p)
 	if err != nil {
-		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, oidcIssuer, err)
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
 	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
@@ -1475,9 +1484,9 @@ func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSe
 		p = iss.Config().TestPersonas[pname]
 	}
 
-	tok, _, err := persona.NewAccessToken(pname, oidcIssuer, clientID, noScope, p)
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, clientID, noScope, p)
 	if err != nil {
-		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, oidcIssuer, err)
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
 	m := jsonpb.Marshaler{}
@@ -1763,9 +1772,9 @@ func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSe
 		p = iss.Config().TestPersonas[pname]
 	}
 
-	tok, _, err := persona.NewAccessToken(pname, oidcIssuer, clientID, noScope, p)
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, clientID, noScope, p)
 	if err != nil {
-		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, oidcIssuer, err)
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
 	m := jsonpb.Marshaler{}
@@ -2001,9 +2010,9 @@ func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSe
 		p = iss.Config().TestPersonas[pname]
 	}
 
-	tok, _, err := persona.NewAccessToken(pname, oidcIssuer, clientID, noScope, p)
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, clientID, noScope, p)
 	if err != nil {
-		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, oidcIssuer, err)
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
 	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
@@ -2146,9 +2155,9 @@ func TestConfigReset_Hydra(t *testing.T) {
 		p = iss.Config().TestPersonas[pname]
 	}
 
-	tok, _, err := persona.NewAccessToken(pname, oidcIssuer, testClientID, noScope, p)
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, testClientID, noScope, p)
 	if err != nil {
-		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, oidcIssuer, err)
+		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
 	q := url.Values{

@@ -75,7 +75,7 @@ func setup(t *testing.T) *Service {
 	t.Helper()
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockTokenCreator(false)
-	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New() failed: %v", err)
 	}

@@ -35,7 +35,7 @@ func TestServer(t *testing.T) {
 	)
 	now := time.Now().Unix()
 
-	server, err := New(issuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	server, err := New(issuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", true)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(issuerURL) failed: %v", err)
 	}

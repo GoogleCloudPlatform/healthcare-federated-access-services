@@ -81,7 +81,7 @@ var transformJSON = cmpopts.AcyclicTransformer("ParseJSON", func(in string) (out
 func TestHandlers(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockTokenCreator(false)
-	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", true)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
@@ -890,7 +890,7 @@ func TestHandlers(t *testing.T) {
 
 func TestMinConfig(t *testing.T) {
 	store := storage.NewMemoryStorage("dam-min", "testdata/config")
-	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", true)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
@@ -938,7 +938,7 @@ func (contextMatcher) String() string {
 
 func TestCheckAuthorization(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", true)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", test.TestIssuerURL, err)
 	}
@@ -983,7 +983,7 @@ func TestCheckAuthorization(t *testing.T) {
 
 func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Server, *fakeoidcissuer.Server, error) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", true)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
 	}

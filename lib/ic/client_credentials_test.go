@@ -67,13 +67,13 @@ var paths = map[string]credtest.Requirement{
 
 func setup(t *testing.T) *Service {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	server, err := fakeoidcissuer.New(oidcIssuer, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config")
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New() failed: %v", err)
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, store, crypt, useHydra)
+	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, crypt, useHydra)
 	return s
 }
 

@@ -5,10 +5,10 @@
   },
   "identityProviders": {
     "idp": {
-      "issuer": "https://example.com/oidc",
-      "authorizeUrl": "https://example.com/authorize",
+      "issuer": "https://hydra.example.com/",
+      "authorizeUrl": "https://hydra.example.com/authorize",
       "responseType": "code",
-      "tokenUrl": "https://example.com/oidc/token",
+      "tokenUrl": "https://hydra.example.com/token",
       "clientId": "cid",
       "scopes": ["openid", "profile", "ga4gh_passport_v1", "email", "identities", "account_admin"],
       "ui": {

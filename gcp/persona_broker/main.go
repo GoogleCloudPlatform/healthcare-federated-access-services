@@ -33,7 +33,7 @@ var (
 )
 
 func main() {
-	broker, err := persona.NewBroker(oidcAddr, &testkeys.PersonaBrokerKey, service, cfgPath)
+	broker, err := persona.NewBroker(oidcAddr, &testkeys.PersonaBrokerKey, service, cfgPath, true)
 	if err != nil {
 		glog.Exitf("persona.NewBroker() failed: %v", err)
 	}

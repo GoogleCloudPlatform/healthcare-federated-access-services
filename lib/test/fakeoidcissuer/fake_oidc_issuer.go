@@ -34,8 +34,8 @@ type Server struct {
 }
 
 // New returns Server
-func New(issuerURL string, key *testkeys.Key, service, path string) (*Server, error) {
-	broker, err := persona.NewBroker(issuerURL, key, service, path)
+func New(issuerURL string, key *testkeys.Key, service, path string, useOIDCPrefix bool) (*Server, error) {
+	broker, err := persona.NewBroker(issuerURL, key, service, path, useOIDCPrefix)
 	if err != nil {
 		return nil, err
 	}
