@@ -16,14 +16,19 @@
 
 # TODO: initial steps
 
+GREEN="\e[32m"
+RED="\e[31m"
+RESET="\e[0m"
+
 # You need to loging to gcloud and createa a project using gcloud cli.
 # Export the id of your project to environment variable PROJECT.
-
+echo -e ${GREEN?}gcp set project${RESET?}
 gcloud config set project ${PROJECT?}
 
+# Enbable the required APIs.
+echo -e ${GREEN?}Enbable the required APIs.${RESET?}
 export PROJECT_NUMBER=$(gcloud projects list --filter="${PROJECT?}" --format="value(PROJECT_NUMBER)")
 
-# Enbable the required APIs.
 gcloud services enable \
   appengine.googleapis.com \
   appengineflex.googleapis.com \
@@ -37,7 +42,12 @@ gcloud services enable \
   storage-component.googleapis.com \
   cloudkms.googleapis.com
 
+# Create a GAE app.
+gcloud app create --region=us-central
+
 # Grant the required permissions.
+echo -e ${GREEN?}Grant the required permissions.${RESET?}
+
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
@@ -51,12 +61,12 @@ gcloud projects add-iam-policy-binding -q ${PROJECT?} \
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/resourcemanager.projectIamAdmin
 
-# Create a GAE app.
-gcloud app create --region=us-central
 # TODO: make region configurable.
 
 # Setup Cloud SQL
-# Create a CloudSQL D0 (memory=128M, disk=250G) postgres 11 instance in us-central-1.
+# Create a CloudSQL db-f1-micro (memory=128M, disk=250G) postgres 11 instance in us-central-1.
+echo -e ${GREEN?}Setup Cloud SQL.${RESET?}
+
 gcloud sql instances create hydra --database-version=POSTGRES_11 \
   --tier=db-f1-micro --region=us-central1
 # Create user: name="${NAME}", password="${PASSWORD}"
@@ -66,8 +76,10 @@ gcloud sql databases create ic --instance=hydra
 # Create database dam
 gcloud sql databases create dam --instance=hydra
 
-# Update the config files
-cp -R ./deploy/config/ic-template ./deploy/config/ic
+# Generate the config files
+echo -e ${GREEN?}Generate the config files.${RESET?}
+
+cp -R ./deploy/config/ic-template/* ./deploy/config/ic
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/gae-flex/build/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/gae-flex/config/ic.yaml
@@ -75,6 +87,8 @@ sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/config_master_m
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/secrets_master_main_latest.json
 
 # Deploy a simple defaut app to GAE default service.
+echo -e ${GREEN?}Deploy a helloworld to GAE default service.${RESET?}
+
 pushd $HOME
 git clone https://github.com/GoogleCloudPlatform/golang-samples.git
 pushd golang-samples/appengine/go11x/helloworld
@@ -83,14 +97,18 @@ popd
 popd
 
 # Build Images
+echo -e ${GREEN?}Build Base Image.${RESET?}
+
 pushd deploy/gae-flex/base-image
 gcloud builds submit --config cloudbuild.yaml .
 popd
 
 # Build the IC and DAM image
+echo -e ${GREEN?}Build IC and DAM Image.${RESET?}
 gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_VERSION_=latest
 
 # Deploy IC and DAM
+echo -e ${GREEN?}Deploy IC.${RESET?}
 gcloud -q app deploy deploy/gae-flex/config/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
 
 # TODO: gcloud -q app deploy deploy/gae-flex/config/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
