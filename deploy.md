@@ -60,6 +60,7 @@ We need to enable services:
     cloudbuild.googleapis.com \
     bigquery.googleapis.com \
     storage-component.googleapis.com \
+    cloudkms.googleapis.com
 
     gcloud app create --region=<GAE regions, see https://cloud.google.com/appengine/docs/locations>
   ```
@@ -142,6 +143,8 @@ Grant the Project IAM Admin role of the data hosting project to the `App Engine 
     cloud_sql_instances: <CLOUDSQL_PROJECT>:<CLOUDSQL_REGION see https://cloud.google.com/sql/docs/mysql/locations>:<ClOUDSQL_INSTANCE>=tcp:1234
   ```
 
+- Replace project id in `deploy/gae-flex/build/Dockerfile`.
+
 ## Start servers
 
 ```bash
@@ -150,6 +153,9 @@ pushd deploy/gae-flex/base-image
 gcloud builds submit --config cloudbuild.yaml .
 
 popd
+# Build the IC and DAM image
+gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_VERSION_=latest
+
 # Deploy IC and DAM
 gcloud -q app deploy deploy/gae-flex/config/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
 gcloud -q app deploy deploy/gae-flex/config/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
@@ -157,4 +163,4 @@ gcloud -q app deploy deploy/gae-flex/config/ic.yaml --image-url=gcr.io/${PROJECT
 
 ## Test with test client
 
-In a browser, open `https://ic-dot-${ic-hosting-project}.appspot.com/identity/hydra-test` and `https://dam-dot-${ic-hosting-project}.appspot.com/dam/hydra-test`
+In a browser, open `https://ic-dot-${ic-hosting-project}.appspot.com/identity/hydra-test` and `https://dam-dot-${dam-hosting-project}.appspot.com/dam/hydra-test`
