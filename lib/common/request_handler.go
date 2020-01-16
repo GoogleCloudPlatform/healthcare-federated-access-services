@@ -20,7 +20,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +30,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
@@ -357,7 +357,7 @@ func CheckName(field, name string, rem map[string]*regexp.Regexp) error {
 
 // LoadFile reads a file in as a string from I/O.
 func LoadFile(filename string) (string, error) {
-	bytes, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, filename))
+	bytes, err := ioutil.ReadFile(srcutil.Path(filename))
 	if err != nil {
 		return "", err
 	}

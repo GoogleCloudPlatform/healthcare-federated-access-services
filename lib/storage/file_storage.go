@@ -36,12 +36,6 @@ const (
 	storageVersion = "v0"
 )
 
-var (
-	// ProjectRoot points to root of the repo relative to which the paths for
-	// reading files are computed. Deprecated, use srcutil package instead.
-	ProjectRoot = srcutil.ProjectRoot
-)
-
 type FileStorage struct {
 	service   string
 	path      string
@@ -52,7 +46,7 @@ type FileStorage struct {
 }
 
 func NewFileStorage(service, path string) *FileStorage {
-	path = filepath.Join(ProjectRoot, path)
+	path = srcutil.Path(path)
 	// Add the service name directory to the path:
 	// 1. Add the full service name if the subdirectory exists; or
 	// 2. The base service name (i.e. before the first "-" character).

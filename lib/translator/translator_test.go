@@ -17,14 +17,13 @@ package translator
 import (
 	"encoding/json"
 	"io/ioutil"
-	"path/filepath"
 	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 )
 
 type testCase struct {
@@ -41,7 +40,7 @@ type TestTranslator interface {
 
 func testTranslator(t *testing.T, tests []testCase) {
 	for _, tc := range tests {
-		payload, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, tc.input))
+		payload, err := ioutil.ReadFile(srcutil.Path(tc.input))
 		if err != nil {
 			t.Fatalf("test %q failed to read input file %q: %v", tc.name, tc.input, err)
 		}
@@ -55,7 +54,7 @@ func testTranslator(t *testing.T, tests []testCase) {
 			t.Fatalf("test %q failed during translation: %v", tc.name, err)
 		}
 
-		str, err := ioutil.ReadFile(filepath.Join(storage.ProjectRoot, tc.expected))
+		str, err := ioutil.ReadFile(srcutil.Path(tc.expected))
 		if err != nil {
 			t.Fatalf("test %q failed to read expected output file %q: %v", tc.name, tc.expected, err)
 		}

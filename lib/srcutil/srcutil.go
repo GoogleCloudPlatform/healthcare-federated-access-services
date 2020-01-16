@@ -12,30 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package srcutil provides a workaround for locating the files to read.
+// Package srcutil provides utilities for working with files under go module.
 package srcutil
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 )
 
 var (
-	// ProjectRoot locates resources of project.
-	ProjectRoot = os.Getenv("PROJECT_ROOT")
+	root = moduleRoot()
+	_    = os.Getenv
 )
 
 // Path returns the path to a file in the repo given its relative path to
-// the root of the repo.
+// the root of the module.
 func Path(path string) string {
-	return filepath.Join(ProjectRoot, path)
+	return filepath.Join(root, path)
 }
 
-// Read reads a file in the repo given its relative path to repo root.
+// Read reads a file in the repo given its relative path to the root of module.
 func Read(path string) ([]byte, error) {
 	b, err := ioutil.ReadFile(Path(path))
 	if err != nil {
 		return nil, err
 	}
 	return b, nil
+}
+
+func moduleRoot() string {
+	projectRoot := os.Getenv("PROJECT_ROOT")
+	return projectRoot
 }
