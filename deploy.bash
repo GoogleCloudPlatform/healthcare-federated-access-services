@@ -22,7 +22,7 @@ RESET="\e[0m"
 
 # You need to loging to gcloud and createa a project using gcloud cli.
 # Export the id of your project to environment variable PROJECT.
-echo -e ${GREEN?}gcp set project${RESET?}
+echo -e ${GREEN?}Starting deployment to project: ${PROJECT?}.${RESET?}
 gcloud config set project ${PROJECT?}
 
 # Enbable the required APIs.
