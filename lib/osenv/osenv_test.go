@@ -50,7 +50,7 @@ func TestMustVar_DoesNotExitWhenEnvVarSet(t *testing.T) {
 	MustVar(key)
 
 	if exited {
-		t.Fatal("MustVar(%v) exited.", key)
+		t.Fatalf("MustVar(%v) exited.", key)
 	}
 }
 
@@ -68,7 +68,7 @@ func TestMustVar_ExitsWhenEnvVarNotSet(t *testing.T) {
 	MustVar(key)
 
 	if !exited {
-		t.Fatal("MustVar(%v) did not exit.", key)
+		t.Fatalf("MustVar(%v) did not exit.", key)
 	}
 }
 
