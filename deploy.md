@@ -78,7 +78,9 @@ Add IAM Roles to service account of GAE Flex `service-PROJECT_NUMBER@gae-api-pro
   ```bash
   PROJECT_NUMBER=$(gcloud projects list --filter="${PROJECT?}" --format="value(PROJECT_NUMBER)")
 
-  gcloud projects add-iam-policy-binding -q ${PROJECT_NUMBER?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
+  # KMS cryptoKeyEncrypterDecrypter must also add to appengine service account.
+  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
+  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
   gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudsql.client
   gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/editor
   gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
