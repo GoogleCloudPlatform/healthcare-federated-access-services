@@ -1,0 +1,82 @@
+{
+  "version": "v0",
+  "revision": "1",
+  "commitTime": "1544824316",
+  "ui": {
+    "label": "Test Identity Concentrator",
+    "description": "Test Identity Concentrator"
+  },
+  "identityProviders": {
+    "google": {
+      "issuer": "https://accounts.google.com",
+      "authorizeUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+      "tokenUrl": "https://oauth2.googleapis.com/token",
+      "clientId": "setup oidc following https://developers.google.com/identity/protocols/OAuth2",
+      "ui": {
+        "label": "Google",
+        "description": "Google identity provider",
+        "iconUrl": "/identity/static/google_identity.png"
+      }
+    },
+    "persona": {
+      "issuer": "https://persona-staging-dot-hcls-data-connect-demo.appspot.com/oidc",
+      "authorizeUrl": "https://persona-staging-dot-hcls-data-connect-demo.appspot.com/oidc/authorize",
+      "tokenUrl": "https://persona-staging-dot-hcls-data-connect-demo.appspot.com/oidc/token",
+      "clientId": "ic-client-id",
+      "scopes": ["openid", "profile", "identities", "ga4gh_passport_v1", "email"],
+      "ui": {
+        "label": "Persona Playground",
+        "description": "Log in using Testing Personas",
+        "iconUrl": "https://icon-library.net//images/detective-icon/detective-icon-2.jpg"
+      }
+    }
+  },
+  "clients": {
+    "test_page": {
+      "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
+      "redirectUris": [
+        "https://ic-dot-${YOUR_PROJECT_ID}.appspot.com/identity/hydra-test"
+      ],
+      "ui": {
+        "label": "Test Page",
+        "description": "Test page"
+      },
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
+    }
+  },
+  "accountTags": {
+    "IC": {
+      "category": "system",
+      "ui": {
+        "label": "Identity Concentrator",
+        "description": "User has a System assigned role within an Identity Concentrator"
+      }
+    },
+    "DAM": {
+      "category": "system",
+      "ui": {
+        "label": "Data Access Manager",
+        "description": "User has a System assigned role within a Data Access Manager"
+      }
+    },
+    "GCP": {
+      "category": "platform",
+      "ui": {
+        "label": "Google Cloud Platform",
+        "description": "User is a target for resource access within GCP"
+      }
+    }
+  },
+  "options": {
+    "accountNameLength": 25,
+    "readOnlyMasterRealm": true,
+    "authCodeTokenTtl": "5m",
+    "accessTokenTtl": "1d",
+    "refreshTokenTtl": "180d",
+    "defaultPassportTokenTtl": "1d",
+    "maxPassportTokenTtl": "1d",
+    "claimTtlCap": "9125d"
+  }
+}
