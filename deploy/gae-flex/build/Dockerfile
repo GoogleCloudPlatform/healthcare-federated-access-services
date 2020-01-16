@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/${Your_Project_ID}/hcls-fa-gae-go-nginx-hydra
+FROM gcr.io/${YOUR_PROJECT_ID}/hcls-fa-gae-go-nginx-hydra
 
 COPY deploy/gae-flex/build/nginx.conf /etc/nginx/sites-enabled
 
