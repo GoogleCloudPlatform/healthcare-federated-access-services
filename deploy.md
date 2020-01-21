@@ -29,139 +29,41 @@ gcloud config set account ${GCP_USERNAME?}
 
 ### Setup one project
 
-- create a gcp project
+- create a gcp project using the GCP Developer Console.
+- the following setup script deploys components with some default settings and is useful for testing (for production deployments, see a section below):
+  - IC and DAM are deployed on [GAE Flex](https://cloud.google.com/appengine/docs/flexible/) in [us-central](https://cloud.google.com/appengine/docs/locations)
+  - [CloudSQL](https://cloud.google.com/sql/docs/postgres/) is deployed for [Hydra](https://github.com/ory/hydra) in [us-central1](https://cloud.google.com/sql/docs/mysql/locations):
+    - type: "postgres"
+    - name: "hydra"
+    - username: "hydra"
+    - password: "hydra"
 
   ```bash
   export PROJECT=<gcp-project-id>
-  gcloud projects create $PROJECT --set-as-default
-  gcloud config set project $PROJECT
+  ./deploy.bash
   ```
 
-- enable services
+- see `deploy.bash` for more details, also check config files:
+  - [IC's config.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/ic-template/config_master_main_latest.json)
+  - [IC's permissions.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/ic-template/permissions_master_main_latest.json)
+  - [IC's secrets.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/ic-template/secrets_master_main_latest.json)
+  - [DAM's config.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/dam-template/config_master_main_latest.json)
+  - [DAM's permissions.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/dam-template/permissions_master_main_latest.json)
+  - [DAM's secrets.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/dam-template/secrets_master_main_latest.json)
+- for production environments, please review the `deploy.bash` script and make edits to the setting indicated above, paying special attention to security configuration such as:
+  - CloudSQL `username` and `password`.
+  - [DAM's permissions.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/dam-template/permissions_master_main_latest.json) file list of DAM administrators.
+  - [IC's permissions.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/ic-template/permissions_master_main_latest.json) file list of IC administrators.
+  - [DAM's secrets.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/dam-template/secrets_master_main_latest.json) [IC's secrets.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/ic-template/secrets_master_main_latest.json) OAuth client credentials, Idp client credentials and RSA keys for signing.
 
-We need to enable services:
+    ```
+    openssl genrsa -out private.pem 2048
+    openssl rsa -in private.pem -RSAPublicKey_out > public.pem
+    cat private.pem
+    cat public.pem
+    ```
 
-- AppEngine and AppEngine flex for running IC and DAM services
-- Cloud SQL as database of ory/hydra
-- Datastore as database of IC and DAM
-- IAM for managing service accounts accessing dataset
-- CloudBuild for building the docker images
-- BigQuery and GCS for dataset hosting
-
-  ```bash
-  gcloud services enable \
-    appengine.googleapis.com \
-    appengineflex.googleapis.com \
-    appenginestandard.googleapis.com \
-    sql-component.googleapis.com \
-    sqladmin.googleapis.com \
-    datastore.googleapis.com \
-    iam.googleapis.com \
-    cloudbuild.googleapis.com \
-    bigquery.googleapis.com \
-    storage-component.googleapis.com \
-    cloudkms.googleapis.com
-
-    gcloud app create --region=<GAE regions, see https://cloud.google.com/appengine/docs/locations>
-  ```
-
-- setup service accounts
-
-Add IAM Roles to service account of GAE Flex `service-PROJECT_NUMBER@gae-api-prod.google.com.iam.gserviceaccount.com`:
-
-- Cloud KMS CryptoKey Encrypter/Decrypter
-- Cloud SQL Client
-- Editor
-- Service Account Token Creator
-- Project IAM Admin
-
-  ```bash
-  PROJECT_NUMBER=$(gcloud projects list --filter="${PROJECT?}" --format="value(PROJECT_NUMBER)")
-
-  # KMS cryptoKeyEncrypterDecrypter must also add to appengine service account.
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudsql.client
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/editor
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/resourcemanager.projectIamAdmin
-  ```
-
-- setup CloudSQL
-
-  ```bash
-  # Create a CloudSQL D0 (memory=128M, disk=250G) postgres 11 instance in us-central-1.
-  gcloud sql instances create hydra --database-version=POSTGRES_11 \
-    --tier=db-f1-micro --region=us-central1
-  # Create user: name="${NAME}", password="${PASSWORD}"
-  gcloud sql users create hydra --instance=hydra --password=${PASSWORD?}
-  # Create database ic
-  gcloud sql databases create ic --instance=hydra
-  # Create database dam
-  gcloud sql databases create dam --instance=hydra
-  ```
-
-See https://cloud.google.com/sql/docs/postgres/create-instance for more options to customise your instance. It also works with MySQL instance with config changes.
-
-Please use real username and password. The example is using user=hydra and password=hydra.
-
-### Multiple projects: setup a data hosting project
-
-Grant the Project IAM Admin role of the data hosting project to the `App Engine Flex default service account` of server hosting project, `service-PROJECT_NUMBER@gae-api-prod.google.com.iam.gserviceaccount.com`. Do not grand the Project IAM Admin role of the server hosting project to the service account.
-
-## App Engine Configure
-
-- Fill in `deploy/gae-flex/config/{ic/dam}.yaml`. Example:
-
-  ```yaml
-  # dam.yaml
-  runtime: custom
-  env: flex
-  service: "dam"
-
-  env_variables:
-    # Service type: ic or dam
-    TYPE: "dam"
-    # Project id
-    PROJECT: "<DAM_HOSTING_PROJECT_NAME>"
-
-  beta_settings:
-    # Pass CloudSQL instance to GAE
-    cloud_sql_instances: <CLOUDSQL_PROJECT>:<CLOUDSQL_REGION see https://cloud.google.com/sql/docs/mysql/locations>:<ClOUDSQL_INSTANCE>=tcp:1234
-
-  # ic.yaml
-  runtime: custom
-  env: flex
-  service: "ic"
-
-  env_variables:
-    # Service type: ic or dam
-    TYPE: "ic"
-    # Project id
-    PROJECT: "<IC_HOSTING_PROJECT_NAME>"
-
-  beta_settings:
-    # Pass CloudSQL instance to GAE
-    cloud_sql_instances: <CLOUDSQL_PROJECT>:<CLOUDSQL_REGION see https://cloud.google.com/sql/docs/mysql/locations>:<ClOUDSQL_INSTANCE>=tcp:1234
-  ```
-
-- Replace project id in `deploy/gae-flex/build/Dockerfile`.
-
-## Start servers
-
-```bash
-# Build the base image. Only need to run after hydra/nginx update.
-pushd deploy/gae-flex/base-image
-gcloud builds submit --config cloudbuild.yaml .
-
-popd
-# Build the IC and DAM image
-gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_VERSION_=latest
-
-# Deploy IC and DAM
-gcloud -q app deploy deploy/gae-flex/config/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
-gcloud -q app deploy deploy/gae-flex/config/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
-```
+- also take extra care to not add or change anything that can expose Hydra's admin endpoints outside the VM (nginx is configured to guard this in the sample setup).
 
 ## Test with test client
 

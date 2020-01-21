@@ -21,4 +21,5 @@ See [deploy.md](./deploy.md)
 
 ## Configuration
 
-TODO
+Please check `deploy/config/ic-template` and `deploy/config/dam-template` for a configuration example.
+For more details, please check `IcConfig` in `proto/ic/v1/ic_service.proto` and `DamConfig` in `proto/dam/v1/dam_service.proto`.
