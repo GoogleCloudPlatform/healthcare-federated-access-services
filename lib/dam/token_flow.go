@@ -202,7 +202,7 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) damIssuerString() string {
-	return s.domainURL + oidcPrefix
+	return s.domainURL + "/dam/oidc/"
 }
 
 func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceName, viewName, role string, ttl time.Duration, useKeyFile bool, id *ga4gh.Identity, cfg *pb.DamConfig, res *pb.Resource, view *pb.View) (*pb.ResourceTokens_ResourceToken, int, error) {
@@ -296,7 +296,7 @@ func (s *Service) resourceViewRoleFromRequest(list []string) ([]resourceViewRole
 		if !strings.HasPrefix(res, s.domainURL) {
 			return nil, fmt.Errorf("requested resource %q not in this DAM", res)
 		}
-		prefix := s.domainURL + basePath + "/"
+		prefix := s.domainURL + "/dam/"
 		path := strings.ReplaceAll(res, prefix, "")
 
 		m := viewPathRE.FindStringSubmatch(path)

@@ -66,64 +66,7 @@ const (
 	tokenFlowTestPageFile      = "pages/new-flow-test.html"
 	hydraICTestPageFile        = "pages/hydra-ic-test.html"
 	staticDirectory            = "assets/serve/"
-	version                    = "v1alpha"
 	requiresAdmin              = true
-
-	basePath         = "/identity"
-	versionPath      = basePath + "/" + version
-	realmPath        = versionPath + "/" + common.RealmVariable
-	methodPrefix     = realmPath + "/"
-	acceptLoginPath  = basePath + "/loggedin"
-	assetPath        = basePath + "/static"
-	staticFilePath   = assetPath + "/"
-	configPathPrefix = methodPrefix + "config"
-
-	infoPath                    = basePath
-	clientPath                  = methodPrefix + "clients/{name}"
-	configPath                  = methodPrefix + "config"
-	configHistoryPath           = configPath + "/history"
-	configHistoryRevisionPath   = configHistoryPath + "/{name}"
-	configResetPath             = configPath + "/reset"
-	configIdentityProvidersPath = configPath + "/identityProviders/{name}"
-	configClientsPath           = configPath + "/clients/{name}"
-	configOptionsPath           = configPath + "/options"
-
-	identityProvidersPath        = methodPrefix + "identityProviders"
-	translatorsPath              = methodPrefix + "passportTranslators"
-	tokenMetadataPath            = methodPrefix + "token/{sub}/{jti}"
-	revocationPath               = methodPrefix + "revoke"
-	loginPathPrefix              = methodPrefix + "login/"
-	loginPath                    = loginPathPrefix + "{name}"
-	finishLoginPrefix            = methodPrefix + "loggedin/"
-	finishLoginPath              = finishLoginPrefix + "{name}"
-	acceptInformationReleasePath = methodPrefix + "inforelease"
-
-	personasPath       = methodPrefix + "personas"
-	personaPath        = personasPath + "/{name}"
-	accountPath        = methodPrefix + "accounts/{name}"
-	accountSubjectPath = accountPath + "/subjects/{subject}"
-
-	scimPrefix    = basePath + "/scim/v2/" + common.RealmVariable + "/"
-	scimUsersPath = scimPrefix + "Users"
-	scimUserPath  = scimPrefix + "Users/{name}"
-	scimMePath    = scimPrefix + "Me"
-
-	tokensPath = "/tokens"
-	tokenPath  = "/tokens/"
-
-	consentsPath = "/consents"
-	consentPath  = "/consents/"
-
-	adminPathPrefix        = methodPrefix + "admin"
-	adminClaimsPath        = adminPathPrefix + "/subjects/{name}/account/claims"
-	adminTokenMetadataPath = adminPathPrefix + "/tokens"
-
-	hydraLoginPath   = basePath + "/login"
-	hydraConsentPath = basePath + "/consent"
-	hydraTestPage    = basePath + "/hydra-test"
-
-	testPath          = methodPrefix + "test"
-	tokenFlowTestPath = basePath + "/new-flow-test"
 
 	serviceTitle         = "Identity Concentrator"
 	loginInfoTitle       = "Data Discovery and Access Platform"
@@ -139,12 +82,10 @@ const (
 )
 
 func defaultPath(path string) string {
-	return strings.Replace(path, common.RealmVariable, storage.DefaultRealm, -1)
+	return strings.Replace(path, "{realm}", storage.DefaultRealm, -1)
 }
 
 var (
-	defaultRevocationPath = defaultPath(revocationPath)
-
 	secretParams = map[string]bool{
 		"clientSecret":  true,
 		"client_secret": true,
@@ -265,16 +206,13 @@ var (
 		hydraLoginPath:               true,
 		hydraConsentPath:             true,
 		acceptInformationReleasePath: true,
-		testPath:                     true,
-		tokenFlowTestPath:            true,
-		hydraTestPage:                true,
 	}
 	// skipClientCredsPaths are the path prefixes for which we don't check client credentials.
 	skipClientCredPrefixes = []string{
 		staticFilePath,
-		loginPathPrefix,
+		strings.TrimSuffix(loginPath, "{name}"),
 		acceptLoginPath,
-		finishLoginPrefix,
+		strings.TrimSuffix(finishLoginPath, "{name}"),
 	}
 )
 
@@ -404,7 +342,8 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL, hydra
 	}
 
 	sh.s = s
-	sh.Handler = s.buildHandlerMux()
+	sh.Handler = mux.NewRouter()
+	registerHandlers(sh.Handler, s)
 	return s
 }
 
@@ -509,56 +448,7 @@ func (s *Service) checkClient(path string, r *http.Request) error {
 }
 
 func isClientOnly(path string) bool {
-	return strings.HasPrefix(path, finishLoginPrefix) || strings.HasPrefix(path, personasPath) || strings.HasPrefix(path, clientPath) || strings.HasPrefix(path, translatorsPath) || strings.HasPrefix(path, identityProvidersPath)
-}
-
-func (s *Service) buildHandlerMux() *mux.Router {
-	r := mux.NewRouter()
-	r.HandleFunc(infoPath, s.GetInfo)
-	r.HandleFunc(realmPath, common.MakeHandler(s, s.realmFactory()))
-	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
-	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
-	r.HandleFunc(configHistoryPath, s.ConfigHistory)
-	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
-	r.HandleFunc(configResetPath, s.ConfigReset)
-	r.HandleFunc(configIdentityProvidersPath, common.MakeHandler(s, s.configIdpFactory()))
-	r.HandleFunc(configClientsPath, common.MakeHandler(s, s.configClientFactory()))
-	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
-	r.HandleFunc(identityProvidersPath, s.IdentityProviders)
-	r.HandleFunc(translatorsPath, s.PassportTranslators)
-	r.HandleFunc(tokenMetadataPath, common.MakeHandler(s, s.tokenMetadataFactory()))
-	r.HandleFunc(adminTokenMetadataPath, common.MakeHandler(s, s.adminTokenMetadataFactory()))
-	r.HandleFunc(revocationPath, s.Revocation)
-	r.HandleFunc(loginPath, s.Login)
-	r.HandleFunc(acceptLoginPath, s.AcceptLogin)
-	r.HandleFunc(finishLoginPath, s.FinishLogin)
-	r.HandleFunc(acceptInformationReleasePath, s.acceptInformationRelease).Methods("GET")
-	r.HandleFunc(testPath, s.Test)
-	r.HandleFunc(tokenFlowTestPath, s.TokenFlowTest)
-	r.HandleFunc(accountPath, common.MakeHandler(s, s.accountFactory()))
-	r.HandleFunc(accountSubjectPath, common.MakeHandler(s, s.accountSubjectFactory()))
-	r.HandleFunc(adminClaimsPath, common.MakeHandler(s, s.adminClaimsFactory()))
-
-	r.HandleFunc(scimMePath, common.MakeHandler(s, s.scimMeFactory()))
-	r.HandleFunc(scimUserPath, common.MakeHandler(s, s.scimUserFactory()))
-	r.HandleFunc(scimUsersPath, common.MakeHandler(s, s.scimUsersFactory()))
-
-	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
-	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
-	r.HandleFunc(hydraTestPage, s.HydraTestPage).Methods(http.MethodGet)
-
-	tokens := &stubTokens{token: fakeToken}
-	r.HandleFunc(tokensPath, NewTokensHandler(tokens).ListTokens).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, NewTokensHandler(tokens).GetToken).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, NewTokensHandler(tokens).DeleteToken).Methods(http.MethodDelete)
-
-	consents := &stubConsents{consent: fakeConsent}
-	r.HandleFunc(consentsPath, NewConsentsHandler(consents).ListConsents).Methods(http.MethodGet)
-	r.HandleFunc(consentPath, NewConsentsHandler(consents).DeleteConsent).Methods(http.MethodDelete)
-
-	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(srcutil.Path(staticDirectory))))
-	r.PathPrefix(staticFilePath).Handler(sfs)
-	return r
+	return strings.HasPrefix(path, "/identity/v1alpha/{realm}/loggedin/") || strings.HasPrefix(path, clientPath) || strings.HasPrefix(path, translatorsPath) || strings.HasPrefix(path, identityProvidersPath)
 }
 
 //////////////////////////////////////////////////////////////////
@@ -566,7 +456,7 @@ func (s *Service) buildHandlerMux() *mux.Router {
 func (s *Service) GetInfo(w http.ResponseWriter, r *http.Request) {
 	out := &pb.GetInfoResponse{
 		Name:      "Identity Concentrator",
-		Versions:  []string{version},
+		Versions:  []string{"v1alpha"},
 		StartTime: s.startTime,
 	}
 	if err := s.checkClient(common.RequestAbstractPath(r), r); err == nil {
@@ -1369,94 +1259,6 @@ func (s *Service) GetStore() storage.Store {
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) realmFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "realm",
-		NameField:           "realm",
-		PathPrefix:          realmPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &realm{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.RealmRequest{},
-			}
-		},
-	}
-}
-
-type realm struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.RealmRequest
-	item  *pb.Realm
-	cfg   *pb.IcConfig
-	id    *ga4gh.Identity
-}
-
-func (c *realm) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.id = id
-	return status, err
-}
-func (c *realm) LookupItem(name string, vars map[string]string) bool {
-	// Accept any name that passes the name check.
-	c.item = &pb.Realm{}
-	return true
-}
-func (c *realm) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	if c.input == nil {
-		c.input = &pb.RealmRequest{}
-	}
-	if c.input.Item == nil {
-		c.input.Item = &pb.Realm{}
-	}
-	return nil
-}
-func (c *realm) Get(name string) error {
-	if c.item != nil {
-		common.SendResponse(c.item, c.w)
-	}
-	return nil
-}
-func (c *realm) Post(name string) error {
-	// Accept, but do nothing.
-	return nil
-}
-func (c *realm) Put(name string) error {
-	// Accept, but do nothing.
-	return nil
-}
-func (c *realm) Patch(name string) error {
-	// Accept, but do nothing.
-	return nil
-}
-func (c *realm) Remove(name string) error {
-	if err := c.s.store.Wipe(name); err != nil {
-		return err
-	}
-	if name == storage.DefaultRealm {
-		return c.s.ImportFiles(importDefault)
-	}
-	return nil
-}
-func (c *realm) CheckIntegrity() *status.Status {
-	return nil
-}
-func (c *realm) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	// Accept, but do nothing.
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
 func (s *Service) configFactory() *common.HandlerFactory {
 	return &common.HandlerFactory{
 		TypeName:            "config",
@@ -1768,106 +1570,6 @@ func (c *configOptions) Save(tx storage.Tx, name string, vars map[string]string,
 	if err := c.s.saveConfig(c.cfg, desc, typeName, c.r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
 		return err
 	}
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) tokenMetadataFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "token",
-		PathPrefix:          tokenMetadataPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             false,
-		NameChecker: map[string]*regexp.Regexp{
-			"sub": common.SubRE,
-			"jti": common.JTIRE,
-		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &tokenMetadataHandler{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.TokenMetadataRequest{},
-			}
-		},
-	}
-}
-
-type tokenMetadataHandler struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.TokenMetadataRequest
-	sub   string
-	jti   string
-	item  *pb.TokenMetadata
-	id    *ga4gh.Identity
-	tx    storage.Tx
-}
-
-func (h *tokenMetadataHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
-	h.id = id
-	h.tx = tx
-	return status, err
-}
-
-func (h *tokenMetadataHandler) LookupItem(name string, vars map[string]string) bool {
-	sub, ok := vars["sub"]
-	if !ok {
-		return false
-	}
-	h.sub = sub
-	if _, err := h.s.permissions.CheckSubjectOrAdmin(h.id, sub); err != nil {
-		return false
-	}
-
-	jti, ok := vars["jti"]
-	if !ok || len(jti) == 0 {
-		return false
-	}
-	h.jti = jti
-
-	h.item = &pb.TokenMetadata{}
-	if err := h.s.store.ReadTx(storage.TokensDatatype, getRealm(h.r), sub, jti, storage.LatestRev, h.item, h.tx); err != nil {
-		return false
-	}
-	return true
-}
-
-func (h *tokenMetadataHandler) NormalizeInput(name string, vars map[string]string) error {
-	return common.GetRequest(h.input, h.r)
-}
-
-func (h *tokenMetadataHandler) Get(name string) error {
-	common.SendResponse(&pb.TokenMetadataResponse{
-		TokenMetadata: h.item,
-	}, h.w)
-	return nil
-}
-
-func (h *tokenMetadataHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-
-func (h *tokenMetadataHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
-}
-
-func (h *tokenMetadataHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
-}
-
-func (h *tokenMetadataHandler) Remove(name string) error {
-	return h.s.store.DeleteTx(storage.TokensDatatype, getRealm(h.r), h.sub, h.jti, storage.LatestRev, h.tx)
-}
-
-func (h *tokenMetadataHandler) CheckIntegrity() *status.Status {
-	return nil
-}
-
-func (h *tokenMetadataHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
 }
 
@@ -2432,16 +2134,12 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 	}
 	// TODO: use only isAdmin by upgrading each handler to set this flag.
 	path := common.RequestAbstractPath(r)
-	if strings.HasPrefix(path, configPathPrefix) || isAdmin {
+	if strings.HasPrefix(path, configPath) || isAdmin {
 		if status, err := s.permissions.CheckAdmin(id); err != nil {
 			return nil, nil, nil, status, err
 		}
 	}
-	if path == realmPath {
-		if status, err := s.permissions.CheckAdmin(id); err != nil {
-			return nil, nil, nil, status, err
-		}
-	}
+
 	return cfg, secrets, id, status, err
 }
 
@@ -3562,4 +3260,46 @@ func (s *Service) ImportFiles(importType string) error {
 		return err
 	}
 	return nil
+}
+
+// TODO: move registeration of endpoints to main package.
+func registerHandlers(r *mux.Router, s *Service) {
+	r.HandleFunc(infoPath, s.GetInfo)
+	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
+	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
+	r.HandleFunc(configHistoryPath, s.ConfigHistory)
+	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
+	r.HandleFunc(configResetPath, s.ConfigReset)
+	r.HandleFunc(configIdentityProvidersPath, common.MakeHandler(s, s.configIdpFactory()))
+	r.HandleFunc(configClientsPath, common.MakeHandler(s, s.configClientFactory()))
+	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
+	r.HandleFunc(identityProvidersPath, s.IdentityProviders)
+	r.HandleFunc(translatorsPath, s.PassportTranslators)
+	r.HandleFunc(adminTokenMetadataPath, common.MakeHandler(s, s.adminTokenMetadataFactory()))
+	r.HandleFunc(loginPath, s.Login)
+	r.HandleFunc(acceptLoginPath, s.AcceptLogin)
+	r.HandleFunc(finishLoginPath, s.FinishLogin)
+	r.HandleFunc(acceptInformationReleasePath, s.acceptInformationRelease).Methods("GET")
+	r.HandleFunc(accountPath, common.MakeHandler(s, s.accountFactory()))
+	r.HandleFunc(accountSubjectPath, common.MakeHandler(s, s.accountSubjectFactory()))
+	r.HandleFunc(adminClaimsPath, common.MakeHandler(s, s.adminClaimsFactory()))
+
+	r.HandleFunc(scimMePath, common.MakeHandler(s, s.scimMeFactory()))
+	r.HandleFunc(scimUserPath, common.MakeHandler(s, s.scimUserFactory()))
+	r.HandleFunc(scimUsersPath, common.MakeHandler(s, s.scimUsersFactory()))
+
+	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
+	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
+
+	tokens := &stubTokens{token: fakeToken}
+	r.HandleFunc(tokensPath, NewTokensHandler(tokens).ListTokens).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, NewTokensHandler(tokens).GetToken).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, NewTokensHandler(tokens).DeleteToken).Methods(http.MethodDelete)
+
+	consents := &stubConsents{consent: fakeConsent}
+	r.HandleFunc(consentsPath, NewConsentsHandler(consents).ListConsents).Methods(http.MethodGet)
+	r.HandleFunc(consentPath, NewConsentsHandler(consents).DeleteConsent).Methods(http.MethodDelete)
+
+	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(srcutil.Path(staticDirectory))))
+	r.PathPrefix(staticFilePath).Handler(sfs)
 }

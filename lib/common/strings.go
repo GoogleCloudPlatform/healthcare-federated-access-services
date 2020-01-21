@@ -26,10 +26,6 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 )
 
-const (
-	RealmVariable = "{realm}"
-)
-
 func ListContains(list []string, find string) bool {
 	for _, entry := range list {
 		if entry == find {
@@ -43,7 +39,7 @@ func RequestAbstractPath(r *http.Request) string {
 	parts := strings.Split(r.URL.Path, "/")
 	// Path starts with a "/", so first part is always empty.
 	if len(parts) > 3 {
-		parts[3] = RealmVariable
+		parts[3] = "{realm}"
 	}
 	return strings.Join(parts, "/")
 }

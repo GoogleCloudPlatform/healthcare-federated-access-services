@@ -613,7 +613,7 @@ func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 			ResourceType: "User",
 			Created:      common.TimestampString(int64(acct.Properties.Created)),
 			LastModified: common.TimestampString(int64(acct.Properties.Modified)),
-			Location:     s.getDomainURL() + strings.ReplaceAll(scimUsersPath, common.RealmVariable, realm) + "/" + acct.Properties.Subject,
+			Location:     s.getDomainURL() + strings.ReplaceAll(scimUsersPath, "{realm}", realm) + "/" + acct.Properties.Subject,
 			Version:      strconv.FormatInt(acct.Revision, 10),
 		},
 		Name: &spb.Name{

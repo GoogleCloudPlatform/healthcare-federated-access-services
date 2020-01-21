@@ -53,59 +53,6 @@ import (
 )
 
 const (
-	version       = "v1alpha"
-	realmVariable = "{realm}"
-
-	basePath     = "/dam"
-	methodPrefix = basePath + "/" + version + "/" + realmVariable + "/"
-
-	infoPath              = basePath
-	versionPath           = basePath + "/" + version
-	realmPath             = versionPath + "/" + common.RealmVariable
-	clientPath            = methodPrefix + "client/{name}"
-	resourcesPath         = methodPrefix + "resources"
-	resourcePath          = methodPrefix + "resources/{name}"
-	flatViewsPath         = methodPrefix + "flatViews"
-	viewsPath             = methodPrefix + "resources/{name}/views"
-	viewPath              = methodPrefix + "resources/{name}/views/{view}"
-	rolesPath             = methodPrefix + "resources/{name}/views/{view}/roles"
-	rolePath              = methodPrefix + "resources/{name}/views/{view}/roles/{role}"
-	viewTokenPath         = methodPrefix + "resources/{name}/views/{view}/token"
-	roleTokenPath         = methodPrefix + "resources/{name}/views/{view}/roles/{role}/token"
-	testPath              = methodPrefix + "tests"
-	adaptersPath          = methodPrefix + "targetAdapters"
-	translatorsPath       = methodPrefix + "passportTranslators"
-	damRoleCategoriesPath = methodPrefix + "damRoleCategories"
-	testPersonasPath      = methodPrefix + "testPersonas"
-	processesPath         = methodPrefix + "processes"
-	processPath           = methodPrefix + "processes/{name}"
-	tokensPath            = methodPrefix + "tokens"
-	tokenPath             = methodPrefix + "tokens/{name}"
-	resourceTokensPath    = basePath + "/checkout"
-
-	oidcPrefix   = basePath + "/oidc/"
-	loggedInPath = oidcPrefix + "loggedin"
-
-	configPath                      = methodPrefix + "config"
-	configResourcePath              = configPath + "/resources/{name}"
-	configViewPath                  = configPath + "/resources/{resource}/views/{name}"
-	configTrustedPassportIssuerPath = configPath + "/trustedPassportIssuers/{name}"
-	configTrustedSourcePath         = configPath + "/trustedSources/{name}"
-	configPolicyPath                = configPath + "/policies/{name}"
-	configOptionsPath               = configPath + "/options"
-	configClaimDefPath              = configPath + "/claimDefinitions/{name}"
-	configServiceTemplatePath       = configPath + "/serviceTemplates/{name}"
-	configClientPath                = configPath + "/clients/{name}"
-	configTestPersonasPath          = configPath + "/testPersonas"
-	configTestPersonaPath           = configPath + "/testPersonas/{name}"
-	configHistoryPath               = configPath + "/history"
-	configHistoryRevisionPath       = configHistoryPath + "/{name}"
-	configResetPath                 = configPath + "/reset"
-
-	hydraLoginPath   = basePath + "/login"
-	hydraConsentPath = basePath + "/consent"
-	hydraTestPage    = basePath + "/hydra-test"
-
 	hydraDAMTestPageFile = "pages/hydra-dam-test.html"
 
 	maxNameLength = 32
@@ -233,7 +180,8 @@ func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL string
 	}
 
 	sh.s = s
-	sh.Handler = s.buildHandlerMux()
+	sh.Handler = mux.NewRouter()
+	registerHandlers(sh.Handler, s)
 	return s
 }
 
@@ -306,7 +254,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) checkClientCreds(r *http.Request) error {
-	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath || r.URL.Path == hydraTestPage {
+	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath {
 		return nil
 	}
 	cid := getClientID(r)
@@ -331,57 +279,6 @@ func (s *Service) checkClientCreds(r *http.Request) error {
 	}
 
 	return nil
-}
-
-func (s *Service) buildHandlerMux() *mux.Router {
-	r := mux.NewRouter()
-	r.HandleFunc(infoPath, s.GetInfo)
-	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
-	r.HandleFunc(resourcesPath, s.GetResources)
-	r.HandleFunc(resourcePath, s.GetResource)
-	r.HandleFunc(viewsPath, s.GetViews)
-	r.HandleFunc(flatViewsPath, s.GetFlatViews)
-	r.HandleFunc(viewPath, s.GetView)
-	r.HandleFunc(rolesPath, s.GetViewRoles)
-	r.HandleFunc(rolePath, s.GetViewRole)
-	r.HandleFunc(viewTokenPath, s.GetResourceToken)
-	r.HandleFunc(roleTokenPath, s.GetResourceToken)
-	r.HandleFunc(testPath, s.GetTestResults)
-	r.HandleFunc(adaptersPath, s.GetTargetAdapters)
-	r.HandleFunc(translatorsPath, s.GetPassportTranslators)
-	r.HandleFunc(damRoleCategoriesPath, s.GetDamRoleCategories)
-	r.HandleFunc(testPersonasPath, s.GetTestPersonas)
-	r.HandleFunc(realmPath, common.MakeHandler(s, s.realmFactory()))
-	r.HandleFunc(processesPath, common.MakeHandler(s, s.processesFactory()))
-	r.HandleFunc(processPath, common.MakeHandler(s, s.processFactory()))
-	r.HandleFunc(tokensPath, common.MakeHandler(s, s.tokensFactory()))
-	r.HandleFunc(tokenPath, common.MakeHandler(s, s.tokenFactory()))
-
-	r.HandleFunc(loggedInPath, s.LoggedInHandler)
-	r.HandleFunc(resourceTokensPath, s.ResourceTokens).Methods("GET", "POST")
-
-	r.HandleFunc(configHistoryPath, s.ConfigHistory)
-	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
-	r.HandleFunc(configResetPath, s.ConfigReset)
-	r.HandleFunc(configTestPersonasPath, s.ConfigTestPersonas)
-
-	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
-	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
-	r.HandleFunc(configResourcePath, common.MakeHandler(s, s.configResourceFactory()))
-	r.HandleFunc(configViewPath, common.MakeHandler(s, s.configViewFactory()))
-	r.HandleFunc(configTrustedPassportIssuerPath, common.MakeHandler(s, s.configIssuerFactory()))
-	r.HandleFunc(configTrustedSourcePath, common.MakeHandler(s, s.configSourceFactory()))
-	r.HandleFunc(configPolicyPath, common.MakeHandler(s, s.configPolicyFactory()))
-	r.HandleFunc(configClaimDefPath, common.MakeHandler(s, s.configClaimDefinitionFactory()))
-	r.HandleFunc(configServiceTemplatePath, common.MakeHandler(s, s.configServiceTemplateFactory()))
-	r.HandleFunc(configTestPersonaPath, common.MakeHandler(s, s.configPersonaFactory()))
-	r.HandleFunc(configClientPath, common.MakeHandler(s, s.configClientFactory()))
-
-	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
-	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
-	r.HandleFunc(hydraTestPage, s.HydraTestPage).Methods(http.MethodGet)
-
-	return r
 }
 
 func checkName(name string) error {
@@ -639,7 +536,7 @@ func configRevision(mod *pb.ConfigModification, cfg *pb.DamConfig) error {
 func (s *Service) GetInfo(w http.ResponseWriter, r *http.Request) {
 	out := &pb.GetInfoResponse{
 		Name:      "Data Access Manager",
-		Versions:  []string{version},
+		Versions:  []string{"v1alpha"},
 		StartTime: s.startTime,
 	}
 	realm := common.GetParamOrDefault(r, "realm", storage.DefaultRealm)
@@ -1245,19 +1142,6 @@ func (s *Service) GetStore() storage.Store {
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) realmFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "realm",
-		NameField:           "realm",
-		PathPrefix:          realmPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return NewRealmHandler(s, w, r)
-		},
-	}
-}
-
 func (s *Service) processesFactory() *common.HandlerFactory {
 	return &common.HandlerFactory{
 		TypeName:            "processes",
@@ -1278,33 +1162,6 @@ func (s *Service) processFactory() *common.HandlerFactory {
 		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewProcessHandler(s, w, r)
-		},
-	}
-}
-
-func (s *Service) tokensFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "tokens",
-		PathPrefix:          tokensPath,
-		HasNamedIdentifiers: false,
-		IsAdmin:             false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return NewTokensHandler(s, w, r)
-		},
-	}
-}
-
-func (s *Service) tokenFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "token",
-		PathPrefix:          tokenPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             false,
-		NameChecker: map[string]*regexp.Regexp{
-			"name": common.TokenNameRE,
-		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return NewTokenHandler(s, w, r)
 		},
 	}
 }
@@ -1861,4 +1718,47 @@ func getFileStore(store storage.Store, service string) storage.Store {
 	}
 	path := info["path"]
 	return storage.NewFileStorage(service, path)
+}
+
+// TODO: move registeration of endpoints to main package.
+func registerHandlers(r *mux.Router, s *Service) {
+	r.HandleFunc(infoPath, s.GetInfo)
+	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
+	r.HandleFunc(resourcesPath, s.GetResources)
+	r.HandleFunc(resourcePath, s.GetResource)
+	r.HandleFunc(viewsPath, s.GetViews)
+	r.HandleFunc(flatViewsPath, s.GetFlatViews)
+	r.HandleFunc(viewPath, s.GetView)
+	r.HandleFunc(rolesPath, s.GetViewRoles)
+	r.HandleFunc(rolePath, s.GetViewRole)
+	r.HandleFunc(testPath, s.GetTestResults)
+	r.HandleFunc(adaptersPath, s.GetTargetAdapters)
+	r.HandleFunc(translatorsPath, s.GetPassportTranslators)
+	r.HandleFunc(damRoleCategoriesPath, s.GetDamRoleCategories)
+	r.HandleFunc(testPersonasPath, s.GetTestPersonas)
+	r.HandleFunc(processesPath, common.MakeHandler(s, s.processesFactory()))
+	r.HandleFunc(processPath, common.MakeHandler(s, s.processFactory()))
+
+	r.HandleFunc(resourceTokensPath, s.ResourceTokens).Methods("GET", "POST")
+
+	r.HandleFunc(configHistoryPath, s.ConfigHistory)
+	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
+	r.HandleFunc(configResetPath, s.ConfigReset)
+	r.HandleFunc(configTestPersonasPath, s.ConfigTestPersonas)
+
+	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
+	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
+	r.HandleFunc(configResourcePath, common.MakeHandler(s, s.configResourceFactory()))
+	r.HandleFunc(configViewPath, common.MakeHandler(s, s.configViewFactory()))
+	r.HandleFunc(configTrustedPassportIssuerPath, common.MakeHandler(s, s.configIssuerFactory()))
+	r.HandleFunc(configTrustedSourcePath, common.MakeHandler(s, s.configSourceFactory()))
+	r.HandleFunc(configPolicyPath, common.MakeHandler(s, s.configPolicyFactory()))
+	r.HandleFunc(configClaimDefPath, common.MakeHandler(s, s.configClaimDefinitionFactory()))
+	r.HandleFunc(configServiceTemplatePath, common.MakeHandler(s, s.configServiceTemplateFactory()))
+	r.HandleFunc(configTestPersonaPath, common.MakeHandler(s, s.configPersonaFactory()))
+	r.HandleFunc(configClientPath, common.MakeHandler(s, s.configClientFactory()))
+
+	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
+	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
+	r.HandleFunc(loggedInPath, s.LoggedInHandler)
 }

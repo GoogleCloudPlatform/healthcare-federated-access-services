@@ -35,7 +35,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -119,37 +118,6 @@ func TestHandlers(t *testing.T) {
 			Method: "GET",
 			Path:   "/dam/v1alpha/master/testPersonas",
 			Output: `^.*dr_joe.*standardClaims.*"iss":"Issuer of the Passport".*$`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/master",
-			Output: `{}`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "POST",
-			Path:   "/dam/v1alpha/test",
-			Output: `^.*exists`,
-			// For now, all realms are marked as already in existence.
-			Status: http.StatusConflict,
-		},
-		{
-			Method: "PUT",
-			Path:   "/dam/v1alpha/test",
-			Output: ``,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "PATCH",
-			Path:   "/dam/v1alpha/test",
-			Output: ``,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "DELETE",
-			Path:   "/dam/v1alpha/test",
-			Output: ``,
 			Status: http.StatusOK,
 		},
 		{
@@ -768,121 +736,6 @@ func TestHandlers(t *testing.T) {
 			},`,
 			Output: `^.*"removeAccess":\["ga4gh-apis/`,
 			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
-			Output: `^{.*"token":.*}`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "POST",
-			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
-			Output: `^{.*"token":.*}`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "PUT",
-			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
-			Output: `^.*not allowed`,
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "PATCH",
-			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
-			Output: `^.*not allowed`,
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "DELETE",
-			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
-			Output: "^.*not allowed",
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/test/tokens",
-			Output: `^\{"tokens":\[\{"name":.*\]}`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "POST",
-			Path:   "/dam/v1alpha/test/tokens",
-			Output: `^.*exists`,
-			Status: http.StatusConflict,
-		},
-		{
-			Method: "PUT",
-			Path:   "/dam/v1alpha/test/tokens",
-			Output: `^.*not allowed`,
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "PATCH",
-			Path:   "/dam/v1alpha/test/tokens",
-			Output: `^.*not allowed`,
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "DELETE",
-			Path:   "/dam/v1alpha/test/tokens",
-			Output: "",
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/test/tokens",
-			Output: `{}`,
-			Status: http.StatusOK,
-		},
-		{
-			Name:   "Add another service key for use with tests that follow",
-			Method: "GET",
-			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/gcs_read/roles/viewer/token",
-			Output: `^{.*"token":.*}`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/test/tokens/none",
-			Output: `^.*not found`,
-			Status: http.StatusNotFound,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/test/tokens/3",
-			Output: `^\{"token":\{"name":.*}`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "POST",
-			Path:   "/dam/v1alpha/test/tokens/4",
-			Output: `^.*not allowed`,
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "PUT",
-			Path:   "/dam/v1alpha/test/tokens/3",
-			Output: `^.*not allowed`,
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "PATCH",
-			Path:   "/dam/v1alpha/test/tokens/3",
-			Output: `^.*not allowed`,
-			Status: http.StatusBadRequest,
-		},
-		{
-			Method: "DELETE",
-			Path:   "/dam/v1alpha/test/tokens/3",
-			Output: "",
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/test/tokens/3",
-			Output: `^.*not found`,
-			Status: http.StatusNotFound,
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests, test.TestIssuerURL, server.Config())
@@ -2339,7 +2192,7 @@ func TestConfigReset_Hydra(t *testing.T) {
 		"client_id":     []string{test.TestClientID},
 		"client_secret": []string{test.TestClientSecret},
 	}
-	path := strings.ReplaceAll(configResetPath, common.RealmVariable, "test")
+	path := strings.ReplaceAll(configResetPath, "{realm}", "test")
 	header := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
 	resp := testhttp.SendTestRequest(t, s.Handler, http.MethodGet, path, q, nil, header)
 
