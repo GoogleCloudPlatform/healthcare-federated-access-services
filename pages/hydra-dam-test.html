@@ -152,8 +152,10 @@
     <script>
       var clientId = "903cfaeb-57d9-4ef6-5659-04377794ed65";
       var clientSecret = "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
-      var scope = "openid offline";
-      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_&max_age=_MAX_AGE_&resource=_RESOURCES_";
+      var scope = "openid+offline";
+      var identitiesScope = "openid+offline+identities";
+      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=" + scope + "&state=_STATE_&max_age=_MAX_AGE_&resource=_RESOURCES_";
+      var loginIdentitiesURL= "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=" + identitiesScope + "&state=_STATE_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
       var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
       var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
@@ -248,7 +250,6 @@
           }
         }
         return pattern.replace(/_PATH_/g, encodeURI(path))
-                      .replace(/_SCOPE_/g, encodeSpaceToPlus(scope))
                       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
                       .replace(/_REALM_/g, encodeURIComponent(realm))
                       .replace(/_MAX_AGE_/g, encodeURIComponent($("#max_age").val() || "3600"))
@@ -264,18 +265,27 @@
                       .replace(/_RESOURCE_/g, encodeURIComponent($("#resource_name").val()))
       }
       function auth() {
-        var resources = $("#resources").val().trim();
-        if (!resources) {
-          displayError("must include resources first...");
-          return;
-        }
+        var type = $("#token_type").val();
+        var resources = "";
         var stateID = randomString(16);
         var state = new Object();
         state.id = stateID;
-        state.resList = resources;
+        var u = loginURL;
+
+        if (type === "dataset") {
+          resources = $("#resources").val().trim();
+          if (!resources) {
+            displayError("must include resources first...");
+            return;
+          }
+          state.resList = resources;
+        } else if (type === "endpoint") {
+          u = loginIdentitiesURL;
+        }
+
         window.localStorage.setItem('state', JSON.stringify(state));
 
-        var url = makeURL(loginURL, /*token*/ undefined, /*params*/ undefined, stateID, resources.split("\n"));
+        var url = makeURL(u, /*token*/ undefined, /*params*/ undefined, stateID, resources.split("\n"));
         window.location.href = url;
       }
       function tokenExchange() {
@@ -497,7 +507,12 @@
       <div id="error_hint" class="error-hint"></div>
     </div>
     <div class="box">
-      <h3>1. Select Resource on DAM</h3>
+      <h3>1. Select Token for DAM endpoint or dataset access</h3>
+      <select id="token_type">
+        <option value="dataset">dataset</option>
+        <option value="endpoint">endpoint</option>
+      </select>
+      <h3>2. Select Resource on DAM</h3>
       <label for="hydra_url">Hydra URL: </label>
       <input id="hydra_url" style="width:40%" value="${HYDRA_URL}">
       <label for="dam_url">DAM URL: </label>
@@ -520,7 +535,7 @@
       </div>
     </div>
     <div class="box">
-      <h3>2. Cart Resource Tokens</h3>
+      <h3>3. Cart Resource Tokens</h3>
       <div style="width:100%">
         <div id="auth_code_div" style="width:50%;float:left">
           Auth Code: <span class="reveal-empty">-none-</span><a onclick="reveal(this)" class="reveal-btn">show</a><span id="auth_code" class="revealed"></span>

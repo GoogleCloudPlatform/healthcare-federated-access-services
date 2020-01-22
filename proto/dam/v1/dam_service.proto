@@ -465,6 +465,12 @@ message ConfigTestPersonaRequest {
 }
 
 message ResourceTokenRequestState {
+  enum TokenType {
+    UNSPECIFIED = 0;
+    DATASET = 1;
+    ENDPOINT = 2;
+  }
+  TokenType type = 12;
   message Resource {
     string realm = 1;
     string resource = 2;
@@ -483,6 +489,8 @@ message ResourceTokenRequestState {
   string issuer = 9;
   string subject = 10;
   int64 epoch_seconds = 11;
+  string realm = 13;
+  repeated string identities = 14;
 }
 
 message AuthCode {

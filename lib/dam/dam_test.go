@@ -861,10 +861,11 @@ func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Serve
 	return s, cfg, sec, h, server, nil
 }
 
-func sendLogin(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, authParams string) *http.Response {
+func sendLogin(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, authParams string, scope []string) *http.Response {
 	h.GetLoginRequestResp = &hydraapi.LoginRequest{
-		Challenge:  loginChallenge,
-		RequestURL: hydraURL + "/oauth2/auth?" + authParams,
+		Challenge:      loginChallenge,
+		RequestURL:     hydraURL + "/oauth2/auth?" + authParams,
+		RequestedScope: scope,
 	}
 
 	w := httptest.NewRecorder()
@@ -930,7 +931,7 @@ func TestLogin_Hydra_Success(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := sendLogin(s, cfg, h, tc.authParams)
+			resp := sendLogin(s, cfg, h, tc.authParams, nil)
 			if resp.StatusCode != http.StatusTemporaryRedirect {
 				t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 			}
@@ -977,6 +978,9 @@ func TestLogin_Hydra_Success(t *testing.T) {
 			}
 			if len(state.Resources) != tc.wantResourceCount {
 				t.Errorf("len(state.Resources) wants %d got %d", tc.wantResourceCount, len(state.Resources))
+			}
+			if state.Type != pb.ResourceTokenRequestState_DATASET {
+				t.Errorf("state.Type wants %v got %v", pb.ResourceTokenRequestState_DATASET, state.Type)
 			}
 		})
 	}
@@ -1059,7 +1063,7 @@ func TestLogin_Hydra_Error(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := sendLogin(s, cfg, h, tc.authParams)
+			resp := sendLogin(s, cfg, h, tc.authParams, nil)
 			if resp.StatusCode != tc.respCode {
 				t.Errorf("resp.StatusCode wants %d, got %d", tc.respCode, resp.StatusCode)
 			}
@@ -1067,7 +1071,61 @@ func TestLogin_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, state string) (*http.Response, error) {
+func TestLogin_Endpoint_Hydra_Success(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendLogin(s, cfg, h, "", []string{"openid", "identities", "offline"})
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	idpc := cfg.TrustedPassportIssuers[s.defaultBroker]
+
+	l := resp.Header.Get("Location")
+	loc, err := url.Parse(l)
+	if err != nil {
+		t.Fatalf("url.Parse(%s) failed", l)
+	}
+
+	a, err := url.Parse(idpc.AuthUrl)
+	if err != nil {
+		t.Fatalf("url.Parse(%s) failed", idpc.AuthUrl)
+	}
+	if loc.Scheme != a.Scheme {
+		t.Errorf("Scheme wants %s got %s", a.Scheme, loc.Scheme)
+	}
+	if loc.Host != a.Host {
+		t.Errorf("Host wants %s got %s", a.Host, loc.Host)
+	}
+	if loc.Path != a.Path {
+		t.Errorf("Path wants %s got %s", a.Path, loc.Path)
+	}
+
+	q := loc.Query()
+	if q.Get("client_id") != idpc.ClientId {
+		t.Errorf("client_id wants %s got %s", idpc.ClientId, q.Get("client_id"))
+	}
+
+	stateID := q.Get("state")
+	state := &pb.ResourceTokenRequestState{}
+	err = s.store.Read(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state)
+	if err != nil {
+		t.Fatalf("read ResourceTokenRequestStateDataType failed: %v", err)
+	}
+
+	if state.Challenge != loginChallenge {
+		t.Errorf("state.Challenge wants %s got %s", loginChallenge, state.Challenge)
+	}
+
+	if state.Type != pb.ResourceTokenRequestState_ENDPOINT {
+		t.Errorf("state.Type wants %v got %v", pb.ResourceTokenRequestState_ENDPOINT, state.Type)
+	}
+}
+
+func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, state string, tokenType pb.ResourceTokenRequestState_TokenType) (*http.Response, error) {
 	// Ensure login state exists before request.
 	login := &pb.ResourceTokenRequestState{
 		Challenge: loginChallenge,
@@ -1081,6 +1139,8 @@ func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, stat
 		},
 		Ttl:    int64(time.Hour),
 		Broker: testBroker,
+		Realm:  storage.DefaultRealm,
+		Type:   tokenType,
 	}
 
 	err := s.store.Write(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, login, nil)
@@ -1110,9 +1170,9 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 
-	resp, err := sendLoggedIn(s, cfg, h, pname, loginStateID)
+	resp, err := sendLoggedIn(s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_DATASET)
 	if err != nil {
-		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s) failed: %v", pname, loginStateID, err)
+		t.Fatalf("sendLoggedIn(s, cfg, h, %s, %s, DATASET) failed: %v", pname, loginStateID, err)
 	}
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
@@ -1184,15 +1244,56 @@ func TestLoggedIn_Hydra_Errors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, err := sendLoggedIn(s, cfg, h, tc.code, tc.stateID)
+			resp, err := sendLoggedIn(s, cfg, h, tc.code, tc.stateID, pb.ResourceTokenRequestState_DATASET)
 			if err != nil {
-				t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s) failed: %v", tc.code, tc.stateID, err)
+				t.Fatalf("sendLoggedIn(s, cfg, h, %s, %s, DATASET) failed: %v", tc.code, tc.stateID, err)
 			}
 
 			if resp.StatusCode != tc.respStatus {
 				t.Errorf("resp.StatusCode wants %d got %d", tc.respStatus, resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	pname := "dr_joe_elixir"
+
+	resp, err := sendLoggedIn(s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_ENDPOINT)
+	if err != nil {
+		t.Fatalf("sendLoggedIn(s, cfg, h, %s, %s, ENDPOINT) failed: %v", pname, loginStateID, err)
+	}
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	l := resp.Header.Get("Location")
+	if l != hydraURL {
+		t.Errorf("Location wants %s got %s", hydraURL, l)
+	}
+
+	if *h.AcceptLoginReq.Subject != pname {
+		t.Errorf("h.AcceptLoginReq.Subject wants %s got %s", pname, *h.AcceptLoginReq.Subject)
+	}
+
+	v, ok := h.AcceptLoginReq.Context["identities"]
+	if !ok {
+		t.Errorf("AcceptLoginReq.Context[%s] not exists", "identities")
+	}
+	identities, ok := v.([]interface{})
+	if !ok {
+		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", "identities")
+	}
+
+	want := []interface{}{"dr_joe_elixir", "dr_joe@faculty.example.edu"}
+	if diff := cmp.Diff(want, identities); len(diff) > 0 {
+		t.Errorf("identities (-want, +got): %s", diff)
 	}
 }
 
@@ -1234,6 +1335,51 @@ func TestHydraConsent(t *testing.T) {
 
 	if h.AcceptConsentReq.Session.AccessToken["cart"] != consentStateID {
 		t.Errorf("AccessToken.cart = %v wants %v", h.AcceptConsentReq.Session.AccessToken["cart"], consentStateID)
+	}
+}
+
+func TestHydraConsent_Endpoint(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	clientID := "cid"
+
+	h.GetConsentRequestResp = &hydraapi.ConsentRequest{
+		Client: &hydraapi.Client{ClientID: clientID},
+		Context: map[string]interface{}{
+			"identities": []interface{}{"a@example.com", "b@example.com"},
+		},
+	}
+	h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	// Send Request.
+	query := fmt.Sprintf("?consent_challenge=%s", consentChallenge)
+	u := damURL + hydraConsentPath + query
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+	s.Handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	l := resp.Header.Get("Location")
+	if l != hydraURL {
+		t.Errorf("Location wants %s got %s", hydraURL, l)
+	}
+
+	if diff := cmp.Diff(h.AcceptConsentReq.GrantedAudience, []string{clientID}); len(diff) != 0 {
+		t.Errorf("GrantedAudience (-want +got): %s", diff)
+	}
+
+	wantIdentities := []interface{}{"a@example.com", "b@example.com"}
+
+	if diff := cmp.Diff(wantIdentities, h.AcceptConsentReq.Session.AccessToken["identities"]); len(diff) > 0 {
+		t.Errorf("AccessToken.identities (-want, +got): %s", diff)
 	}
 }
 

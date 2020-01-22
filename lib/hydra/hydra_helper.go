@@ -62,6 +62,32 @@ func ExtractStateIDInConsent(consent *hydraapi.ConsentRequest) (string, *status.
 	return stateID, nil
 }
 
+// ExtractIdentitiesInConsent extracts identities in ConsentRequest Context.
+func ExtractIdentitiesInConsent(consent *hydraapi.ConsentRequest) ([]string, *status.Status) {
+	v, ok := consent.Context["identities"]
+	if !ok {
+		return nil, nil
+	}
+
+	var identities []string
+
+	l, ok := v.([]interface{})
+	if !ok {
+		return nil, common.NewInfoStatus(codes.Internal, "", "consent.Context[identities] in wrong type")
+	}
+
+	for i, it := range l {
+		id, ok := it.(string)
+		if !ok {
+			return nil, common.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[identities][%d] in wrong type", i))
+		}
+
+		identities = append(identities, id)
+	}
+
+	return identities, nil
+}
+
 // LoginSkip if hydra was already able to authenticate the user, skip will be true and we do not need to re-authenticate the user.
 func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, login *hydraapi.LoginRequest, hydraAdminURL, challenge string) bool {
 	if !login.Skip {
@@ -110,13 +136,20 @@ func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, co
 }
 
 // SendLoginSuccess sends login success to hydra.
-func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge, subject, stateID string) {
+func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge, subject, stateID string, extra map[string]interface{}) {
 	req := &hydraapi.HandledLoginRequest{
 		Subject: &subject,
-		Context: map[string]interface{}{
-			StateIDKey: stateID,
-		},
+		Context: map[string]interface{}{},
 	}
+
+	if len(stateID) > 0 {
+		req.Context[StateIDKey] = stateID
+	}
+
+	for k, v := range extra {
+		req.Context[k] = v
+	}
+
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, req)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)

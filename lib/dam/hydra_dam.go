@@ -26,6 +26,9 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
 const (
@@ -57,29 +60,36 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ttl, err := extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
+	in := authHandlerIn{
+		challenge: challenge,
 	}
 
-	list := u.Query()["resource"]
-	resList, err := s.resourceViewRoleFromRequest(list)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
+	// Request tokens for call DAM endpoints, if scope includes "identities".
+	if common.ListContains(login.RequestedScope, "identities") {
+		in.tokenType = pb.ResourceTokenRequestState_ENDPOINT
+		in.realm = u.Query().Get("realm")
+		if len(in.realm) == 0 {
+			in.realm = storage.DefaultRealm
+		}
+	} else {
+		in.tokenType = pb.ResourceTokenRequestState_DATASET
+		in.ttl, err = extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
+		if err != nil {
+			common.HandleError(http.StatusBadRequest, err, w)
+			return
+		}
+
+		list := u.Query()["resource"]
+		in.resources, err = s.resourceViewRoleFromRequest(list)
+		if err != nil {
+			common.HandleError(http.StatusBadRequest, err, w)
+			return
+		}
+
+		in.responseKeyFile = u.Query().Get("response_type") == "key-file-type"
 	}
 
-	responseKeyFile := u.Query().Get("response_type") == "key-file-type"
-
-	in := resourceAuthHandlerIn{
-		ttl:             ttl,
-		responseKeyFile: responseKeyFile,
-		resources:       resList,
-		challenge:       challenge,
-	}
-
-	out, st, err := s.resourceAuth(r.Context(), in)
+	out, st, err := s.auth(r.Context(), in)
 	if err != nil {
 		common.HandleError(st, err, w)
 		return
@@ -105,18 +115,33 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stateID, status := hydra.ExtractStateIDInConsent(consent)
+	identities, status := hydra.ExtractIdentitiesInConsent(consent)
 	if status != nil {
 		httputil.WriteStatus(w, status)
 		return
+	}
+
+	var stateID string
+	if len(identities) == 0 {
+		stateID, status = hydra.ExtractStateIDInConsent(consent)
+		if status != nil {
+			httputil.WriteStatus(w, status)
+			return
+		}
 	}
 
 	req := &hydraapi.HandledConsentRequest{
 		GrantedAudience: append(consent.RequestedAudience, consent.Client.ClientID),
 		GrantedScope:    consent.RequestedScope,
 		Session: &hydraapi.ConsentRequestSessionData{
-			AccessToken: map[string]interface{}{"cart": stateID},
+			AccessToken: map[string]interface{}{},
 		},
+	}
+
+	if len(stateID) > 0 {
+		req.Session.AccessToken["cart"] = stateID
+	} else if len(identities) > 0 {
+		req.Session.AccessToken["identities"] = identities
 	}
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
