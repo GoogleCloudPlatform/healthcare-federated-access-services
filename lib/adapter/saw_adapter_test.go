@@ -170,6 +170,7 @@ func TestSawAdapter(t *testing.T) {
 								"bucket":  "dataset-example-payer-bucket2",
 								"project": "dataset-example-project",
 								"type":    "requester-pays",
+								"paths":   "/hello/there*;/goodbye/charlie",
 							},
 						},
 						Roles:          []string{"roles/storage.objectViewer"},

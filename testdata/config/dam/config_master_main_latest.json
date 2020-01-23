@@ -340,7 +340,8 @@
               "vars": {
                 "project": "dataset-example-project",
                 "bucket": "dataset-example-payer-bucket2",
-                "type": "requester-pays"
+                "type": "requester-pays",
+                "paths": "/hello/there*;/goodbye/charlie"
               }
             }
           ],

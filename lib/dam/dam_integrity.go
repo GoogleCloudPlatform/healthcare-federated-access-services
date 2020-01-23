@@ -317,8 +317,11 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 	varNames := make(map[string]bool)
 	desc := s.adapters.Descriptors[template.TargetAdapter]
 	for _, v := range desc.ItemFormats {
-		for varName := range v.Variables {
+		for varName, v := range v.Variables {
 			varNames[varName] = true
+			if v.Type != "const" && v.Type != "split_pattern" {
+				return common.NewInfoStatus(codes.Internal, common.StatusPath(cfgServiceTemplates, name, "itemFormats", template.ItemFormat, "variables", varName, "type"), fmt.Sprintf("variable type %q must be %q or %q", v.Type, "const", "split_pattern"))
+			}
 		}
 	}
 	for k, v := range template.Interfaces {

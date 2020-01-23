@@ -169,6 +169,7 @@ message VariableFormat {
   string regexp = 1;
   bool optional = 2;
   map<string, string> ui = 3;
+  string type = 4;
 }
 
 message Realm {}
