@@ -1,0 +1,31 @@
+{
+  "version": "v0",
+  "revision": "1",
+  "commitTime": "1544824316",
+  "users": {
+    "admin@nci.nih.gov": {
+      "roles": {
+        "admin": -1
+      },
+      "tags": ["IC", "DAM"]
+    },
+    "dr_joe@faculty.uni-heidelberg.de": {
+      "roles": {
+        "admin": -1
+      },
+      "tags": ["IC", "DAM"]
+    },
+    "dr_joe@era.nih.gov": {
+      "roles": {
+        "admin": -1
+      },
+      "tags": ["IC", "DAM"]
+    },
+    "nci_researcher@nci.nih.gov": {
+      "roles": {
+        "admin": -1
+      },
+      "tags": ["IC", "DAM"]
+    }
+  }
+}

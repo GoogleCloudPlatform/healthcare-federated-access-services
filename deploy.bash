@@ -51,13 +51,12 @@ echo -e ${GREEN?}Grant the required permissions.${RESET?}
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
-  --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
+  --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
+
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudsql.client
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/editor
-gcloud projects add-iam-policy-binding -q ${PROJECT?} \
-  --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/resourcemanager.projectIamAdmin
 
@@ -76,25 +75,40 @@ gcloud sql databases create ic --instance=hydra
 # Create database dam
 gcloud sql databases create dam --instance=hydra
 
+echo -e ${GREEN?}Setup GCS and Update example file.${RESET?}
+
+gsutil mb gs://${PROJECT?}-test-dataset
+tempdir=`mktemp -d`
+pushd $tempdir
+echo "This is an example" > example.txt
+gsutil cp example.txt gs://${PROJECT?}-test-dataset
+popd
+rm -rf $tempdir
+
 # Generate the config files
 echo -e ${GREEN?}Generate the config files.${RESET?}
 
 cp -R ./deploy/config/ic-template/* ./deploy/config/ic
+cp -R ./deploy/config/dam-template/* ./deploy/config/dam
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/gae-flex/build/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/gae-flex/config/ic.yaml
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/config_master_main_latest.json
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/secrets_master_main_latest.json
+sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/gae-flex/config/dam.yaml
+sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/dam/config_master_main_latest.json
 
 # Deploy a simple defaut app to GAE default service.
 echo -e ${GREEN?}Deploy a helloworld to GAE default service.${RESET?}
 
-pushd $HOME
+tempdir=`mktemp -d`
+pushd $tempdir
 git clone https://github.com/GoogleCloudPlatform/golang-samples.git
 pushd golang-samples/appengine/go11x/helloworld
 gcloud -q app deploy .
 popd
 popd
+rm -rf $tempdir
 
 # Build Images
 echo -e ${GREEN?}Build Base Image.${RESET?}
@@ -110,8 +124,4 @@ gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_VERSION_=late
 # Deploy IC and DAM
 echo -e ${GREEN?}Deploy IC.${RESET?}
 gcloud -q app deploy deploy/gae-flex/config/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
-
-# TODO: gcloud -q app deploy deploy/gae-flex/config/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
-
-
-
+gcloud -q app deploy deploy/gae-flex/config/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest

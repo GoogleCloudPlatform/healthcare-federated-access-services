@@ -44,6 +44,19 @@
       "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
+    },
+    "ga4gh_dam": {
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "DAM",
+        "description": "Data Access Manager Service"
+      },
+      "redirectUris": [
+        "https://dam-dot-${YOUR_PROJECT_ID}.appspot.com/dam/oidc/loggedin"
+      ],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
     }
   },
   "accountTags": {

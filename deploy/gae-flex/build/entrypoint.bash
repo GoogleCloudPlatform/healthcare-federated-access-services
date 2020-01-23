@@ -87,7 +87,7 @@ elif [ $TYPE = "dam" ]; then
   # DAM_URL is the expected service URL in GA4GH passports targetted at this service.
   export DAM_URL="${URL?}"
   # DEFAULT_BROKER is the default identity broker.
-  export DEFAULT_BROKER="ic"
+  export DEFAULT_BROKER="default_ic"
 
   #################
   # Hydra Settings
