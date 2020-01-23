@@ -18,8 +18,6 @@
 package main
 
 import (
-	"os"
-
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -30,7 +28,7 @@ var (
 	cfgPath  = osenv.VarWithDefault("CONFIG_PATH", "deploy/config")
 	service  = osenv.VarWithDefault("DAM_SERVICE_NAME", "dam")
 	oidcAddr = osenv.MustVar("OIDC_URL")
-	port     = os.Getenv("PORT")
+	port     = osenv.VarWithDefault("PERSONAS_PORT", "8090")
 )
 
 func main() {

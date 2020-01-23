@@ -29,7 +29,7 @@ var (
 	hydraURL = osenv.MustVar("HYDRA_PUBLIC_URL")
 	icURL    = osenv.MustVar("IC_URL")
 
-	port = osenv.VarWithDefault("ICDEMO_PORT", "8090")
+	port = osenv.VarWithDefault("ICDEMO_PORT", "8091")
 )
 
 const htmlFile = "pages/hydra-ic-test.html"

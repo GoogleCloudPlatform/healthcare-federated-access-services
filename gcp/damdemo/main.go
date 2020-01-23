@@ -29,7 +29,7 @@ var (
 	hydraURL = osenv.MustVar("HYDRA_PUBLIC_URL")
 	damURL   = osenv.MustVar("DAM_URL")
 
-	port = osenv.VarWithDefault("DAMDEMO_PORT", "8091")
+	port = osenv.VarWithDefault("DAMDEMO_PORT", "8092")
 )
 
 const htmlFile = "pages/hydra-dam-test.html"
