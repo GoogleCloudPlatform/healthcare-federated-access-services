@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
@@ -118,88 +117,6 @@ func extractTTL(maxAgeStr, ttlStr string) (time.Duration, error) {
 
 func responseKeyFile(r *http.Request) bool {
 	return common.GetParam(r, "response_type") == "key-file-type"
-}
-
-// GetResourceToken implements endpoint "resources/{name}/views/{view}/token" or
-// "resources/{name}/views/{view}/roles/{role}/token".
-// TODO need remove.
-func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method %s not allowed", r.Method), w)
-		return
-	}
-	vars := mux.Vars(r)
-	name := vars["name"]
-	viewName := vars["view"]
-	role := vars["role"]
-	if err := checkName(name); err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-	if err := checkName(viewName); err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	res, ok := cfg.Resources[name]
-	if !ok {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("resource not found: %q", name), w)
-		return
-	}
-	id, status, err := s.getPassportIdentity(cfg, nil, r)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	view, ok := res.Views[viewName]
-	if !ok {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", viewName, name), w)
-		return
-	}
-	grantRole := role
-	if len(grantRole) == 0 {
-		grantRole = view.DefaultRole
-	}
-
-	ttl, err := extractTTL(common.GetParam(r, "max_age"), common.GetParam(r, "max_age"))
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	clientID := getClientID(r)
-	status, err = s.checkAuthorization(id, ttl, name, viewName, grantRole, cfg, clientID)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-
-	keyFile := responseKeyFile(r)
-
-	tok, status, err := s.generateResourceToken(r.Context(), clientID, name, viewName, grantRole, ttl, keyFile, id, cfg, res, view)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-
-	if keyFile {
-		common.SendJSONResponse(tok.KeyFile, w)
-		return
-	}
-	resp := &pb.ResourceTokens_ResourceToken{
-		Name:        tok.Name,
-		View:        tok.View,
-		Account:     tok.Account,
-		AccessToken: tok.AccessToken,
-		Token:       tok.AccessToken,
-		Ttl:         tok.Ttl,
-		ExpiresIn:   tok.ExpiresIn,
-	}
-	common.SendResponse(resp, w)
 }
 
 func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceName, viewName, role string, ttl time.Duration, useKeyFile bool, id *ga4gh.Identity, cfg *pb.DamConfig, res *pb.Resource, view *pb.View) (*pb.ResourceTokens_ResourceToken, int, error) {
