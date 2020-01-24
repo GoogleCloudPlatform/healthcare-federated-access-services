@@ -40,34 +40,35 @@ type OldClaimCondition struct {
 // Identity is a GA4GH identity as described by the Data Use and Researcher
 // Identity stream.
 type Identity struct {
-	Subject          string                `json:"sub,omitempty"`
-	Issuer           string                `json:"iss,omitempty"`
-	IssuedAt         int64                 `json:"iat,omitempty"`
-	NotBefore        int64                 `json:"nbf,omitempty"`
-	Expiry           int64                 `json:"exp,omitempty"`
-	Scope            string                `json:"scope,omitempty"`
-	Scp              []string              `json:"scp,omitempty"`
-	Audiences        Audiences             `json:"aud,omitempty"`
-	AuthorizedParty  string                `json:"azp,omitempty"`
-	ID               string                `json:"jti,omitempty"`
-	Nonce            string                `json:"nonce,omitempty"`
-	GA4GH            map[string][]OldClaim `json:"ga4gh,omitempty"`
-	IdentityProvider string                `json:"idp,omitempty"`
-	Identities       map[string][]string   `json:"identities,omitempty"`
-	Username         string                `json:"preferred_username,omitempty"`
-	Email            string                `json:"email,omitempty"`
-	EmailVerified    bool                  `json:"email_verified,omitempty"`
-	Name             string                `json:"name,omitempty"`
-	Nickname         string                `json:"nickname,omitempty"`
-	GivenName        string                `json:"given_name,omitempty"`
-	FamilyName       string                `json:"family_name,omitempty"`
-	MiddleName       string                `json:"middle_name,omitempty"`
-	ZoneInfo         string                `json:"zoneinfo,omitempty"`
-	Locale           string                `json:"locale,omitempty"`
-	Picture          string                `json:"picture,omitempty"`
-	Profile          string                `json:"profile,omitempty"`
-	Realm            string                `json:"realm,omitempty"`
-	VisaJWTs         []string              `json:"ga4gh_passport_v1,omitempty"`
+	Subject          string                 `json:"sub,omitempty"`
+	Issuer           string                 `json:"iss,omitempty"`
+	IssuedAt         int64                  `json:"iat,omitempty"`
+	NotBefore        int64                  `json:"nbf,omitempty"`
+	Expiry           int64                  `json:"exp,omitempty"`
+	Scope            string                 `json:"scope,omitempty"`
+	Scp              []string               `json:"scp,omitempty"`
+	Audiences        Audiences              `json:"aud,omitempty"`
+	AuthorizedParty  string                 `json:"azp,omitempty"`
+	ID               string                 `json:"jti,omitempty"`
+	Nonce            string                 `json:"nonce,omitempty"`
+	GA4GH            map[string][]OldClaim  `json:"ga4gh,omitempty"`
+	IdentityProvider string                 `json:"idp,omitempty"`
+	Identities       map[string][]string    `json:"identities,omitempty"`
+	Username         string                 `json:"preferred_username,omitempty"`
+	Email            string                 `json:"email,omitempty"`
+	EmailVerified    bool                   `json:"email_verified,omitempty"`
+	Name             string                 `json:"name,omitempty"`
+	Nickname         string                 `json:"nickname,omitempty"`
+	GivenName        string                 `json:"given_name,omitempty"`
+	FamilyName       string                 `json:"family_name,omitempty"`
+	MiddleName       string                 `json:"middle_name,omitempty"`
+	ZoneInfo         string                 `json:"zoneinfo,omitempty"`
+	Locale           string                 `json:"locale,omitempty"`
+	Picture          string                 `json:"picture,omitempty"`
+	Profile          string                 `json:"profile,omitempty"`
+	Realm            string                 `json:"realm,omitempty"`
+	VisaJWTs         []string               `json:"ga4gh_passport_v1,omitempty"`
+	Extra            map[string]interface{} `json:"ext,omitempty"`
 }
 
 // Valid implements dgrijalva/jwt-go Claims interface. This will be called when using

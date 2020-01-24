@@ -42,13 +42,15 @@ var (
 	project = osenv.MustVar("PROJECT")
 	// storageType determines we should be using in-mem storage or not.
 	storageType = osenv.MustVar("STORAGE")
-	// hydraAdminAddr is the address for the Hydra.
-	hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
 	// defaultBroker is the default Identity Broker.
 	defaultBroker = osenv.MustVar("DEFAULT_BROKER")
 
 	useHydra = os.Getenv("USE_HYDRA") != ""
-	port     = osenv.VarWithDefault("DAM_PORT", "8081")
+	// hydraAdminAddr is the address for the Hydra admin endpoints.
+	hydraAdminAddr = ""
+	// hydraPublicAddr is the address for the Hydra public endpoints.
+	hydraPublicAddr = ""
+	port            = osenv.VarWithDefault("DAM_PORT", "8081")
 )
 
 func main() {
@@ -65,7 +67,12 @@ func main() {
 	}
 
 	wh := appengine.MustBuildAccountWarehouse(ctx, store)
-	s := dam.NewService(ctx, srvAddr, defaultBroker, hydraAdminAddr, store, wh, useHydra)
+
+	if useHydra {
+		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
+		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
+	}
+	s := dam.NewService(ctx, srvAddr, defaultBroker, hydraAdminAddr, hydraPublicAddr, store, wh, useHydra)
 
 	glog.Infof("Listening on port %v", port)
 	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))

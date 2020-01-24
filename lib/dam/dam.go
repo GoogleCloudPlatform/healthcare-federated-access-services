@@ -85,6 +85,7 @@ type Service struct {
 	domainURL      string
 	defaultBroker  string
 	hydraAdminURL  string
+	hydraPublicURL string
 	store          storage.Store
 	warehouse      clouds.ResourceTokenCreator
 	permissions    *common.Permissions
@@ -107,9 +108,10 @@ type ServiceHandler struct {
 // - domain: domain used to host DAM service
 // - defaultBroker: default identity broker
 // - hydraAdminURL: hydra admin endpoints url
+// - hydraPublicURL: hydra public endpoints url
 // - store: data storage and configuration storage
 // - warehouse: resource token creator service
-func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL string, store storage.Store, warehouse clouds.ResourceTokenCreator, useHydra bool) *Service {
+func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL, hydraPublicURL string, store storage.Store, warehouse clouds.ResourceTokenCreator, useHydra bool) *Service {
 	fs := getFileStore(store, damStaticService)
 	var roleCat pb.DamRoleCategoriesResponse
 	if err := fs.Read("role", storage.DefaultRealm, storage.DefaultUser, "en", storage.LatestRev, &roleCat); err != nil {
@@ -131,6 +133,7 @@ func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL string
 		domainURL:      domain,
 		defaultBroker:  defaultBroker,
 		hydraAdminURL:  hydraAdminURL,
+		hydraPublicURL: hydraPublicURL,
 		store:          store,
 		warehouse:      warehouse,
 		permissions:    perms,
@@ -225,7 +228,7 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 	if err != nil {
 		return nil, nil, http.StatusServiceUnavailable, err
 	}
-	id, status, err := s.getPassportIdentity(cfg, tx, r)
+	id, status, err := s.getBearerTokenIdentity(cfg, r)
 	if err != nil {
 		return nil, nil, status, err
 	}
@@ -285,12 +288,76 @@ func checkName(name string) error {
 	return common.CheckName("name", name, nil)
 }
 
-func (s *Service) tokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
+func (s *Service) getIssuerString() string {
+	if s.useHydra {
+		return strings.TrimRight(s.hydraPublicURL, "/") + "/"
+	}
+
+	return ""
+}
+
+func (s *Service) damSignedBearerTokenToPassportIdentity(cfg *pb.DamConfig, tok, clientID string) (*ga4gh.Identity, error) {
+	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("inspecting token: %v", err))
+	}
+
+	v, err := common.GetOIDCTokenVerifier(s.ctx, clientID, id.Issuer)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, fmt.Sprintf("GetOIDCTokenVerifier failed: %v", err))
+	}
+
+	if _, err = v.Verify(s.ctx, tok); err != nil {
+		return nil, status.Errorf(codes.Unavailable, fmt.Sprintf("token unauthorized: %v", err))
+	}
+
+	// TODO: add more checks here as appropriate.
+	iss := s.getIssuerString()
+	if err = id.Valid(); err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("token invalid: %v", err))
+	}
+	if id.Issuer != iss {
+		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("bearer token unauthorized for issuer %q", id.Issuer))
+	}
+	if !common.IsAudience(id, clientID, iss) {
+		return nil, status.Errorf(codes.Unauthenticated, "bearer token unauthorized party")
+	}
+
+	if !s.useHydra {
+		return id, nil
+	}
+
+	l, ok := id.Extra["identities"]
+	if !ok {
+		return id, nil
+	}
+
+	list, ok := l.([]interface{})
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "id.Extra[identities] in wrong type")
+	}
+
+	if id.Identities == nil {
+		id.Identities = map[string][]string{}
+	}
+
+	for i, it := range list {
+		identity, ok := it.(string)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, fmt.Sprintf("id.Extra[identities][%d] in wrong type", i))
+		}
+
+		id.Identities[identity] = nil
+	}
+
+	return id, nil
+}
+
+func (s *Service) upstreamTokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting token: %v", err)
 	}
-	identities := id.Identities
 
 	iss := id.Issuer
 	t, err := s.getIssuerTranslator(s.ctx, iss, cfg, nil, tx)
@@ -319,10 +386,20 @@ func (s *Service) tokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok,
 	}
 	id.GA4GH = ga4gh.VisasToOldClaims(vs)
 
-	// Retain identities from access token.
-	id.Identities = identities
-
 	return id, nil
+}
+
+func (s *Service) getBearerTokenIdentity(cfg *pb.DamConfig, r *http.Request) (*ga4gh.Identity, int, error) {
+	tok, err := extractBearerToken(r)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+
+	id, err := s.damSignedBearerTokenToPassportIdentity(cfg, tok, getClientID(r))
+	if err != nil {
+		return nil, http.StatusUnauthorized, err
+	}
+	return id, http.StatusOK, nil
 }
 
 func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
@@ -331,7 +408,7 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 		return nil, http.StatusBadRequest, err
 	}
 
-	id, err := s.tokenToPassportIdentity(cfg, tx, tok, getClientID(r))
+	id, err := s.upstreamTokenToPassportIdentity(cfg, tx, tok, getClientID(r))
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
@@ -896,7 +973,7 @@ func (s *Service) GetTestResults(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	_, status, err := s.getPassportIdentity(cfg, nil, r)
+	_, status, err := s.getBearerTokenIdentity(cfg, r)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -915,7 +992,7 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	id, status, err := s.getPassportIdentity(cfg, nil, r)
+	id, status, err := s.getBearerTokenIdentity(cfg, r)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -948,7 +1025,7 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	id, status, err := s.getPassportIdentity(cfg, nil, r)
+	id, status, err := s.getBearerTokenIdentity(cfg, r)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -976,7 +1053,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 	}
-	id, status, err := s.getPassportIdentity(cfg, nil, r)
+	id, status, err := s.getBearerTokenIdentity(cfg, r)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -1026,7 +1103,7 @@ func (s *Service) ConfigTestPersonas(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	id, status, err := s.getPassportIdentity(cfg, nil, r)
+	id, status, err := s.getBearerTokenIdentity(cfg, r)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return

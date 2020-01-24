@@ -114,7 +114,7 @@ func HasUserinfoClaims(id *ga4gh.Identity) bool {
 	}
 
 	for _, scope := range scopes {
-		if scope == "ga4gh" || scope == "ga4gh_passport_v1" {
+		if scope == "ga4gh" || scope == "ga4gh_passport_v1" || scope == "identities" {
 			return true
 		}
 	}

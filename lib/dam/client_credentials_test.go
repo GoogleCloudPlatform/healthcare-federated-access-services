@@ -69,12 +69,12 @@ func setup(t *testing.T) *Service {
 	t.Helper()
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockTokenCreator(false)
-	server, err := fakeoidcissuer.New(test.TestIssuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
+	server, err := fakeoidcissuer.New(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New() failed: %v", err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "example.com", "no-broker", hydraAdminURL, store, wh, useHydra)
+	s := NewService(ctx, "example.com", "no-broker", hydraAdminURL, hydraPublicURL, store, wh, useHydra)
 	return s
 }
 

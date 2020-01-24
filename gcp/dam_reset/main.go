@@ -33,7 +33,7 @@ func main() {
 	path := "deploy/config"
 
 	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
-	dams := dam.NewService(context.Background(), "reset.example.org", "reset.example.org", "reset.example.org", store, nil, false)
+	dams := dam.NewService(context.Background(), "reset.example.org", "reset.example.org", "reset.example.org", "reset.example.org", store, nil, false)
 
 	if err := dams.ImportFiles("FORCE_WIPE"); err != nil {
 		glog.Fatalf("error importing files: %v", err)

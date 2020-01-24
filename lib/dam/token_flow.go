@@ -122,6 +122,7 @@ func responseKeyFile(r *http.Request) bool {
 
 // GetResourceToken implements endpoint "resources/{name}/views/{view}/token" or
 // "resources/{name}/views/{view}/roles/{role}/token".
+// TODO need remove.
 func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method %s not allowed", r.Method), w)
@@ -201,10 +202,6 @@ func (s *Service) GetResourceToken(w http.ResponseWriter, r *http.Request) {
 	common.SendResponse(resp, w)
 }
 
-func (s *Service) damIssuerString() string {
-	return s.domainURL + "/dam/oidc/"
-}
-
 func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceName, viewName, role string, ttl time.Duration, useKeyFile bool, id *ga4gh.Identity, cfg *pb.DamConfig, res *pb.Resource, view *pb.View) (*pb.ResourceTokens_ResourceToken, int, error) {
 	sRole, err := adapter.ResolveServiceRole(role, view, res, cfg)
 	if err != nil {
@@ -232,7 +229,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 	adapterAction := &adapter.Action{
 		Aggregates:      aggregates,
 		Identity:        id,
-		Issuer:          s.damIssuerString(),
+		Issuer:          s.getIssuerString(),
 		ClientID:        clientID,
 		Config:          cfg,
 		GrantRole:       role,
@@ -503,7 +500,7 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("token exchange failed. %s", err)
 	}
 
-	id, err := s.tokenToPassportIdentity(cfg, tx, tok.AccessToken, broker.ClientId)
+	id, err := s.upstreamTokenToPassportIdentity(cfg, tx, tok.AccessToken, broker.ClientId)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}

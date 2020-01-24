@@ -8,7 +8,7 @@
   },
   "trustedPassportIssuers": {
     "test": {
-      "issuer": "https://example.org/oidc",
+      "issuer": "https://hydra.example.com/",
       "clientId": "00000000-0000-0000-0000-000000000000",
       "ui": {
         "label": "Test",
