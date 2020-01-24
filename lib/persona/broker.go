@@ -38,20 +38,10 @@ import (
 )
 
 const (
-	oidcPrefix         = "/oidc"
-	oidcWellKnownPath  = "/.well-known"
-	oidcConfiguarePath = oidcWellKnownPath + "/openid-configuration"
-	oidcJwksPath       = oidcWellKnownPath + "/jwks"
-	oidcAuthorizePath  = "/authorize"
-	oidcTokenPath      = "/token"
-	oidcUserInfoPath   = "/userinfo"
-
 	loginPageFile     = "pages/login.html"
 	loginPageInfoFile = "pages/login-info-persona.html"
 	serviceTitle      = "Persona Playground"
 	loginInfoTitle    = "Persona Playground"
-	assetPath         = "/static"
-	staticFilePath    = assetPath + "/"
 	staticDirectory   = "assets/serve/"
 )
 
@@ -96,32 +86,10 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOID
 	}
 
 	r := mux.NewRouter()
-	prefix := ""
-
-	if useOIDCPrefix {
-		prefix = oidcPrefix
-	}
-	r.HandleFunc(prefix+oidcConfiguarePath, s.oidcWellKnownConfig)
-	r.HandleFunc(prefix+oidcJwksPath, s.oidcKeys)
-	r.HandleFunc(prefix+oidcAuthorizePath, s.oidcAuthorize)
-	r.HandleFunc(prefix+oidcTokenPath, s.oidcToken)
-	r.HandleFunc(prefix+oidcUserInfoPath, s.oidcUserInfo)
-
-	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(srcutil.Path(staticDirectory))))
-	r.PathPrefix(staticFilePath).Handler(sfs)
-
 	s.Handler = r
+	registerHandlers(r, s, useOIDCPrefix)
 
 	return s, nil
-}
-
-// Serve takes traffic.
-func (s *Server) Serve(port string) {
-	if len(port) == 0 {
-		port = "8089"
-	}
-	glog.Infof("Persona Broker using port %v", port)
-	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
 }
 
 // Sign the jwt with the private key in Server.
@@ -290,7 +258,7 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 		return
 	}
 	page := strings.Replace(s.loginPage, "${PROVIDER_LIST}", json, -1)
-	page = strings.Replace(page, "${ASSET_DIR}", assetPath, -1)
+	page = strings.Replace(page, "${ASSET_DIR}", "/static", -1)
 	page = strings.Replace(page, "${SERVICE_TITLE}", serviceTitle, -1)
 	page = strings.Replace(page, "${LOGIN_INFO_TITLE}", loginInfoTitle, -1)
 	common.SendHTML(page, w)
@@ -341,4 +309,24 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		Uid:         common.GenerateGUID(),
 	}
 	common.SendResponse(resp, w)
+}
+
+// TODO: move registeration of endpoints to main package.
+func registerHandlers(r *mux.Router, s *Server, useOIDCPrefix bool) {
+	if useOIDCPrefix {
+		r.HandleFunc("/oidc"+oidcConfiguarePath, s.oidcWellKnownConfig)
+		r.HandleFunc("/oidc"+oidcJwksPath, s.oidcKeys)
+		r.HandleFunc("/oidc"+oidcAuthorizePath, s.oidcAuthorize)
+		r.HandleFunc("/oidc"+oidcTokenPath, s.oidcToken)
+		r.HandleFunc("/oidc"+oidcUserInfoPath, s.oidcUserInfo)
+	} else {
+		r.HandleFunc(oidcConfiguarePath, s.oidcWellKnownConfig)
+		r.HandleFunc(oidcJwksPath, s.oidcKeys)
+		r.HandleFunc(oidcAuthorizePath, s.oidcAuthorize)
+		r.HandleFunc(oidcTokenPath, s.oidcToken)
+		r.HandleFunc(oidcUserInfoPath, s.oidcUserInfo)
+	}
+
+	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(srcutil.Path(staticDirectory))))
+	r.PathPrefix(staticFilePath).Handler(sfs)
 }

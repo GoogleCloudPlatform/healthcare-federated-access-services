@@ -18,6 +18,9 @@
 package main
 
 import (
+	"flag"
+	"net/http"
+
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -32,9 +35,12 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	broker, err := persona.NewBroker(oidcAddr, &testkeys.PersonaBrokerKey, service, cfgPath, true)
 	if err != nil {
 		glog.Exitf("persona.NewBroker() failed: %v", err)
 	}
-	broker.Serve(port)
+
+	glog.Infof("Persona Broker using port %v", port)
+	glog.Exit(http.ListenAndServe(":"+port, broker.Handler))
 }
