@@ -1196,6 +1196,9 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 	if !ok {
 		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", stateIDInHydra)
 	}
+	if _, ok := h.AcceptLoginReq.Context["identities"]; ok {
+		t.Errorf("AcceptLoginReq.Context[identities] should not exists")
+	}
 
 	state := &pb.ResourceTokenRequestState{}
 	err = s.store.Read(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state)
@@ -1282,18 +1285,12 @@ func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
 		t.Errorf("h.AcceptLoginReq.Subject wants %s got %s", pname, *h.AcceptLoginReq.Subject)
 	}
 
-	v, ok := h.AcceptLoginReq.Context["identities"]
-	if !ok {
-		t.Errorf("AcceptLoginReq.Context[%s] not exists", "identities")
-	}
-	identities, ok := v.([]interface{})
-	if !ok {
-		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", "identities")
+	wantReqContext := map[string]interface{}{
+		"identities": []interface{}{"dr_joe_elixir", "dr_joe@faculty.example.edu"},
 	}
 
-	want := []interface{}{"dr_joe_elixir", "dr_joe@faculty.example.edu"}
-	if diff := cmp.Diff(want, identities); len(diff) > 0 {
-		t.Errorf("identities (-want, +got): %s", diff)
+	if diff := cmp.Diff(wantReqContext, h.AcceptLoginReq.Context); len(diff) > 0 {
+		t.Errorf("AcceptLoginReq.Context (-want, +got): %s", diff)
 	}
 }
 

@@ -686,7 +686,12 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.useHydra {
-		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, out.challenge, out.subject, out.stateID, map[string]interface{}{"identities": out.identities})
+		ext := map[string]interface{}{}
+		if len(out.identities) > 0 {
+			ext["identities"] = out.identities
+		}
+
+		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, out.challenge, out.subject, out.stateID, ext)
 		return
 	}
 
