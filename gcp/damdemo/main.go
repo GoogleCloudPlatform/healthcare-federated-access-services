@@ -16,6 +16,7 @@
 package main
 
 import (
+	"flag"
 	"net/http"
 	"strings"
 
@@ -35,6 +36,7 @@ var (
 const htmlFile = "pages/hydra-dam-test.html"
 
 func main() {
+	flag.Parse()
 	b, err := srcutil.Read(htmlFile)
 	if err != nil {
 		glog.Exitf("srcutil.Read(%v) failed: %v", htmlFile, err)

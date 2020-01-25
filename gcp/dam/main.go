@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"os"
 
@@ -54,6 +55,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	ctx := context.Background()
 
 	var store storage.Store
