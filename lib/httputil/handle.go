@@ -78,8 +78,17 @@ func WriteCorsHeaders(w http.ResponseWriter) {
 }
 
 // WriteHTMLResp writes a "text/html" type string to the ResponseWriter.
-func WriteHTMLResp(w http.ResponseWriter, html []byte) {
+func WriteHTMLResp(w http.ResponseWriter, b []byte) {
 	WriteCorsHeaders(w)
 	w.Header().Set("Content-Type", "text/html")
-	w.Write(html)
+	w.Write(b)
+}
+
+// WriteJSONResp writes "application.json" type string to the ResponseWriter.
+func WriteJSONResp(w http.ResponseWriter, b []byte) {
+	WriteCorsHeaders(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	w.Write(b)
 }
