@@ -46,9 +46,8 @@ func main() {
 	page = strings.ReplaceAll(page, "${HYDRA_URL}", hydraURL)
 	page = strings.ReplaceAll(page, "${IC_URL}", icURL)
 
-	h := func(w http.ResponseWriter, r *http.Request) { httputil.WriteHTMLResp(w, []byte(page)) }
-
-	http.HandleFunc("/", h)
+	http.HandleFunc("/test", httputil.NewPageHandler(page))
+	http.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
 
 	glog.Exit(http.ListenAndServe(":"+port, nil))
 }
