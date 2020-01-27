@@ -1205,10 +1205,6 @@ func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, lin
 }
 
 func getBearerToken(r *http.Request) string {
-	tok := common.GetParam(r, "access_token")
-	if len(tok) > 0 {
-		return tok
-	}
 	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
 	if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
 		return parts[1]

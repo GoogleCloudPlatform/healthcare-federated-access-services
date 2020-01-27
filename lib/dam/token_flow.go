@@ -62,20 +62,6 @@ func extractBearerToken(r *http.Request) (string, error) {
 	return parts[1], nil
 }
 
-func extractAccessToken(r *http.Request) (string, error) {
-	tok, err := extractBearerToken(r)
-	if err == nil {
-		return tok, nil
-	}
-	// TODO: access_token should not pass via query.
-	tok = common.GetParam(r, "access_token")
-	if len(tok) > 0 {
-		return tok, nil
-	}
-
-	return "", fmt.Errorf("access token not found")
-}
-
 func extractAuthCode(r *http.Request) (string, error) {
 	code := common.GetParam(r, "code")
 	if len(code) != 0 {
@@ -487,7 +473,7 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Finish()
 
-	auth, err := extractAccessToken(r)
+	auth, err := extractBearerToken(r)
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
 		return

@@ -141,15 +141,13 @@ func (s *Server) oidcKeys(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	token := common.GetParam(r, "access_token")
-	if len(token) == 0 {
-		parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			common.HandleError(http.StatusUnauthorized, fmt.Errorf("missing or invalid Authorization header"), w)
-			return
-		}
-		token = parts[1]
+	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		common.HandleError(http.StatusUnauthorized, fmt.Errorf("missing or invalid Authorization header"), w)
+		return
 	}
+	token := parts[1]
+
 	src, err := common.ConvertTokenToIdentityUnsafe(token)
 	if err != nil {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid Authorization token"), w)
