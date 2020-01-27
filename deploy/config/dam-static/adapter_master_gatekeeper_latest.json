@@ -1,34 +1,35 @@
 {
-   "platform": "oauth",
-   "requirements": {
-      "targetRole": false,
-      "targetScope": true,
-      "aud": true
-   },
-   "properties": {
-      "singleItem": true,
-      "isAggregate": false,
-      "canBeAggregated": false
-   },
-   "itemFormats": {
-      "url": {
-         "variables": {
-            "url": {
-               "regexp": "^(http://|https://).*$",
-               "ui": {
-                  "label": "URL for the service",
-                  "description": "Provide only one URL (i.e. one item) per resource view"
-               }
-            }
-         },
-         "ui": {
-            "label": "Proxy URL"
-         }
+  "platform": "oauth",
+  "requirements": {
+    "targetRole": false,
+    "targetScope": true,
+    "aud": true
+  },
+  "properties": {
+    "singleItem": true,
+    "isAggregate": false,
+    "canBeAggregated": false
+  },
+  "itemFormats": {
+    "url": {
+      "variables": {
+        "url": {
+          "type": "const",
+          "regexp": "^(http://|https://).*$",
+          "ui": {
+            "label": "URL for the service",
+            "description": "Provide only one URL (i.e. one item) per resource view"
+          }
+        }
+      },
+      "ui": {
+        "label": "Proxy URL"
       }
-   },
-   "ui": {
-      "description": "Generates scoped-down OAuth OIDC access tokens for use with a Gatekeeper Proxy (requires administrator to deploy a compatible reverse proxy underlying services)",
-      "label": "Gatekeeper Token",
-      "itemFormat": "http://{URL-FRAGMENT} or https://{URL-FRAGMENT}"
-   }
+    }
+  },
+  "ui": {
+    "description": "Generates scoped-down OAuth OIDC access tokens for use with a Gatekeeper Proxy (requires administrator to deploy a compatible reverse proxy underlying services)",
+    "label":       "Gatekeeper Token",
+    "itemFormat":  "http://{URL-FRAGMENT} or https://{URL-FRAGMENT}"
+  }
 }
