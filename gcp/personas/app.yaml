@@ -22,3 +22,4 @@ env_variables:
   CONFIG_PATH: "deploy/config"
   # OIDC_URL is the URL to the OIDC endpoint service.
   OIDC_URL: "https://your-issuer-domain/oidc"
+  PERSONAS_PORT: 8080

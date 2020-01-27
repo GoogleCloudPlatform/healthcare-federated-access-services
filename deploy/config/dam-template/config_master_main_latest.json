@@ -483,6 +483,7 @@
         "description": "The Identity Concentrator's test page can access DAM directly"
       },
       "redirectUris": [
+        "http://localhost:8092/test",
         "https://dam-dot-${YOUR_PROJECT_ID}.appspot.com/dam/hydra-test"
       ],
       "scope": "openid offline ga4gh_passport_v1 profile email identities",
