@@ -17,6 +17,6 @@
 
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/hcls-fa-hydra', '.' ]
+    args: [ 'build', '-f', "deploy/build/hydra/Dockerfile", '-t', 'gcr.io/$PROJECT_ID/hcls-fa-hydra', '.' ]
 images:
 - 'gcr.io/$PROJECT_ID/hcls-fa-hydra'
