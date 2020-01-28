@@ -67,4 +67,4 @@ gcloud config set account ${GCP_USERNAME?}
 
 ## Test with test client
 
-In a browser, open `https://ic-dot-${ic-hosting-project}.appspot.com/identity/hydra-test` and `https://dam-dot-${dam-hosting-project}.appspot.com/dam/hydra-test`
+In a browser, open `https://icdemo-dot-${YOUR_PROJECT_ID}.appspot.com/test` and `https://damdemo-dot-${YOUR_PROJECT_ID}.appspot.com/dam/test`
