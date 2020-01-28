@@ -36,7 +36,7 @@
       "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
       "redirectUris": [
         "http://localhost:8091/test",
-        "https://ic-dot-${YOUR_PROJECT_ID}.appspot.com/identity/hydra-test"
+        "https://icdemo-dot-${YOUR_PROJECT_ID}.appspot.com/test"
       ],
       "ui": {
         "label": "Test Page",

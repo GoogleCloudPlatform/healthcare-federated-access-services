@@ -484,7 +484,7 @@
       },
       "redirectUris": [
         "http://localhost:8092/test",
-        "https://dam-dot-${YOUR_PROJECT_ID}.appspot.com/dam/hydra-test"
+        "https://damdemo-dot-${YOUR_PROJECT_ID}.appspot.com/test"
       ],
       "scope": "openid offline ga4gh_passport_v1 profile email identities",
       "grantTypes": ["authorization_code"],
