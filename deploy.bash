@@ -22,16 +22,26 @@ RESET="\e[0m"
 
 # You need to loging to gcloud and createa a project using gcloud cli.
 # Export the id of your project to environment variable PROJECT.
-echo -e ${GREEN?}Starting deployment to project: ${PROJECT?}.${RESET?}
+echo -e ${GREEN?}'Starting deployment to project: '${PROJECT?}${RESET?}
 gcloud config set project ${PROJECT?}
 export PROJECT_NUMBER=$(gcloud projects list --filter="${PROJECT?}" --format="value(PROJECT_NUMBER)")
 
 # Generate the config files
-echo -e ${GREEN?}'Generating the config files, press enter to continue.'${RESET?}
+echo -e ${GREEN?}'Generating the default config files, press enter to continue.'${RESET?}
+echo -e ${GREEN?}'To skip, set environment variable "DAM_CONFIG" and "IC_CONFIG" to point to your config folders.'${RESET?}
 read
 
-cp -R ./deploy/config/ic-template/* ./deploy/config/ic/
-cp -R ./deploy/config/dam-template/* ./deploy/config/dam/
+if [ -v IC_CONFIG ]; then
+  cp -R $IC_CONFIG/* ./deploy/config/ic/
+else
+  cp -R ./deploy/config/ic-template/* ./deploy/config/ic/
+fi
+
+if [ -v DAM_CONFIG ]; then
+  cp -R $DAM_CONFIG/* ./deploy/config/dam/
+else
+  cp -R ./deploy/config/dam-template/* ./deploy/config/dam/
+fi
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/config_master_main_latest.json
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/secrets_master_main_latest.json
@@ -50,12 +60,12 @@ sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/icdemo/icdemo.yaml
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/dam/dam.yaml
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/damdemo/damdemo.yaml
 
-if [ ${FAST_DEPLOY} = "YES" ]; then
-  echo -e ${GREEN?}'FAST_DEPLOY is set to YES. Skipping preparing the GCP project for deployment.' ${RESET?}
+if [[ -v FAST_DEPLOY ]]; then
+  echo -e ${GREEN?}'FAST_DEPLOY is set to YES. Skipping preparing the GCP project for deployment.'${RESET?}
 else
-  echo -e ${GREEN?}'Preparing the GCP project for deployment. Press enter to continue.\nTo skip, set "FAST_DEPLOY" enviroment variable to "YES".' ${RESET?}
+  echo -e ${GREEN?}'Preparing the GCP project for deployment. Press enter to continue. To skip, set "FAST_DEPLOY" enviroment variable to "YES".'${RESET?}
   # Enbable the required APIs.
-  echo -e ${GREEN?}Enbable the required APIs.${RESET?}
+  echo -e ${GREEN?}'Enabling the required APIs.'${RESET?}
 
   gcloud services enable \
     appengine.googleapis.com \
@@ -74,7 +84,7 @@ else
   gcloud app create --region=us-central
 
   # Grant the required permissions.
-  echo -e ${GREEN?}Grant the required permissions.${RESET?}
+  echo -e ${GREEN?}'Granting the required permissions.'${RESET?}
 
   gcloud projects add-iam-policy-binding -q ${PROJECT?} \
     --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
@@ -92,7 +102,7 @@ else
 
   # Setup Cloud SQL
   # Create a CloudSQL db-f1-micro (memory=128M, disk=250G) postgres 11 instance in us-central-1.
-  echo -e ${GREEN?}Setup Cloud SQL.${RESET?}
+  echo -e ${GREEN?}'Creating Cloud SQL database for Hydra.'${RESET?}
 
   gcloud sql instances create hydra --database-version=POSTGRES_11 \
     --tier=db-f1-micro --region=us-central1
@@ -103,7 +113,7 @@ else
   # Create database dam
   gcloud sql databases create dam --instance=hydra
 
-  echo -e ${GREEN?}Setup GCS and Update example file.${RESET?}
+  echo -e ${GREEN?}'Creating a GCS bucker with an example file.'${RESET?}
 
   gsutil mb gs://${PROJECT?}-test-dataset
   tempdir=`mktemp -d`
@@ -114,7 +124,7 @@ else
   rm -rf $tempdir
 
   # Deploy a simple defaut app to GAE default service.
-  echo -e ${GREEN?}Deploy a helloworld to GAE default service.${RESET?}
+  echo -e ${GREEN?}'Deploy a helloworld to GAE default service.'${RESET?}
 
   tempdir=`mktemp -d`
   pushd $tempdir
@@ -125,7 +135,7 @@ else
   popd
   rm -rf $tempdir
 
-  echo -e ${GREEN?}Building Base Hydra Docker Image.${RESET?}
+  echo -e ${GREEN?}'Building Base Hydra Docker Image.'${RESET?}
   gcloud builds submit --config deploy/build/hydra/cloudbuild.yaml .
 fi
 
@@ -133,36 +143,36 @@ fi
 echo -e ${GREEN?}'Building Docker images for the services. Press enter to continue.' ${RESET?}
 read
 
-echo -e ${GREEN?}Building Personas Docker Image.${RESET?}
+echo -e ${GREEN?}'Building Personas Docker Image.'${RESET?}
 gcloud builds submit --config deploy/build/personas/cloudbuild.yaml .
 
-echo -e ${GREEN?}Building IC Docker Image.${RESET?}
+echo -e ${GREEN?}'Building IC Docker Image.'${RESET?}
 gcloud builds submit --config deploy/build/ic/cloudbuild.yaml .
 
-echo -e ${GREEN?}Building ICDEMO Docker Image.${RESET?}
+echo -e ${GREEN?}'Building ICDEMO Docker Image.'${RESET?}
 gcloud builds submit --config deploy/build/icdemo/cloudbuild.yaml .
 
-echo -e ${GREEN?}Building DAM Docker Image.${RESET?}
+echo -e ${GREEN?}'Building DAM Docker Image.'${RESET?}
 gcloud builds submit --config deploy/build/dam/cloudbuild.yaml .
 
-echo -e ${GREEN?}Building DAMDEMO Docker Image.${RESET?}
+echo -e ${GREEN?}'Building DAMDEMO Docker Image.'${RESET?}
 gcloud builds submit --config deploy/build/damdemo/cloudbuild.yaml .
 
 # Deploy IC and DAM
-echo -e ${GREEN?}'Deploying services to the GCP project. Press enter to continue.' ${RESET?}
+echo -e ${GREEN?}'Deploying services to the GCP project. Press enter to continue.'${RESET?}
 read
 
-echo -e ${GREEN?}Deploy PERSONAS.${RESET?}
+echo -e ${GREEN?}'Deploy PERSONAS.'${RESET?}
 gcloud beta -q app deploy deploy/build/personas/personas.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-personas:latest
 
-echo -e ${GREEN?}Deploy IC.${RESET?}
+echo -e ${GREEN?}'Deploy IC.'${RESET?}
 gcloud beta -q app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest
 
-echo -e ${GREEN?}Deploy ICDEMO.${RESET?}
+echo -e ${GREEN?}'Deploy ICDEMO.'${RESET?}
 gcloud beta -q app deploy deploy/build/icdemo/icdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-icdemo:latest
 
-echo -e ${GREEN?}Deploy DAM.${RESET?}
+echo -e ${GREEN?}'Deploy DAM.'${RESET?}
 gcloud beta -q app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest
 
-echo -e ${GREEN?}Deploy DAMDEMO.${RESET?}
+echo -e ${GREEN?}'Deploy DAMDEMO.'${RESET?}
 gcloud beta -q app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest
