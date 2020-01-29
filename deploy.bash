@@ -30,8 +30,8 @@ export PROJECT_NUMBER=$(gcloud projects list --filter="${PROJECT?}" --format="va
 echo -e ${GREEN?}'Generating the config files, press enter to continue.'${RESET?}
 read
 
-cp -R ./deploy/config/ic-template/* ./deploy/config/ic
-cp -R ./deploy/config/dam-template/* ./deploy/config/dam
+cp -R ./deploy/config/ic-template/* ./deploy/config/ic/
+cp -R ./deploy/config/dam-template/* ./deploy/config/dam/
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/config_master_main_latest.json
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/secrets_master_main_latest.json
@@ -165,4 +165,4 @@ echo -e ${GREEN?}Deploy DAM.${RESET?}
 gcloud beta -q app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest
 
 echo -e ${GREEN?}Deploy DAMDEMO.${RESET?}
-gcloud beta -q app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-damdemo:latest
+gcloud beta -q app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest
