@@ -42,6 +42,9 @@ const (
 	// Required permission: admin
 	infoPath = "/identity"
 
+	// The following are for managing realms.
+	realmPath = "/identity/v1alpha/{realm}"
+
 	// The following are used to manage configuration of DAM.
 	// Required permission: admin
 	// TODO: remove the sub-paths and use filter and update mask parameters instead.

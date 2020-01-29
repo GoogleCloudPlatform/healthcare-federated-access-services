@@ -29,6 +29,7 @@ import (
 
 var paths = map[string]credtest.Requirement{
 	infoPath:                        {ClientID: false, ClientSecret: false},
+	realmPath:                       {ClientID: true, ClientSecret: true},
 	clientPath:                      {ClientID: true, ClientSecret: true},
 	resourcesPath:                   {ClientID: true, ClientSecret: true},
 	resourcePath:                    {ClientID: true, ClientSecret: true},

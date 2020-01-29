@@ -41,6 +41,9 @@ const (
 	// Required permission: admin
 	infoPath = "/dam"
 
+	// realms: for managing realms.
+	realmPath = "/dam/v1alpha/{realm}"
+
 	// processes: the state of various background processes running in DAM.
 	// Required permission: admin
 	processesPath = "/dam/v1alpha/{realm}/processes"

@@ -1133,6 +1133,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configResetPath, s.ConfigReset)
 	r.HandleFunc(configTestPersonasPath, s.ConfigTestPersonas)
 
+	r.HandleFunc(realmPath, common.MakeHandler(s, s.realmFactory()))
+
 	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
 	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
 	r.HandleFunc(configResourcePath, common.MakeHandler(s, s.configResourceFactory()))

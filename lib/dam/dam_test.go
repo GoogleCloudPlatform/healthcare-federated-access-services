@@ -88,6 +88,38 @@ func TestHandlers(t *testing.T) {
 	ctx := server.ContextWithClient(context.Background())
 	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, hydraPublicURL, store, wh, useHydra)
 	tests := []test.HandlerTest{
+		// Realm tests.
+		{
+			Method: "GET",
+			Path:   "/dam/v1alpha/master",
+			Output: `{}`,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "POST",
+			Path:   "/dam/v1alpha/test",
+			Output: `^.*exists`,
+			// For now, all realms are marked as already in existence.
+			Status: http.StatusConflict,
+		},
+		{
+			Method: "PUT",
+			Path:   "/dam/v1alpha/test",
+			Output: ``,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "PATCH",
+			Path:   "/dam/v1alpha/test",
+			Output: ``,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "DELETE",
+			Path:   "/dam/v1alpha/test",
+			Output: ``,
+			Status: http.StatusOK,
+		},
 		{
 			Method: "GET",
 			Path:   "/dam",
