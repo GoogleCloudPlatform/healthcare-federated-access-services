@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
@@ -40,6 +41,8 @@ func main() {
 	if err != nil {
 		glog.Exitf("persona.NewBroker() failed: %v", err)
 	}
+
+	broker.Handler.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
 
 	glog.Infof("Persona Broker using port %v", port)
 	glog.Exit(http.ListenAndServe(":"+port, broker.Handler))
