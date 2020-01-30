@@ -50,12 +50,14 @@ function start_ic() {
   # PERSONA_DAM_CLIENT_SECRET is the IC's client secret for use with the PERSONA_DAM_URL service.
   export PERSONA_DAM_CLIENT_SECRET="d3d3a837-168e-497f-b1c5-557f9833c948"
 
-  # Login and consent app
-  export URLS_CONSENT="${URL?}/identity/consent"
-  export URLS_LOGIN="${URL?}/identity/login"
+  # Reset clients in hydra.
+  cd /hcls-fa
+  go run gcp/hydra_reset/main.go
+  echo Reseted clients in HYDRA
 
   echo Starting IC
-  /hcls-fa/ic &
+  cd /hcls-fa
+  ./ic &
   echo Started IC
 
   start_nginx
@@ -76,6 +78,9 @@ function start_hydra() {
   export SERVE_PUBLIC_CORS_ALLOWED_ORIGINS="*"
   # issuer URL
   export URLS_SELF_ISSUER="${URL?}"
+  # Login and consent app
+  export URLS_CONSENT="${URL?}/identity/consent"
+  export URLS_LOGIN="${URL?}/identity/login"
   # Database connect
   export DSN="postgres://hydra:hydra@172.17.0.1:1234/${TYPE?}?sslmode=disable"
 
@@ -86,10 +91,7 @@ function start_hydra() {
   # Start hydra
   # use --dangerous-force-http because GAE take care of https.
   ./hydra serve all --dangerous-force-http &
-
-  # Reset clients in hydra.
-  go run /hcls-fa/gcp/hydra_reset/main.go &
-
+  sleep 10
   echo Started HYDRA
 }
 
@@ -99,11 +101,11 @@ function start_hydra() {
 function start_nginx() {
   echo Starting NGINX
   cd /
-  nginx -g 'daemon off;'
+  nginx
   echo Started NGINX
 }
 
 start_ic
 
 # Wait
-read
+sleep infinity

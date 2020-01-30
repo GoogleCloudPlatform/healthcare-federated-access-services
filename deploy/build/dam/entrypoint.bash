@@ -43,12 +43,14 @@ function start_dam() {
   # DEFAULT_BROKER is the default identity broker.
   export DEFAULT_BROKER="default_ic"
 
-  # Login and consent app
-  export URLS_CONSENT="${URL?}/dam/consent"
-  export URLS_LOGIN="${URL?}/dam/login"
+  # Reset clients in hydra.
+  cd /hcls-fa
+  go run gcp/hydra_reset/main.go
+  echo Reseted clients in HYDRA
 
   echo Starting DAM
-  /hcls-fa/dam &
+  cd /hcls-fa
+  ./dam &
   echo Started DAM
 
   start_nginx
@@ -69,6 +71,9 @@ function start_hydra() {
   export SERVE_PUBLIC_CORS_ALLOWED_ORIGINS="*"
   # issuer URL
   export URLS_SELF_ISSUER="${URL?}"
+  # Login and consent app
+  export URLS_CONSENT="${URL?}/dam/consent"
+  export URLS_LOGIN="${URL?}/dam/login"
   # Database connect
   export DSN="postgres://hydra:hydra@172.17.0.1:1234/${TYPE?}?sslmode=disable"
 
@@ -79,10 +84,7 @@ function start_hydra() {
   # Start hydra
   # use --dangerous-force-http because GAE take care of https.
   ./hydra serve all --dangerous-force-http &
-
-  # Reset clients in hydra.
-  go run /hcls-fa/gcp/hydra_reset/main.go &
-
+  sleep 10
   echo Started HYDRA
 }
 
@@ -92,11 +94,11 @@ function start_hydra() {
 function start_nginx() {
   echo Starting NGINX
   cd /
-  nginx -g 'daemon off;'
+  nginx
   echo Started NGINX
 }
 
 start_dam
 
 # Wait
-read
+sleep infinity
