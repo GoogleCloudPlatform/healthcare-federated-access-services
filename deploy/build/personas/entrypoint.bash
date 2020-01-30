@@ -15,10 +15,9 @@
 # limitations under the License.
 
 export PERSONAS_PORT="8080"
-export OIDC_URL="https://personas-dot-${PROJECT}.appspot.com/"
-export HYDRA_PUBLIC_URL="https://personas-dot-${PROJECT}.appspot.com/"
+export OIDC_URL="https://personas-dot-${PROJECT}.appspot.com/oidc"
 
 echo PERSONAS Started
 cd /hcls-fa
-./personas
+./personas -alsologtostderr
 echo PERSONAS Finished

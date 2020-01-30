@@ -20,5 +20,5 @@ export HYDRA_PUBLIC_URL="https://dam-dot-${PROJECT}.appspot.com"
 
 echo DAMDEMO Started
 cd /hcls-fa
-./damdemo
+./damdemo -alsologtostderr
 echo DAMDEMO Finished

@@ -52,12 +52,12 @@ function start_ic() {
 
   # Reset clients in hydra.
   cd /hcls-fa
-  go run gcp/hydra_reset/main.go
+  go run gcp/hydra_reset/main.go -alsologtostderr
   echo Reseted clients in HYDRA
 
   echo Starting IC
   cd /hcls-fa
-  ./ic &
+  ./ic -alsologtostderr &
   echo Started IC
 
   start_nginx

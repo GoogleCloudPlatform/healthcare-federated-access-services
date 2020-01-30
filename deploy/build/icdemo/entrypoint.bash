@@ -20,5 +20,5 @@ export HYDRA_PUBLIC_URL="https://ic-dot-${PROJECT}.appspot.com"
 
 echo ICDEMO Started
 cd /hcls-fa
-./icdemo
+./icdemo -alsologtostderr
 echo ICDEMO Finished

@@ -45,12 +45,12 @@ function start_dam() {
 
   # Reset clients in hydra.
   cd /hcls-fa
-  go run gcp/hydra_reset/main.go
+  go run gcp/hydra_reset/main.go -alsologtostderr
   echo Reseted clients in HYDRA
 
   echo Starting DAM
   cd /hcls-fa
-  ./dam &
+  ./dam -alsologtostderr &
   echo Started DAM
 
   start_nginx
