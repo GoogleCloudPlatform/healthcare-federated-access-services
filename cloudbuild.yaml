@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This cloudbuild.yaml file runs all the go tests using Cloud Build.
 steps:
 # Get the go version being used. Useful for debugging.
 - id: go_version
 - name: "gcr.io/cloud-builders/go"
   args: ["version"]
   env: ["GOPATH=go"]
-# Fetch all dependencies
-- id: go_mod_tidy
-- name: "gcr.io/cloud-builders/go"
-  args: ["mod", "tidy"]
+- id: go_build
+  name: "gcr.io/cloud-builders/go"
+  args: ["build", "-v", "./..."]
   env: ["GOPATH=go"]
 # Run one of the tests
 - id: go_test
   name: "gcr.io/cloud-builders/go"
-  args: ["test", "./validator"]
+  args: ["test", "-v", "./..."]
   env: ["GOPATH=go"]
