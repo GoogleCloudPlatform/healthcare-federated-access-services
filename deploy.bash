@@ -31,6 +31,10 @@ echo -e ${GREEN?}'Generating the default config files, press enter to continue.'
 echo -e ${GREEN?}'To skip, set environment variable "DAM_CONFIG" and "IC_CONFIG" to point to your config folders.'${RESET?}
 read
 
+# Create IC and DAM config directories if they do not exist.
+mkdir -p ./deploy/config/ic/
+mkdir -p ./deploy/config/dam/
+
 if [ -v IC_CONFIG ]; then
   cp -R $IC_CONFIG/* ./deploy/config/ic/
 else
