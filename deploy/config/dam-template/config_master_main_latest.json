@@ -16,6 +16,14 @@
       },
       "authUrl": "https://ic-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/auth",
       "tokenUrl": "https://ic-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/token"
+    },
+    "nih": {
+      "issuer": "https://login.nih.gov/oidc",
+      "translateUsing": "dbgap_translator",
+      "ui": {
+        "label": "nih passport issuer",
+        "description": "nih passport issuer"
+      }
     }
   },
   "trustedSources": {
@@ -27,10 +35,6 @@
         "https://institute2.nih.gov",
         "https://institute3.nih.gov",
         "https://institute4.nih.gov"
-      ],
-      "claims": [
-        "^[^\\.]+$",
-        "^nih.*$"
       ],
       "ui": {
         "label": "nih institutes",
@@ -263,14 +267,6 @@
         ]
       },
       "access": [
-        "andrew-test/all/viewer",
-        "andrew-test/bq_read_01/viewer",
-        "andrew-test/bq_read_02/viewer",
-        "andrew-test/gcs_read_01/viewer",
-        "andrew-test/gcs_read_02/viewer",
-        "ga4gh-apis/beacon/discovery",
-        "thousand-genomes/discovery-access/discovery",
-        "wes-resource/wes-view/execute"
       ]
     },
     "john": {
@@ -347,10 +343,7 @@
         ]
       },
       "access": [
-        "dataset_example/bq_read/viewer",
-        "dataset_example/gcs_read/viewer",
-        "ga4gh-apis/gcs_read/viewer",
-        "thousand-genomes/gcs-file-access/viewer"
+        "test-dataset/gcs_read/viewer"
       ]
     },
     "nci_researcher": {
@@ -391,18 +384,7 @@
         ]
       },
       "access": [
-        "andrew-test/all/viewer",
-        "andrew-test/bq_read_01/viewer",
-        "andrew-test/bq_read_02/viewer",
-        "andrew-test/gcs_read_01/viewer",
-        "andrew-test/gcs_read_02/viewer",
-        "dataset_example/bq_read/viewer",
-        "dataset_example/gcs_read/viewer",
-        "ga4gh-apis/beacon/discovery",
-        "ga4gh-apis/gcs_read/viewer",
-        "thousand-genomes/discovery-access/discovery",
-        "thousand-genomes/gcs-file-access/viewer",
-        "wes-resource/wes-view/execute"
+        "test-dataset/gcs_read/viewer"
       ]
     },
     "undergrad_candice": {
