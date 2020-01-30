@@ -33,17 +33,80 @@ They require "admin" permission.
 
 ### Users, Tokens, and Consents Management Endpoints
 
-The following implement a subset of SCIM V2 API.
+The following implement a subset of [SCIM V2 API](https://tools.ietf.org/html/rfc7644#section-3.2).
 
 - "/identity/scim/v2/{realm}/Users": user management, based on SCIM V2.
 - "/identity/scim/v2/{realm}/Me": based on SCIM V2.
-See "proto/scim/v2/users.proto" for details.
 
-- "/tokens": tokens management.
-See "proto/tokens/v1/consents.proto" for details.
+Additonal notes on limitations of user management SCIM-like endpoints:
 
-"/consents": consent management.
-See "proto/tokens/v1/tokens.proto"
+- See "proto/scim/v2/users.proto" for details of the structure that is
+  supported.
+- Account management updates require the `account_admin` scope on the access
+  token.
+- A limited subset of filters is available.
+- When using filters to patch a specific object in a list, use `$ref` as the
+  filter for that object. For example:
+  ```
+  {
+      "op": "replace",
+      "path": "emails[$ref eq \"email/persona/non-admin\"].primary",
+      "value":"true"
+  }
+  ```
+- Only a limited number of object fields are available for PATCH. For example,
+  `primary` for emails and `value` for photos.
+
+Linking of accounts is provided via the following extension to SCIM V2:
+
+1. Account 1: Login to the IC with the both the `account_admin` and `link`
+   scopes.
+2. Account 2: Login to the IC with another account with `account_admin` and
+   `link` scopes.
+3. Make a PATCH request to /identity/scim/v2/{realm}/Me while providing Account
+   1 and Account 2 bearer tokens via the `Authorization` and
+   `X-Link-Authorization` headers, and a body that contains a patch operation
+   of:
+   ```
+   {
+       "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+       "Operations":[
+           { "op": "add", "path": "emails", "value": "X-Link-Authorization" }
+       ]
+   }
+   ```
+
+Example PATCH request to link accounts given variables (`serviceURL`,
+`clientId`, `clientSecret`, `token1` and `token2`):
+
+```
+let patch = `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"emails","value":"X-Link-Authorization"}]}`;
+$.ajax({
+    url: `${serviceURL}/identity/scim/v2/master/Me?client_id=${clientId}&client_secret=${clientSecret}`,
+    type: "PATCH",
+    contentType: "application/json; charset=utf-8",
+    dataType: "json",
+    data: patch,
+    processData: false,
+    beforeSend: function(xhr){
+        xhr.setRequestHeader('Authorization', `Bearer ${token1}`);
+        xhr.setRequestHeader('X-Link-Authorization', `Bearer ${token2}`);
+    },
+    success: function(resp) {
+        console.log("LINK ACCOUNT SUCCESS:\n\n" + JSON.stringify(resp, undefined, 2));
+    },
+    error: function(err, status, info) {
+        console.log(JSON.stringify(err, undefined, 2) + `,\nstatus: "${status}", info: "${info}"`);
+    }
+});
+```
+
+#### Tokens and Consents
+
+- "/tokens": tokens management. See "proto/tokens/v1/consents.proto" for
+  details.
+- "/consents": consent management. See "proto/tokens/v1/tokens.proto" for
+  details.
 
 ### Configuration Non-Admin Endpoints
 
