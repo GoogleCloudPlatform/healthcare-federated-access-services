@@ -79,11 +79,16 @@
     <script>
       var clientId = "903cfaeb-57d9-4ef6-5659-04377794ed65";
       var clientSecret = "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
-      var scope = "openid+offline+profile+identities+account_admin+ga4gh_passport_v1";
-      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope="+ scope +"&state=_STATE_";
+      // IMPORTANT: Scopes "account_admin" and "link" should only be requested when the user is
+      // actively requesting the account to be modified or linked.
+      var defaultScope = "openid+offline+profile+identities+ga4gh_passport_v1";
+      var linkScope = defaultScope + "+account_admin+link";
+      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
       var userinfoURL = "_HYDRA_URL_/userinfo";
       var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
+      var realm = "master";
+      var accountURL = "_IC_URL_/identity/scim/v2/_REALM_/Me?client_id=" + clientId + "&client_secret=" + clientSecret;
 
       function validateStateAndNonce(stateID) {
         var state = window.localStorage.getItem('state');
@@ -103,18 +108,23 @@
       }
 
       function init() {
+        var hydraUrl = $("#hydra_url").val();
+        if (hydraUrl.includes("//localhost:")) {
+          var port = new URL(hydraUrl).port;
+          hydraUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
+          $("#hydra_url").val(hydraUrl);
+          port = new URL($("#ic_url").val()).port;
+          $("#ic_url").val(`${window.location.protocol}//${window.location.hostname}:${port}`);
+        }
         var params = new URLSearchParams(window.location.search);
         var code = params.get('code');
         if (code) {
           $("#auth_code").val(code);
           var state = params.get('state');
           // validateState(state);
-        }
-        var hydraUrl = $("#hydra_url").val();
-        if (hydraUrl.includes("//localhost:")) {
-          var port = new URL(hydraUrl).port;
-          hydraUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
-          $("#hydra_url").val(hydraUrl);
+          if (window.localStorage.getItem('primary_token')) {
+            linkAccount(code);
+          }
         }
       }
 
@@ -139,18 +149,23 @@
         return result;
       }
 
-      function makeURL(pattern, token, state, nonce) {
+      function makeURL(pattern, token, scope, state, nonce) {
+        var path = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + window.location.pathname;
         var redirect = window.location.href.split("?")[0];
         state = state || "";
         nonce = nonce || "";
-        return pattern.replace(/_AUTH_CODE_/g, encodeURIComponent(token))
+        return pattern.replace(/_PATH_/g, encodeURI(path))
+                      .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
                       .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
                       .replace(/_HYDRA_URL_/g, encodeURI($("#hydra_url").val()))
+                      .replace(/_IC_URL_/g, encodeURI($("#ic_url").val()))
                       .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
+                      .replace(/_SCOPE_/g, scope || defaultScope)
+                      .replace(/_REALM_/g, realm)
                       .replace(/_STATE_/g, state)
                       .replace(/_NONCE_/g, nonce)
       }
-      function auth() {
+      function auth(scope) {
         var stateID = randomString(16);
         var state = new Object();
         state.id = stateID;
@@ -159,8 +174,21 @@
         var nonce = randomString(16);
         window.localStorage.setItem('nonce', nonce);
 
-        var url = makeURL(loginURL, /*token*/ undefined, stateID, nonce);
+        var url = makeURL(loginURL, /*token*/ undefined, scope || defaultScope, stateID, nonce);
         window.location.href = url;
+      }
+
+      function linkauth() {
+        var authCode = $("#auth_code").val();
+        var tok = $("#token").val();
+        if (authCode && !tok) {
+          $("#log").text("must exchange code first (assuming it has the 'link' scope)...");
+          return;
+        }
+        if (tok) {
+          window.localStorage.setItem('primary_token', tok)
+        }
+        auth(linkScope);
       }
 
       function tokenExchange() {
@@ -184,6 +212,49 @@
           }
         });
       }
+
+      function linkAccount(authCode) {
+        var primaryToken = window.localStorage.getItem('primary_token');
+        window.localStorage.removeItem('primary_token');
+        $("#token").val(primaryToken);
+        var url = makeURL(tokenURL);
+        $.ajax({
+          url: url,
+          type: "POST",
+          data: makeURL(tokenQuery, authCode),
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
+          success: function(resp) {
+            scimLink(primaryToken, resp.access_token);
+          },
+          error: function(err) {
+            $("#log").text(JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
+
+      function scimLink(primaryToken, linkToken) {
+        var url = makeURL(accountURL);
+        var data = `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"emails","value":"X-Link-Authorization"}]}`;
+        $.ajax({
+          url: url,
+          type: "PATCH",
+          contentType: "application/json; charset=utf-8",
+          dataType: "json",
+          data: data,
+          processData: false,
+          beforeSend: function(xhr){
+            xhr.setRequestHeader('Authorization', 'Bearer ' + primaryToken);
+            xhr.setRequestHeader('X-Link-Authorization', 'Bearer ' + linkToken);
+          },
+          success: function(resp) {
+            $("#log").text("LINK ACCOUNT SUCCESS:\n\n" + JSON.stringify(resp, undefined, 2));
+          },
+          error: function(err, status, info) {
+            $("#log").text(JSON.stringify(err, undefined, 2) + `,\nstatus: "${status}", info: "${info}"`);
+          }
+        });
+      }
+
       function userinfo() {
         var tok = $("#token").val();
         if (!tok) {
@@ -203,6 +274,27 @@
           }
         });
       }
+
+      function accountInfo() {
+        var tok = $("#token").val();
+        if (!tok) {
+          $("#log").text("must login first...");
+          return;
+        }
+        var url = makeURL(accountURL);
+        $.ajax({
+          url: url,
+          type: "GET",
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Bearer ' + tok)},
+          success: function(resp) {
+            $("#log").text("Account Info:\n\n" + JSON.stringify(resp, undefined, 2));
+          },
+          error: function(err) {
+            $("#log").text(JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
+
       function displayResult(result) {
         $("#log").text(JSON.stringify(result, undefined, 2));
       }
@@ -212,30 +304,38 @@
       function displayError(str) {
         $("#log").text(str);
       }
+      function clearPage() {
+        window.localStorage.removeItem('primary_token');
+        window.location.href = makeURL("_PATH_");
+      }
     </script>
   </head>
   <body onload="init()">
     <h1>Hydra Token Flow IC Test</h1>
     <div class="box">
       <h3>1. Auth on Hydra</h3>
-      <input id="hydra_url" style="width:100%" value="${HYDRA_URL}">
+      <input id="hydra_url" style="width:50%" value="${HYDRA_URL}">
+      <input id="ic_url" style="width:49%" value="${IC_URL}">
       <div>
         <a class="btn blue" onclick="auth()">Login</a>
+        <a class="btn black" onclick="linkauth()">Link Account</a>
         <a class="btn white" onclick="$('#hydra_url').val('${HYDRA_URL}');">Default Hydra</a>
+        <a class="btn white" onclick="clearPage()">Clear</a>
       </div>
     </div>
     <div class="box">
-      <h3>2. Get Authentication Code</h3>
+      <h3>2. Authentication Code</h3>
       <textarea id="auth_code" rows="4" style="width:100%" readonly></textarea>
       <div>
         <a class="btn blue" onclick="tokenExchange()">Token Exchange</a>
       </div>
     </div>
     <div class="box">
-      <h3>3. fetch userinfo</h3>
+      <h3>3. Token</h3>
       <textarea id="token" rows="7" style="width:100%" readonly></textarea>
       <div>
-        <a class="btn black" onclick="userinfo()">Fetch Userinfo</a>
+        <a class="btn black" onclick="userinfo()">Token Userinfo</a>
+        <a class="btn black" onclick="accountInfo()">Account Info</a>
       </div>
     </div>
 

@@ -87,6 +87,6 @@ func main() {
 
 	s := ic.NewService(ctx, srvAddr, acctDomain, hydraAdminAddr, hydraPublicAddr, store, gcpkms, useHydra)
 
-	glog.Infof("Listening on port %v", port)
+	glog.Infof("IC listening on port %v", port)
 	glog.Exit(http.ListenAndServe(":"+port, s.Handler))
 }

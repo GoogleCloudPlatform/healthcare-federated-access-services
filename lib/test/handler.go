@@ -45,17 +45,19 @@ var (
 
 // HandlerTest holds the test variables for a service handler test.
 type HandlerTest struct {
-	Name       string
-	Method     string
-	Path       string
-	Input      string
-	Params     string
-	IsForm     bool
-	Persona    string
-	Scope      string
-	Output     string
-	CmpOptions cmp.Options
-	Status     int
+	Name        string
+	Method      string
+	Path        string
+	Input       string
+	Params      string
+	IsForm      bool
+	Persona     string
+	Scope       string
+	LinkPersona string
+	LinkScope   string
+	Output      string
+	CmpOptions  cmp.Options
+	Status      int
 }
 
 type serviceHandler interface {
@@ -107,6 +109,13 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		}
 		r.Header.Set("Authorization", "Bearer "+string(acTok))
+		if len(test.LinkPersona) > 0 {
+			linkTok, _, err := persona.NewAccessToken(test.LinkPersona, issuerURL, TestClientID, test.LinkScope, nil)
+			if err != nil {
+				t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", test.LinkPersona, issuerURL, err)
+			}
+			r.Header.Set("X-Link-Authorization", "Bearer "+string(linkTok))
+		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		Output := w.Body.String()

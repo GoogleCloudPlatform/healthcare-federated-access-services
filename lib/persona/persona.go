@@ -52,6 +52,9 @@ var (
 	// AccountScope has default scopes and the account_admin scope.
 	AccountScope = DefaultScope + " account_admin"
 
+	// LinkScope has account scope plus the additional account-linking scope.
+	LinkScope = AccountScope + " link"
+
 	// minPersonaFutureExpiry prevents users from setting expiries too close to now() that execution
 	// time across many personas may cause a test to accidently fail.
 	minPersonaFutureExpiry = 5 * time.Second

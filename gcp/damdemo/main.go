@@ -49,5 +49,6 @@ func main() {
 	http.HandleFunc("/test", httputil.NewPageHandler(page))
 	http.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
 
+	glog.Infof("DAM Demo listing on port %s", port)
 	glog.Exit(http.ListenAndServe(":"+port, nil))
 }

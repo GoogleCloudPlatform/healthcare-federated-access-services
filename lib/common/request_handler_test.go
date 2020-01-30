@@ -41,6 +41,6 @@ func TestSendResponse(t *testing.T) {
 	assertHeader(t, w, "Cache-Control", "no-store")
 	assertHeader(t, w, "Pragma", "no-cache")
 	assertHeader(t, w, "Access-Control-Allow-Origin", "*")
-	assertHeader(t, w, "Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization")
+	assertHeader(t, w, "Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization, X-Link-Authorization")
 	assertHeader(t, w, "Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 }

@@ -76,6 +76,6 @@ func main() {
 	}
 	s := dam.NewService(ctx, srvAddr, defaultBroker, hydraAdminAddr, hydraPublicAddr, store, wh, useHydra)
 
-	glog.Infof("Listening on port %v", port)
+	glog.Infof("DAM listening on port %v", port)
 	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
 }

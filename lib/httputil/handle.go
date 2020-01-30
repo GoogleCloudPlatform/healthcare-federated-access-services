@@ -73,7 +73,7 @@ func WriteStatus(w http.ResponseWriter, stat *status.Status) {
 // WriteCorsHeaders writes CORS headers (https://www.w3.org/TR/cors) to the response.
 func WriteCorsHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization, X-Link-Authorization")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 }
 

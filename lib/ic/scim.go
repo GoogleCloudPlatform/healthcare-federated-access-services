@@ -32,6 +32,10 @@ import (
 	spb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2" /* copybara-comment: go_proto */
 )
 
+const (
+	linkAuthorization = "X-Link-Authorization"
+)
+
 var (
 	// As used by storage.BuildFilters(), this maps the SCIM data model
 	// filter path names to a slice path of where the field exists in
@@ -304,7 +308,7 @@ func (h *scimUser) Patch(name string) error {
 		if photoPathRE.MatchString(path) {
 			path = "photo"
 		} else if emailPathRE.MatchString(path) {
-			path = "email"
+			path = "emails"
 		}
 		switch path {
 		case "active":
@@ -356,7 +360,18 @@ func (h *scimUser) Patch(name string) error {
 				return fmt.Errorf("operation %d: %q is not a recognized time zone", i, src)
 			}
 
-		case "email":
+		case "emails":
+			if patch.Op == "add" {
+				// SCIM extension for linking accounts.
+				if patch.Value != linkAuthorization {
+					return fmt.Errorf("operation %d: %q must be set to %q", i, patch.Value, linkAuthorization)
+				}
+				if err := h.linkEmail(); err != nil {
+					return err
+				}
+				break
+			}
+			// Standard SCIM email functionality.
 			link, match, err := selectLink(patch.Path, emailPathRE, scimEmailFilterMap, h.save)
 			if err != nil {
 				return err
@@ -452,6 +467,69 @@ func (h *scimUser) Save(tx storage.Tx, name string, vars map[string]string, desc
 		return nil
 	}
 	return h.s.saveAccount(h.item, h.save, desc, h.r, h.id.Subject, h.tx)
+}
+
+func (h *scimUser) linkEmail() error {
+	link, err := linkToken(h.r)
+	if err != nil {
+		return err
+	}
+	if !hasScopes("link", h.id.Scope, matchFullScope) {
+		return fmt.Errorf("bearer token unauthorized for scope %q", "link")
+	}
+	linkID, _, err := h.s.requestTokenToIdentity(link, "link", h.r, h.tx)
+	if err != nil {
+		return err
+	}
+	if !hasScopes("link", linkID.Scope, matchFullScope) {
+		return fmt.Errorf("link bearer token unauthorized for scope %q", "link")
+	}
+	linkSub := linkID.Subject
+	idSub := h.save.Properties.Subject
+	if linkSub == idSub {
+		return fmt.Errorf("the accounts provided are already linked together")
+	}
+	linkAcct, _, err := h.s.loadAccount(linkSub, getRealm(h.r), h.tx)
+	if err != nil {
+		return err
+	}
+	if linkAcct.State != storage.StateActive {
+		return fmt.Errorf("the link account is not found or no longer available")
+	}
+	for _, acct := range linkAcct.ConnectedAccounts {
+		if acct.Properties == nil || len(acct.Properties.Subject) == 0 {
+			continue
+		}
+		lookup := &cpb.AccountLookup{
+			Subject:  h.save.Properties.Subject,
+			Revision: acct.LinkRevision,
+			State:    storage.StateActive,
+		}
+		if err := h.s.saveAccountLookup(lookup, getRealm(h.r), acct.Properties.Subject, h.r, h.id, h.tx); err != nil {
+			return fmt.Errorf("service dependencies not available; try again later")
+		}
+		acct.LinkRevision++
+		h.save.ConnectedAccounts = append(h.save.ConnectedAccounts, acct)
+	}
+	linkAcct.ConnectedAccounts = make([]*cpb.ConnectedAccount, 0)
+	linkAcct.State = "LINKED"
+	linkAcct.Owner = h.save.Properties.Subject
+	if err = h.s.saveAccount(nil, linkAcct, "LINK account", h.r, h.id.Subject, h.tx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func linkToken(r *http.Request) (string, error) {
+	parts := strings.SplitN(r.Header.Get(linkAuthorization), " ", 2)
+	tok := ""
+	if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+		tok = parts[1]
+	}
+	if len(tok) == 0 {
+		return "", fmt.Errorf("missing or invalid %q header", linkAuthorization)
+	}
+	return tok, nil
 }
 
 //////////////////////////////////////////////////////////////////

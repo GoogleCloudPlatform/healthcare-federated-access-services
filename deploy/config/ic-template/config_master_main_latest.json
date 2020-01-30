@@ -42,7 +42,7 @@
         "label": "Test Page",
         "description": "Test page"
       },
-      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin link",
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
     },
@@ -55,7 +55,7 @@
       "redirectUris": [
         "https://dam-dot-${YOUR_PROJECT_ID}.appspot.com/dam/oidc/loggedin"
       ],
-      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin link",
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
     }
