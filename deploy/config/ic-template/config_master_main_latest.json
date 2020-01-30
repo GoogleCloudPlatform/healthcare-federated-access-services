@@ -19,9 +19,9 @@
       }
     },
     "persona": {
-      "issuer": "https://persona-staging-dot-hcls-data-connect-demo.appspot.com/oidc",
-      "authorizeUrl": "https://persona-staging-dot-hcls-data-connect-demo.appspot.com/oidc/authorize",
-      "tokenUrl": "https://persona-staging-dot-hcls-data-connect-demo.appspot.com/oidc/token",
+      "issuer": "https://personas-dpt-${YOUR_PROJECT_ID}.appspot.com/oidc",
+      "authorizeUrl": "https://personas-dpt-${YOUR_PROJECT_ID}.appspot.com/oidc/authorize",
+      "tokenUrl": "https://personas-dpt-${YOUR_PROJECT_ID}.appspot.com/oidc/token",
       "clientId": "ic-client-id",
       "scopes": ["openid", "profile", "identities", "ga4gh_passport_v1", "email"],
       "ui": {

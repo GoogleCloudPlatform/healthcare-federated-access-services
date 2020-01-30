@@ -227,7 +227,7 @@
       },
       "passport": {
         "standardClaims": {
-          "iss": "https://ic-prod-dot-hcls-data-connect-demo.appspot.com/oidc",
+          "iss": "https://ic-${YOUR_PROJECT_ID}.appspot.com/oidc",
           "email": "admin@nci.nih.gov",
           "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
         }
@@ -442,7 +442,7 @@
     "test_user_with_access": {
       "passport": {
         "standardClaims": {
-          "iss": "https://ic-staging-dot-hcls-data-connect-demo.appspot.com/oidc",
+          "iss": "https://ic-${YOUR_PROJECT_ID}.appspot.com/oidc",
           "email": "test-user-with-access@dnastack.com",
           "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
         },
