@@ -143,6 +143,37 @@ func Introspect(client *http.Client, hydraAdminURL, token string) (*hydraapi.Int
 	return response, nil
 }
 
+// ListConsents lists all consents of user (subject).
+func ListConsents(client *http.Client, hydraAdminURL, subject string) ([]*hydraapi.PreviousConsentSession, error) {
+	// TODO: consider support page param.
+	u := hydraAdminURL + "/oauth2/auth/sessions/consent?subject=" + subject
+
+	resp := []*hydraapi.PreviousConsentSession{}
+	if err := httpGet(client, u, &resp); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// RevokeConsents revokes all consents of user for a client. clientID is optional, will revoke all consent of user if no clientID.
+func RevokeConsents(client *http.Client, hydraAdminURL, subject, clientID string) error {
+	u, err := url.Parse(hydraAdminURL + "/oauth2/auth/sessions/consent")
+	if err != nil {
+		return err
+	}
+
+	q := url.Values{}
+	q.Add("subject", subject)
+	if len(clientID) != 0 {
+		q.Add("client", clientID)
+	}
+
+	u.RawQuery = q.Encode()
+
+	return httpDelete(client, u.String())
+}
+
 func getURL(hydraAdminURL, flow, challenge string) string {
 	const getURLPattern = "%s/oauth2/auth/requests/%s?%s_challenge=%s"
 	return fmt.Sprintf(getURLPattern, hydraAdminURL, flow, flow, url.QueryEscape(challenge))
