@@ -89,7 +89,7 @@ func (s *Client) Encrypt(ctx context.Context, data []byte, additionalAuthData st
 	}
 	resp, err := s.client.Encrypt(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("kms.Encrypt(%+v) failed: %v", req, err)
+		return nil, fmt.Errorf("kms.Encrypt(%+v) failed: %v", req.Name, err)
 	}
 	return resp.Ciphertext, nil
 }
@@ -103,7 +103,7 @@ func (s *Client) Decrypt(ctx context.Context, encrypted []byte, additionalAuthDa
 	}
 	resp, err := s.client.Decrypt(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("kms.Decrypt(%+v) failed: %v", req, err)
+		return nil, fmt.Errorf("kms.Decrypt(%+v) failed: %v", req.Name, err)
 	}
 	return resp.Plaintext, nil
 }
