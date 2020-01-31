@@ -908,13 +908,17 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 			Label:       "GCP Service Account Project",
 			Description: "The GCP Project ID where service accounts will be created by DAM and where DAM has permissions to create these service accounts (not setting this value will disable the service account target adapter)",
 			Type:        "string",
-			Regexp:      "^[A-Za-z][-A-Za-z0-9]{1,30}[A-Za-z]$",
+			// See the documentation on GCP project ID.
+			// https://cloud.google.com/resource-manager/reference/rest/v1/projects
+			Regexp: "^[A-Za-z][-A-Za-z0-9]{4,28}[A-Za-z0-9]$",
 		},
 		"gcpIamBillingProject": {
 			Label:       "GCP IAM Billing Project",
 			Description: "The GCP Project ID that DAM can use for billing when making API calls that require a billing account (e.g. IAM calls on requester-pays buckets). If unset, billing will inherit the gcpServiceAccountProject setting.",
 			Type:        "string",
-			Regexp:      "^[A-Za-z][-A-Za-z0-9]{1,30}[A-Za-z]$",
+			// See the documentation on GCP project ID.
+			// https://cloud.google.com/resource-manager/reference/rest/v1/projects
+			Regexp: "^[A-Za-z][-A-Za-z0-9]{4,28}[A-Za-z0-9]$",
 		},
 	}
 	return out
