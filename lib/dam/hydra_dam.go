@@ -22,6 +22,7 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -95,7 +96,14 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	auth := out.oauth.AuthCodeURL(out.stateID)
+	var opts []oauth2.AuthCodeOption
+	loginHint := u.Query().Get("login_hint")
+	if len(loginHint) != 0 {
+		opt := oauth2.SetAuthURLParam("login_hint", loginHint)
+		opts = append(opts, opt)
+	}
+
+	auth := out.oauth.AuthCodeURL(out.stateID, opts...)
 
 	sendRedirect(auth, r, w)
 }

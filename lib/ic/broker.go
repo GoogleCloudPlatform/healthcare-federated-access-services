@@ -35,12 +35,30 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
 		return
 	}
-	cfg, err := s.loadConfig(nil, getRealm(r))
+
+	scope, err := getScope(r)
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, err, w)
+		return
+	}
+
+	realm := getRealm(r)
+
+	cfg, err := s.loadConfig(nil, realm)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
-	s.login(w, r, cfg, getName(r), "")
+
+	in := loginIn{
+		realm:     realm,
+		scope:     strings.Split(scope, " "),
+		loginHint: common.GetParam(r, "login_hint"),
+		idpName:   getName(r),
+		challenge: common.GetParam(r, "login_challenge"),
+	}
+
+	s.login(in, w, r, cfg)
 }
 
 // AcceptLogin is the HTTP handler for ".../loggedin/{name}" endpoint.

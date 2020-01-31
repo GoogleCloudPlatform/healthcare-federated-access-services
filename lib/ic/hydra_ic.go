@@ -74,14 +74,34 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		scopes = defaultIdpScopes
 	}
 
-	// Return Login page.
-	query := fmt.Sprintf("?scope=%s&login_challenge=%s", url.QueryEscape(strings.Join(scopes, " ")), url.QueryEscape(challenge))
-	page, err := s.renderLoginPage(cfg, map[string]string{"realm": realm}, query)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+	// Return login page if no login hint.
+	loginHint := u.Query().Get("login_hint")
+	if !strings.Contains(loginHint, ":") {
+		// Return Login page.
+		query := fmt.Sprintf("?scope=%s&login_challenge=%s", url.QueryEscape(strings.Join(scopes, " ")), url.QueryEscape(challenge))
+		page, err := s.renderLoginPage(cfg, map[string]string{"realm": realm}, query)
+		if err != nil {
+			common.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+		common.SendHTML(page, w)
 		return
 	}
-	common.SendHTML(page, w)
+
+	// Skip login page and select the given idp when if contains login hint.
+	hint := strings.SplitN(loginHint, ":", 2)
+	loginHintProvider := hint[0]
+	loginHintAccount := hint[1]
+
+	// Idp login
+	in := loginIn{
+		realm:     realm,
+		scope:     scopes,
+		loginHint: loginHintAccount,
+		idpName:   loginHintProvider,
+		challenge: challenge,
+	}
+	s.login(in, w, r, cfg)
 }
 
 func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state, errName, errDesc string) {

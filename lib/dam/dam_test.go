@@ -1099,6 +1099,46 @@ func TestLogin_Hydra_Error(t *testing.T) {
 	}
 }
 
+func TestLogin_LoginHint_Hydra_Success(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendLogin(s, cfg, h, "login_hint=idp:foo@bar.com", []string{"openid", "identities", "offline"})
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	idpc := cfg.TrustedPassportIssuers[s.defaultBroker]
+
+	l := resp.Header.Get("Location")
+	loc, err := url.Parse(l)
+	if err != nil {
+		t.Fatalf("url.Parse(%s) failed", l)
+	}
+
+	a, err := url.Parse(idpc.AuthUrl)
+	if err != nil {
+		t.Fatalf("url.Parse(%s) failed", idpc.AuthUrl)
+	}
+	if loc.Scheme != a.Scheme {
+		t.Errorf("Scheme wants %s got %s", a.Scheme, loc.Scheme)
+	}
+	if loc.Host != a.Host {
+		t.Errorf("Host wants %s got %s", a.Host, loc.Host)
+	}
+	if loc.Path != a.Path {
+		t.Errorf("Path wants %s got %s", a.Path, loc.Path)
+	}
+
+	q := loc.Query()
+	wantLoginHint := "idp:foo@bar.com"
+	if q.Get("login_hint") != wantLoginHint {
+		t.Errorf("login_hint = %s wants %s", q.Get("login_hint"), wantLoginHint)
+	}
+}
+
 func TestLogin_Endpoint_Hydra_Success(t *testing.T) {
 	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {

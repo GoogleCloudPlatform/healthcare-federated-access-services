@@ -821,6 +821,80 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 	return s, cfg, sec, h, server, nil
 }
 
+func TestLogin_LoginHint_Hydra(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.GetLoginRequestResp = &hydraapi.LoginRequest{
+		RequestURL:     hydraURL + "auth?login_hint=" + idpName + ":foo@bar.com",
+		RequestedScope: []string{"openid"},
+	}
+
+	w := httptest.NewRecorder()
+	params := fmt.Sprintf("?login_challenge=%s", loginChallenge)
+	u := "https://ic.example.com" + hydraLoginPath + params
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+
+	s.Handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	idpc := cfg.IdentityProviders[idpName]
+
+	l := resp.Header.Get("Location")
+	loc, err := url.Parse(l)
+	if err != nil {
+		t.Fatalf("url.Parse(%s) failed", l)
+	}
+
+	a, err := url.Parse(idpc.AuthorizeUrl)
+	if err != nil {
+		t.Fatalf("url.Parse(%s) failed", idpc.AuthorizeUrl)
+	}
+	if loc.Scheme != a.Scheme {
+		t.Errorf("Scheme wants %s got %s", a.Scheme, loc.Scheme)
+	}
+	if loc.Host != a.Host {
+		t.Errorf("Host wants %s got %s", a.Host, loc.Host)
+	}
+	if loc.Path != a.Path {
+		t.Errorf("Path wants %s got %s", a.Path, loc.Path)
+	}
+
+	q := loc.Query()
+	if q.Get("client_id") != idpc.ClientId {
+		t.Errorf("client_id wants %s got %s", idpc.ClientId, q.Get("client_id"))
+	}
+	if q.Get("response_type") != idpc.ResponseType {
+		t.Errorf("response_type wants %s, got %s", idpc.ResponseType, q.Get("response_type"))
+	}
+	wantLoginHint := "foo@bar.com"
+	if q.Get("login_hint") != wantLoginHint {
+		t.Errorf("login_hint = %s wants %s", q.Get("login_hint"), wantLoginHint)
+	}
+
+	state := q.Get("state")
+	var loginState cpb.LoginState
+	err = s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, state, storage.LatestRev, &loginState)
+	if err != nil {
+		t.Fatalf("read login state failed, %v", err)
+		return
+	}
+
+	if loginState.Challenge != loginChallenge {
+		t.Errorf("state.Challenge wants %s got %s", loginChallenge, loginState.Challenge)
+	}
+	if loginState.IdpName != idpName {
+		t.Errorf("state.IdpName wants %s got %s", idpName, loginState.IdpName)
+	}
+}
+
 func TestLogin_Hydra(t *testing.T) {
 	s, cfg, _, _, _, err := setupHydraTest()
 	if err != nil {

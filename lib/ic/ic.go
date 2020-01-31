@@ -526,30 +526,15 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 	return page, nil
 }
 
-func (s *Service) idpAuthorize(idpName string, idp *cpb.IdentityProvider, redirect string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
-	scope, err := getScope(r)
-	if err != nil {
-		return nil, "", err
-	}
+func (s *Service) idpAuthorize(in loginIn, idp *cpb.IdentityProvider, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
+	scope := strings.Join(in.scope, " ")
 
 	// TODO: Remove after all idp use passport visa.
 	if idp.UsePassportVisa {
 		scope = strings.Join(idp.Scopes, " ")
 	}
 
-	state := ""
-	nonce := ""
-	challenge := ""
-	var st *status.Status
-
-	if s.useHydra {
-		challenge, st = hydra.ExtractLoginChallenge(r)
-		if st != nil {
-			return nil, "", st.Err()
-		}
-	}
-
-	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, state, nonce, challenge, tx)
+	stateID, err := s.buildState(in.idpName, in.realm, scope, in.challenge, tx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -580,15 +565,11 @@ func idpConfig(idp *cpb.IdentityProvider, domainURL string, secrets *pb.IcSecret
 	}
 }
 
-func (s *Service) buildState(idpName, realm, clientID, scope, redirect, state, nonce, challenge string, tx storage.Tx) (string, error) {
+func (s *Service) buildState(idpName, realm, scope, challenge string, tx storage.Tx) (string, error) {
 	login := &cpb.LoginState{
 		IdpName:   idpName,
 		Realm:     realm,
-		ClientId:  clientID,
 		Scope:     scope,
-		Redirect:  redirect,
-		State:     state,
-		Nonce:     nonce,
 		Challenge: challenge,
 	}
 
@@ -629,18 +610,24 @@ func (s *Service) idpUsesClientLoginPage(idpName, realm string, cfg *pb.IcConfig
 	return idp.TranslateUsing == translator.DbGapTranslatorName
 }
 
-func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig, idpName, loginHint string) {
-	nonce := ""
-	redirect := ""
+type loginIn struct {
+	idpName   string
+	loginHint string
+	realm     string
+	challenge string
+	scope     []string
+}
+
+func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig) {
 	var err error
 
-	idp, ok := cfg.IdentityProviders[idpName]
+	idp, ok := cfg.IdentityProviders[in.idpName]
 	if !ok {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("login service %q not found", idpName), w)
+		common.HandleError(http.StatusNotFound, fmt.Errorf("login service %q not found", in.idpName), w)
 		return
 	}
 
-	idpc, state, err := s.idpAuthorize(idpName, idp, redirect, r, cfg, nil)
+	idpc, state, err := s.idpAuthorize(in, idp, cfg, nil)
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)
 		return
@@ -653,11 +640,8 @@ func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig
 		oauth2.SetAuthURLParam("response_type", resType),
 		oauth2.SetAuthURLParam("prompt", "login consent"),
 	}
-	if len(nonce) > 0 {
-		options = append(options, oauth2.SetAuthURLParam("nonce", nonce))
-	}
-	if len(loginHint) > 0 {
-		options = append(options, oauth2.SetAuthURLParam("login_hint", loginHint))
+	if len(in.loginHint) > 0 {
+		options = append(options, oauth2.SetAuthURLParam("login_hint", in.loginHint))
 	}
 
 	url := idpc.AuthCodeURL(state, options...)
