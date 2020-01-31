@@ -190,20 +190,33 @@ func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("response type must be %q", "code"), w)
 		return
 	}
-	redirect := common.GetParam(r, "redirect_uri")
+
+	redirect, err := url.QueryUnescape(r.URL.Query().Get("redirect_uri"))
+	if err != nil {
+		common.HandleError(http.StatusBadRequest, fmt.Errorf("redirect_uri must be a valid URL: %v", err), w)
+		return
+	}
 	if redirect == "" {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("redirect_uri must be specified"), w)
 		return
 	}
-	scope := common.GetParam(r, "scope")
+	u, err := url.Parse(redirect)
+	if err != nil {
+		common.HandleError(http.StatusNotFound, fmt.Errorf("invalid redirect_uri URL format: %v", err), w)
+		return
+	}
+
 	state := common.GetParam(r, "state")
 	nonce := common.GetParam(r, "nonce")
 	clientID := common.GetParam(r, "client_id")
+	scope := common.GetParam(r, "scope")
+
 	loginHint := common.GetParam(r, "login_hint")
 	if len(loginHint) == 0 {
-		s.sendLoginPage(redirect, state, nonce, clientID, scope, w, r)
+		s.sendLoginPage(u.String(), state, nonce, clientID, scope, w, r)
 		return
 	}
+
 	pname := loginHint
 	_, ok := s.cfg.TestPersonas[pname]
 	if !ok {
@@ -216,11 +229,6 @@ func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
 		code = code + "," + clientID
 	}
 
-	u, err := url.Parse(redirect)
-	if err != nil {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("invalid redirect URL format: %v", err), w)
-		return
-	}
 	q := u.Query()
 	q.Set("code", code)
 	q.Set("scope", scope)
@@ -231,10 +239,8 @@ func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w http.ResponseWriter, r *http.Request) {
-	list := &ipb.LoginPageProviders{
-		Personas: make(map[string]*ipb.LoginPageProviders_ProviderEntry),
-	}
-	path := common.RequestAbstractPath(r)
+	list := &ipb.LoginPageProviders{Personas: make(map[string]*ipb.LoginPageProviders_ProviderEntry)}
+
 	for pname, p := range s.cfg.TestPersonas {
 		ui := p.Ui
 		if ui == nil {
@@ -243,18 +249,35 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 		if _, ok := ui[common.UILabel]; !ok {
 			ui[common.UILabel] = common.ToTitle(pname)
 		}
-		params := "?login_hint=" + url.QueryEscape(pname) + "&scope=" + url.QueryEscape(scope) + "&redirect_uri=" + url.QueryEscape(redirect) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce) + "&client_id=" + url.QueryEscape(clientID) + "&response_type=code"
+
+		params := url.Values{}
+		params.Add("login_hint", pname)
+		params.Add("scope", scope)
+		params.Add("redirect_uri", redirect)
+		params.Add("state", state)
+		params.Add("nonce=", nonce)
+		params.Add("client_id", clientID)
+		params.Add("response_type", "code")
+
+		u, err := url.Parse(r.URL.String())
+		if err != nil {
+			common.HandleError(http.StatusInternalServerError, err, w)
+			return
+		}
+		u.RawQuery = params.Encode()
+
 		list.Personas[pname] = &ipb.LoginPageProviders_ProviderEntry{
-			Url: path + params,
+			Url: u.String(),
 			Ui:  ui,
 		}
 	}
-	ma := jsonpb.Marshaler{}
-	json, err := ma.MarshalToString(list)
+
+	json, err := (&jsonpb.Marshaler{}).MarshalToString(list)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
+
 	page := strings.Replace(s.loginPage, "${PROVIDER_LIST}", json, -1)
 	page = strings.Replace(page, "${ASSET_DIR}", "/static", -1)
 	page = strings.Replace(page, "${SERVICE_TITLE}", serviceTitle, -1)
