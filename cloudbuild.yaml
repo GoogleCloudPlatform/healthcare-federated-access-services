@@ -13,18 +13,31 @@
 # limitations under the License.
 
 # This cloudbuild.yaml file runs all the go tests using Cloud Build.
+# github.com/GoogleCloudPlatform/healthcare-federated-access-services/
+#
+# To test modification to this file use:
+#   gcloud builds submit --config cloudbuild.yaml .
+
 steps:
 # Get the go version being used. Useful for debugging.
 - id: go_version
-- name: "gcr.io/cloud-builders/go"
-  args: ["version"]
-  env: ["GOPATH=go"]
+  name: 'gcr.io/cloud-builders/go'
+  args: ['version']
+  env: ['GOPATH=go']
+
+- id: pwd
+  name: 'ubuntu'
+  entrypoint: 'bash'
+  args: ['-c', 'pwd']
+
 - id: go_build
-  name: "gcr.io/cloud-builders/go"
-  args: ["build", "-v", "./..."]
-  env: ["GOPATH=go"]
-# Run one of the tests
+  name: 'gcr.io/cloud-builders/go'
+  args: ['build', '-v', './...']
+  env: ['GOPATH=/go']
+
 - id: go_test
-  name: "gcr.io/cloud-builders/go"
-  args: ["test", "-v", "./..."]
-  env: ["GOPATH=go"]
+  name: 'gcr.io/cloud-builders/go'
+  args: ['test', '-v', './...']
+  env:
+  - 'GOPATH=/go'
+  - 'PROJECT_ROOT=/workspace'
