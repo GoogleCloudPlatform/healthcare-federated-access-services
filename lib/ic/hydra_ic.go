@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -325,11 +324,4 @@ func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, sta
 	}
 
 	common.SendRedirect(resp.RedirectTo, r, w)
-}
-
-// HydraTestPage send hydra test page.
-func (s *Service) HydraTestPage(w http.ResponseWriter, r *http.Request) {
-	hydraURL := os.Getenv("HYDRA_PUBLIC_URL")
-	page := strings.ReplaceAll(s.hydraTestPage, "${HYDRA_URL}", hydraURL)
-	common.SendHTML(page, w)
 }

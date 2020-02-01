@@ -51,8 +51,6 @@ import (
 )
 
 const (
-	hydraDAMTestPageFile = "pages/hydra-dam-test.html"
-
 	maxNameLength = 32
 	minNameLength = 3
 	clientIdLen   = 36
@@ -93,7 +91,6 @@ type Service struct {
 	startTime      int64
 	translators    sync.Map
 	useHydra       bool
-	hydraTestPage  string
 }
 
 type ServiceHandler struct {
@@ -120,11 +117,6 @@ func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL, hydra
 		glog.Fatalf("cannot load permissions: %v", err)
 	}
 
-	tp, err := common.LoadFile(hydraDAMTestPageFile)
-	if err != nil {
-		glog.Fatalf("common.LoadFile(%s) failed: %v", hydraDAMTestPageFile, err)
-	}
-
 	sh := &ServiceHandler{}
 	s := &Service{
 		roleCategories: roleCat.DamRoleCategories,
@@ -139,7 +131,6 @@ func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL, hydra
 		ctx:            ctx,
 		httpClient:     http.DefaultClient,
 		startTime:      time.Now().Unix(),
-		hydraTestPage:  tp,
 		useHydra:       useHydra,
 	}
 
@@ -954,6 +945,8 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error)
 	if err := normalizeConfig(cfg); err != nil {
 		return nil, fmt.Errorf("invalid config file %q: %v", storage.ConfigDatatype, err)
 	}
+
+	// glog.Infof("loaded DAM config: %+v", cfg)
 	return cfg, nil
 }
 

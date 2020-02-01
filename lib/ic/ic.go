@@ -224,9 +224,6 @@ type Service struct {
 	loginPage             string
 	clientLoginPage       string
 	infomationReleasePage string
-	testPage              string
-	tokenFlowTestPage     string
-	hydraTestPage         string
 	startTime             int64
 	permissions           *common.Permissions
 	domain                string
@@ -275,18 +272,6 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL, hydra
 	if err != nil {
 		glog.Fatalf("cannot load information release page: %v", err)
 	}
-	tp, err := common.LoadFile(testPageFile)
-	if err != nil {
-		glog.Fatalf("cannot load test page: %v", err)
-	}
-	tfp, err := common.LoadFile(tokenFlowTestPageFile)
-	if err != nil {
-		glog.Fatalf("cannot load token flow test page: %v", err)
-	}
-	htp, err := common.LoadFile(hydraICTestPageFile)
-	if err != nil {
-		glog.Fatalf("cannot load hydra test page: %v", err)
-	}
 
 	perms, err := common.LoadPermissions(store)
 	if err != nil {
@@ -300,9 +285,6 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL, hydra
 		loginPage:             lp,
 		clientLoginPage:       clp,
 		infomationReleasePage: irp,
-		testPage:              tp,
-		tokenFlowTestPage:     tfp,
-		hydraTestPage:         htp,
 		startTime:             time.Now().Unix(),
 		permissions:           perms,
 		domain:                domain,
@@ -816,43 +798,6 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 	page = strings.Replace(page, "${STATE}", stateID, -1)
 	page = strings.Replace(page, "${PATH}", strings.Replace(acceptInformationReleasePath, "{realm}", realm, -1), -1)
 
-	common.SendHTML(page, w)
-}
-
-func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	dam := os.Getenv("PERSONA_DAM_URL")
-	if len(dam) == 0 {
-		scheme := "http:"
-		if len(r.URL.Scheme) > 0 {
-			scheme = r.URL.Scheme
-		}
-		dam = strings.Replace(scheme+"//"+s.accountDomain, "ic-", "dam-", -1)
-	}
-
-	page := strings.Replace(s.testPage, "${DAM_URL}", dam, -1)
-	common.SendHTML(page, w)
-}
-
-// TokenFlowTest send token flow test page.
-func (s *Service) TokenFlowTest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	dam := os.Getenv("PERSONA_DAM_URL")
-	if len(dam) == 0 {
-		scheme := "http:"
-		if len(r.URL.Scheme) > 0 {
-			scheme = r.URL.Scheme
-		}
-		dam = strings.Replace(scheme+"//"+s.accountDomain, "ic-", "dam-", -1)
-	}
-
-	page := strings.Replace(s.tokenFlowTestPage, "${DAM_URL}", dam, -1)
 	common.SendHTML(page, w)
 }
 
@@ -1831,6 +1776,7 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.IcConfig, error) 
 		return nil, fmt.Errorf("invalid %q file: %v", storage.ConfigDatatype, err)
 	}
 
+	// glog.Infof("loaded IC config: %+v", cfg)
 	return cfg, nil
 }
 

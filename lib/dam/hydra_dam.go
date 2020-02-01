@@ -17,8 +17,6 @@ package dam
 import (
 	"net/http"
 	"net/url"
-	"os"
-	"strings"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -159,14 +157,6 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	common.SendRedirect(resp.RedirectTo, r, w)
-}
-
-// HydraTestPage send hydra test page.
-func (s *Service) HydraTestPage(w http.ResponseWriter, r *http.Request) {
-	hydraURL := os.Getenv("HYDRA_PUBLIC_URL")
-	page := strings.ReplaceAll(s.hydraTestPage, "${HYDRA_URL}", hydraURL)
-	page = strings.ReplaceAll(page, "${DAM_URL}", s.domainURL)
-	common.SendHTML(page, w)
 }
 
 func (s *Service) extractCartFromAccessToken(token string) (string, error) {
