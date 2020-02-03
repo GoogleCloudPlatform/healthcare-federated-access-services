@@ -21,137 +21,14 @@
   <title>${SERVICE_TITLE}: Sign In</title>
 
   <link rel="icon" href="${ASSET_DIR}/favicon.png" type="image/png"/>
+
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css">
-  <!-- <link rel="stylesheet" href="${ASSET_DIR}/login.css"> -->
+  <link rel="stylesheet" href="${ASSET_DIR}/css/login.css">
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"></script>
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Roboto', sans-serif;
-      font-size: 16px;
-      color: #2B2B2B;
-    }
-
-    p {
-      font-size: 16px;
-    }
-
-    h2 {
-      font-size: 3rem;
-      font-weight: 300;
-    }
-
-    h4 {
-      font-size: 2rem;
-      font-weight: 300;
-      margin-bottom: 1rem;
-    }
-
-    h4:not(:first-child) {
-      margin-top: 4rem;
-    }
-
-    h4:first-of-type {
-      --margin: 0 0 1rem 0;
-    }
-
-    a:not(:last-of-type) {
-      margin-bottom: 0.35rem;
-    }
-
-    a:not(:first-of-type) {
-      margin-top: 0.35rem;
-    }
-
-    a {
-      text-decoration: none;
-    }
-
-    .flex {
-      display: flex;
-    }
-
-    .flex--column {
-      flex-direction: column;
-    }
-
-    .vertical-center {
-      align-items: center;
-    }
-
-    .horizontal-center {
-      justify-content: center;
-    }
-
-    .stretch {
-      flex-grow: 1;
-    }
-
-    .hide {
-      display: none;
-    }
-
-    button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
-    .mdl-button--primary.mdl-button--primary.mdl-button--fab {
-      background-color: #77777a;
-      color: #ffffff;
-    }
-
-    .mdl-button--primary.mdl-button--primary.mdl-button--raised,
-    .mdl-button--primary.mdl-button--primary.mdl-button--fab {
-      background-color: #00bdd4;
-      padding-left: 4rem;
-      padding-right: 4rem;
-    }
-
-    .mdl-button--primary.mdl-button--primary.mdl-button--google {
-      background-color: #ff3b30;
-    }
-
-    .mdl-button {
-      overflow: initial;
-    }
-
-    #providers-container {
-      padding: 0 4rem;
-      justify-content: center;
-      background-color: #ffffff;
-      margin-bottom: 2rem;
-    }
-
-    #providers-container .mdl-card {
-      min-height: 0;
-      font-weight: 500;
-    }
-
-    #providers-container img {
-      width: 4rem;
-      height: 4rem;
-      margin-right: 0.75rem;
-    }
-
-    #main-container {
-        background: url(${ASSET_DIR}/background.png) center center / cover no-repeat;
-    }
-
-    #main-container .mdl-card {
-      padding: 2rem;
-      width: 65%;
-      max-width: 60rem;
-    }
-
-    #main-container h2.mdl-card__title-text {
-      font-size: 3rem;
-      font-weight: bold;
-    }
-
-    #main-container .mdl-card__supporting-text {
-      font-size: 1.2rem;
-    }
-  </style>
   <script>
 
       var providers = ${PROVIDER_LIST};
