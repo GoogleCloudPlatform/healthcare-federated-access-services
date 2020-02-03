@@ -52,6 +52,7 @@ func LoadPermissions(store storage.Store) (*Permissions, error) {
 }
 
 // CheckAdmin returns http status forbidden and error message if user does not have validate admin permission.
+// TODO: only return error is enough.
 func (p *Permissions) CheckAdmin(id *ga4gh.Identity) (int, error) {
 	if !p.IsAdmin(id) {
 		return http.StatusForbidden, fmt.Errorf("user is not an administrator")

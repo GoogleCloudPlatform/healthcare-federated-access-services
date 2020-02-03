@@ -56,6 +56,11 @@ func (s *Server) ContextWithClient(ctx context.Context) context.Context {
 	return oidc.ClientContext(ctx, s.client)
 }
 
+// Client returns the stub http client.
+func (s *Server) Client() *http.Client {
+	return s.client
+}
+
 // Config returns the DAM configuration currently in use.
 func (s *Server) Config() *dampb.DamConfig {
 	return s.broker.Config()
