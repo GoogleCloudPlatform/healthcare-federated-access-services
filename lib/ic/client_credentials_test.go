@@ -67,8 +67,16 @@ func setup(t *testing.T) *Service {
 		t.Fatalf("fakeoidcissuer.New() failed: %v", err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, crypt, useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         domain,
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     fakeencryption.New(),
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+	})
 	return s
 }
 

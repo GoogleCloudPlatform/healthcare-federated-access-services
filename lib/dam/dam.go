@@ -98,21 +98,34 @@ type ServiceHandler struct {
 	s       *Service
 }
 
+// Options contains parameters to New DAM Service.
+type Options struct {
+	// Ctx: pass in http.Client can replace the one used in oidc request
+	Ctx context.Context
+	// Domain: domain used to host DAM service
+	Domain string
+	// DefaultBroker: default identity broker
+	DefaultBroker string
+	// Store: data storage and configuration storage
+	Store storage.Store
+	// Warehouse: resource token creator service
+	Warehouse clouds.ResourceTokenCreator
+	// UseHydra: service use hydra integrated OIDC.
+	UseHydra bool
+	// HydraAdminURL: hydra admin endpoints url
+	HydraAdminURL string
+	// HydraPublicURL: hydra public endpoints url
+	HydraPublicURL string
+}
+
 // NewService create DAM service
-// - ctx: pass in http.Client can replace the one used in oidc request
-// - domain: domain used to host DAM service
-// - defaultBroker: default identity broker
-// - hydraAdminURL: hydra admin endpoints url
-// - hydraPublicURL: hydra public endpoints url
-// - store: data storage and configuration storage
-// - warehouse: resource token creator service
-func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL, hydraPublicURL string, store storage.Store, warehouse clouds.ResourceTokenCreator, useHydra bool) *Service {
-	fs := getFileStore(store, damStaticService)
+func NewService(params *Options) *Service {
+	fs := getFileStore(params.Store, damStaticService)
 	var roleCat pb.DamRoleCategoriesResponse
 	if err := fs.Read("role", storage.DefaultRealm, storage.DefaultUser, "en", storage.LatestRev, &roleCat); err != nil {
 		glog.Fatalf("cannot load role categories: %v", err)
 	}
-	perms, err := common.LoadPermissions(store)
+	perms, err := common.LoadPermissions(params.Store)
 	if err != nil {
 		glog.Fatalf("cannot load permissions: %v", err)
 	}
@@ -120,18 +133,18 @@ func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL, hydra
 	sh := &ServiceHandler{}
 	s := &Service{
 		roleCategories: roleCat.DamRoleCategories,
-		domainURL:      domain,
-		defaultBroker:  defaultBroker,
-		hydraAdminURL:  hydraAdminURL,
-		hydraPublicURL: hydraPublicURL,
-		store:          store,
-		warehouse:      warehouse,
+		domainURL:      params.Domain,
+		defaultBroker:  params.DefaultBroker,
+		store:          params.Store,
+		warehouse:      params.Warehouse,
 		permissions:    perms,
 		Handler:        sh,
-		ctx:            ctx,
+		ctx:            params.Ctx,
 		httpClient:     http.DefaultClient,
 		startTime:      time.Now().Unix(),
-		useHydra:       useHydra,
+		useHydra:       params.UseHydra,
+		hydraAdminURL:  params.HydraAdminURL,
+		hydraPublicURL: params.HydraPublicURL,
 	}
 
 	secrets, err := s.loadSecrets(nil)
@@ -145,7 +158,7 @@ func NewService(ctx context.Context, domain, defaultBroker, hydraAdminURL, hydra
 			glog.Fatalf("cannot load client secrets: %v", err)
 		}
 	}
-	adapters, err := adapter.CreateAdapters(fs, warehouse, secrets)
+	adapters, err := adapter.CreateAdapters(fs, params.Warehouse, secrets)
 	if err != nil {
 		glog.Fatalf("cannot load adapters: %v", err)
 	}

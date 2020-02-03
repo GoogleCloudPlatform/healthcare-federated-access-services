@@ -246,14 +246,28 @@ type Encryption interface {
 	Decrypt(ctx context.Context, encrypted []byte, additionalAuthData string) ([]byte, error)
 }
 
+// Options contains parameters to New IC Service.
+type Options struct {
+	// Ctx: context for service.
+	Ctx context.Context
+	// Domain: domain used to host ic service.
+	Domain string
+	// AccountDomain: domain used to host service account warehouse.
+	AccountDomain string
+	// Store: data storage and configuration storage.
+	Store storage.Store
+	// Encryption: the encryption use for storing tokens safely in database.
+	Encryption Encryption
+	// UseHydra: service use hydra integrated OIDC.
+	UseHydra bool
+	// HydraAdminURL: hydra admin endpoints url.
+	HydraAdminURL string
+	// HydraPublicURL: hydra public endpoints url.
+	HydraPublicURL string
+}
+
 // NewService create new IC service.
-// - domain: domain used to host ic service
-// - accountDomain: domain used to host service account warehouse
-// - hydraAdminURL: hydra admin endpoints url
-// - hydraPublicURL: hydra public endpoints url
-// - store: data storage and configuration storage
-// - encryption: the encryption use for storing tokens safely in database
-func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL, hydraPublicURL string, store storage.Store, encryption Encryption, useHydra bool) *Service {
+func NewService(params *Options) *Service {
 	sh := &ServiceHandler{}
 	lp, err := common.LoadFile(loginPageFile)
 	if err != nil {
@@ -273,31 +287,31 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL, hydra
 		glog.Fatalf("cannot load information release page: %v", err)
 	}
 
-	perms, err := common.LoadPermissions(store)
+	perms, err := common.LoadPermissions(params.Store)
 	if err != nil {
 		glog.Fatalf("cannot load permissions:%v", err)
 	}
 	s := &Service{
-		store:                 store,
+		store:                 params.Store,
 		Handler:               sh,
-		ctx:                   ctx,
+		ctx:                   params.Ctx,
 		httpClient:            http.DefaultClient,
 		loginPage:             lp,
 		clientLoginPage:       clp,
 		infomationReleasePage: irp,
 		startTime:             time.Now().Unix(),
 		permissions:           perms,
-		domain:                domain,
-		accountDomain:         accountDomain,
-		hydraAdminURL:         hydraAdminURL,
-		hydraPublicURL:        hydraPublicURL,
-		encryption:            encryption,
-		useHydra:              useHydra,
+		domain:                params.Domain,
+		accountDomain:         params.AccountDomain,
+		hydraAdminURL:         params.HydraAdminURL,
+		hydraPublicURL:        params.HydraPublicURL,
+		encryption:            params.Encryption,
+		useHydra:              params.UseHydra,
 	}
 
 	if err := validateURLs(map[string]string{
-		"DOMAIN as URL":         "https://" + domain,
-		"ACCOUNT_DOMAIN as URL": "https://" + accountDomain,
+		"DOMAIN as URL":         "https://" + params.Domain,
+		"ACCOUNT_DOMAIN as URL": "https://" + params.AccountDomain,
 	}); err != nil {
 		glog.Fatalf(err.Error())
 	}

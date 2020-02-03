@@ -38,7 +38,16 @@ func main() {
 	path := "deploy/config"
 
 	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
-	dams := dam.NewService(context.Background(), "reset.example.org", "reset.example.org", "reset.example.org", "reset.example.org", store, nil, false)
+	dams := dam.NewService(&dam.Options{
+		Ctx:            context.Background(),
+		Domain:         "reset.example.org",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      nil,
+		UseHydra:       true,
+		HydraAdminURL:  "reset.example.org",
+		HydraPublicURL: "reset.example.org",
+	})
 
 	if err := dams.ImportFiles("FORCE_WIPE"); err != nil {
 		glog.Fatalf("error importing files: %v", err)

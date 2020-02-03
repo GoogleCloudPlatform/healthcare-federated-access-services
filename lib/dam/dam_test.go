@@ -86,7 +86,16 @@ func TestHandlers(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, hydraPublicURL, store, wh, useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         "test.org",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      wh,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+	})
 	tests := []test.HandlerTest{
 		// Realm tests.
 		{
@@ -781,7 +790,16 @@ func TestMinConfig(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, hydraPublicURL, store, nil, useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         "test.org",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      nil,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+	})
 	tests := []test.HandlerTest{
 		{
 			Name:    "restricted access of 'dr_joe_elixir' (which only exists in min config subdirectory)",
@@ -829,7 +847,16 @@ func TestCheckAuthorization(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, hydraPublicURL, store, nil, useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         "test.org",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      nil,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+	})
 
 	realm := "master"
 	cfg, err := s.loadConfig(nil, realm)
@@ -870,7 +897,16 @@ func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Serve
 	}
 	ctx := server.ContextWithClient(context.Background())
 	wh := clouds.NewMockTokenCreator(false)
-	s := NewService(ctx, "https://test.org", testBroker, hydraAdminURL, hydraPublicURL, store, wh, useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         "https://test.org",
+		DefaultBroker:  testBroker,
+		Store:          store,
+		Warehouse:      wh,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -2428,7 +2464,16 @@ func Test_HydraAccessTokenForEndpoint(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	ctx := server.ContextWithClient(context.Background())
-	s := NewService(ctx, "test.org", "no-broker", hydraAdminURL, hydraPublicURL, store, wh, useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         "test.org",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      wh,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+	})
 
 	cfg, err := s.loadConfig(nil, "master")
 	if err != nil {

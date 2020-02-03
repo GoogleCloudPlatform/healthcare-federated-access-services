@@ -89,7 +89,17 @@ func TestHandlers(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, crypt, useHydra)
+
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         domain,
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     crypt,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+	})
 	// identity := &ga4gh.Identity{
 	// 	Issuer:  s.getIssuerString(),
 	// 	Subject: "someone-account",
@@ -674,7 +684,16 @@ func TestAdminHandlers(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 
-	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, fakeencryption.New(), useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         domain,
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     fakeencryption.New(),
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+	})
 	tests := []test.HandlerTest{
 		{
 			Name:    "List all tokens of all users as a non-admin",
@@ -743,7 +762,16 @@ func TestAddLinkedIdentities(t *testing.T) {
 	}
 
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	s := NewService(context.Background(), domain, domain, hydraAdminURL, hydraURL, store, fakeencryption.New(), useHydra)
+	s := NewService(&Options{
+		Ctx:            context.Background(),
+		Domain:         domain,
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     fakeencryption.New(),
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+	})
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("loading config: %v", err)
@@ -802,7 +830,16 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 	}
 	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
-	s := NewService(ctx, domain, domain, hydraAdminURL, hydraURL, store, crypt, useHydra)
+	s := NewService(&Options{
+		Ctx:            ctx,
+		Domain:         domain,
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     crypt,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {

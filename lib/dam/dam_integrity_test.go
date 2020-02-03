@@ -34,7 +34,16 @@ const (
 
 func TestCheckIntegrity(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	s := dam.NewService(context.Background(), "test.org", "no-broker", hydraAdminURL, hydraURL, store, nil, useHydra)
+	s := dam.NewService(&dam.Options{
+		Ctx:            context.Background(),
+		Domain:         "test.org",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      nil,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+	})
 	cfg := &pb.DamConfig{}
 	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		t.Fatalf("error reading config: %v", err)
