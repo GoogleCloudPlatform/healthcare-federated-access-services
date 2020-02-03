@@ -33,7 +33,10 @@ var (
 	port = osenv.VarWithDefault("ICDEMO_PORT", "8091")
 )
 
-const htmlFile = "pages/hydra-ic-test.html"
+const (
+	htmlFile        = "pages/hydra-ic-test.html"
+	staticDirectory = "assets/serve/"
+)
 
 func main() {
 	flag.Parse()
@@ -48,6 +51,8 @@ func main() {
 
 	http.HandleFunc("/test", httputil.NewPageHandler(page))
 	http.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(
+		http.Dir(srcutil.Path(staticDirectory)))))
 
 	glog.Infof("IC Demo listening on port %s", port)
 	glog.Exit(http.ListenAndServe(":"+port, nil))
