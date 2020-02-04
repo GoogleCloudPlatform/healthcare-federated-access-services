@@ -60,8 +60,6 @@ const (
 	noScope             = ""
 	defaultPersonaScope = ""
 	damStaticService    = "dam-static"
-
-	requestTTLInNanoFloat64 = "requested_ttl"
 )
 
 var (
@@ -519,7 +517,7 @@ func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, tt
 		if len(vRole.Policies) == 0 {
 			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName)
 		}
-		ctxWithTTL := context.WithValue(ctx, requestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
+		ctxWithTTL := context.WithValue(ctx, validator.RequestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
 		for _, p := range vRole.Policies {
 			v, err := s.buildValidator(ctxWithTTL, p, vRole, cfg)
 			if err != nil {

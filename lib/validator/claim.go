@@ -26,9 +26,11 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
-const (
-	requestTTLInNanoFloat64 = "requested_ttl"
-)
+// contextKey is just an empty struct. It exists so RequestTTLInNanoFloat64 can be an immutable public variable with a unique type. It's immutable because nobody else can create a ContextKey, being unexported.
+type contextKey struct{}
+
+// RequestTTLInNanoFloat64 is the context key to use with golang.org/x/net/context's WithValue function to associate a "requested_ttl" value with a context.
+var RequestTTLInNanoFloat64 contextKey
 
 // valueType is the set of types which are treated like claims that have a
 // value and source as sociated with them.
@@ -82,7 +84,7 @@ func NewClaimValidator(name string, values []string, is string, sources map[stri
 }
 
 func (c *ClaimValidator) Validate(ctx context.Context, identity *ga4gh.Identity) (bool, error) {
-	ttl, ok := ctx.Value(requestTTLInNanoFloat64).(float64)
+	ttl, ok := ctx.Value(RequestTTLInNanoFloat64).(float64)
 	if !ok {
 		ttl = 0
 	}

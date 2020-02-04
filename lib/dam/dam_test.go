@@ -44,6 +44,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/testhttp" /* copybara-comment: testhttp */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -825,8 +826,7 @@ func (contextMatcher) Matches(x interface{}) bool {
 	if !ok {
 		return false
 	}
-	requestTTLInNanoFloat64 := "requested_ttl"
-	_, ok = c.Value(requestTTLInNanoFloat64).(float64)
+	_, ok = c.Value(validator.RequestTTLInNanoFloat64).(float64)
 	if !ok {
 		return false
 	}
