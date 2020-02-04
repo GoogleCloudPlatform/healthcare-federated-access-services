@@ -75,7 +75,6 @@ func main() {
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
 	}
 	s := dam.NewService(&dam.Options{
-		Ctx:            ctx,
 		Domain:         srvAddr,
 		DefaultBroker:  defaultBroker,
 		Store:          store,

@@ -15,6 +15,7 @@
 package dam
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -482,7 +483,7 @@ func (s *Service) configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModifica
 	if stat := s.checkBasicIntegrity(cfg); stat != nil {
 		return stat
 	}
-	if tests := s.runTests(cfg, nil); hasTestError(tests) {
+	if tests := s.runTests(r.Context(), cfg, nil); hasTestError(tests) {
 		stat := common.NewStatus(codes.FailedPrecondition, tests.Error)
 		return common.AddStatusDetails(stat, tests.Modification)
 	}
@@ -551,7 +552,7 @@ func (s *Service) updateTests(cfg *pb.DamConfig, modification *pb.ConfigModifica
 	return nil
 }
 
-func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestResultsResponse {
+func (s *Service) runTests(ctx context.Context, cfg *pb.DamConfig, resources []string) *pb.GetTestResultsResponse {
 	t := float64(time.Now().UnixNano()) / 1e9
 	personas := make(map[string]*cpb.TestPersona)
 	results := make([]*pb.GetTestResultsResponse_TestResult, 0)
@@ -572,7 +573,7 @@ func (s *Service) runTests(cfg *pb.DamConfig, resources []string) *pb.GetTestRes
 			Passport: p.Passport,
 			Access:   p.Access,
 		}
-		status, got, err := s.testPersona(pname, resources, cfg)
+		status, got, err := s.testPersona(ctx, pname, resources, cfg)
 		e := ""
 		if err == nil {
 			passed++

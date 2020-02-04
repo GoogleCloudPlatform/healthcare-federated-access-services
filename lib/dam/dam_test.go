@@ -30,7 +30,6 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -85,9 +84,8 @@ func TestHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
-	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
-		Ctx:            ctx,
+		HTTPClient:     server.Client(),
 		Domain:         "test.org",
 		DefaultBroker:  "no-broker",
 		Store:          store,
@@ -789,9 +787,8 @@ func TestMinConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
-	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
-		Ctx:            ctx,
+		HTTPClient:     server.Client(),
 		Domain:         "test.org",
 		DefaultBroker:  "no-broker",
 		Store:          store,
@@ -848,7 +845,6 @@ func TestCheckAuthorization(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
-		Ctx:            ctx,
 		Domain:         "test.org",
 		DefaultBroker:  "no-broker",
 		Store:          store,
@@ -876,12 +872,12 @@ func TestCheckAuthorization(t *testing.T) {
 	role := "viewer"
 	ttl := time.Hour
 
-	id, err := s.upstreamTokenToPassportIdentity(cfg, nil, string(acTok), test.TestClientID)
+	id, err := s.upstreamTokenToPassportIdentity(ctx, cfg, nil, string(acTok), test.TestClientID)
 	if err != nil {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	status, err := s.checkAuthorization(id, ttl, resName, viewName, role, cfg, test.TestClientID)
+	status, err := s.checkAuthorization(ctx, id, ttl, resName, viewName, role, cfg, test.TestClientID)
 	if status != http.StatusOK || err != nil {
 		t.Errorf("checkAuthorization(id, %v, %q, %q, %q, cfg, %q) failed, expected %q, got %q: %v", ttl, resName, viewName, role, test.TestClientID, http.StatusOK, status, err)
 	}
@@ -889,16 +885,18 @@ func TestCheckAuthorization(t *testing.T) {
 	// TODO: we need more tests for other condition in checkAuthorization()
 }
 
-func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Server, *fakeoidcissuer.Server, error) {
+func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Server, *persona.Server, error) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	server, err := fakeoidcissuer.New(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
+	broker, err := persona.NewBroker(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
-	ctx := server.ContextWithClient(context.Background())
+
+	h := fakehydra.New(broker.Handler)
+
 	wh := clouds.NewMockTokenCreator(false)
 	s := NewService(&Options{
-		Ctx:            ctx,
+		HTTPClient:     httptestclient.New(broker.Handler),
 		Domain:         "https://test.org",
 		DefaultBroker:  testBroker,
 		Store:          store,
@@ -918,11 +916,7 @@ func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Serve
 		return nil, nil, nil, nil, nil, err
 	}
 
-	r := mux.NewRouter()
-	h := fakehydra.New(r)
-	s.httpClient = httptestclient.New(r)
-
-	return s, cfg, sec, h, server, nil
+	return s, cfg, sec, h, broker, nil
 }
 
 func sendLogin(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, authParams string, scope []string) *http.Response {
@@ -1229,7 +1223,9 @@ func TestLogin_Endpoint_Hydra_Success(t *testing.T) {
 	}
 }
 
-func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, state string, tokenType pb.ResourceTokenRequestState_TokenType) (*http.Response, error) {
+func sendLoggedIn(t *testing.T, s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, state string, tokenType pb.ResourceTokenRequestState_TokenType) *http.Response {
+	t.Helper()
+
 	// Ensure login state exists before request.
 	login := &pb.ResourceTokenRequestState{
 		Challenge: loginChallenge,
@@ -1249,7 +1245,7 @@ func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, stat
 
 	err := s.store.Write(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, login, nil)
 	if err != nil {
-		return nil, err
+		t.Fatalf("store.Write loginState failed: %v", err)
 	}
 
 	// Clear fakehydra server and set reject response.
@@ -1261,9 +1257,10 @@ func sendLoggedIn(s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, stat
 	u := damURL + loggedInPath + query
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, u, nil)
+
 	s.Handler.ServeHTTP(w, r)
 
-	return w.Result(), nil
+	return w.Result()
 }
 
 func TestLoggedIn_Hydra_Success(t *testing.T) {
@@ -1274,10 +1271,7 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 
-	resp, err := sendLoggedIn(s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_DATASET)
-	if err != nil {
-		t.Fatalf("sendLoggedIn(s, cfg, h, %s, %s, DATASET) failed: %v", pname, loginStateID, err)
-	}
+	resp := sendLoggedIn(t, s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_DATASET)
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
@@ -1351,10 +1345,7 @@ func TestLoggedIn_Hydra_Errors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, err := sendLoggedIn(s, cfg, h, tc.code, tc.stateID, pb.ResourceTokenRequestState_DATASET)
-			if err != nil {
-				t.Fatalf("sendLoggedIn(s, cfg, h, %s, %s, DATASET) failed: %v", tc.code, tc.stateID, err)
-			}
+			resp := sendLoggedIn(t, s, cfg, h, tc.code, tc.stateID, pb.ResourceTokenRequestState_DATASET)
 
 			if resp.StatusCode != tc.respStatus {
 				t.Errorf("resp.StatusCode wants %d got %d", tc.respStatus, resp.StatusCode)
@@ -1371,10 +1362,7 @@ func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 
-	resp, err := sendLoggedIn(s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_ENDPOINT)
-	if err != nil {
-		t.Fatalf("sendLoggedIn(s, cfg, h, %s, %s, ENDPOINT) failed: %v", pname, loginStateID, err)
-	}
+	resp := sendLoggedIn(t, s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_ENDPOINT)
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
@@ -1580,7 +1568,7 @@ func TestResourceTokens_CartNotExistsInStorage(t *testing.T) {
 	}
 }
 
-func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1663,7 +1651,7 @@ func TestClients_Get_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1751,7 +1739,7 @@ func diffOfHydraClientIgnoreClientIDAndSecret(c1 *hydraapi.Client, c2 *hydraapi.
 	return cmp.Diff(c1, c2, cmpopts.IgnoreFields(hydraapi.Client{}, "ClientID", "Secret"), cmpopts.IgnoreUnexported(strfmt.DateTime{}))
 }
 
-func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2039,7 +2027,7 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2277,7 +2265,7 @@ func TestConfigClients_Update_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2465,7 +2453,6 @@ func Test_HydraAccessTokenForEndpoint(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
-		Ctx:            ctx,
 		Domain:         "test.org",
 		DefaultBroker:  "no-broker",
 		Store:          store,
@@ -2497,7 +2484,7 @@ func Test_HydraAccessTokenForEndpoint(t *testing.T) {
 		t.Fatalf("Sign() failed: %v", err)
 	}
 
-	id, err := s.damSignedBearerTokenToPassportIdentity(cfg, tok, test.TestClientID)
+	id, err := s.damSignedBearerTokenToPassportIdentity(ctx, cfg, tok, test.TestClientID)
 	if err != nil {
 		t.Fatalf("damSignedBearerTokenToPassportIdentity() failed: %v", err)
 	}

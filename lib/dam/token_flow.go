@@ -403,19 +403,19 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("token exchange failed. %s", err)
 	}
 
-	id, err := s.upstreamTokenToPassportIdentity(cfg, tx, tok.AccessToken, broker.ClientId)
+	id, err := s.upstreamTokenToPassportIdentity(ctx, cfg, tx, tok.AccessToken, broker.ClientId)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 
 	if state.Type == pb.ResourceTokenRequestState_DATASET {
-		return s.loggedInForDatasetToken(id, state, cfg, in.stateID, realm, tx)
+		return s.loggedInForDatasetToken(ctx, id, state, cfg, in.stateID, realm, tx)
 	}
 
 	return s.loggedInForEndpointToken(id, state, in.stateID, tx)
 }
 
-func (s *Service) loggedInForDatasetToken(id *ga4gh.Identity, state *pb.ResourceTokenRequestState, cfg *pb.DamConfig, stateID, realm string, tx storage.Tx) (*loggedInHandlerOut, int, error) {
+func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identity, state *pb.ResourceTokenRequestState, cfg *pb.DamConfig, stateID, realm string, tx storage.Tx) (*loggedInHandlerOut, int, error) {
 	ttl := time.Duration(state.Ttl)
 
 	list := state.Resources
@@ -426,7 +426,7 @@ func (s *Service) loggedInForDatasetToken(id *ga4gh.Identity, state *pb.Resource
 		if r.Realm != realm {
 			return nil, http.StatusConflict, fmt.Errorf("cannot authorize resources using different realms")
 		}
-		status, err := s.checkAuthorization(id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId)
+		status, err := s.checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId)
 		if err != nil {
 			return nil, status, err
 		}
@@ -579,7 +579,7 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request must include state"), w)
 	}
 
-	out, st, err := s.loggedIn(s.ctx, loggedInHandlerIn{authCode: code, stateID: stateID})
+	out, st, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
 	if err != nil {
 		common.HandleError(st, err, w)
 		return

@@ -15,7 +15,6 @@
 package dam_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -35,7 +34,6 @@ const (
 func TestCheckIntegrity(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	s := dam.NewService(&dam.Options{
-		Ctx:            context.Background(),
 		Domain:         "test.org",
 		DefaultBroker:  "no-broker",
 		Store:          store,

@@ -328,7 +328,7 @@ func (s *Service) GetTestResults(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(status, err, w)
 		return
 	}
-	common.SendResponse(proto.Message(s.runTests(cfg, nil)), w)
+	common.SendResponse(proto.Message(s.runTests(r.Context(), cfg, nil)), w)
 }
 
 // GetTargetAdapters implements the corresponding REST API endpoint.
@@ -372,7 +372,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 		}
 	}
 
-	t, err = s.createIssuerTranslator(s.ctx, cfgTpi, secrets)
+	t, err = s.createIssuerTranslator(ctx, cfgTpi, secrets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translator for issuer %q: %v", issuer, err)
 	}

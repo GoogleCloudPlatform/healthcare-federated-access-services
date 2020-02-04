@@ -35,6 +35,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
@@ -86,7 +87,6 @@ type Service struct {
 	warehouse      clouds.ResourceTokenCreator
 	permissions    *common.Permissions
 	Handler        *ServiceHandler
-	ctx            context.Context
 	httpClient     *http.Client
 	startTime      int64
 	translators    sync.Map
@@ -100,8 +100,8 @@ type ServiceHandler struct {
 
 // Options contains parameters to New DAM Service.
 type Options struct {
-	// Ctx: pass in http.Client can replace the one used in oidc request
-	Ctx context.Context
+	// HTTPClient: http client for making http request.
+	HTTPClient *http.Client
 	// Domain: domain used to host DAM service
 	Domain string
 	// DefaultBroker: default identity broker
@@ -139,12 +139,15 @@ func NewService(params *Options) *Service {
 		warehouse:      params.Warehouse,
 		permissions:    perms,
 		Handler:        sh,
-		ctx:            params.Ctx,
-		httpClient:     http.DefaultClient,
+		httpClient:     params.HTTPClient,
 		startTime:      time.Now().Unix(),
 		useHydra:       params.UseHydra,
 		hydraAdminURL:  params.HydraAdminURL,
 		hydraPublicURL: params.HydraPublicURL,
+	}
+
+	if s.httpClient == nil {
+		s.httpClient = http.DefaultClient
 	}
 
 	secrets, err := s.loadSecrets(nil)
@@ -173,12 +176,14 @@ func NewService(params *Options) *Service {
 	if stat := s.CheckIntegrity(cfg); stat != nil {
 		glog.Fatalf("config integrity error: %+v", stat.Proto())
 	}
-	if tests := s.runTests(cfg, nil); hasTestError(tests) {
+
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
+	if tests := s.runTests(ctx, cfg, nil); hasTestError(tests) {
 		glog.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
 	}
 
 	for name, cfgTpi := range cfg.TrustedPassportIssuers {
-		_, err = s.getIssuerTranslator(s.ctx, cfgTpi.Issuer, cfg, secrets, nil)
+		_, err = s.getIssuerTranslator(ctx, cfgTpi.Issuer, cfg, secrets, nil)
 		if err != nil {
 			glog.Infof("failed to create translator for issuer %q: %v", name, err)
 		}
@@ -255,6 +260,9 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Inject http client for oauth lib.
+	r = r.WithContext(context.WithValue(r.Context(), oauth2.HTTPClient, sh.s.httpClient))
+
 	sh.Handler.ServeHTTP(w, r)
 }
 
@@ -298,18 +306,18 @@ func (s *Service) getIssuerString() string {
 	return ""
 }
 
-func (s *Service) damSignedBearerTokenToPassportIdentity(cfg *pb.DamConfig, tok, clientID string) (*ga4gh.Identity, error) {
+func (s *Service) damSignedBearerTokenToPassportIdentity(ctx context.Context, cfg *pb.DamConfig, tok, clientID string) (*ga4gh.Identity, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("inspecting token: %v", err))
 	}
 
-	v, err := common.GetOIDCTokenVerifier(s.ctx, clientID, id.Issuer)
+	v, err := common.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, fmt.Sprintf("GetOIDCTokenVerifier failed: %v", err))
 	}
 
-	if _, err = v.Verify(s.ctx, tok); err != nil {
+	if _, err = v.Verify(ctx, tok); err != nil {
 		return nil, status.Errorf(codes.Unavailable, fmt.Sprintf("token unauthorized: %v", err))
 	}
 
@@ -355,24 +363,24 @@ func (s *Service) damSignedBearerTokenToPassportIdentity(cfg *pb.DamConfig, tok,
 	return id, nil
 }
 
-func (s *Service) upstreamTokenToPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
+func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting token: %v", err)
 	}
 
 	iss := id.Issuer
-	t, err := s.getIssuerTranslator(s.ctx, iss, cfg, nil, tx)
+	t, err := s.getIssuerTranslator(ctx, iss, cfg, nil, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	id, err = t.TranslateToken(s.ctx, tok)
+	id, err = t.TranslateToken(ctx, tok)
 	if err != nil {
 		return nil, fmt.Errorf("translating token from issuer %q: %v", iss, err)
 	}
 	if common.HasUserinfoClaims(id) {
-		id, err = translator.FetchUserinfoClaims(s.ctx, id, tok, t)
+		id, err = translator.FetchUserinfoClaims(ctx, id, tok, t)
 		if err != nil {
 			return nil, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
 		}
@@ -397,7 +405,7 @@ func (s *Service) getBearerTokenIdentity(cfg *pb.DamConfig, r *http.Request) (*g
 		return nil, http.StatusBadRequest, err
 	}
 
-	id, err := s.damSignedBearerTokenToPassportIdentity(cfg, tok, getClientID(r))
+	id, err := s.damSignedBearerTokenToPassportIdentity(r.Context(), cfg, tok, getClientID(r))
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
@@ -410,20 +418,20 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 		return nil, http.StatusBadRequest, err
 	}
 
-	id, err := s.upstreamTokenToPassportIdentity(cfg, tx, tok, getClientID(r))
+	id, err := s.upstreamTokenToPassportIdentity(r.Context(), cfg, tx, tok, getClientID(r))
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 	return id, http.StatusOK, nil
 }
 
-func (s *Service) testPersona(personaName string, resources []string, cfg *pb.DamConfig) (string, []string, error) {
+func (s *Service) testPersona(ctx context.Context, personaName string, resources []string, cfg *pb.DamConfig) (string, []string, error) {
 	p := cfg.TestPersonas[personaName]
 	id, err := persona.ToIdentity(personaName, p, defaultPersonaScope, "")
 	if err != nil {
 		return "INVALID", nil, err
 	}
-	state, got, err := s.resolveAccessList(id, resources, nil, nil, cfg)
+	state, got, err := s.resolveAccessList(ctx, id, resources, nil, nil, cfg)
 	if err != nil {
 		return state, got, err
 	}
@@ -433,7 +441,7 @@ func (s *Service) testPersona(personaName string, resources []string, cfg *pb.Da
 	return "FAILED", got, fmt.Errorf("access does not match expectations")
 }
 
-func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig) (string, []string, error) {
+func (s *Service) resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig) (string, []string, error) {
 	var got []string
 	for _, rn := range resources {
 		r, ok := cfg.Resources[rn]
@@ -452,7 +460,7 @@ func (s *Service) resolveAccessList(id *ga4gh.Identity, resources, views, roles 
 				if len(roles) > 0 && !common.ListContains(roles, rname) {
 					continue
 				}
-				if _, err := s.checkAuthorization(id, 0, rn, vn, rname, cfg, noClientID); err != nil {
+				if _, err := s.checkAuthorization(ctx, id, 0, rn, vn, rname, cfg, noClientID); err != nil {
 					continue
 				}
 				got = append(got, rn+"/"+vn+"/"+rname)
@@ -473,14 +481,14 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 			return nil
 		}
 	}
-	_, got, err := s.resolveAccessList(id, resources, views, roles, cfg)
+	_, got, err := s.resolveAccessList(r.Context(), id, resources, views, roles, cfg)
 	if err != nil {
 		return nil
 	}
 	return got
 }
 
-func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string) (int, error) {
+func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string) (int, error) {
 	if stat := s.checkTrustedIssuer(id.Issuer, cfg); stat != nil {
 		return common.FromCode(stat.Code()), stat.Err()
 	}
@@ -511,9 +519,9 @@ func (s *Service) checkAuthorization(id *ga4gh.Identity, ttl time.Duration, reso
 		if len(vRole.Policies) == 0 {
 			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName)
 		}
-		ctxWithTTL := context.WithValue(s.ctx, requestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
+		ctxWithTTL := context.WithValue(ctx, requestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
 		for _, p := range vRole.Policies {
-			v, err := s.buildValidator(p, vRole, cfg)
+			v, err := s.buildValidator(ctxWithTTL, p, vRole, cfg)
 			if err != nil {
 				return http.StatusInternalServerError, fmt.Errorf("cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err)
 			}
@@ -963,12 +971,12 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error)
 	return cfg, nil
 }
 
-func (s *Service) buildValidator(ap *pb.AccessRole_AccessPolicy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
+func (s *Service) buildValidator(ctx context.Context, ap *pb.AccessRole_AccessPolicy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
 	policy, ok := cfg.Policies[ap.Name]
 	if !ok {
 		return nil, fmt.Errorf("access policy name %q does not match any policy names", ap.Name)
 	}
-	return validator.BuildPolicyValidator(s.ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources, ap.Vars)
+	return validator.BuildPolicyValidator(ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources, ap.Vars)
 }
 
 func (s *Service) saveConfig(cfg *pb.DamConfig, desc, resType string, r *http.Request, id *ga4gh.Identity, orig, update proto.Message, modification *pb.ConfigModification, tx storage.Tx) error {

@@ -15,16 +15,13 @@
 package dam
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/credtest" /* copybara-comment: credtest */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
 var paths = map[string]credtest.Requirement{
@@ -70,13 +67,7 @@ func setup(t *testing.T) *Service {
 	t.Helper()
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockTokenCreator(false)
-	server, err := fakeoidcissuer.New(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
-	if err != nil {
-		t.Fatalf("fakeoidcissuer.New() failed: %v", err)
-	}
-	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
-		Ctx:            ctx,
 		Domain:         "example.com",
 		DefaultBroker:  "no-broker",
 		Store:          store,
