@@ -20,8 +20,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 	icpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
 )
@@ -177,4 +179,21 @@ func CheckUI(ui map[string]string, requireDescription bool) (string, error) {
 	}
 
 	return "", nil
+}
+
+// ClientsEqual compares two maps of Client protos and returns true if equal.
+func ClientsEqual(a, b map[string]*cpb.Client) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, va := range a {
+		vb, ok := b[k]
+		if !ok {
+			return false
+		}
+		if !proto.Equal(va, vb) {
+			return false
+		}
+	}
+	return true
 }

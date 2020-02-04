@@ -14,8 +14,8 @@
 
 runtime: custom
 env: flex
-service: "personas"
+service: "personas${ENVIRONMENT}"
 
 env_variables:
-  TYPE: "personas"
+  TYPE: "personas${ENVIRONMENT}"
   PROJECT: "${YOUR_PROJECT_ID}"

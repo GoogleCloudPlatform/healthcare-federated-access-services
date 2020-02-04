@@ -41,6 +41,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
@@ -79,6 +80,7 @@ type Service struct {
 	roleCategories map[string]*pb.RoleCategory
 	domainURL      string
 	defaultBroker  string
+	serviceName    string
 	hydraAdminURL  string
 	hydraPublicURL string
 	store          storage.Store
@@ -102,6 +104,8 @@ type Options struct {
 	HTTPClient *http.Client
 	// Domain: domain used to host DAM service
 	Domain string
+	// ServiceName: name of this service instance including environment (example: "dam-staging")
+	ServiceName string
 	// DefaultBroker: default identity broker
 	DefaultBroker string
 	// Store: data storage and configuration storage
@@ -437,6 +441,26 @@ func (s *Service) testPersona(ctx context.Context, personaName string, resources
 		return "PASSED", got, nil
 	}
 	return "FAILED", got, fmt.Errorf("access does not match expectations")
+}
+
+// syncToHydra pushes the configuration of clients and secrets to Hydra.
+// Use minFrequency of 0 if you always want the sync to proceed immediately after
+// the last one (if it doesn't time out), or non-zero to indicate that a recent sync
+// is good enough. Note there are some race conditions with several client changes
+// overlapping in flight that could still have the two services be out of sync.
+func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string]string, minFrequency time.Duration) error {
+	if !s.useHydra {
+		return nil
+	}
+	tx := s.store.LockTx("hydra_"+s.serviceName, minFrequency, nil)
+	if tx != nil {
+		defer tx.Finish()
+		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, clients, secrets); err != nil {
+			glog.Errorf("failed to reset hydra clients: %v", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig) (string, []string, error) {

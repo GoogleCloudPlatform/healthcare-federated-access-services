@@ -69,6 +69,7 @@ func setup(t *testing.T) *Service {
 	wh := clouds.NewMockTokenCreator(false)
 	s := NewService(&Options{
 		Domain:         "example.com",
+		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      wh,

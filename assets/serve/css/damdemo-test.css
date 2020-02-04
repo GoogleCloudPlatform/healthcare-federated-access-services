@@ -106,7 +106,7 @@ pre {
   cursor: pointer;
   background: #dee;
 }
-.revealed, .reveal-btn {
+.revealed, .reveal-btn, .jwt-btn {
   display: none
 }
 .reveal-btn {
@@ -116,7 +116,7 @@ pre {
 .available > .reveal-empty {
   display: none
 }
-.available > .reveal-btn {
+.available > .reveal-btn, .available > .jwt-btn {
   display: inline;
 }
 .available.reveal > .revealed {
@@ -143,4 +143,8 @@ pre {
 }
 .hidden {
   display: none;
+}
+.jwt-btn {
+  cursor: pointer;
+  color: darkblue;
 }

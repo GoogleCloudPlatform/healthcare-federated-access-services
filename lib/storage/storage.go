@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
@@ -35,6 +36,7 @@ const (
 	AccountLookupDatatype  = "acct_lookup"
 	ClientDatatype         = "client"
 	ConfigDatatype         = "config"
+	LockDatatype           = "lock"
 	LoginStateDatatype     = "login_state"
 	AuthTokenStateDatatype = "auth_token_state"
 	PermissionsDatatype    = "permissions"
@@ -77,6 +79,7 @@ type Store interface {
 	MultiDeleteTx(datatype, realm, user string, tx Tx) error
 	Wipe(realm string) error
 	Tx(update bool) (Tx, error)
+	LockTx(lockName string, minFrequency time.Duration, tx Tx) Tx
 }
 
 type Tx interface {

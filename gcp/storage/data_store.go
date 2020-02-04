@@ -17,6 +17,7 @@ package gcp_storage
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -42,7 +43,9 @@ const (
 
 	metaVersion = "version"
 
-	multiDeleteChunkSize = 400 // must not exceed 500 as per Datastore API
+	multiDeleteChunkSize = 400     // must not exceed 500 as per Datastore API
+	minJitter            = 1 * 1e9 // nanoseconds as integer for math
+	maxJitter            = 3 * 1e9 // nanoseconds as integer for math
 )
 
 var (
@@ -406,6 +409,47 @@ func (s *DatastoreStorage) Tx(update bool) (storage.Tx, error) {
 		writer: update,
 		Tx:     dstx,
 	}, nil
+}
+
+// LockTx returns a storage-wide lock by the given name. Only one such lock should
+// be requested at a time. If Tx is provided, it must be an update Tx.
+func (s *DatastoreStorage) LockTx(lockName string, minFrequency time.Duration, tx storage.Tx) storage.Tx {
+	if tx == nil {
+		var err error
+		tx, err = s.Tx(true)
+		if err != nil {
+			return nil
+		}
+		// Do not defer tx.Finish() as it must be not be freed unless the lock attempt fails.
+	} else if !tx.IsUpdate() {
+		return nil
+	}
+	entry := cpb.HistoryEntry{}
+	locked := false
+	for try := 0; try < 5; try++ {
+		if err := s.ReadTx(storage.LockDatatype, storage.DefaultRealm, storage.DefaultUser, lockName, storage.LatestRev, &entry, tx); err == nil || storage.ErrNotFound(err) {
+			// Will setup the object below.
+			locked = true
+			break
+		}
+		jitter := minJitter + rand.Float64()*(maxJitter-minJitter)
+		time.Sleep(time.Duration(jitter))
+	}
+	if !locked {
+		tx.Finish()
+		return nil
+	}
+	if diff := time.Now().Sub(time.Unix(int64(entry.CommitTime), 0)); diff < minFrequency {
+		tx.Finish()
+		return nil
+	}
+
+	entry.CommitTime = float64(common.GetNowInUnix())
+	if err := s.WriteTx(storage.LockDatatype, storage.DefaultRealm, storage.DefaultUser, lockName, storage.LatestRev, &entry, nil, tx); err != nil {
+		tx.Finish()
+		return nil
+	}
+	return tx
 }
 
 func (s *DatastoreStorage) init() error {

@@ -40,6 +40,7 @@ func main() {
 	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
 	dams := dam.NewService(&dam.Options{
 		Domain:         "reset.example.org",
+		ServiceName:    service,
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      nil,

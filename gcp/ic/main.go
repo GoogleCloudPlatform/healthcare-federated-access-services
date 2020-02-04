@@ -87,6 +87,7 @@ func main() {
 
 	s := ic.NewService(&ic.Options{
 		Domain:         srvAddr,
+		ServiceName:    srvName,
 		AccountDomain:  acctDomain,
 		Store:          store,
 		Encryption:     gcpkms,

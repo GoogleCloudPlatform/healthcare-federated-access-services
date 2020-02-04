@@ -366,6 +366,10 @@
         $(elem).parent().addClass("reveal");
         $(elem).hide();
       }
+      function debugJWT(selector) {
+        var token = $(selector).text();
+        window.open("https://jwt.io/#debugger-io?token="+token);
+      }
     </script>
   </head>
   <body onload="init()">
@@ -410,7 +414,7 @@
           Auth Code: <span class="reveal-empty">-none-</span><a onclick="reveal(this)" class="reveal-btn">show</a><span id="auth_code" class="revealed"></span>
         </div>
         <div id="access_token_div" style="width:50%;float:left">
-          DAM Access Token: <span class="reveal-empty">-none-</span><a onclick="reveal(this)" class="reveal-btn">show</a><span id="token" class="revealed"></span>
+          DAM Access Token: <span class="reveal-empty">-none-</span>&nbsp;<a onclick="debugJWT('#token')" class="jwt-btn">jwt.io</a> - <a onclick="reveal(this)" class="reveal-btn">show</a><span id="token" class="revealed"></span>
         </div>
       </div>
       <table id="cart_table" class="cart-table"></table>

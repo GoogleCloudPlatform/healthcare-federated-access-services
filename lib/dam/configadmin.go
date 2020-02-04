@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -122,6 +121,16 @@ func (h *configHandler) CheckIntegrity() *status.Status {
 func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if err := h.s.saveConfig(h.save, desc, typeName, h.r, h.id, h.cfg, h.save, h.input.Modification, tx); err != nil {
 		return err
+	}
+	secrets, err := h.s.loadSecrets(tx)
+	if err != nil {
+		return err
+	}
+	// Assumes that secrets don't change within this handler.
+	if h.s.useHydra && !common.ClientsEqual(h.cfg.Clients, h.save.Clients) {
+		if err = h.s.syncToHydra(h.save.Clients, secrets.ClientSecrets, 0); err != nil {
+			return err
+		}
 	}
 	if !proto.Equal(h.cfg.Options, h.save.Options) {
 		return h.s.registerProject(h.save, getRealm(h.r))
@@ -1109,7 +1118,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, conf.Clients, secrets.ClientSecrets); err != nil {
+		if err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0); err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}

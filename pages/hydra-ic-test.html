@@ -250,6 +250,10 @@
         window.localStorage.removeItem('primary_token');
         window.location.href = makeURL("_PATH_");
       }
+      function debugJWT(selector) {
+        var token = $(selector).val();
+        window.open("https://jwt.io/#debugger-io?token="+token);
+      }
     </script>
   </head>
   <body onload="init()">
@@ -278,6 +282,7 @@
       <div>
         <a class="btn black" onclick="userinfo()">Token Userinfo</a>
         <a class="btn black" onclick="accountInfo()">Account Info</a>
+        <a class="btn white" onclick="debugJWT('#token')">JWT.IO</a>
       </div>
     </div>
 

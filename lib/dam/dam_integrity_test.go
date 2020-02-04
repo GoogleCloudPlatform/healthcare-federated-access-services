@@ -35,6 +35,7 @@ func TestCheckIntegrity(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	s := dam.NewService(&dam.Options{
 		Domain:         "test.org",
+		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      nil,

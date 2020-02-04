@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-URL="https://${TYPE?}-dot-${PROJECT}.appspot.com"
+URL="https://${SERVICE_NAME?}-dot-${PROJECT?}.appspot.com"
 
 ################################################################################
 # IC
@@ -22,9 +22,10 @@ URL="https://${TYPE?}-dot-${PROJECT}.appspot.com"
 function start_ic() {
   start_hydra
 
+  # Service type: dam or ic
+  export TYPE="ic"
   # SERVICE_NAME allows different instances to use different resources, such as storage.
-  # It is common to keep this in sync with the "service" entry above.
-  export SERVICE_NAME="ic"
+  export SERVICE_NAME="${SERVICE_NAME?}"
   # HYDRA_PUBLIC_URL sets the hydra public url for start login.
   # TODO need to update after we deploy hydra on GCP.
   export HYDRA_PUBLIC_URL="${URL?}"
@@ -39,16 +40,9 @@ function start_ic() {
 
   export IC_PORT="8000"
   # SERVICE_DOMAIN determines the URL domain for identity provider redirects and issuer strings.
-  export SERVICE_DOMAIN="ic-dot-${PROJECT}.appspot.com"
+  export SERVICE_DOMAIN="${SERVICE_NAME?}-dot-${PROJECT}.appspot.com"
   # ACCOUNT_DOMAIN determines the URL domain for accounts (user@domain).
-  export ACCOUNT_DOMAIN="ic-dot-${PROJECT}.appspot.com"
-
-  # PERSONA_DAM_URL sets the playground URL where personas are fetched from for playground logins.
-  export PERSONA_DAM_URL="https://personas-dot-${PROJECT}.appspot.com"
-  # PERSONA_DAM_CLIENT_ID is the IC's client ID for use with the PERSONA_DAM_URL service.
-  export PERSONA_DAM_CLIENT_ID="1f8ff367-3950-48c2-9358-781f9adff70c"
-  # PERSONA_DAM_CLIENT_SECRET is the IC's client secret for use with the PERSONA_DAM_URL service.
-  export PERSONA_DAM_CLIENT_SECRET="d3d3a837-168e-497f-b1c5-557f9833c948"
+  export ACCOUNT_DOMAIN="${SERVICE_NAME?}-dot-${PROJECT}.appspot.com"
 
   # Reset clients in hydra.
   cd /hcls-fa

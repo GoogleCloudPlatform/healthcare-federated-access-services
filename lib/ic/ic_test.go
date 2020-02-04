@@ -90,6 +90,7 @@ func TestHandlers(t *testing.T) {
 	s := NewService(&Options{
 		HTTPClient:     server.Client(),
 		Domain:         domain,
+		ServiceName:    "ic",
 		AccountDomain:  domain,
 		Store:          store,
 		Encryption:     crypt,
@@ -683,6 +684,7 @@ func TestAdminHandlers(t *testing.T) {
 	s := NewService(&Options{
 		HTTPClient:     server.Client(),
 		Domain:         domain,
+		ServiceName:    "ic",
 		AccountDomain:  domain,
 		Store:          store,
 		Encryption:     fakeencryption.New(),
@@ -760,6 +762,7 @@ func TestAddLinkedIdentities(t *testing.T) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(&Options{
 		Domain:         domain,
+		ServiceName:    "ic",
 		AccountDomain:  domain,
 		Store:          store,
 		Encryption:     fakeencryption.New(),
@@ -829,6 +832,7 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 	s := NewService(&Options{
 		HTTPClient:     httptestclient.New(server.Handler),
 		Domain:         domain,
+		ServiceName:    "ic",
 		AccountDomain:  domain,
 		Store:          store,
 		Encryption:     crypt,
@@ -2288,13 +2292,20 @@ func TestConfigReset_Hydra(t *testing.T) {
 	}
 
 	cid := "c1"
+	existingID := "00000000-0000-0000-0000-000000000000"
+	newID := "00000000-0000-0000-0000-000000000002"
 
 	h.ListClientsResp = []*hydraapi.Client{
 		{ClientID: cid},
+		{ClientID: existingID, Name: "foo"},
 	}
 
 	h.CreateClientResp = &hydraapi.Client{
-		ClientID: cid,
+		ClientID: newID,
+	}
+
+	h.UpdateClientResp = &hydraapi.Client{
+		ClientID: existingID,
 	}
 
 	pname := "admin"
@@ -2324,7 +2335,11 @@ func TestConfigReset_Hydra(t *testing.T) {
 		t.Errorf("h.DeleteClientID = %s, wants %s", h.DeleteClientID, cid)
 	}
 
-	if h.CreateClientReq.Name != "test_client" && h.CreateClientReq.Name != "test_client2" {
-		t.Errorf("h.CreateClientReq.Name = %s, wants test_client or test_client2", h.CreateClientReq.Name)
+	if h.UpdateClientReq.Name != "test_client" {
+		t.Errorf("h.UpdateClientReq.Name = %s, wants test_client", h.UpdateClientReq.Name)
+	}
+
+	if h.CreateClientReq.Name != "test_client2" {
+		t.Errorf("h.CreateClientReq.Name = %s, wants test_client2", h.CreateClientReq.Name)
 	}
 }

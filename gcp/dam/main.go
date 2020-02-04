@@ -76,6 +76,7 @@ func main() {
 	}
 	s := dam.NewService(&dam.Options{
 		Domain:         srvAddr,
+		ServiceName:    srvName,
 		DefaultBroker:  defaultBroker,
 		Store:          store,
 		Warehouse:      wh,

@@ -131,7 +131,20 @@ func (c *config) CheckIntegrity() *status.Status {
 	return nil
 }
 func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return c.s.saveConfig(c.input.Item, desc, typeName, c.r, c.id, c.cfg, c.input.Item, c.input.Modification, tx)
+	if err := c.s.saveConfig(c.input.Item, desc, typeName, c.r, c.id, c.cfg, c.input.Item, c.input.Modification, tx); err != nil {
+		return err
+	}
+	secrets, err := c.s.loadSecrets(tx)
+	if err != nil {
+		return err
+	}
+	// Assumes that secrets don't change within this handler.
+	if c.s.useHydra && !common.ClientsEqual(c.input.Item.Clients, c.cfg.Clients) {
+		if err = c.s.syncToHydra(c.input.Item.Clients, secrets.ClientSecrets, 0); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // HTTP handler for ".../config/identityProviders/{name}"

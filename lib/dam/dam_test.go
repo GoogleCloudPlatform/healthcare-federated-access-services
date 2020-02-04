@@ -88,6 +88,7 @@ func TestHandlers(t *testing.T) {
 	s := NewService(&Options{
 		HTTPClient:     server.Client(),
 		Domain:         "test.org",
+		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      wh,
@@ -791,6 +792,7 @@ func TestMinConfig(t *testing.T) {
 	s := NewService(&Options{
 		HTTPClient:     server.Client(),
 		Domain:         "test.org",
+		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      nil,
@@ -846,6 +848,7 @@ func TestCheckAuthorization(t *testing.T) {
 	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
 		Domain:         "test.org",
+		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      nil,
@@ -898,6 +901,7 @@ func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Serve
 	s := NewService(&Options{
 		HTTPClient:     httptestclient.New(broker.Handler),
 		Domain:         "https://test.org",
+		ServiceName:    "dam",
 		DefaultBroker:  testBroker,
 		Store:          store,
 		Warehouse:      wh,
@@ -2403,13 +2407,20 @@ func TestConfigReset_Hydra(t *testing.T) {
 	}
 
 	cid := "c1"
+	existingID := "00000000-0000-0000-0000-000000000000"
+	newID := "00000000-0000-0000-0000-000000000002"
 
 	h.ListClientsResp = []*hydraapi.Client{
 		{ClientID: cid},
+		{ClientID: existingID, Name: "foo"},
 	}
 
 	h.CreateClientResp = &hydraapi.Client{
-		ClientID: cid,
+		ClientID: newID,
+	}
+
+	h.UpdateClientResp = &hydraapi.Client{
+		ClientID: existingID,
 	}
 
 	pname := "admin"
@@ -2439,8 +2450,12 @@ func TestConfigReset_Hydra(t *testing.T) {
 		t.Errorf("h.DeleteClientID = %s, wants %s", h.DeleteClientID, cid)
 	}
 
-	if h.CreateClientReq.Name != "test_client" && h.CreateClientReq.Name != "test_client2" {
-		t.Errorf("h.CreateClientReq.Name = %s, wants test_client or test_client2", h.CreateClientReq.Name)
+	if h.UpdateClientReq.Name != "test_client" {
+		t.Errorf("h.UpdateClientReq.Name = %s, wants test_client", h.UpdateClientReq.Name)
+	}
+
+	if h.CreateClientReq.Name != "test_client2" {
+		t.Errorf("h.CreateClientReq.Name = %s, wants test_client2", h.CreateClientReq.Name)
 	}
 }
 
@@ -2454,6 +2469,7 @@ func Test_HydraAccessTokenForEndpoint(t *testing.T) {
 	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
 		Domain:         "test.org",
+		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      wh,

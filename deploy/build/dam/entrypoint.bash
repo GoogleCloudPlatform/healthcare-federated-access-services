@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-URL="https://${TYPE?}-dot-${PROJECT}.appspot.com"
+URL="https://${SERVICE_NAME?}-dot-${PROJECT?}.appspot.com"
 
 ################################################################################
 # DAM
@@ -23,8 +23,8 @@ function start_dam() {
   start_hydra
 
   # SERVICE_NAME allows different instances to use different resources, such as storage.
-  # It is common to keep this in sync with the "service" entry above.
-  export SERVICE_NAME="dam"
+  # It is common to keep this in sync with the YAML "service" name via $TYPE.
+  export SERVICE_NAME="${SERVICE_NAME?}"
   # HYDRA_PUBLIC_URL sets the hydra public url for start login.
   # TODO need to update after we deploy hydra on GCP.
   export HYDRA_PUBLIC_URL="${URL?}"

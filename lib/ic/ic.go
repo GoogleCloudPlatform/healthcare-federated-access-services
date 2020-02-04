@@ -68,17 +68,18 @@ const (
 	staticDirectory            = "assets/serve/"
 	requiresAdmin              = true
 
-	serviceTitle         = "Identity Concentrator"
-	loginInfoTitle       = "Data Discovery and Access Platform"
-	noClientID           = ""
-	noScope              = ""
-	noNonce              = ""
-	scopeOpenID          = "openid"
-	matchFullScope       = false
-	matchPrefixScope     = true
-	generateRefreshToken = true
-	noRefreshToken       = false
-	noDuration           = 0 * time.Second
+	serviceTitle            = "Identity Concentrator"
+	loginInfoTitle          = "Data Discovery and Access Platform"
+	noClientID              = ""
+	noScope                 = ""
+	noNonce                 = ""
+	scopeOpenID             = "openid"
+	matchFullScope          = false
+	matchPrefixScope        = true
+	generateRefreshToken    = true
+	noRefreshToken          = false
+	noDuration              = 0 * time.Second
+	minResetClientFrequency = 2 * time.Minute
 )
 
 func defaultPath(path string) string {
@@ -226,6 +227,7 @@ type Service struct {
 	startTime             int64
 	permissions           *common.Permissions
 	domain                string
+	serviceName           string
 	accountDomain         string
 	hydraAdminURL         string
 	hydraPublicURL        string
@@ -251,6 +253,8 @@ type Options struct {
 	HTTPClient *http.Client
 	// Domain: domain used to host ic service.
 	Domain string
+	// ServiceName: name of the service including environment (example: "ic-staging")
+	ServiceName string
 	// AccountDomain: domain used to host service account warehouse.
 	AccountDomain string
 	// Store: data storage and configuration storage.
@@ -300,6 +304,7 @@ func NewService(params *Options) *Service {
 		startTime:             time.Now().Unix(),
 		permissions:           perms,
 		domain:                params.Domain,
+		serviceName:           params.ServiceName,
 		accountDomain:         params.AccountDomain,
 		hydraAdminURL:         params.HydraAdminURL,
 		hydraPublicURL:        params.HydraPublicURL,
@@ -1062,6 +1067,26 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityPro
 		return tid, http.StatusOK, nil
 	}
 	return nil, http.StatusBadRequest, fmt.Errorf("fetching identity: the IdP is not configured to fetch passports and the IdP did not provide an ID token")
+}
+
+// syncToHydra pushes the configuration of clients and secrets to Hydra.
+// Use minFrequency of 0 if you always want the sync to proceed immediately after
+// the last one (if it doesn't time out), or non-zero to indicate that a recent sync
+// is good enough. Note there are some race conditions with several client changes
+// overlapping in flight that could still have the two services be out of sync.
+func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string]string, minFrequency time.Duration) error {
+	if !s.useHydra {
+		return nil
+	}
+	tx := s.store.LockTx("hydra_"+s.serviceName, minFrequency, nil)
+	if tx != nil {
+		defer tx.Finish()
+		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, clients, secrets); err != nil {
+			glog.Errorf("failed to reset hydra clients: %v", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) idpProvidesPassports(idp *cpb.IdentityProvider) bool {

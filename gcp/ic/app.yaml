@@ -27,15 +27,6 @@ env_variables:
   CONFIG_PATH: "deploy/config"
   # PROJECT determines the project in which the datastore resides.
   PROJECT: "your-gcp-project-name"
-  # PERSONA_DAM_URL sets the playground URL where personas are fetched from for playground logins.
-  # Remove this from production systems.
-  PERSONA_DAM_URL: "https://your-dam-service-url"
-  # PERSONA_DAM_CLIENT_ID is the IC's client ID for use with the PERSONA_DAM_URL service.
-  # Remove this from production systems.
-  PERSONA_DAM_CLIENT_ID: "your-dam-client-id"
-  # PERSONA_DAM_CLIENT_SECRET is the IC's client secret for use with the PERSONA_DAM_URL service.
-  # Remove this from production systems.
-  PERSONA_DAM_CLIENT_SECRET: "your-dam-client-secret"
   # HYDRA_PUBLIC_URL sets the hydra public url for start login.
   HYDRA_PUBLIC_URL: "https://you-hydra-public-url"
   # HYDRA_ADMIN_URL sets the hydra admin url for callback.

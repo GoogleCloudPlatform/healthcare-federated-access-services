@@ -42,6 +42,7 @@ func main() {
 
 	ics := ic.NewService(&ic.Options{
 		Domain:         "reset.example.org",
+		ServiceName:    service,
 		AccountDomain:  "reset.example.org",
 		Store:          store,
 		Encryption:     nil,

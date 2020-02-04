@@ -61,6 +61,7 @@ func setup(t *testing.T) *Service {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(&Options{
 		Domain:         domain,
+		ServiceName:    "ic",
 		AccountDomain:  domain,
 		Store:          store,
 		Encryption:     fakeencryption.New(),

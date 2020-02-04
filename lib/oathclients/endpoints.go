@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
@@ -227,8 +228,7 @@ func (c *adminClientHandler) Post(name string) error {
 
 	// Create the client on hydra.
 	if c.useHydra {
-		hyCli := toHydraClient(c.input.Item, sec)
-		hyCli.Name = name
+		hyCli := toHydraClient(c.input.Item, name, sec, strfmt.NewDateTime())
 		resp, err := hydra.CreateClient(c.httpClient, c.hydraAdminURL, hyCli)
 		if err != nil {
 			return err
@@ -283,8 +283,7 @@ func (c *adminClientHandler) Patch(name string) error {
 	sec := uuid.New()
 
 	if c.useHydra {
-		hyCli := toHydraClient(input, sec)
-		hyCli.Name = name
+		hyCli := toHydraClient(input, name, sec, strfmt.NewDateTime())
 		resp, err := hydra.UpdateClient(c.httpClient, c.hydraAdminURL, hyCli.ClientID, hyCli)
 		if err != nil {
 			return err
@@ -329,14 +328,16 @@ func extractConfigModification(input *pb.ConfigClientRequest) *pb.ConfigModifica
 	return input.Modification
 }
 
-func toHydraClient(c *pb.Client, secret string) *hydraapi.Client {
+func toHydraClient(c *pb.Client, name, secret string, createdAt strfmt.DateTime) *hydraapi.Client {
 	return &hydraapi.Client{
+		Name:          name,
 		ClientID:      c.ClientId,
 		Secret:        secret,
 		Scope:         c.Scope,
 		GrantTypes:    c.GrantTypes,
 		ResponseTypes: c.ResponseTypes,
 		RedirectURIs:  c.RedirectUris,
+		CreatedAt:     createdAt,
 	}
 }
 

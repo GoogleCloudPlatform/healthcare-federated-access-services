@@ -21,7 +21,10 @@ import (
 	"strings"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
+	"github.com/go-openapi/strfmt" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 
@@ -96,31 +99,61 @@ func ExtractClientSecret(r *http.Request) string {
 
 // ResetClients resets clients in hydra with given clients and secrets.
 func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[string]*pb.Client, secrets map[string]string) error {
+	var added, updated, removed, skipped int
 	cs, err := hydra.ListClients(httpClient, hydraAdminURL)
 	if err != nil {
 		return err
 	}
 
-	// Delete all existing clients.
+	// Populate existing Hydra clients by ClientID. As the logic handles
+	// these clients, remove them from this map. Remaining items no longer
+	// exist in the Federated Access component, so delete the from Hydra.
+	existing := make(map[string]*hydraapi.Client)
 	for _, c := range cs {
-		if err := hydra.DeleteClient(httpClient, hydraAdminURL, c.ClientID); err != nil {
-			return err
-		}
+		existing[c.ClientID] = c
 	}
 
 	// Add clients to hydra.
-	for n, c := range clients {
+	for n, cli := range clients {
+		c := &pb.Client{}
+		proto.Merge(c, cli)
+		c.Ui = nil
+
 		sec, ok := secrets[c.ClientId]
 		if !ok {
-			glog.Errorf("Client %s has no secret.", n)
+			glog.Errorf("Client %s has no secret, and will not be included in Hydra client list.", n)
+			skipped++
+			continue
 		}
 
-		hc := toHydraClient(c, sec)
-		hc.Name = n
-		if _, err := hydra.CreateClient(httpClient, hydraAdminURL, hc); err != nil {
+		hc, ok := existing[c.ClientId]
+		if !ok {
+			// Does not exist, so create.
+			thc := toHydraClient(c, n, sec, strfmt.NewDateTime())
+			if _, err := hydra.CreateClient(httpClient, hydraAdminURL, thc); err != nil {
+				return err
+			}
+			added++
+			continue
+		}
+
+		// Update an existing client.
+		thc := toHydraClient(c, n, sec, hc.CreatedAt)
+		if _, err := hydra.UpdateClient(httpClient, hydraAdminURL, thc.ClientID, thc); err != nil {
 			return err
 		}
+		delete(existing, thc.ClientID)
+		updated++
 	}
 
+	// Remove remaining existing hydra clients.
+	for _, hc := range existing {
+		if err := hydra.DeleteClient(httpClient, hydraAdminURL, hc.ClientID); err != nil {
+			return err
+		}
+		removed++
+	}
+
+	glog.Infof("reset hydra clients: added %d, updated %d, removed %d, skipped %d, total %d", added, updated, removed, skipped, len(clients))
 	return nil
 }
