@@ -222,7 +222,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(accessToken) == 0 {
 		idpc := idpConfig(idp, s.getDomainURL(), secrets)
-		tok, err := idpc.Exchange(s.ctx, code)
+		tok, err := idpc.Exchange(r.Context(), code)
 		if err != nil {
 			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid code: %v", err), w)
 			return

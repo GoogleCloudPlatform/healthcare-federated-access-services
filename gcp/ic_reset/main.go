@@ -41,7 +41,6 @@ func main() {
 	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
 
 	ics := ic.NewService(&ic.Options{
-		Ctx:            context.Background(),
 		Domain:         "reset.example.org",
 		AccountDomain:  "reset.example.org",
 		Store:          store,

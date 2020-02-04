@@ -211,7 +211,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := s.accountToIdentity(s.ctx, acct, cfg, secrets)
+	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return
@@ -292,7 +292,7 @@ func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, sta
 		return
 	}
 
-	id, err := s.accountToIdentity(s.ctx, acct, cfg, secrets)
+	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
 	if err != nil {
 		common.HandleError(http.StatusInternalServerError, err, w)
 		return

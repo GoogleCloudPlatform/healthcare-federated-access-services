@@ -134,7 +134,7 @@ func (c *account) Get(name string) error {
 		return fmt.Errorf("internal system information unavailable")
 	}
 	common.SendResponse(&pb.AccountResponse{
-		Account: c.s.makeAccount(c.s.ctx, c.item, c.cfg, secrets),
+		Account: c.s.makeAccount(c.r.Context(), c.item, c.cfg, secrets),
 	}, c.w)
 	return nil
 }
@@ -315,7 +315,7 @@ func (c *accountLink) Get(name string) error {
 		return fmt.Errorf("internal system information unavailable")
 	}
 	common.SendResponse(&pb.AccountSubjectResponse{
-		Item: c.s.makeConnectedAccount(c.s.ctx, c.item, c.cfg, secrets),
+		Item: c.s.makeConnectedAccount(c.r.Context(), c.item, c.cfg, secrets),
 	}, c.w)
 	return nil
 }

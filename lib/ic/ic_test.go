@@ -16,7 +16,6 @@ package ic
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,7 +29,6 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -87,11 +85,10 @@ func TestHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
 	}
-	ctx := server.ContextWithClient(context.Background())
 	crypt := fakeencryption.New()
 
 	s := NewService(&Options{
-		Ctx:            ctx,
+		HTTPClient:     server.Client(),
 		Domain:         domain,
 		AccountDomain:  domain,
 		Store:          store,
@@ -682,10 +679,9 @@ func TestAdminHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
 	}
-	ctx := server.ContextWithClient(context.Background())
 
 	s := NewService(&Options{
-		Ctx:            ctx,
+		HTTPClient:     server.Client(),
 		Domain:         domain,
 		AccountDomain:  domain,
 		Store:          store,
@@ -763,7 +759,6 @@ func TestAddLinkedIdentities(t *testing.T) {
 
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(&Options{
-		Ctx:            context.Background(),
 		Domain:         domain,
 		AccountDomain:  domain,
 		Store:          store,
@@ -822,16 +817,17 @@ func TestAddLinkedIdentities(t *testing.T) {
 	}
 }
 
-func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server, *fakeoidcissuer.Server, error) {
+func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server, *persona.Server, error) {
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
-	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
+	server, err := persona.NewBroker(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	ctx := server.ContextWithClient(context.Background())
+	h := fakehydra.New(server.Handler)
+
 	crypt := fakeencryption.New()
 	s := NewService(&Options{
-		Ctx:            ctx,
+		HTTPClient:     httptestclient.New(server.Handler),
 		Domain:         domain,
 		AccountDomain:  domain,
 		Store:          store,
@@ -850,10 +846,6 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-
-	r := mux.NewRouter()
-	h := fakehydra.New(r)
-	s.httpClient = httptestclient.New(r)
 
 	return s, cfg, sec, h, server, nil
 }
@@ -1455,7 +1447,7 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 	}
 }
 
-func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1541,7 +1533,7 @@ func TestClients_Get_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1632,7 +1624,7 @@ func diffOfHydraClientIgnoreClientIDAndSecret(c1 *hydraapi.Client, c2 *hydraapi.
 	return cmp.Diff(c1, c2, cmpopts.IgnoreFields(hydraapi.Client{}, "ClientID", "Secret"), cmpopts.IgnoreUnexported(strfmt.DateTime{}))
 }
 
-func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1920,7 +1912,7 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2158,7 +2150,7 @@ func TestConfigClients_Update_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *fakeoidcissuer.Server) *http.Response {
+func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona

@@ -86,7 +86,6 @@ func main() {
 	}
 
 	s := ic.NewService(&ic.Options{
-		Ctx:            ctx,
 		Domain:         srvAddr,
 		AccountDomain:  acctDomain,
 		Store:          store,

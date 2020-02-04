@@ -219,7 +219,6 @@ var (
 type Service struct {
 	store                 storage.Store
 	Handler               *ServiceHandler
-	ctx                   context.Context
 	httpClient            *http.Client
 	loginPage             string
 	clientLoginPage       string
@@ -248,8 +247,8 @@ type Encryption interface {
 
 // Options contains parameters to New IC Service.
 type Options struct {
-	// Ctx: context for service.
-	Ctx context.Context
+	// HTTPClient: http client for making http request.
+	HTTPClient *http.Client
 	// Domain: domain used to host ic service.
 	Domain string
 	// AccountDomain: domain used to host service account warehouse.
@@ -294,8 +293,7 @@ func NewService(params *Options) *Service {
 	s := &Service{
 		store:                 params.Store,
 		Handler:               sh,
-		ctx:                   params.Ctx,
-		httpClient:            http.DefaultClient,
+		httpClient:            params.HTTPClient,
 		loginPage:             lp,
 		clientLoginPage:       clp,
 		infomationReleasePage: irp,
@@ -307,6 +305,10 @@ func NewService(params *Options) *Service {
 		hydraPublicURL:        params.HydraPublicURL,
 		encryption:            params.Encryption,
 		useHydra:              params.UseHydra,
+	}
+
+	if s.httpClient == nil {
+		s.httpClient = http.DefaultClient
 	}
 
 	if err := validateURLs(map[string]string{
@@ -330,8 +332,9 @@ func NewService(params *Options) *Service {
 		glog.Fatalf("cannot load client secrets: %v", err)
 	}
 
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
 	for name, cfgIdp := range cfg.IdentityProviders {
-		_, err = s.getIssuerTranslator(s.ctx, cfgIdp.Issuer, cfg, secrets)
+		_, err = s.getIssuerTranslator(ctx, cfgIdp.Issuer, cfg, secrets)
 		if err != nil {
 			glog.Infof("failed to create translator for issuer %q: %v", name, err)
 		}
@@ -391,6 +394,9 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteStatus(w, status.Convert(err))
 		return
 	}
+
+	// Inject http client for oauth lib.
+	r = r.WithContext(context.WithValue(r.Context(), oauth2.HTTPClient, sh.s.httpClient))
 
 	sh.Handler.ServeHTTP(w, r)
 }
@@ -689,14 +695,14 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
-		claims, err := s.accountLinkToClaims(s.ctx, acct, id.Subject, cfg, secrets)
+		claims, err := s.accountLinkToClaims(r.Context(), acct, id.Subject, cfg, secrets)
 		if err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 		if !claimsAreEqual(claims, id.GA4GH) {
 			// Refresh the claims in the storage layer.
-			if err := s.populateAccountClaims(s.ctx, acct, id, provider); err != nil {
+			if err := s.populateAccountClaims(r.Context(), acct, id, provider); err != nil {
 				common.HandleError(http.StatusServiceUnavailable, err, w)
 				return
 			}
@@ -708,7 +714,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		}
 	} else {
 		// Create an account for the identity automatically.
-		acct, err := s.newAccountWithLink(s.ctx, id, provider, cfg)
+		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
 		if err != nil {
 			common.HandleError(http.StatusServiceUnavailable, err, w)
 			return
@@ -893,18 +899,18 @@ func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
 	return realm, http.StatusOK, nil
 }
 
-func (s *Service) getTokenIdentity(tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
+func (s *Service) getTokenIdentity(ctx context.Context, tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
 	}
 
-	v, err := common.GetOIDCTokenVerifier(s.ctx, clientID, id.Issuer)
+	v, err := common.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("GetOIDCTokenVerifier failed: %v", err)
 	}
 
-	if _, err = v.Verify(s.ctx, tok); err != nil {
+	if _, err = v.Verify(ctx, tok); err != nil {
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("token unauthorized: %v", err)
 	}
 
@@ -962,15 +968,15 @@ func (s *Service) requestTokenToIdentity(tok, scope string, r *http.Request, tx 
 }
 
 func (s *Service) tokenToIdentity(tok string, r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	token, status, err := s.getTokenIdentity(tok, scope, getClientID(r), tx)
+	token, status, err := s.getTokenIdentity(r.Context(), tok, scope, getClientID(r), tx)
 	if err != nil {
 		return token, status, err
 	}
-	return s.getTokenAccountIdentity(s.ctx, token, realm, cfg, secrets, tx)
+	return s.getTokenAccountIdentity(r.Context(), token, realm, cfg, secrets, tx)
 }
 
 func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, status, err := s.getTokenIdentity(tok, "", getClientID(r), tx)
+	id, status, err := s.getTokenIdentity(r.Context(), tok, "", getClientID(r), tx)
 	if err != nil {
 		return nil, status, fmt.Errorf("inspecting token: %v", err)
 	}
@@ -981,7 +987,7 @@ func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.Ic
 		}
 		return nil, http.StatusServiceUnavailable, err
 	}
-	return s.getTokenAccountIdentity(s.ctx, id, getRealm(r), cfg, secrets, tx)
+	return s.getTokenAccountIdentity(r.Context(), id, getRealm(r), cfg, secrets, tx)
 }
 
 func (s *Service) accountToIdentity(ctx context.Context, acct *cpb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
@@ -1028,20 +1034,20 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *cpb.Account, cfg 
 }
 
 func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
-	t, err := s.getIssuerTranslator(s.ctx, idp.Issuer, cfg, secrets)
+	t, err := s.getIssuerTranslator(r.Context(), idp.Issuer, cfg, secrets)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 
 	if len(acTok) > 0 && s.idpProvidesPassports(idp) {
-		tid, err := t.TranslateToken(s.ctx, acTok)
+		tid, err := t.TranslateToken(r.Context(), acTok)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("translating access token from issuer %q: %v", idp.Issuer, err)
 		}
 		if !common.HasUserinfoClaims(tid) {
 			return tid, http.StatusOK, nil
 		}
-		id, err := translator.FetchUserinfoClaims(s.ctx, tid, acTok, t)
+		id, err := translator.FetchUserinfoClaims(r.Context(), tid, acTok, t)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
 		}
@@ -1049,7 +1055,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityPro
 	}
 	if len(idTok) > 0 {
 		// Assumes the login ID token is a JWT containing standard claims.
-		tid, err := t.TranslateToken(s.ctx, idTok)
+		tid, err := t.TranslateToken(r.Context(), idTok)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("translating ID token from issuer %q: %v", idp.Issuer, err)
 		}
@@ -1499,7 +1505,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 	if cfgIdp == nil {
 		return nil, fmt.Errorf("passport issuer not found %q", issuer)
 	}
-	t, err = s.createIssuerTranslator(s.ctx, cfgIdp, secrets)
+	t, err = s.createIssuerTranslator(ctx, cfgIdp, secrets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translator for issuer %q: %v", issuer, err)
 	}
