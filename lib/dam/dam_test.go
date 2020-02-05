@@ -1476,7 +1476,7 @@ func TestHydraConsent_Endpoint(t *testing.T) {
 	}
 }
 
-func sendResourceTokens(t *testing.T, s *Service) *http.Response {
+func sendResourceTokens(t *testing.T, s *Service, broker *persona.Server, cartID string) *http.Response {
 	t.Helper()
 
 	state := &pb.ResourceTokenRequestState{
@@ -1504,60 +1504,58 @@ func sendResourceTokens(t *testing.T, s *Service) *http.Response {
 		"client_id":     []string{test.TestClientID},
 		"client_secret": []string{test.TestClientSecret},
 	}
-	header := http.Header{"Authorization": []string{"Bearer this_is_a_token"}}
+
+	now := time.Now().Unix()
+	tok, err := broker.Sign(nil, &ga4gh.Identity{
+		Issuer:    hydraPublicURL,
+		Subject:   "subject",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+		Extra: map[string]interface{}{
+			"cart": cartID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("broker.Sign() failed: %v", err)
+	}
+
+	header := http.Header{"Authorization": []string{"Bearer " + tok}}
 	return testhttp.SendTestRequest(t, s.Handler, http.MethodPost, resourceTokensPath, q, nil, header)
 }
 
 func TestResourceTokens(t *testing.T) {
-	s, _, _, h, _, err := setupHydraTest()
+	s, _, _, h, broker, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
+	// TODO: can use the "cart" in access token instead of read from Introspection.
 	h.IntrospectionResp = &hydraapi.Introspection{
 		Extra: map[string]interface{}{"cart": consentStateID},
 	}
 
-	resp := sendResourceTokens(t, s)
+	resp := sendResourceTokens(t, s, broker, consentStateID)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
 	}
 }
 
-func TestResourceTokens_HydraError(t *testing.T) {
-	s, _, _, h, _, err := setupHydraTest()
-	if err != nil {
-		t.Fatalf("setupHydraTest() failed: %v", err)
-	}
-
-	n := "token expired"
-	h.IntrospectionErr = &hydraapi.GenericError{
-		Code: http.StatusUnauthorized,
-		Name: &n,
-	}
-
-	resp := sendResourceTokens(t, s)
-	// TODO: Should convert Hydra API error to grpc status.
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusInternalServerError)
-	}
-}
-
 func TestResourceTokens_CartNotExistsInToken(t *testing.T) {
-	s, _, _, h, _, err := setupHydraTest()
+	s, _, _, h, broker, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
 	h.IntrospectionResp = &hydraapi.Introspection{}
-	resp := sendResourceTokens(t, s)
+	resp := sendResourceTokens(t, s, broker, "")
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 }
 
 func TestResourceTokens_CartNotExistsInStorage(t *testing.T) {
-	s, _, _, h, _, err := setupHydraTest()
+	s, _, _, h, broker, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
@@ -1566,7 +1564,7 @@ func TestResourceTokens_CartNotExistsInStorage(t *testing.T) {
 		Extra: map[string]interface{}{"cart": "invalid"},
 	}
 
-	resp := sendResourceTokens(t, s)
+	resp := sendResourceTokens(t, s, broker, "invalid")
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
 	}
@@ -1724,7 +1722,7 @@ func TestConfigClients_Get_Error(t *testing.T) {
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: "test_client",
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 	}
 
@@ -1939,7 +1937,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 			persona:    "non-admin",
 			clientName: clientName,
 			client:     cli,
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 		{
 			name:       "no redirect",
@@ -2192,7 +2190,7 @@ func TestConfigClients_Update_Error(t *testing.T) {
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: clientName,
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 	}
 
@@ -2349,7 +2347,7 @@ func TestConfigClients_Delete_Error(t *testing.T) {
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: clientName,
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 	}
 

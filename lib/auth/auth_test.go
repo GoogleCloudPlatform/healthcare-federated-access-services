@@ -41,12 +41,12 @@ const (
 
 var (
 	handlers = map[string]Require{
-		"/norequirement":    Require{ClientID: false, ClientSecret: false, Role: None},
-		"/clientidonly":     Require{ClientID: true, ClientSecret: false, Role: None},
-		"/clientsecret":     Require{ClientID: true, ClientSecret: true, Role: None},
-		"/usertoken":        Require{ClientID: true, ClientSecret: true, Role: User},
-		"/usertoken/{user}": Require{ClientID: true, ClientSecret: true, Role: User},
-		"/admintoken":       Require{ClientID: true, ClientSecret: true, Role: Admin},
+		"/norequirement":    RequireNone,
+		"/clientidonly":     RequireClientID,
+		"/clientsecret":     RequireClientIDAndSecret,
+		"/usertoken":        RequireUserToken,
+		"/usertoken/{user}": RequireUserToken,
+		"/admintoken":       RequireAdminToken,
 	}
 )
 

@@ -103,6 +103,7 @@ func MakeHandler(s ServiceInterface, hri *HandlerFactory) http.HandlerFunc {
 		defer tx.Finish()
 
 		hi := hri.NewHandler(w, r)
+		// TODO: remove IsAdmin here.
 		status, err := hi.Setup(tx, hri.IsAdmin)
 		if err != nil {
 			HandleError(status, err, w)

@@ -62,7 +62,7 @@ func NewConfigHandler(s *Service, w http.ResponseWriter, r *http.Request) *confi
 	}
 }
 func (h *configHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
 	h.id = id
@@ -174,7 +174,7 @@ func NewConfigOptionsHandler(s *Service, w http.ResponseWriter, r *http.Request)
 	}
 }
 func (h *configOptionsHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -267,7 +267,7 @@ func NewConfigResourceHandler(s *Service, w http.ResponseWriter, r *http.Request
 	}
 }
 func (h *configResourceHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -365,7 +365,7 @@ func NewConfigViewHandler(s *Service, w http.ResponseWriter, r *http.Request) *c
 	}
 }
 func (h *configViewHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -469,7 +469,7 @@ func NewConfigIssuerHandler(s *Service, w http.ResponseWriter, r *http.Request) 
 	}
 }
 func (h *configIssuerHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -562,7 +562,7 @@ func NewConfigSourceHandler(s *Service, w http.ResponseWriter, r *http.Request) 
 	}
 }
 func (h *configSourceHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -657,7 +657,7 @@ func NewConfigPolicyHandler(s *Service, w http.ResponseWriter, r *http.Request) 
 	}
 }
 func (h *configPolicyHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -751,7 +751,7 @@ func NewConfigClaimDefinitionHandler(s *Service, w http.ResponseWriter, r *http.
 	}
 }
 func (h *configClaimDefinitionHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -844,7 +844,7 @@ func NewConfigServiceTemplateHandler(s *Service, w http.ResponseWriter, r *http.
 	}
 }
 func (h *configServiceTemplateHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
@@ -945,7 +945,7 @@ func NewConfigPersonaHandler(s *Service, w http.ResponseWriter, r *http.Request)
 	}
 }
 func (h *configPersonaHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx

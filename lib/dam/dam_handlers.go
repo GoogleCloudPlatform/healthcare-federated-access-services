@@ -46,7 +46,7 @@ func NewRealmHandler(s *Service, w http.ResponseWriter, r *http.Request) *realmH
 	}
 }
 func (h *realmHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	return status, err

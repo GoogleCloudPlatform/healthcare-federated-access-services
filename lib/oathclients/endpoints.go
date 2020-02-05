@@ -40,6 +40,7 @@ var (
 
 // ClientService provides data storage for clients.
 type ClientService interface {
+	// TODO: remove isAdmin here.
 	HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error)
 	ClientByName(name string) *pb.Client
 	SaveClient(name, secret string, cli *pb.Client)

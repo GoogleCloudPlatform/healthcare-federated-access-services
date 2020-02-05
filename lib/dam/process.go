@@ -60,7 +60,7 @@ func NewProcessesHandler(s *Service, w http.ResponseWriter, r *http.Request) *pr
 	}
 }
 func (h *processesHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
 	h.id = id
@@ -149,7 +149,7 @@ func NewProcessHandler(s *Service, w http.ResponseWriter, r *http.Request) *proc
 	}
 }
 func (h *processHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
 	h.id = id

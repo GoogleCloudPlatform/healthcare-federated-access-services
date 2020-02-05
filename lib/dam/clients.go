@@ -41,7 +41,7 @@ func (c *clientService) ClientByName(name string) *cpb.Client {
 }
 
 func (c *clientService) HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error) {
-	cfg, id, status, err := c.s.handlerSetup(tx, isAdmin, r, noScope, nil)
+	cfg, id, status, err := c.s.handlerSetup(tx, r, noScope, nil)
 	if err != nil {
 		return id, status, err
 	}

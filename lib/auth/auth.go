@@ -47,6 +47,19 @@ const (
 	Admin Role = "admin"
 )
 
+var (
+	// RequireNone -> requires nothing for authorization
+	RequireNone = Require{ClientID: false, ClientSecret: false, Role: None}
+	// RequireClientID -> only require client id
+	RequireClientID = Require{ClientID: true, ClientSecret: false, Role: None}
+	// RequireClientIDAndSecret -> require client id and matched secret
+	RequireClientIDAndSecret = Require{ClientID: true, ClientSecret: true, Role: None}
+	// RequireAdminToken -> require an admin token, also the client id and secret
+	RequireAdminToken = Require{ClientID: true, ClientSecret: true, Role: Admin}
+	// RequireUserToken -> require an user token, also the client id and secret
+	RequireUserToken = Require{ClientID: true, ClientSecret: true, Role: User}
+)
+
 // Role requirement of access.
 type Role string
 

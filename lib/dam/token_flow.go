@@ -568,6 +568,7 @@ func (s *Service) resourceTokenState(stateID string, tx storage.Tx) (*pb.Resourc
 
 // LoggedInHandler implements endpoint "/loggedin" for broker auth code redirect.
 func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	code, err := extractAuthCode(r)
 	if err != nil {
 		common.HandleError(http.StatusBadRequest, err, w)

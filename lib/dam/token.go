@@ -49,7 +49,7 @@ func NewTokensHandler(s *Service, w http.ResponseWriter, r *http.Request) *token
 	}
 }
 func (h *tokensHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
 	h.id = id
@@ -123,7 +123,7 @@ func NewTokenHandler(s *Service, w http.ResponseWriter, r *http.Request) *tokenH
 	}
 }
 func (h *tokenHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
 	h.id = id

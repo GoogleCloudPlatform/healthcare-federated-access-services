@@ -37,10 +37,10 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -227,7 +227,7 @@ func getName(r *http.Request) string {
 	return ""
 }
 
-func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, scope string, item proto.Message) (*pb.DamConfig, *ga4gh.Identity, int, error) {
+func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, item proto.Message) (*pb.DamConfig, *ga4gh.Identity, int, error) {
 	if item != nil {
 		if err := jsonpb.Unmarshal(r.Body, item); err != nil && err != io.EOF {
 			return nil, nil, http.StatusBadRequest, err
@@ -241,11 +241,6 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 	if err != nil {
 		return nil, nil, status, err
 	}
-	if isAdmin {
-		if status, err := s.permissions.CheckAdmin(id); err != nil {
-			return nil, nil, status, err
-		}
-	}
 	return cfg, id, status, err
 }
 
@@ -255,45 +250,11 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	r.ParseForm()
-
-	if err := sh.s.checkClientCreds(r); err != nil {
-		httputil.WriteStatus(w, status.Convert(err))
-		return
-	}
 
 	// Inject http client for oauth lib.
 	r = r.WithContext(context.WithValue(r.Context(), oauth2.HTTPClient, sh.s.httpClient))
 
 	sh.Handler.ServeHTTP(w, r)
-}
-
-func (s *Service) checkClientCreds(r *http.Request) error {
-	if r.URL.Path == infoPath || r.URL.Path == loggedInPath || r.URL.Path == hydraLoginPath || r.URL.Path == hydraConsentPath {
-		return nil
-	}
-	cid := getClientID(r)
-	if len(cid) == 0 {
-		return status.Error(codes.Unauthenticated, "authorization requires a client ID")
-	}
-
-	// TODO: should also check the client id in config.
-
-	cs := getClientSecret(r)
-	if len(cs) == 0 {
-		return status.Error(codes.Unauthenticated, "authorization requires a client secret")
-	}
-
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		return status.Error(codes.Unauthenticated, "configuration unavailable")
-	}
-
-	if secret, ok := secrets.ClientSecrets[cid]; !ok || secret != cs {
-		return status.Error(codes.Unauthenticated, "unauthorized client")
-	}
-
-	return nil
 }
 
 func checkName(name string) error {
@@ -1149,45 +1110,59 @@ func getFileStore(store storage.Store, service string) storage.Store {
 
 // TODO: move registeration of endpoints to main package.
 func registerHandlers(r *mux.Router, s *Service) {
-	r.HandleFunc(infoPath, s.GetInfo)
-	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
-	r.HandleFunc(resourcesPath, s.GetResources)
-	r.HandleFunc(resourcePath, s.GetResource)
-	r.HandleFunc(viewsPath, s.GetViews)
-	r.HandleFunc(flatViewsPath, s.GetFlatViews)
-	r.HandleFunc(viewPath, s.GetView)
-	r.HandleFunc(rolesPath, s.GetViewRoles)
-	r.HandleFunc(rolePath, s.GetViewRole)
-	r.HandleFunc(testPath, s.GetTestResults)
-	r.HandleFunc(adaptersPath, s.GetTargetAdapters)
-	r.HandleFunc(translatorsPath, s.GetPassportTranslators)
-	r.HandleFunc(damRoleCategoriesPath, s.GetDamRoleCategories)
-	r.HandleFunc(testPersonasPath, s.GetTestPersonas)
-	r.HandleFunc(processesPath, common.MakeHandler(s, s.processesFactory()))
-	r.HandleFunc(processPath, common.MakeHandler(s, s.processFactory()))
+	a := &authChecker{s: s}
+	checker := &auth.Checker{
+		Issuer:             s.getIssuerString(),
+		FetchClientSecrets: a.fetchClientSecrets,
+		IsAdmin:            a.isAdmin,
+		TransformIdentity:  a.transformIdentity,
+	}
 
-	r.HandleFunc(resourceTokensPath, s.ResourceTokens).Methods("GET", "POST")
+	// info endpoint
+	r.HandleFunc(infoPath, auth.MustWithAuth(s.GetInfo, checker, auth.RequireNone))
 
-	r.HandleFunc(configHistoryPath, s.ConfigHistory)
-	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
-	r.HandleFunc(configResetPath, s.ConfigReset)
-	r.HandleFunc(configTestPersonasPath, s.ConfigTestPersonas)
+	// readonly config endpoints
+	r.HandleFunc(clientPath, auth.MustWithAuth(common.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(resourcesPath, auth.MustWithAuth(s.GetResources, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(resourcePath, auth.MustWithAuth(s.GetResource, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(viewsPath, auth.MustWithAuth(s.GetViews, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(flatViewsPath, auth.MustWithAuth(s.GetFlatViews, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(viewPath, auth.MustWithAuth(s.GetView, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(rolesPath, auth.MustWithAuth(s.GetViewRoles, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(rolePath, auth.MustWithAuth(s.GetViewRole, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(testPath, auth.MustWithAuth(s.GetTestResults, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(adaptersPath, auth.MustWithAuth(s.GetTargetAdapters, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.GetPassportTranslators, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(damRoleCategoriesPath, auth.MustWithAuth(s.GetDamRoleCategories, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(testPersonasPath, auth.MustWithAuth(s.GetTestPersonas, checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(processesPath, auth.MustWithAuth(common.MakeHandler(s, s.processesFactory()), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(processPath, auth.MustWithAuth(common.MakeHandler(s, s.processFactory()), checker, auth.RequireClientIDAndSecret))
 
-	r.HandleFunc(realmPath, common.MakeHandler(s, s.realmFactory()))
+	// administration endpoints
+	r.HandleFunc(realmPath, auth.MustWithAuth(common.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken))
+	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken))
+	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken))
+	r.HandleFunc(configTestPersonasPath, auth.MustWithAuth(s.ConfigTestPersonas, checker, auth.RequireAdminToken))
+	r.HandleFunc(configPath, auth.MustWithAuth(common.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configOptionsPath, auth.MustWithAuth(common.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configResourcePath, auth.MustWithAuth(common.MakeHandler(s, s.configResourceFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configViewPath, auth.MustWithAuth(common.MakeHandler(s, s.configViewFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configTrustedPassportIssuerPath, auth.MustWithAuth(common.MakeHandler(s, s.configIssuerFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configTrustedSourcePath, auth.MustWithAuth(common.MakeHandler(s, s.configSourceFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configPolicyPath, auth.MustWithAuth(common.MakeHandler(s, s.configPolicyFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClaimDefPath, auth.MustWithAuth(common.MakeHandler(s, s.configClaimDefinitionFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(common.MakeHandler(s, s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(common.MakeHandler(s, s.configPersonaFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientPath, auth.MustWithAuth(common.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
 
-	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
-	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
-	r.HandleFunc(configResourcePath, common.MakeHandler(s, s.configResourceFactory()))
-	r.HandleFunc(configViewPath, common.MakeHandler(s, s.configViewFactory()))
-	r.HandleFunc(configTrustedPassportIssuerPath, common.MakeHandler(s, s.configIssuerFactory()))
-	r.HandleFunc(configTrustedSourcePath, common.MakeHandler(s, s.configSourceFactory()))
-	r.HandleFunc(configPolicyPath, common.MakeHandler(s, s.configPolicyFactory()))
-	r.HandleFunc(configClaimDefPath, common.MakeHandler(s, s.configClaimDefinitionFactory()))
-	r.HandleFunc(configServiceTemplatePath, common.MakeHandler(s, s.configServiceTemplateFactory()))
-	r.HandleFunc(configTestPersonaPath, common.MakeHandler(s, s.configPersonaFactory()))
-	r.HandleFunc(configClientPath, common.MakeHandler(s, s.configClientFactory()))
+	// hydra related oidc endpoints
+	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
 
-	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
-	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
-	r.HandleFunc(loggedInPath, s.LoggedInHandler)
+	// oidc auth callback endpoint
+	r.HandleFunc(loggedInPath, auth.MustWithAuth(s.LoggedInHandler, checker, auth.RequireNone)).Methods(http.MethodGet)
+
+	// resource token exchange endpoint
+	r.HandleFunc(resourceTokensPath, auth.MustWithAuth(s.ResourceTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet, http.MethodPost)
 }
