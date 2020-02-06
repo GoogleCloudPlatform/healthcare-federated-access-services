@@ -60,13 +60,12 @@ type HandlerFactory struct {
 	NameField           string
 	PathPrefix          string
 	HasNamedIdentifiers bool
-	IsAdmin             bool
 	NameChecker         map[string]*regexp.Regexp
 	NewHandler          func(w http.ResponseWriter, r *http.Request) HandlerInterface
 }
 
 type HandlerInterface interface {
-	Setup(tx storage.Tx, isAdmin bool) (int, error)
+	Setup(tx storage.Tx) (int, error)
 	// TODO: Have LookupItem() return an error instead, so different errors can be handled
 	// properly, e.g. permission denied error vs. lookup error.
 	LookupItem(name string, vars map[string]string) bool
@@ -103,8 +102,7 @@ func MakeHandler(s ServiceInterface, hri *HandlerFactory) http.HandlerFunc {
 		defer tx.Finish()
 
 		hi := hri.NewHandler(w, r)
-		// TODO: remove IsAdmin here.
-		status, err := hi.Setup(tx, hri.IsAdmin)
+		status, err := hi.Setup(tx)
 		if err != nil {
 			HandleError(status, err, w)
 			return

@@ -52,7 +52,7 @@ type realm struct {
 	id    *ga4gh.Identity
 }
 
-func (c *realm) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *realm) Setup(tx storage.Tx) (int, error) {
 	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id

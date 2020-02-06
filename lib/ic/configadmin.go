@@ -56,7 +56,7 @@ type config struct {
 	id    *ga4gh.Identity
 }
 
-func (c *config) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *config) Setup(tx storage.Tx) (int, error) {
 	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
@@ -152,7 +152,6 @@ func (s *Service) configIdpFactory() *common.HandlerFactory {
 		TypeName:            "configIDP",
 		PathPrefix:          configIdentityProvidersPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &configIDP{
 				s:     s,
@@ -176,7 +175,7 @@ type configIDP struct {
 	tx    storage.Tx
 }
 
-func (c *configIDP) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *configIDP) Setup(tx storage.Tx) (int, error) {
 	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
@@ -285,7 +284,7 @@ type configOptions struct {
 	tx    storage.Tx
 }
 
-func (c *configOptions) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *configOptions) Setup(tx storage.Tx) (int, error) {
 	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id

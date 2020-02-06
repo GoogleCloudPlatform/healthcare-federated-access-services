@@ -26,7 +26,6 @@ func (s *Service) realmFactory() *common.HandlerFactory {
 		NameField:           "realm",
 		PathPrefix:          realmPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewRealmHandler(s, w, r)
 		},

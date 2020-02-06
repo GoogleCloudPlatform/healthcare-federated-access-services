@@ -33,7 +33,6 @@ func (s *Service) processesFactory() *common.HandlerFactory {
 		TypeName:            "processes",
 		PathPrefix:          processesPath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewProcessesHandler(s, w, r)
 		},
@@ -59,7 +58,7 @@ func NewProcessesHandler(s *Service, w http.ResponseWriter, r *http.Request) *pr
 		input: &pb.BackgroundProcessesRequest{},
 	}
 }
-func (h *processesHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *processesHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
@@ -122,7 +121,6 @@ func (s *Service) processFactory() *common.HandlerFactory {
 		TypeName:            "process",
 		PathPrefix:          processPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewProcessHandler(s, w, r)
 		},
@@ -148,7 +146,7 @@ func NewProcessHandler(s *Service, w http.ResponseWriter, r *http.Request) *proc
 		input: &pb.BackgroundProcessRequest{},
 	}
 }
-func (h *processHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *processHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg

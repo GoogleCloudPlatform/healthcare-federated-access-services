@@ -40,8 +40,7 @@ var (
 
 // ClientService provides data storage for clients.
 type ClientService interface {
-	// TODO: remove isAdmin here.
-	HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error)
+	HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error)
 	ClientByName(name string) *pb.Client
 	SaveClient(name, secret string, cli *pb.Client)
 	RemoveClient(name string, cli *pb.Client)
@@ -69,13 +68,13 @@ func NewClientHandler(w http.ResponseWriter, r *http.Request, s ClientService) c
 	return &clientHandler{w: w, r: r, s: s}
 }
 
-func (c *clientHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *clientHandler) Setup(tx storage.Tx) (int, error) {
 	clientID := ExtractClientID(c.r)
 	if len(clientID) == 0 {
 		return http.StatusBadRequest, fmt.Errorf("request requires clientID")
 	}
 
-	id, status, err := c.s.HandlerSetup(tx, isAdmin, c.r)
+	id, status, err := c.s.HandlerSetup(tx, c.r)
 	c.id = id
 	c.clientID = clientID
 
@@ -170,8 +169,8 @@ func NewAdminClientHandler(w http.ResponseWriter, r *http.Request, s ClientServi
 	return &adminClientHandler{w: w, r: r, s: s, useHydra: useHydra, httpClient: httpClient, hydraAdminURL: hydraAdminURL}
 }
 
-func (c *adminClientHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	id, status, err := c.s.HandlerSetup(tx, isAdmin, c.r)
+func (c *adminClientHandler) Setup(tx storage.Tx) (int, error) {
+	id, status, err := c.s.HandlerSetup(tx, c.r)
 	c.id = id
 	c.tx = tx
 	return status, err

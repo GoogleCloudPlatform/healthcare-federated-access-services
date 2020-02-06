@@ -150,7 +150,7 @@ type scimMe struct {
 }
 
 // Setup initializes the handler
-func (h *scimMe) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *scimMe) Setup(tx storage.Tx) (int, error) {
 	h.r.ParseForm()
 	h.user = &scimUser{
 		s:     h.s,
@@ -158,7 +158,7 @@ func (h *scimMe) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 		r:     h.r,
 		input: &spb.Patch{},
 	}
-	return h.user.Setup(tx, isAdmin)
+	return h.user.Setup(tx)
 }
 
 // LookupItem returns true if the named object is found
@@ -236,7 +236,7 @@ type scimUser struct {
 }
 
 // Setup initializes the handler
-func (h *scimUser) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *scimUser) Setup(tx storage.Tx) (int, error) {
 	_, _, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	if err != nil {
 		return status, err
@@ -557,7 +557,7 @@ type scimUsers struct {
 }
 
 // Setup initializes the handler
-func (h *scimUsers) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *scimUsers) Setup(tx storage.Tx) (int, error) {
 	_, _, id, status, err := h.s.handlerSetup(tx, h.r, noScope, nil)
 	h.id = id
 	h.tx = tx

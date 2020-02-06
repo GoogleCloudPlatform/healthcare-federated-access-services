@@ -65,7 +65,7 @@ type account struct {
 	tx    storage.Tx
 }
 
-func (c *account) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *account) Setup(tx storage.Tx) (int, error) {
 	cfg, sec, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.sec = sec
@@ -270,7 +270,7 @@ type accountLink struct {
 	tx        storage.Tx
 }
 
-func (c *accountLink) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *accountLink) Setup(tx storage.Tx) (int, error) {
 	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
@@ -387,7 +387,7 @@ type adminClaims struct {
 	tx    storage.Tx
 }
 
-func (c *adminClaims) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *adminClaims) Setup(tx storage.Tx) (int, error) {
 	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
@@ -464,7 +464,6 @@ func (s *Service) adminTokenMetadataFactory() *common.HandlerFactory {
 		TypeName:            "tokens",
 		PathPrefix:          adminTokenMetadataPath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &adminTokenMetadataHandler{
 				s:     s,
@@ -485,7 +484,7 @@ type adminTokenMetadataHandler struct {
 	tx    storage.Tx
 }
 
-func (h *adminTokenMetadataHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *adminTokenMetadataHandler) Setup(tx storage.Tx) (int, error) {
 	h.tx = tx
 	_, _, _, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	return status, err

@@ -35,7 +35,6 @@ func (s *Service) configFactory() *common.HandlerFactory {
 		TypeName:            "config",
 		PathPrefix:          configPath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigHandler(s, w, r)
 		},
@@ -61,7 +60,7 @@ func NewConfigHandler(s *Service, w http.ResponseWriter, r *http.Request) *confi
 		input: &pb.ConfigRequest{},
 	}
 }
-func (h *configHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
@@ -145,7 +144,6 @@ func (s *Service) configOptionsFactory() *common.HandlerFactory {
 		TypeName:            "configOptions",
 		PathPrefix:          configOptionsPath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigOptionsHandler(s, w, r)
 		},
@@ -173,7 +171,7 @@ func NewConfigOptionsHandler(s *Service, w http.ResponseWriter, r *http.Request)
 		input: &pb.ConfigOptionsRequest{},
 	}
 }
-func (h *configOptionsHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configOptionsHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -239,7 +237,6 @@ func (s *Service) configResourceFactory() *common.HandlerFactory {
 		TypeName:            "configResource",
 		PathPrefix:          configResourcePath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigResourceHandler(s, w, r)
 		},
@@ -266,7 +263,7 @@ func NewConfigResourceHandler(s *Service, w http.ResponseWriter, r *http.Request
 		input: &pb.ConfigResourceRequest{},
 	}
 }
-func (h *configResourceHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configResourceHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -335,7 +332,6 @@ func (s *Service) configViewFactory() *common.HandlerFactory {
 		TypeName:            "configView",
 		PathPrefix:          configViewPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigViewHandler(s, w, r)
 		},
@@ -364,7 +360,7 @@ func NewConfigViewHandler(s *Service, w http.ResponseWriter, r *http.Request) *c
 		input: &pb.ConfigViewRequest{},
 	}
 }
-func (h *configViewHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configViewHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -441,7 +437,6 @@ func (s *Service) configIssuerFactory() *common.HandlerFactory {
 		TypeName:            "configTrustedPassportIssuer",
 		PathPrefix:          configTrustedPassportIssuerPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigIssuerHandler(s, w, r)
 		},
@@ -468,7 +463,7 @@ func NewConfigIssuerHandler(s *Service, w http.ResponseWriter, r *http.Request) 
 		input: &pb.ConfigTrustedPassportIssuerRequest{},
 	}
 }
-func (h *configIssuerHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configIssuerHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -534,7 +529,6 @@ func (s *Service) configSourceFactory() *common.HandlerFactory {
 		TypeName:            "configTrustedSource",
 		PathPrefix:          configTrustedSourcePath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigSourceHandler(s, w, r)
 		},
@@ -561,7 +555,7 @@ func NewConfigSourceHandler(s *Service, w http.ResponseWriter, r *http.Request) 
 		input: &pb.ConfigTrustedSourceRequest{},
 	}
 }
-func (h *configSourceHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configSourceHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -629,7 +623,6 @@ func (s *Service) configPolicyFactory() *common.HandlerFactory {
 		TypeName:            "configPolicy",
 		PathPrefix:          configPolicyPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigPolicyHandler(s, w, r)
 		},
@@ -656,7 +649,7 @@ func NewConfigPolicyHandler(s *Service, w http.ResponseWriter, r *http.Request) 
 		input: &pb.ConfigPolicyRequest{},
 	}
 }
-func (h *configPolicyHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configPolicyHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -723,7 +716,6 @@ func (s *Service) configClaimDefinitionFactory() *common.HandlerFactory {
 		TypeName:            "configClaimDefinition",
 		PathPrefix:          configClaimDefPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigClaimDefinitionHandler(s, w, r)
 		},
@@ -750,7 +742,7 @@ func NewConfigClaimDefinitionHandler(s *Service, w http.ResponseWriter, r *http.
 		input: &pb.ConfigClaimDefinitionRequest{},
 	}
 }
-func (h *configClaimDefinitionHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configClaimDefinitionHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -816,7 +808,6 @@ func (s *Service) configServiceTemplateFactory() *common.HandlerFactory {
 		TypeName:            "configServiceTemplate",
 		PathPrefix:          configServiceTemplatePath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigServiceTemplateHandler(s, w, r)
 		},
@@ -843,7 +834,7 @@ func NewConfigServiceTemplateHandler(s *Service, w http.ResponseWriter, r *http.
 		input: &pb.ConfigServiceTemplateRequest{},
 	}
 }
-func (h *configServiceTemplateHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configServiceTemplateHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
@@ -917,7 +908,6 @@ func (s *Service) configPersonaFactory() *common.HandlerFactory {
 		TypeName:            "configTestPersona",
 		PathPrefix:          configTestPersonaPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return NewConfigPersonaHandler(s, w, r)
 		},
@@ -944,7 +934,7 @@ func NewConfigPersonaHandler(s *Service, w http.ResponseWriter, r *http.Request)
 		input: &pb.ConfigTestPersonaRequest{},
 	}
 }
-func (h *configPersonaHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *configPersonaHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id

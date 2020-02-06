@@ -45,7 +45,7 @@ func NewRealmHandler(s *Service, w http.ResponseWriter, r *http.Request) *realmH
 		input: &pb.RealmRequest{},
 	}
 }
-func (h *realmHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *realmHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id

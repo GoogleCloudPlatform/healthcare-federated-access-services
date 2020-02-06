@@ -40,7 +40,7 @@ func (c *clientService) ClientByName(name string) *cpb.Client {
 	return c.cfg.Clients[name]
 }
 
-func (c *clientService) HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error) {
+func (c *clientService) HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
 	cfg, id, status, err := c.s.handlerSetup(tx, r, noScope, nil)
 	if err != nil {
 		return id, status, err
@@ -104,8 +104,6 @@ func (s *Service) clientFactory() *common.HandlerFactory {
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		// Only return self information, does not need admin permission.
-		IsAdmin: false,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return oathclients.NewClientHandler(w, r, c)
 		},
@@ -140,7 +138,6 @@ func (s *Service) configClientFactory() *common.HandlerFactory {
 		TypeName:            "configClient",
 		PathPrefix:          configClientPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return oathclients.NewAdminClientHandler(w, r, c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL)
 		},

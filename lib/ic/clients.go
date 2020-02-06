@@ -40,7 +40,7 @@ func (c *clientService) ClientByName(name string) *cpb.Client {
 	return c.cfg.Clients[name]
 }
 
-func (c *clientService) HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error) {
+func (c *clientService) HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
 	cfg, sec, id, status, err := c.s.handlerSetup(tx, r, noScope, nil)
 	c.cfg = cfg
 	c.sec = sec
