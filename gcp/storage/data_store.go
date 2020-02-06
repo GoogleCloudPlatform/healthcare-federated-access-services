@@ -169,7 +169,7 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, c
 }
 
 // MultiReadTx reads a set of objects matching the input parameters and filters
-func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters []storage.Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) (int, error) {
+func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][]storage.Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) (int, error) {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)

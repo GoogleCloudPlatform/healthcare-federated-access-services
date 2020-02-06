@@ -34,262 +34,414 @@ func TestFilters(t *testing.T) {
 	}
 	tests := []struct {
 		input string
-		want  []Filter
+		want  [][]Filter
 		ok    bool
 	}{
 		{
 			input: `apple sw "mac"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "sw",
-					value:   "mac",
+					{
+						compare: "sw",
+						value:   "mac",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple eq "apples"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "eq",
-					value:   "apples",
+					{
+						compare: "eq",
+						value:   "apples",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `Apple Eq "Apples"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "eq",
-					value:   "apples",
+					{
+						compare: "eq",
+						value:   "apples",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple ne "apples"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ne",
-					value:   "apples",
+					{
+						compare: "ne",
+						value:   "apples",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple ne "apple"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ne",
-					value:   "apple",
+					{
+						compare: "ne",
+						value:   "apple",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple ne "apples"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ne",
-					value:   "apples",
+					{
+						compare: "ne",
+						value:   "apples",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple co "pp"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "co",
-					value:   "pp",
+					{
+						compare: "co",
+						value:   "pp",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple co "ppp"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "co",
-					value:   "ppp",
+					{
+						compare: "co",
+						value:   "ppp",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple sw "app"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "sw",
-					value:   "app",
+					{
+						compare: "sw",
+						value:   "app",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple sw "pples"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "sw",
-					value:   "pples",
+					{
+						compare: "sw",
+						value:   "pples",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple ew "pples"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ew",
-					value:   "pples",
+					{
+						compare: "ew",
+						value:   "pples",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple ew "apple"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ew",
-					value:   "apple",
+					{
+						compare: "ew",
+						value:   "apple",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple pr ""`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "pr",
-					value:   "",
+					{
+						compare: "pr",
+						value:   "",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `orange pr ""`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "pr",
-					value:   "",
+					{
+						compare: "pr",
+						value:   "",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple gt "AAA"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "gt",
-					value:   "aaa",
+					{
+						compare: "gt",
+						value:   "aaa",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple gt "ZZZ"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "gt",
-					value:   "zzz",
+					{
+						compare: "gt",
+						value:   "zzz",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple ge "AAA"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ge",
-					value:   "aaa",
+					{
+						compare: "ge",
+						value:   "aaa",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple ge "APP"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ge",
-					value:   "app",
+					{
+						compare: "ge",
+						value:   "app",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple ge "APQ"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "ge",
-					value:   "apq",
+					{
+						compare: "ge",
+						value:   "apq",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple lt "ZZZ"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "lt",
-					value:   "zzz",
+					{
+						compare: "lt",
+						value:   "zzz",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple lt "APP"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "lt",
-					value:   "app",
+					{
+						compare: "lt",
+						value:   "app",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `apple le "ZZZ"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "le",
-					value:   "zzz",
+					{
+						compare: "le",
+						value:   "zzz",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple le "APQ"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "le",
-					value:   "apq",
+					{
+						compare: "le",
+						value:   "apq",
+					},
 				},
 			},
 			ok: true,
 		},
 		{
 			input: `apple le "APP"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "le",
-					value:   "app",
+					{
+						compare: "le",
+						value:   "app",
+					},
 				},
 			},
 			ok: false,
 		},
 		{
 			input: `test.fruit co "apples" or apple ne "mac"`,
-			want: []Filter{
+			want: [][]Filter{
 				{
-					compare: "co",
-					value:   "apples",
-				},
-				{
-					compare: "ne",
-					value:   "mac",
+					{
+						compare: "co",
+						value:   "apples",
+					},
+					{
+						compare: "ne",
+						value:   "mac",
+					},
 				},
 			},
 			ok: true,
+		},
+		{
+			input: `apple co "apples" and orange ne "foo"`,
+			want: [][]Filter{
+				{
+					{
+						compare: "co",
+						value:   "apples",
+					},
+				},
+				{
+					{
+						compare: "ne",
+						value:   "foo",
+					},
+				},
+			},
+			ok: true,
+		},
+		{
+			input: `(apple co "apples") and orange ne "foo"`,
+			want: [][]Filter{
+				{
+					{
+						compare: "co",
+						value:   "apples",
+					},
+				},
+				{
+					{
+						compare: "ne",
+						value:   "foo",
+					},
+				},
+			},
+			ok: true,
+		},
+		{
+			input: `apple co "apples" and ( apple co "mac" or orange ne "foo" ) `,
+			want: [][]Filter{
+				{
+					{
+						compare: "co",
+						value:   "apples",
+					},
+				},
+				{
+					{
+						compare: "co",
+						value:   "mac",
+					},
+					{
+						compare: "ne",
+						value:   "foo",
+					},
+				},
+			},
+			ok: true,
+		},
+		{
+			input: `  ( apple co "apples" or apple eq "mac") and ( apple co "mac" or orange ne "foo" ) and test.fruit eq "fruit"   `,
+			want: [][]Filter{
+				{
+					{
+						compare: "co",
+						value:   "apples",
+					},
+					{
+						compare: "eq",
+						value:   "mac",
+					},
+				},
+				{
+					{
+						compare: "co",
+						value:   "mac",
+					},
+					{
+						compare: "ne",
+						value:   "foo",
+					},
+				},
+				{
+					{
+						compare: "eq",
+						value:   "fruit",
+					},
+				},
+			},
+			ok: true,
+		},
+		{
+			input: `apple eq "A(P)PL(E"`,
+			want: [][]Filter{
+				{
+					{
+						compare: "eq",
+						value:   "a(p)pl(e",
+					},
+				},
+			},
+			ok: false,
 		},
 	}
 
@@ -303,15 +455,52 @@ func TestFilters(t *testing.T) {
 			t.Fatalf("BuildFilters(%q, fields) = %+v, want %+v length %d", tc.input, f, tc.want, len(tc.want))
 		}
 		for i := 0; i < len(f); i++ {
-			if f[i].compare != tc.want[i].compare {
-				t.Fatalf("BuildFilters(%q, fields) = %+v, filter %d compare: want %q, got %q", tc.input, f, i, tc.want[i].compare, f[i].compare)
+			if len(f[i]) != len(tc.want[i]) {
+				t.Fatalf("BuildFilters(%q, fields) = %+v, want index %d value %+v length %d", tc.input, f[i], i, tc.want[i], len(tc.want[i]))
 			}
-			if f[i].value != tc.want[i].value {
-				t.Fatalf("BuildFilters(%q, fields) = %+v, filter %d value: want %q, got %q", tc.input, f, i, tc.want[i].value, f[i].value)
+			for j := 0; j < len(f[i]); j++ {
+				if f[i][j].compare != tc.want[i][j].compare {
+					t.Fatalf("BuildFilters(%q, fields) = %+v, index %d filter %d compare: want %q, got %q", tc.input, f, i, j, tc.want[i][j].compare, f[i][j].compare)
+				}
+				if f[i][j].value != tc.want[i][j].value {
+					t.Fatalf("BuildFilters(%q, fields) = %+v, index %d filter %d value: want %q, got %q", tc.input, f, i, j, tc.want[i][j].value, f[i][j].value)
+				}
 			}
 		}
 		if ok := MatchProtoFilters(f, nil); tc.ok != ok {
 			t.Errorf("MatchProtoFilters(%v, nil) = %v, want %v", f, ok, tc.ok)
+		}
+	}
+}
+
+func TestFilters_Errors(t *testing.T) {
+	fields := map[string]func(p proto.Message) string{
+		"apple": func(p proto.Message) string {
+			return "APPLES"
+		},
+		"orange": func(p proto.Message) string {
+			return ""
+		},
+		"test.fruit": func(p proto.Message) string {
+			return "FRUIT"
+		},
+	}
+	tests := []string{
+		`bad co "apples"`,
+		`apple co "apples`,
+		`apple co apples"`,
+		`apple zz "apples"`,
+		`apple or "apples"`,
+		`apple and "apples"`,
+		`apple co "apples" and (orange ne "foo"`,
+		`( apple co "apples" or orange ne "foo"`,
+		`apple co "apples" or apple co "mac" and orange co "foo"`, // requires brackets
+		`apple co "apples" OR apple co "mac" and orange co "foo"`, // requires brackets
+	}
+	for _, tc := range tests {
+		f, err := BuildFilters(tc, fields)
+		if err == nil {
+			t.Fatalf("BuildFilters(%q, fields) = (%v, %v), unexpected success", tc, f, err)
 		}
 	}
 }

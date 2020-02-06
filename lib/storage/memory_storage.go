@@ -110,7 +110,7 @@ func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, cont
 }
 
 // MultiReadTx reads a set of objects matching the input parameters and filters
-func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters []Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error) {
+func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error) {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
