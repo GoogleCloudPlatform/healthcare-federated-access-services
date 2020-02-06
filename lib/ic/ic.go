@@ -385,6 +385,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //////////////////////////////////////////////////////////////////
 
 // Revocation implements the /revoke endpoint for revoking tokens.
+// TODO: remove
 func (s *Service) Revocation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
@@ -1967,17 +1968,17 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.PathPrefix(staticFilePath).Handler(sfs)
 
 	// oidc login flow endpoints
-	r.HandleFunc(loginPath, auth.MustWithAuth(s.Login, checker, auth.RequireNone))
-	r.HandleFunc(finishLoginPath, auth.MustWithAuth(s.FinishLogin, checker, auth.RequireNone))
+	r.HandleFunc(loginPath, auth.MustWithAuth(s.Login, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(finishLoginPath, auth.MustWithAuth(s.FinishLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(acceptInformationReleasePath, auth.MustWithAuth(s.AcceptInformationRelease, checker, auth.RequireNone)).Methods(http.MethodGet)
-	r.HandleFunc(acceptLoginPath, auth.MustWithAuth(s.AcceptLogin, checker, auth.RequireNone))
+	r.HandleFunc(acceptLoginPath, auth.MustWithAuth(s.AcceptLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// hydra related oidc endpoints
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// info endpoint
-	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone))
+	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// administration endpoints
 	r.HandleFunc(realmPath, auth.MustWithAuth(common.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
@@ -1985,13 +1986,13 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configIdentityProvidersPath, auth.MustWithAuth(common.MakeHandler(s, s.configIdpFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configClientsPath, auth.MustWithAuth(common.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configOptionsPath, auth.MustWithAuth(common.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken))
-	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken))
-	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken))
+	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
+	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
+	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 
 	// readonly config endpoints
-	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientID))
-	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientID))
+	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientID)).Methods(http.MethodGet)
+	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientID)).Methods(http.MethodGet)
 	r.HandleFunc(clientPath, auth.MustWithAuth(common.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 
 	// scim service endpoints

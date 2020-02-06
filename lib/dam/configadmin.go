@@ -1016,10 +1016,6 @@ func (h *configPersonaHandler) Save(tx storage.Tx, name string, vars map[string]
 
 // ConfigHistory implements the HistoryConfig RPC method.
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -1043,10 +1039,6 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 
 // ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
 func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	name := getName(r)
 	rev, err := strconv.ParseInt(name, 10, 64)
 	if err != nil {
@@ -1077,11 +1069,6 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 
 // ConfigReset implements the corresponding method in the DAM API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
-	// TODO: probably should not be a GET, but handy for now on a browser...
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -1127,10 +1114,6 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 
 // ConfigTestPersonas implements the ConfigTestPersonas RPC method.
 func (s *Service) ConfigTestPersonas(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)

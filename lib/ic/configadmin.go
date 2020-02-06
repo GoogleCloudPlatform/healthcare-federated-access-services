@@ -368,10 +368,6 @@ func (c *configOptions) Save(tx storage.Tx, name string, vars map[string]string,
 
 // ConfigHistory implements the HistoryConfig RPC method.
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	// TODO: consider requiring an "admin" scope (modify all admin handlerSetup calls).
 	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
@@ -387,10 +383,6 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 
 // ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
 func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	name := getName(r)
 	rev, err := strconv.ParseInt(name, 10, 64)
 	if err != nil {
@@ -412,11 +404,6 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 
 // ConfigReset implements the corresponding method in the IC API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
-	// TODO: probably should not be a GET, but handy for now on a browser...
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
 		common.HandleError(status, err, w)

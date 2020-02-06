@@ -15,7 +15,6 @@
 package ic
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
@@ -28,10 +27,6 @@ import (
 
 // IdentityProviders returns part of config: Identity Providers
 func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -48,10 +43,6 @@ func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 
 // PassportTranslators returns part of config: Passport Translators
 func (s *Service) PassportTranslators(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	out := translator.GetPassportTranslators()
 	common.SendResponse(out, w)
 }

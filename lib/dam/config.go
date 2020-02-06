@@ -33,10 +33,6 @@ import (
 
 // GetResources implements the GetResources RPC method.
 func (s *Service) GetResources(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -55,10 +51,6 @@ func (s *Service) GetResources(w http.ResponseWriter, r *http.Request) {
 
 // GetResource implements the corresponding endpoint in the REST API.
 func (s *Service) GetResource(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -83,10 +75,6 @@ func (s *Service) GetResource(w http.ResponseWriter, r *http.Request) {
 
 // GetFlatViews implements the corresponding REST API endpoint.
 func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -158,10 +146,6 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 
 // GetViews implements the corresponding endpoint in the REST API.
 func (s *Service) GetViews(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -190,10 +174,6 @@ func (s *Service) GetViews(w http.ResponseWriter, r *http.Request) {
 
 // GetView implements the corresponding endpoint in the REST API.
 func (s *Service) GetView(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -228,10 +208,6 @@ func (s *Service) GetView(w http.ResponseWriter, r *http.Request) {
 
 // GetViewRoles implements the corresponding endpoint in the REST API.
 func (s *Service) GetViewRoles(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -267,10 +243,6 @@ func (s *Service) GetViewRoles(w http.ResponseWriter, r *http.Request) {
 
 // GetViewRole implements the corresponding endpoint in the REST API.
 func (s *Service) GetViewRole(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
@@ -333,10 +305,6 @@ func (s *Service) GetTestResults(w http.ResponseWriter, r *http.Request) {
 
 // GetTargetAdapters implements the corresponding REST API endpoint.
 func (s *Service) GetTargetAdapters(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	out := &pb.TargetAdaptersResponse{
 		TargetAdapters: s.adapters.Descriptors,
 	}
@@ -386,20 +354,12 @@ func (s *Service) createIssuerTranslator(ctx context.Context, cfgTpi *pb.Trusted
 
 // GetPassportTranslators implements the corresponding REST API endpoint.
 func (s *Service) GetPassportTranslators(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	out := translator.GetPassportTranslators()
 	common.SendResponse(out, w)
 }
 
 // GetDamRoleCategories implements the corresponding REST API method.
 func (s *Service) GetDamRoleCategories(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	out := &pb.DamRoleCategoriesResponse{
 		DamRoleCategories: s.roleCategories,
 	}
@@ -408,10 +368,6 @@ func (s *Service) GetDamRoleCategories(w http.ResponseWriter, r *http.Request) {
 
 // GetTestPersonas implements the corresponding REST API method.
 func (s *Service) GetTestPersonas(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)
