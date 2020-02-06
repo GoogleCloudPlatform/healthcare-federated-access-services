@@ -118,10 +118,10 @@ func BuildFilters(str string, fields map[string]func(p proto.Message) string) ([
 	if len(str) == 0 {
 		return nil, nil
 	}
-	out := [][]Filter{}
+	var out [][]Filter
 	ands := strings.Split(str, " and ")
 	for _, a := range ands {
-		ors := []Filter{}
+		var ors []Filter
 		a = strings.Trim(a, " ")
 		brackets := false
 		if strings.HasPrefix(a, "(") && strings.HasSuffix(a, ")") {

@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -609,7 +610,7 @@ func (h *scimUsers) Get(name string) error {
 	}
 	sort.Strings(subjects)
 	realm := getRealm(h.r)
-	list := []*spb.User{}
+	var list []*spb.User
 	for _, sub := range subjects {
 		list = append(list, h.s.newScimUser(accts[sub], realm))
 	}
@@ -624,7 +625,8 @@ func (h *scimUsers) Get(name string) error {
 		StartIndex:   uint32(start),
 		Resources:    list,
 	}
-	return common.SendResponse(resp, h.w)
+	httputil.WriteProtoResp(h.w, resp)
+	return nil
 }
 
 // Post receives a POST method request
