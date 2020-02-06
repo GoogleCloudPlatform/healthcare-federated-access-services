@@ -287,22 +287,6 @@ func (s *Service) GetViewRole(w http.ResponseWriter, r *http.Request) {
 	common.SendResponse(proto.Message(&resp), w)
 }
 
-// GetTestResults implements the GetTestResults RPC method.
-// TODO: remove.
-func (s *Service) GetTestResults(w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	_, status, err := s.getBearerTokenIdentity(cfg, r)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	common.SendResponse(proto.Message(s.runTests(r.Context(), cfg, nil)), w)
-}
-
 // GetTargetAdapters implements the corresponding REST API endpoint.
 func (s *Service) GetTargetAdapters(w http.ResponseWriter, r *http.Request) {
 	out := &pb.TargetAdaptersResponse{

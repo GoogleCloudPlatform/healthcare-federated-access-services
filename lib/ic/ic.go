@@ -382,58 +382,6 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sh.Handler.ServeHTTP(w, r)
 }
 
-//////////////////////////////////////////////////////////////////
-
-// Revocation implements the /revoke endpoint for revoking tokens.
-// TODO: remove
-func (s *Service) Revocation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	tx, err := s.GetStore().Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("service dependencies not available; try again later"), w)
-		return
-	}
-	defer tx.Finish()
-
-	cfg, err := s.loadConfig(tx, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	// Parse the token to be revoked.
-	// TODO: remove the RevocationRequest proto fields as GetParam() is needed instead.
-	inputToken := common.GetParam(r, "token")
-	if len(inputToken) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("missing token parameter"), w)
-		return
-	}
-	identity, status, err := s.refreshTokenToIdentity(inputToken, r, cfg, secrets, tx)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	if !hasScopes("refresh", identity.Scope, matchFullScope) {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("token provided is not a refresh token"), w)
-		return
-	}
-
-	// Delete the token from storage.
-	if err := s.store.DeleteTx(storage.TokensDatatype, getRealm(r), identity.Subject, identity.ID, storage.LatestRev, tx); err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("failed to revoke token: %v", err), w)
-	}
-	return
-}
-
 func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, queryParams string) (string, error) {
 	list := &pb.LoginPageProviders{
 		Idps:     make(map[string]*pb.LoginPageProviders_ProviderEntry),
