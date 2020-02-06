@@ -20,11 +20,7 @@ import (
 )
 
 var (
-	experimental = os.Getenv("EXPERIMENTAL")
+	// Experimental is a global flag determining if experimental features should be enabled.
+	// Set from env var: `export FEDERATED_ACCESS_ENABLE_EXPERIMENTAL=true`
+	Experimental = os.Getenv("FEDERATED_ACCESS_ENABLE_EXPERIMENTAL") == "true"
 )
-
-// IsExperimental is to enable experimental features.
-// Set from env var: `export EXPERIMENTAL=true`
-func IsExperimental() bool {
-	return experimental == "true"
-}

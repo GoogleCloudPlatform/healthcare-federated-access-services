@@ -18,31 +18,5 @@ import (
 	"testing"
 )
 
-func TestIsExperimental(t *testing.T) {
-	tests := []struct {
-		experimental string
-		want         bool
-	}{
-		{
-			experimental: "",
-			want:         false,
-		},
-		{
-			experimental: "true",
-			want:         true,
-		},
-		{
-			experimental: "invalid",
-			want:         false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.experimental, func(t *testing.T) {
-			experimental = tc.experimental
-			if IsExperimental() != tc.want {
-				t.Errorf("IsExperimental() wants %v", tc.want)
-			}
-		})
-	}
+func Test(t *testing.T) {
 }
