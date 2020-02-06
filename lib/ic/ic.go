@@ -1939,8 +1939,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 
 	// readonly config endpoints
-	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientID)).Methods(http.MethodGet)
-	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientID)).Methods(http.MethodGet)
+	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
+	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(clientPath, auth.MustWithAuth(common.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 
 	// scim service endpoints
