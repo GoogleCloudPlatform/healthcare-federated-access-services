@@ -65,8 +65,6 @@ func (s *Service) clientFactory() *common.HandlerFactory {
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		// Only return self information, does not need admin permission.
-		IsAdmin: false,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return oathclients.NewClientHandler(w, r, c)
 		},

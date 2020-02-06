@@ -36,7 +36,6 @@ func (s *Service) configFactory() *common.HandlerFactory {
 		TypeName:            "config",
 		PathPrefix:          configPath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &config{
 				s:     s,
@@ -58,7 +57,7 @@ type config struct {
 }
 
 func (c *config) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
+	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	return status, err
@@ -178,7 +177,7 @@ type configIDP struct {
 }
 
 func (c *configIDP) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
+	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	c.tx = tx
@@ -263,7 +262,6 @@ func (s *Service) configOptionsFactory() *common.HandlerFactory {
 		TypeName:            "configOptions",
 		PathPrefix:          configOptionsPath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &configOptions{
 				s:     s,
@@ -288,7 +286,7 @@ type configOptions struct {
 }
 
 func (c *configOptions) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
+	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	c.tx = tx
@@ -375,7 +373,7 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// TODO: consider requiring an "admin" scope (modify all admin handlerSetup calls).
-	_, _, _, status, err := s.handlerSetup(nil, requiresAdmin, r, noScope, nil)
+	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -399,7 +397,7 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("invalid history revision: %q (must be a positive integer)", name), w)
 		return
 	}
-	_, _, _, status, err := s.handlerSetup(nil, requiresAdmin, r, noScope, nil)
+	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return
@@ -419,7 +417,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
 		return
 	}
-	_, _, _, status, err := s.handlerSetup(nil, requiresAdmin, r, noScope, nil)
+	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
 		common.HandleError(status, err, w)
 		return

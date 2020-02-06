@@ -41,7 +41,7 @@ func (c *clientService) ClientByName(name string) *cpb.Client {
 }
 
 func (c *clientService) HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error) {
-	cfg, sec, id, status, err := c.s.handlerSetup(tx, isAdmin, r, noScope, nil)
+	cfg, sec, id, status, err := c.s.handlerSetup(tx, r, noScope, nil)
 	c.cfg = cfg
 	c.sec = sec
 	return id, status, err
@@ -115,7 +115,6 @@ func (s *Service) configClientFactory() *common.HandlerFactory {
 		TypeName:            "configClient",
 		PathPrefix:          configClientsPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return oathclients.NewAdminClientHandler(w, r, c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL)
 		},

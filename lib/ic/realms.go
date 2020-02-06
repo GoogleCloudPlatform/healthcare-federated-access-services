@@ -31,7 +31,6 @@ func (s *Service) realmFactory() *common.HandlerFactory {
 		NameField:           "realm",
 		PathPrefix:          realmPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &realm{
 				s:     s,
@@ -54,7 +53,7 @@ type realm struct {
 }
 
 func (c *realm) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
+	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	return status, err

@@ -36,12 +36,10 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
-	"google.golang.org/grpc/codes" /* copybara-comment */
-	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
@@ -66,7 +64,6 @@ const (
 	tokenFlowTestPageFile      = "pages/new-flow-test.html"
 	hydraICTestPageFile        = "pages/hydra-ic-test.html"
 	staticDirectory            = "assets/serve/"
-	requiresAdmin              = true
 
 	serviceTitle            = "Identity Concentrator"
 	loginInfoTitle          = "Data Discovery and Access Platform"
@@ -200,21 +197,6 @@ var (
 	skipURLValidationInTokenURL = regexp.MustCompile("^[A-Z_]*=https://.*$")
 
 	importDefault = os.Getenv("IMPORT")
-
-	// skipClientCredsPaths are the paths for which we don't check client credentials.
-	skipClientCredsPaths = map[string]bool{
-		infoPath:                     true,
-		hydraLoginPath:               true,
-		hydraConsentPath:             true,
-		acceptInformationReleasePath: true,
-	}
-	// skipClientCredsPaths are the path prefixes for which we don't check client credentials.
-	skipClientCredPrefixes = []string{
-		staticFilePath,
-		strings.TrimSuffix(loginPath, "{name}"),
-		acceptLoginPath,
-		strings.TrimSuffix(finishLoginPath, "{name}"),
-	}
 )
 
 type Service struct {
@@ -393,69 +375,11 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	r.ParseForm()
-
-	if err := sh.s.checkClientCreds(r); err != nil {
-		httputil.WriteStatus(w, status.Convert(err))
-		return
-	}
 
 	// Inject http client for oauth lib.
 	r = r.WithContext(context.WithValue(r.Context(), oauth2.HTTPClient, sh.s.httpClient))
 
 	sh.Handler.ServeHTTP(w, r)
-}
-
-func (s *Service) checkClientCreds(r *http.Request) error {
-	// Allow some requests to proceed without client IDs and/or secrets.
-	path := common.RequestAbstractPath(r)
-
-	for p := range skipClientCredsPaths {
-		if path == p {
-			return nil
-		}
-	}
-
-	for _, p := range skipClientCredPrefixes {
-		if strings.HasPrefix(path, p) {
-			return nil
-		}
-	}
-
-	return s.checkClient(path, r)
-}
-
-func (s *Service) checkClient(path string, r *http.Request) error {
-	cid := getClientID(r)
-	if len(cid) == 0 {
-		return status.Error(codes.Unauthenticated, "authorization requires a client ID")
-	}
-
-	// TODO: should also check the client id in config.
-
-	if isClientOnly(path) {
-		return nil
-	}
-
-	cs := getClientSecret(r)
-	if len(cs) == 0 {
-		return status.Error(codes.Unauthenticated, "authorization requires a client secret")
-	}
-
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		return status.Error(codes.Unavailable, "configuration unavailable")
-	}
-
-	if secret, ok := secrets.ClientSecrets[cid]; !ok || secret != cs {
-		return status.Error(codes.Unauthenticated, "unauthorized client")
-	}
-
-	return nil
-}
-
-func isClientOnly(path string) bool {
-	return strings.HasPrefix(path, "/identity/v1alpha/{realm}/loggedin/") || strings.HasPrefix(path, clientPath) || strings.HasPrefix(path, translatorsPath) || strings.HasPrefix(path, identityProvidersPath)
 }
 
 //////////////////////////////////////////////////////////////////
@@ -851,7 +775,8 @@ func getName(r *http.Request) string {
 	return ""
 }
 
-func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, scope string, item proto.Message) (*pb.IcConfig, *pb.IcSecrets, *ga4gh.Identity, int, error) {
+func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, item proto.Message) (*pb.IcConfig, *pb.IcSecrets, *ga4gh.Identity, int, error) {
+	r.ParseForm()
 	if item != nil {
 		if err := jsonpb.Unmarshal(r.Body, item); err != nil && err != io.EOF {
 			return nil, nil, nil, http.StatusBadRequest, err
@@ -868,13 +793,6 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 	id, status, err := s.getIdentity(r, scope, getRealm(r), cfg, secrets, tx)
 	if err != nil {
 		return nil, nil, nil, status, err
-	}
-	// TODO: use only isAdmin by upgrading each handler to set this flag.
-	path := common.RequestAbstractPath(r)
-	if strings.HasPrefix(path, configPath) || isAdmin {
-		if status, err := s.permissions.CheckAdmin(id); err != nil {
-			return nil, nil, nil, status, err
-		}
 	}
 
 	return cfg, secrets, id, status, err
@@ -2036,47 +1954,65 @@ func (s *Service) ImportFiles(importType string) error {
 
 // TODO: move registeration of endpoints to main package.
 func registerHandlers(r *mux.Router, s *Service) {
+	a := &authChecker{s: s}
+	checker := &auth.Checker{
+		Issuer:             s.getIssuerString(),
+		FetchClientSecrets: a.fetchClientSecrets,
+		IsAdmin:            a.isAdmin,
+		TransformIdentity:  a.transformIdentity,
+	}
+
+	// static files
 	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(srcutil.Path(staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)
 
-	r.HandleFunc(loginPath, s.Login)
-	r.HandleFunc(finishLoginPath, s.FinishLogin)
-	r.HandleFunc(acceptInformationReleasePath, s.AcceptInformationRelease).Methods("GET")
-	r.HandleFunc(acceptLoginPath, s.AcceptLogin)
-	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
-	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
+	// oidc login flow endpoints
+	r.HandleFunc(loginPath, auth.MustWithAuth(s.Login, checker, auth.RequireNone))
+	r.HandleFunc(finishLoginPath, auth.MustWithAuth(s.FinishLogin, checker, auth.RequireNone))
+	r.HandleFunc(acceptInformationReleasePath, auth.MustWithAuth(s.AcceptInformationRelease, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(acceptLoginPath, auth.MustWithAuth(s.AcceptLogin, checker, auth.RequireNone))
 
-	r.HandleFunc(infoPath, s.Status)
+	// hydra related oidc endpoints
+	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
 
-	r.HandleFunc(realmPath, common.MakeHandler(s, s.realmFactory()))
+	// info endpoint
+	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone))
 
-	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
-	r.HandleFunc(configIdentityProvidersPath, common.MakeHandler(s, s.configIdpFactory()))
-	r.HandleFunc(configClientsPath, common.MakeHandler(s, s.configClientFactory()))
-	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
-	r.HandleFunc(configResetPath, s.ConfigReset)
-	r.HandleFunc(configHistoryPath, s.ConfigHistory)
-	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
+	// administration endpoints
+	r.HandleFunc(realmPath, auth.MustWithAuth(common.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configPath, auth.MustWithAuth(common.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configIdentityProvidersPath, auth.MustWithAuth(common.MakeHandler(s, s.configIdpFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientsPath, auth.MustWithAuth(common.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configOptionsPath, auth.MustWithAuth(common.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken))
+	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken))
+	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken))
 
-	r.HandleFunc(identityProvidersPath, s.IdentityProviders)
-	r.HandleFunc(translatorsPath, s.PassportTranslators)
-	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
+	// readonly config endpoints
+	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientID))
+	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientID))
+	r.HandleFunc(clientPath, auth.MustWithAuth(common.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 
-	r.HandleFunc(scimMePath, common.MakeHandler(s, s.scimMeFactory()))
-	r.HandleFunc(scimUserPath, common.MakeHandler(s, s.scimUserFactory()))
-	r.HandleFunc(scimUsersPath, common.MakeHandler(s, s.scimUsersFactory()))
+	// scim service endpoints
+	r.HandleFunc(scimMePath, auth.MustWithAuth(common.MakeHandler(s, s.scimMeFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUserPath, auth.MustWithAuth(common.MakeHandler(s, s.scimUserFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUsersPath, auth.MustWithAuth(common.MakeHandler(s, s.scimUsersFactory()), checker, auth.RequireAdminToken))
 
+	// token service endpoints
 	tokens := &stubTokens{token: fakeToken}
-	r.HandleFunc(tokensPath, NewTokensHandler(tokens).ListTokens).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, NewTokensHandler(tokens).GetToken).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, NewTokensHandler(tokens).DeleteToken).Methods(http.MethodDelete)
+	r.HandleFunc(tokensPath, auth.MustWithAuth(NewTokensHandler(tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(NewTokensHandler(tokens).GetToken, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(NewTokensHandler(tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
+	// consents service endpoints
 	consents := &stubConsents{consent: fakeConsent}
-	r.HandleFunc(consentsPath, NewConsentsHandler(consents).ListConsents).Methods(http.MethodGet)
-	r.HandleFunc(consentPath, NewConsentsHandler(consents).DeleteConsent).Methods(http.MethodDelete)
+	r.HandleFunc(consentsPath, auth.MustWithAuth(NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(consentPath, auth.MustWithAuth(NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
-	r.HandleFunc(accountPath, common.MakeHandler(s, s.accountFactory()))
-	r.HandleFunc(accountSubjectPath, common.MakeHandler(s, s.accountSubjectFactory()))
-	r.HandleFunc(adminClaimsPath, common.MakeHandler(s, s.adminClaimsFactory()))
-	r.HandleFunc(adminTokenMetadataPath, common.MakeHandler(s, s.adminTokenMetadataFactory()))
+	// legacy endpoints
+	r.HandleFunc(accountPath, auth.MustWithAuth(common.MakeHandler(s, s.accountFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(accountSubjectPath, auth.MustWithAuth(common.MakeHandler(s, s.accountSubjectFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(common.MakeHandler(s, s.adminClaimsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(common.MakeHandler(s, s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
 }

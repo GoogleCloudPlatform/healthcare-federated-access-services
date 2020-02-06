@@ -34,6 +34,7 @@ import (
 
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	// Use login_challenge fetch information from hydra.
 	challenge, status := hydra.ExtractLoginChallenge(r)
 	if status != nil {
@@ -132,6 +133,7 @@ func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state,
 
 // HydraConsent handles consent request from hydra.
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	// Use consent_challenge fetch information from hydra.
 	challenge, status := hydra.ExtractConsentChallenge(r)
 	if status != nil {

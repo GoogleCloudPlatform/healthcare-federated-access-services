@@ -132,7 +132,6 @@ func (s *Service) scimMeFactory() *common.HandlerFactory {
 		TypeName:            "user",
 		PathPrefix:          scimMePath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             false,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &scimMe{
 				s: s,
@@ -152,6 +151,7 @@ type scimMe struct {
 
 // Setup initializes the handler
 func (h *scimMe) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+	h.r.ParseForm()
 	h.user = &scimUser{
 		s:     h.s,
 		w:     h.w,
@@ -213,7 +213,6 @@ func (s *Service) scimUserFactory() *common.HandlerFactory {
 		TypeName:            "user",
 		PathPrefix:          scimUserPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             false,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &scimUser{
 				s:     s,
@@ -238,7 +237,7 @@ type scimUser struct {
 
 // Setup initializes the handler
 func (h *scimUser) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	_, _, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	if err != nil {
 		return status, err
 	}
@@ -539,7 +538,6 @@ func (s *Service) scimUsersFactory() *common.HandlerFactory {
 		TypeName:            "users",
 		PathPrefix:          scimUsersPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
 			return &scimUsers{
 				s: s,
@@ -560,7 +558,7 @@ type scimUsers struct {
 
 // Setup initializes the handler
 func (h *scimUsers) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, nil)
+	_, _, id, status, err := h.s.handlerSetup(tx, h.r, noScope, nil)
 	h.id = id
 	h.tx = tx
 	return status, err

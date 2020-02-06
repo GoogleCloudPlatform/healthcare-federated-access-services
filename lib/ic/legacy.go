@@ -38,7 +38,6 @@ func (s *Service) accountFactory() *common.HandlerFactory {
 		TypeName:            "account",
 		PathPrefix:          accountPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             false,
 		NameChecker: map[string]*regexp.Regexp{
 			"name": common.PlaceholderOrNameRE,
 		},
@@ -67,7 +66,7 @@ type account struct {
 }
 
 func (c *account) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, sec, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
+	cfg, sec, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.sec = sec
 	c.id = id
@@ -242,7 +241,6 @@ func (s *Service) accountSubjectFactory() *common.HandlerFactory {
 		TypeName:            "accountLink",
 		PathPrefix:          accountSubjectPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             false,
 		NameChecker: map[string]*regexp.Regexp{
 			// Some upstream IdPs may use a wider selection of characters, including email-looking format.
 			"subject": regexp.MustCompile(`^[\w][^/\\@]*@?[\w][^/\\@]*$`),
@@ -273,7 +271,7 @@ type accountLink struct {
 }
 
 func (c *accountLink) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
+	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	c.tx = tx
@@ -363,7 +361,6 @@ func (s *Service) adminClaimsFactory() *common.HandlerFactory {
 		TypeName:            "adminClaims",
 		PathPrefix:          adminClaimsPath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             true,
 		NameChecker: map[string]*regexp.Regexp{
 			"name": regexp.MustCompile(`^[\w][^/\\]*@[\w][^/\\]*$`),
 		},
@@ -391,7 +388,7 @@ type adminClaims struct {
 }
 
 func (c *adminClaims) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
+	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	c.tx = tx
@@ -490,7 +487,7 @@ type adminTokenMetadataHandler struct {
 
 func (h *adminTokenMetadataHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
 	h.tx = tx
-	_, _, _, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+	_, _, _, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	return status, err
 }
 

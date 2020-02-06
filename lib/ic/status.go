@@ -31,9 +31,6 @@ func (s *Service) Status(w http.ResponseWriter, r *http.Request) {
 		Versions:  []string{"v1alpha"},
 		StartTime: s.startTime,
 	}
-	if err := s.checkClient(common.RequestAbstractPath(r), r); err == nil {
-		out.Modules = []string{}
-	}
 
 	realm := common.GetParamOrDefault(r, "realm", storage.DefaultRealm)
 	if cfg, err := s.loadConfig(nil, realm); err == nil {

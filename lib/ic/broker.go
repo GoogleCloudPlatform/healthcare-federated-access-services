@@ -31,10 +31,13 @@ import (
 
 // Login is the HTTP handler for ".../login/{name}" endpoint.
 func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
+	// TODO move MethodGet to handler register.
 	if r.Method != http.MethodGet {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
 		return
 	}
+
+	r.ParseForm()
 
 	scope, err := getScope(r)
 	if err != nil {
@@ -63,10 +66,13 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 
 // AcceptLogin is the HTTP handler for ".../loggedin/{name}" endpoint.
 func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
+	// TODO move MethodGet to handler register.
 	if r.Method != http.MethodGet {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request method not supported: %q", r.Method), w)
 		return
 	}
+
+	r.ParseForm()
 
 	stateParam := common.GetParam(r, "state")
 	errStr := common.GetParam(r, "error")
@@ -124,10 +130,13 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 
 // FinishLogin is the HTTP handler for ".../loggedin" endpoint.
 func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
+	// TODO move MethodGet to handler register.
 	if r.Method != http.MethodGet {
 		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request method not supported: %q", r.Method), w)
 		return
 	}
+
+	r.ParseForm()
 
 	code := common.GetParam(r, "code")
 	idToken := common.GetParam(r, "id_token")
@@ -257,6 +266,7 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 
 // AcceptInformationRelease is the HTTP handler for ".../inforelease" endpoint.
 func (s *Service) AcceptInformationRelease(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	stateID := common.GetParam(r, "state")
 	if len(stateID) == 0 {
 		common.HandleError(http.StatusBadRequest, fmt.Errorf("missing %q parameter", "state"), w)

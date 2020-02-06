@@ -375,7 +375,7 @@ func TestHandlers(t *testing.T) {
 			Persona: "non-admin",
 			Scope:   persona.AccountScope,
 			Output:  `^.*not an administrator.*`,
-			Status:  http.StatusForbidden,
+			Status:  http.StatusUnauthorized,
 		},
 		{
 			Name:    "Get SCIM me",
@@ -699,7 +699,7 @@ func TestAdminHandlers(t *testing.T) {
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "non-admin",
 			Output: `^.*user is not an administrator	*`,
-			Status: http.StatusForbidden,
+			Status: http.StatusUnauthorized,
 		},
 		{
 			Name:    "List all tokens of all users as an admin",
@@ -715,7 +715,7 @@ func TestAdminHandlers(t *testing.T) {
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "non-admin",
 			Output: `^.*user is not an administrator	*`,
-			Status: http.StatusForbidden,
+			Status: http.StatusUnauthorized,
 		},
 		{
 			Name:    "Delete all tokens of all users as an admin",
@@ -1609,7 +1609,7 @@ func TestConfigClients_Get_Error(t *testing.T) {
 			persona:    "non-admin",
 			clientID:   testClientID,
 			clientName: "test_client",
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 	}
 
@@ -1824,7 +1824,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 			persona:    "non-admin",
 			clientName: clientName,
 			client:     cli,
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 		{
 			name:       "no redirect",
@@ -2077,7 +2077,7 @@ func TestConfigClients_Update_Error(t *testing.T) {
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: clientName,
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 	}
 
@@ -2234,7 +2234,7 @@ func TestConfigClients_Delete_Error(t *testing.T) {
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: clientName,
-			status:     http.StatusForbidden,
+			status:     http.StatusUnauthorized,
 		},
 	}
 
