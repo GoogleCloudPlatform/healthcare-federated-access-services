@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/glog" /* copybara-comment */
+	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -91,7 +91,7 @@ type Require struct {
 func MustWithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker, require Require) func(http.ResponseWriter, *http.Request) {
 	h, err := WithAuth(handler, checker, require)
 	if err != nil {
-		log.Fatalf("WithAuth(): %v", err)
+		glog.Fatalf("WithAuth(): %v", err)
 	}
 	return h
 }
