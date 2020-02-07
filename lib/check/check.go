@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package httputil
+package check
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -168,7 +169,7 @@ func CheckUI(ui map[string]string, requireDescription bool) (string, error) {
 	}
 
 	if label := ui[common.UILabel]; len(label) == 0 {
-		return StatusPath("ui", common.UILabel), fmt.Errorf("UI object missing %q field", common.UILabel)
+		return httputil.StatusPath("ui", common.UILabel), fmt.Errorf("UI object missing %q field", common.UILabel)
 	}
 
 	if !requireDescription {
@@ -176,7 +177,7 @@ func CheckUI(ui map[string]string, requireDescription bool) (string, error) {
 	}
 
 	if desc := ui[common.UIDescription]; len(desc) == 0 {
-		return StatusPath("ui", common.UIDescription), fmt.Errorf("UI object missing %q field", common.UIDescription)
+		return httputil.StatusPath("ui", common.UIDescription), fmt.Errorf("UI object missing %q field", common.UIDescription)
 	}
 
 	return "", nil

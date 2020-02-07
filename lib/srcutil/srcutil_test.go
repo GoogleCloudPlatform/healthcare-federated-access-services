@@ -32,3 +32,15 @@ func TestRead(t *testing.T) {
 		t.Fatalf("Read(%v) doesn't match the contents of the file.", path)
 	}
 }
+
+func TestLoadFile(t *testing.T) {
+	path := "lib/srcutil/testfile.txt"
+	got, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile(%v) failed: %v", path, err)
+	}
+
+	if want := testfileContent; got != want {
+		t.Fatalf("LoadFile(%v) doesn't match the contents of the file.", path)
+	}
+}

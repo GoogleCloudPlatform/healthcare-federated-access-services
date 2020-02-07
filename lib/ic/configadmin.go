@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
@@ -112,7 +113,7 @@ func (c *config) Remove(name string) error {
 }
 func (c *config) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
-	if err := httputil.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
 	if len(c.input.Item.Version) == 0 {
@@ -138,7 +139,7 @@ func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 		return err
 	}
 	// Assumes that secrets don't change within this handler.
-	if c.s.useHydra && !httputil.ClientsEqual(c.input.Item.Clients, c.cfg.Clients) {
+	if c.s.useHydra && !check.ClientsEqual(c.input.Item.Clients, c.cfg.Clients) {
 		if err = c.s.syncToHydra(c.input.Item.Clients, secrets.ClientSecrets, 0); err != nil {
 			return err
 		}
@@ -234,7 +235,7 @@ func (c *configIDP) Remove(name string) error {
 }
 func (c *configIDP) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
-	if err := httputil.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
@@ -340,7 +341,7 @@ func (c *configOptions) Remove(name string) error {
 
 func (c *configOptions) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
-	if err := httputil.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {

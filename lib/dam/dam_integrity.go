@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
@@ -79,7 +80,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		if _, ok := translators[ti.TranslateUsing]; !ok && len(ti.TranslateUsing) > 0 {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n, "translateUsing"), fmt.Sprintf("trusted identity with unknown translator %q", ti.TranslateUsing))
 		}
-		if path, err := httputil.CheckUI(ti.Ui, true); err != nil {
+		if path, err := check.CheckUI(ti.Ui, true); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n, path), fmt.Sprintf("trusted passport issuer UI settings: %v", err))
 		}
 		if stat := checkTrustedIssuerClientCredentials(n, s.defaultBroker, ti); stat != nil {
@@ -123,7 +124,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim regular expression %q does not match any claim definitions", claim))
 			}
 		}
-		if path, err := httputil.CheckUI(ts.Ui, true); err != nil {
+		if path, err := check.CheckUI(ts.Ui, true); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, path), fmt.Sprintf("trusted sources UI settings: %v", err))
 		}
 	}
@@ -135,7 +136,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		if path, err := validator.ValidatePolicy(policy, cfg.ClaimDefinitions, cfg.TrustedSources, nil); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, path), err.Error())
 		}
-		if path, err := httputil.CheckUI(policy.Ui, true); err != nil {
+		if path, err := check.CheckUI(policy.Ui, true); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, path), fmt.Sprintf("policies UI settings: %v", err))
 		}
 	}
@@ -163,7 +164,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 				return stat
 			}
 		}
-		if path, err := httputil.CheckUI(res.Ui, true); err != nil {
+		if path, err := check.CheckUI(res.Ui, true); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, n, path), fmt.Sprintf("resource UI settings: %v", err))
 		}
 	}
@@ -175,7 +176,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 	}
 
 	for n, def := range cfg.ClaimDefinitions {
-		if path, err := httputil.CheckUI(def.Ui, true); err != nil {
+		if path, err := check.CheckUI(def.Ui, true); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClaimDefinitions, n, path), fmt.Sprintf("claim definitions UI settings: %v", err))
 		}
 	}
@@ -211,7 +212,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "passport", "ga4ghAssertions", strconv.Itoa(i), path), err.Error())
 			}
 		}
-		if path, err := httputil.CheckUI(tp.Ui, false); err != nil {
+		if path, err := check.CheckUI(tp.Ui, false); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, path), fmt.Sprintf("test persona UI settings: %v", err))
 		}
 		// Checking persona expectations is in checkExtraIntegrity() to give an
@@ -223,7 +224,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		return stat
 	}
 
-	if path, err := httputil.CheckUI(cfg.Ui, true); err != nil {
+	if path, err := check.CheckUI(cfg.Ui, true); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgRoot, path), fmt.Sprintf("root config UI settings: %v", err))
 	}
 
@@ -286,7 +287,7 @@ func (s *Service) checkViewIntegrity(name string, view *pb.View, resName string,
 	if len(view.ComputedInterfaces) > 0 {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "interfaces"), "interfaces should be determined at runtime and cannot be stored as part of the config")
 	}
-	if path, err := httputil.CheckUI(view.Ui, true); err != nil {
+	if path, err := check.CheckUI(view.Ui, true); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, path), fmt.Sprintf("view UI settings: %v", err))
 	}
 
@@ -336,7 +337,7 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 			}
 		}
 	}
-	if path, err := httputil.CheckUI(template.Ui, true); err != nil {
+	if path, err := check.CheckUI(template.Ui, true); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, path), fmt.Sprintf("service template UI settings: %v", err))
 	}
 	return nil
@@ -436,7 +437,7 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateNa
 		if desc.Requirements.TargetScope && len(role.TargetScopes) == 0 {
 			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetScopes"), fmt.Errorf("role %q does not provide any target scopes assignments", rname)
 		}
-		if path, err := httputil.CheckUI(role.Ui, true); err != nil {
+		if path, err := check.CheckUI(role.Ui, true); err != nil {
 			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, path), fmt.Errorf("role %q: %v", rname, err)
 		}
 	}
@@ -449,16 +450,16 @@ func (s *Service) checkOptionsIntegrity(opts *pb.ConfigOptions) *status.Status {
 	}
 	// Get the descriptors.
 	opts = makeConfigOptions(opts)
-	if err := httputil.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", opts.ComputedDescriptors); err != nil {
+	if err := check.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", opts.ComputedDescriptors); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "whitelistedRealms"), err.Error())
 	}
-	if err := httputil.CheckStringOption(opts.GcpManagedKeysMaxRequestedTtl, "gcpManagedKeysMaxRequestedTtl", opts.ComputedDescriptors); err != nil {
+	if err := check.CheckStringOption(opts.GcpManagedKeysMaxRequestedTtl, "gcpManagedKeysMaxRequestedTtl", opts.ComputedDescriptors); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "gcpManagedKeysMaxRequestedTtl"), err.Error())
 	}
-	if err := httputil.CheckIntOption(opts.GcpManagedKeysPerAccount, "gcpManagedKeysPerAccount", opts.ComputedDescriptors); err != nil {
+	if err := check.CheckIntOption(opts.GcpManagedKeysPerAccount, "gcpManagedKeysPerAccount", opts.ComputedDescriptors); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "gcpManagedKeysPerAccount"), err.Error())
 	}
-	if err := httputil.CheckStringOption(opts.GcpServiceAccountProject, "gcpServiceAccountProject", opts.ComputedDescriptors); err != nil {
+	if err := check.CheckStringOption(opts.GcpServiceAccountProject, "gcpServiceAccountProject", opts.ComputedDescriptors); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "gcpServiceAccountProject"), err.Error())
 	}
 	return nil
@@ -466,7 +467,7 @@ func (s *Service) checkOptionsIntegrity(opts *pb.ConfigOptions) *status.Status {
 
 func (s *Service) configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
-	if err := httputil.CheckReadOnly(getRealm(r), cfg.Options.ReadOnlyMasterRealm, cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.CheckReadOnly(getRealm(r), cfg.Options.ReadOnlyMasterRealm, cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
 	if len(cfg.Version) == 0 {

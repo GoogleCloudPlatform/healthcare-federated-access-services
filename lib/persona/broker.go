@@ -69,11 +69,11 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOID
 			return nil, err
 		}
 	}
-	lp, err := httputil.LoadFile(loginPageFile)
+	lp, err := srcutil.LoadFile(loginPageFile)
 	if err != nil {
 		glog.Fatalf("cannot load login page %q: %v", loginPageFile, err)
 	}
-	lpi, err := httputil.LoadFile(loginPageInfoFile)
+	lpi, err := srcutil.LoadFile(loginPageInfoFile)
 	if err != nil {
 		glog.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
 	}

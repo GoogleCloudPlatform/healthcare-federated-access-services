@@ -29,7 +29,6 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
@@ -351,13 +350,4 @@ func CheckName(field, name string, rem map[string]*regexp.Regexp) error {
 		return fmt.Errorf("invalid %s: %q is too long, too short, or contains invalid characters", field, name)
 	}
 	return nil
-}
-
-// LoadFile reads a file in as a string from I/O.
-func LoadFile(filename string) (string, error) {
-	bytes, err := ioutil.ReadFile(srcutil.Path(filename))
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
 }

@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -47,7 +48,7 @@ func CheckClientIntegrity(name string, c *pb.Client) error {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "clientId"), fmt.Sprintf("missing clientHandler ID or invalid format: %q", c.ClientId)).Err()
 	}
 
-	if path, err := httputil.CheckUI(c.Ui, true); err != nil {
+	if path, err := check.CheckUI(c.Ui, true); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, path), fmt.Sprintf("clientHandler UI settings: %v", err)).Err()
 	}
 

@@ -38,6 +38,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -256,20 +257,20 @@ type Options struct {
 // NewService create new IC service.
 func NewService(params *Options) *Service {
 	sh := &ServiceHandler{}
-	lp, err := httputil.LoadFile(loginPageFile)
+	lp, err := srcutil.LoadFile(loginPageFile)
 	if err != nil {
 		glog.Fatalf("cannot load login page: %v", err)
 	}
-	lpi, err := httputil.LoadFile(loginPageInfoFile)
+	lpi, err := srcutil.LoadFile(loginPageInfoFile)
 	if err != nil {
 		glog.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
 	}
 	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
-	clp, err := httputil.LoadFile(clientLoginPageFile)
+	clp, err := srcutil.LoadFile(clientLoginPageFile)
 	if err != nil {
 		glog.Fatalf("cannot load client login page: %v", err)
 	}
-	irp, err := httputil.LoadFile(informationReleasePageFile)
+	irp, err := srcutil.LoadFile(informationReleasePageFile)
 	if err != nil {
 		glog.Fatalf("cannot load information release page: %v", err)
 	}
@@ -1449,7 +1450,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		if err := validateTranslator(idp.TranslateUsing, idp.Issuer); err != nil {
 			return fmt.Errorf("identity provider %q: %v", name, err)
 		}
-		if _, err := httputil.CheckUI(idp.Ui, true); err != nil {
+		if _, err := check.CheckUI(idp.Ui, true); err != nil {
 			return fmt.Errorf("identity provider %q: %v", name, err)
 		}
 	}
@@ -1466,36 +1467,36 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 			return fmt.Errorf("invalid account tag name %q: %v", name, err)
 		}
 
-		if _, err := httputil.CheckUI(at.Ui, true); err != nil {
+		if _, err := check.CheckUI(at.Ui, true); err != nil {
 			return fmt.Errorf("account tag %q: %v", name, err)
 		}
 	}
 
 	// Check Options.
 	opts := makeConfigOptions(cfg.Options)
-	descs := httputil.ToCommonDescriptors(opts.ComputedDescriptors)
-	if err := httputil.CheckIntOption(opts.AccountNameLength, "accountNameLength", descs); err != nil {
+	descs := check.ToCommonDescriptors(opts.ComputedDescriptors)
+	if err := check.CheckIntOption(opts.AccountNameLength, "accountNameLength", descs); err != nil {
 		return err
 	}
-	if err := httputil.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", descs); err != nil {
+	if err := check.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", descs); err != nil {
 		return err
 	}
-	if err := httputil.CheckStringOption(opts.DefaultPassportTokenTtl, "defaultPassportTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.DefaultPassportTokenTtl, "defaultPassportTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := httputil.CheckStringOption(opts.MaxPassportTokenTtl, "maxPassportTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.MaxPassportTokenTtl, "maxPassportTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := httputil.CheckStringOption(opts.AuthCodeTokenTtl, "authCodeTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.AuthCodeTokenTtl, "authCodeTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := httputil.CheckStringOption(opts.AccessTokenTtl, "accessTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.AccessTokenTtl, "accessTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := httputil.CheckStringOption(opts.RefreshTokenTtl, "refreshTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.RefreshTokenTtl, "refreshTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := httputil.CheckStringOption(opts.ClaimTtlCap, "claimTtlCap", descs); err != nil {
+	if err := check.CheckStringOption(opts.ClaimTtlCap, "claimTtlCap", descs); err != nil {
 		return err
 	}
 	dpTTL := getDurationOption(opts.DefaultPassportTokenTtl, descDefaultPassportTokenTTL)
@@ -1504,7 +1505,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		return fmt.Errorf("defaultPassportTtl (%s) must not be greater than maxPassportTtl (%s)", dpTTL, mpTTL)
 	}
 
-	if _, err := httputil.CheckUI(cfg.Ui, true); err != nil {
+	if _, err := check.CheckUI(cfg.Ui, true); err != nil {
 		return fmt.Errorf("config root: %v", err)
 	}
 

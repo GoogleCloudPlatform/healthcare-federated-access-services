@@ -41,6 +41,15 @@ func Read(path string) ([]byte, error) {
 	return b, nil
 }
 
+// LoadFile reads a file in the repo given its relative path to the root of module and returns a string.
+func LoadFile(path string) (string, error) {
+	b, err := Read(path)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
+}
+
 func moduleRoot() string {
 	projectRoot := os.Getenv("PROJECT_ROOT")
 	return projectRoot

@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -126,7 +127,7 @@ func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string,
 		return err
 	}
 	// Assumes that secrets don't change within this handler.
-	if h.s.useHydra && !httputil.ClientsEqual(h.cfg.Clients, h.save.Clients) {
+	if h.s.useHydra && !check.ClientsEqual(h.cfg.Clients, h.save.Clients) {
 		if err = h.s.syncToHydra(h.save.Clients, secrets.ClientSecrets, 0); err != nil {
 			return err
 		}
