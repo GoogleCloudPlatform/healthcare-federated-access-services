@@ -1219,7 +1219,7 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 	}
 	stateID, ok := st.(string)
 	if !ok {
-		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", hydra.StateIDKey)
+		t.Errorf("AcceptLoginReq.Context[%s] is wrong type", hydra.StateIDKey)
 	}
 
 	state := &cpb.AuthTokenState{}

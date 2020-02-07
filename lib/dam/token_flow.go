@@ -42,10 +42,10 @@ const (
 )
 
 var (
-	// viewPathRE is for realm name, resource name and view name lookup only.
-	viewPathRE = regexp.MustCompile(`^([^\s/]*)/resources/([^\s/]*)/views/([^\s/]*)$`)
-	// rolePathRE is for realm name, resource name, view name and role name lookup only.
-	rolePathRE = regexp.MustCompile(`^([^\s/]*)/resources/([^\s/]*)/views/([^\s/]*)/roles/([^\s/]*)$`)
+	// resourcePathRE is for realm name, resource name, view name, role name, and interface name lookup only.
+	resourcePathRE = regexp.MustCompile(`^([^\s/]*)/resources/([^\s/]+)/views/([^\s/]+)/roles/([^\s/]+)/interfaces/([^\s/]+)$`)
+	// TODO: remove this older path when DDAP no longer uses it
+	oldResourcePathRE = regexp.MustCompile(`^([^\s/]*)/resources/([^\s/]+)/views/([^\s/]+)/roles/([^\s/]+)$`)
 )
 
 func extractBearerToken(r *http.Request) (string, error) {
@@ -199,14 +199,17 @@ func (s *Service) resourceViewRoleFromRequest(list []string) ([]resourceViewRole
 		prefix := s.domainURL + "/dam/"
 		path := strings.ReplaceAll(res, prefix, "")
 
-		m := viewPathRE.FindStringSubmatch(path)
-		if len(m) > 3 {
-			out = append(out, resourceViewRole{realm: m[1], resource: m[2], view: m[3]})
-			continue
+		m := resourcePathRE.FindStringSubmatch(path)
+		if len(m) == 0 {
+			// TODO: remove support for oldResourcePath
+			m = oldResourcePathRE.FindStringSubmatch(path)
+			if len(m) > 4 {
+				m = append(m, "")
+			}
 		}
-		m = rolePathRE.FindStringSubmatch(path)
-		if len(m) > 4 {
-			out = append(out, resourceViewRole{realm: m[1], resource: m[2], view: m[3], role: m[4], url: res})
+
+		if len(m) > 5 {
+			out = append(out, resourceViewRole{realm: m[1], resource: m[2], view: m[3], role: m[4], interf: m[5], url: res})
 			continue
 		}
 		return nil, fmt.Errorf("resource %q has invalid format", res)
@@ -220,6 +223,7 @@ type resourceViewRole struct {
 	resource string
 	view     string
 	role     string
+	interf   string
 	url      string
 }
 
@@ -284,6 +288,7 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (*authHandlerOut, 
 		resName := rvr.resource
 		viewName := rvr.view
 		roleName := rvr.role
+		interf := rvr.interf
 		if err := checkName(resName); err != nil {
 			return nil, http.StatusBadRequest, err
 		}
@@ -306,13 +311,28 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (*authHandlerOut, 
 		if !viewHasRole(view, grantRole) {
 			return nil, http.StatusBadRequest, fmt.Errorf("role %q is not defined on resource %q view %q", grantRole, resName, viewName)
 		}
+		st, ok := cfg.ServiceTemplates[view.ServiceTemplate]
+		if !ok {
+			return nil, http.StatusInternalServerError, fmt.Errorf("service template %q is invalid for resource %q view %q", view.ServiceTemplate, resName, viewName)
+		}
+		// TODO: remove support for oldResourcePath
+		if len(interf) == 0 {
+			for k := range st.Interfaces {
+				interf = k
+				break
+			}
+		}
+		if _, ok = st.Interfaces[interf]; !ok {
+			return nil, http.StatusBadRequest, fmt.Errorf("interface %q is not defined on resource %q view %q service template %q", interf, resName, viewName, view.ServiceTemplate)
+		}
 
 		list = append(list, &pb.ResourceTokenRequestState_Resource{
-			Realm:    rvr.realm,
-			Resource: resName,
-			View:     viewName,
-			Role:     grantRole,
-			Url:      rvr.url,
+			Realm:     rvr.realm,
+			Resource:  resName,
+			View:      viewName,
+			Role:      grantRole,
+			Interface: interf,
+			Url:       rvr.url,
 		})
 	}
 

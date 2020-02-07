@@ -948,9 +948,10 @@ func TestLogin_Hydra_Success(t *testing.T) {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
-	ga4ghGCS := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read")
-	ga4ghGCSViewer := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer")
-	ga4ghBeaconDiscovery := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/beacon/roles/discovery")
+	ga4ghGCSViewer := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer/interfaces/http:gcp:gs")
+	ga4ghBeaconDiscovery := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/beacon/roles/discovery/interfaces/http:beacon")
+	// TODO: remove support for oldResourcePath
+	oldGCSViewer := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer")
 
 	tests := []struct {
 		name              string
@@ -961,12 +962,6 @@ func TestLogin_Hydra_Success(t *testing.T) {
 		{
 			name:              "single resource with role",
 			authParams:        "max_age=10&resource=" + ga4ghGCSViewer,
-			wantTTL:           int64(10 * time.Second),
-			wantResourceCount: 1,
-		},
-		{
-			name:              "single resource without role",
-			authParams:        "max_age=10&resource=" + ga4ghGCS,
 			wantTTL:           int64(10 * time.Second),
 			wantResourceCount: 1,
 		},
@@ -987,6 +982,12 @@ func TestLogin_Hydra_Success(t *testing.T) {
 			name:              "no ttl or maxAge",
 			authParams:        "resource=" + ga4ghGCSViewer,
 			wantTTL:           int64(defaultTTL),
+			wantResourceCount: 1,
+		},
+		{
+			name:              "old resource path",
+			authParams:        "max_age=10&resource=" + oldGCSViewer,
+			wantTTL:           int64(10 * time.Second),
 			wantResourceCount: 1,
 		},
 	}
@@ -1054,7 +1055,7 @@ func TestLogin_Hydra_Error(t *testing.T) {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
-	ga4ghGCSViewer := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer")
+	ga4ghGCSViewer := url.QueryEscape("https://test.org/dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer/interfaces/http:gcp:gs")
 
 	tests := []struct {
 		name       string
@@ -1117,8 +1118,13 @@ func TestLogin_Hydra_Error(t *testing.T) {
 			respCode:   http.StatusBadRequest,
 		},
 		{
+			name:       "resource interface not exist",
+			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "gcp", "invalid"),
+			respCode:   http.StatusBadRequest,
+		},
+		{
 			name:       "second resource invalid",
-			authParams: "resource=" + ga4ghGCSViewer + "resource=invalid",
+			authParams: "resource=" + ga4ghGCSViewer + "&resource=invalid",
 			respCode:   http.StatusBadRequest,
 		},
 	}
@@ -1127,7 +1133,7 @@ func TestLogin_Hydra_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := sendLogin(s, cfg, h, tc.authParams, nil)
 			if resp.StatusCode != tc.respCode {
-				t.Errorf("resp.StatusCode wants %d, got %d", tc.respCode, resp.StatusCode)
+				t.Errorf("test case %q: sendLogin(_, _, _, %q, nil) = %+v, resp.StatusCode want %d, got %d", tc.name, tc.authParams, resp, tc.respCode, resp.StatusCode)
 			}
 		})
 	}
@@ -1296,7 +1302,7 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 	}
 	stateID, ok := st.(string)
 	if !ok {
-		t.Errorf("AcceptLoginReq.Context[%s] in wrong type", stateIDInHydra)
+		t.Errorf("AcceptLoginReq.Context[%s] is wrong type", stateIDInHydra)
 	}
 	if _, ok := h.AcceptLoginReq.Context["identities"]; ok {
 		t.Errorf("AcceptLoginReq.Context[identities] should not exists")

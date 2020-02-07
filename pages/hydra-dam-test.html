@@ -28,7 +28,7 @@
       var tokenURL = "_HYDRA_URL_/oauth2/token";
       var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
       var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
-      var resourceURL = "_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
+      var resourceURL = "_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_/interfaces/_INTERFACE_"
       var resources = {};
       var checkoutURL = "_DAM_URL_/dam/checkout?client_id="+clientId+"&client_secret="+clientSecret;
 
@@ -102,7 +102,7 @@
         return s.replace(" ", "+")
       }
       function makeURL(pattern, token, params, state, resources) {
-        var path = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + window.location.pathname;
+        var path = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + (window.location.pathname == "/" ? "" : window.location.pathname);
         var hydraUrl = $("#hydra_url").val();
         var damUrl = $("#dam_url").val();
         if (damUrl.startsWith("http://localhost:")) {
@@ -125,6 +125,7 @@
                       .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
                       .replace(/_VIEW_/g, encodeURIComponent($("#resource_view").val()))
                       .replace(/_ROLE_/g, encodeURIComponent($("#resource_role").val()))
+                      .replace(/_INTERFACE_/g, encodeURIComponent($("#resource_interface").val()))
                       .replace(/_DAM_URL_/g, encodeURI($("#dam_url").val()))
                       .replace(/_HYDRA_URL_/g, encodeURI($("#hydra_url").val()))
                       .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
@@ -217,7 +218,14 @@
                 for (var role in view.roles) {
                   roles.push(role)
                 }
-                views[viewName] = roles;
+                var interf = [];
+                for (var intf in view.interfaces) {
+                  interf.push(intf)
+                }
+                views[viewName] = {
+                  "roles": roles,
+                  "interfaces": interf
+                }
               }
               resources[resName] = views;
             }
@@ -272,7 +280,8 @@
       function viewChanged() {
         var val = $('#resource_view').val();
         var list = resources[$('#resource_name').val()][val];
-        populateDropdown('resource_role', list);
+        populateDropdown('resource_role', list.roles);
+        populateDropdown('resource_interface', list.interfaces);
       }
       function resourceListChanged() {
         var txt = $("#resources").val();
@@ -290,7 +299,8 @@
         window.location.href = makeURL("_PATH_");
       }
       function add() {
-        var resURL = makeURL(resourceURL)
+        // Decode resources for now as they are URI encoded when sent as part of auth() request.
+        var resURL = decodeURIComponent(makeURL(resourceURL))
         var resources = $("#resources").val();
         resources = resources ? resources + "\n" + resURL : resURL;
         $("#resources").val(resources);
@@ -391,9 +401,10 @@
       <label for="dam_url">DAM URL: </label>
       <input id="dam_url" style="width:40%" value="${DAM_URL}" onchange="populateResources()">
 
-      <select id="resource_name" style="width:33%" onchange="resourceChanged()"></select>
-      <select id="resource_view" style="width:33%" onchange="viewChanged()"></select>
-      <select id="resource_role" style="width:33%"></select>
+      <select id="resource_name" style="width:24%" onchange="resourceChanged()"></select>
+      <select id="resource_view" style="width:24%" onchange="viewChanged()"></select>
+      <select id="resource_role" style="width:24%"></select>
+      <select id="resource_interface" style="width:24%"></select>
       <div>
         <a class="btn blue" onclick="add()">Include Resource</a>
         <a class="btn white" onclick="localDam()">Local DAM</a>

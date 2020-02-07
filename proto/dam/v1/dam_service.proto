@@ -477,7 +477,8 @@ message ResourceTokenRequestState {
     string resource = 2;
     string view = 3;
     string role = 4;
-    string url = 5;
+    string interface = 5;
+    string url = 6;
   }
   repeated Resource resources = 1;
   string client_id = 2 [deprecated = true];
