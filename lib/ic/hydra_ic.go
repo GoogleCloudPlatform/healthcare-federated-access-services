@@ -319,6 +319,17 @@ func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, sta
 		},
 	}
 
+	if len(scoped.Identities) != 0 {
+		var identities []string
+		for k := range scoped.Identities {
+			identities = append(identities, k)
+		}
+
+		req.Session.AccessToken = map[string]interface{}{
+			"identities": identities,
+		}
+	}
+
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
 	if err != nil {
 		common.HandleError(http.StatusServiceUnavailable, err, w)

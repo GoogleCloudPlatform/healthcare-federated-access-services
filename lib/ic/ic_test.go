@@ -1318,6 +1318,13 @@ func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Ser
 	acct := &cpb.Account{
 		Properties: &cpb.AccountProperties{Subject: LoginSubject},
 		State:      "ACTIVE",
+		ConnectedAccounts: []*cpb.ConnectedAccount{
+			{
+				Properties: &cpb.AccountProperties{
+					Subject: "foo@bar.com",
+				},
+			},
+		},
 	}
 	err = s.store.Write(storage.AccountDatatype, storage.DefaultRealm, storage.DefaultUser, LoginSubject, storage.LatestRev, acct, nil)
 	if err != nil {
@@ -1440,6 +1447,41 @@ func TestAcceptInformationRelease_Hydra_Reject(t *testing.T) {
 
 	if h.RejectConsentReq == nil {
 		t.Errorf("RejectConsentReq got nil")
+	}
+}
+
+func TestAcceptInformationRelease_Hydra_Endpoint(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	const scope = "openid profile identities"
+
+	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID, agree)
+	if err != nil {
+		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, agree, err)
+	}
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	if l := resp.Header.Get("Location"); l != hydraURL {
+		t.Errorf("resp.Location wants %s got %s", hydraURL, l)
+	}
+
+	if h.RejectConsentReq != nil {
+		t.Errorf("RejectConsentReq wants nil got %v", h.RejectConsentReq)
+	}
+
+	if diff := cmp.Diff(h.AcceptConsentReq.GrantedScope, strings.Split(scope, " ")); len(diff) != 0 {
+		t.Errorf("AcceptConsentReq.GrantedScope wants %s got %v", scope, h.AcceptConsentReq.GrantedScope)
+	}
+
+	want := []interface{}{"foo@bar.com"}
+	if diff := cmp.Diff(want, h.AcceptConsentReq.Session.AccessToken["identities"]); len(diff) != 0 {
+		t.Errorf("AcceptConsentReq.GrantedScope (-wants, +got) %s", diff)
 	}
 }
 

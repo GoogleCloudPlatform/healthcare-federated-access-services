@@ -19,6 +19,7 @@ package ic
 import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"google3/third_party/golang/klog/glog/glog"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
@@ -41,6 +42,37 @@ func (s *authChecker) isAdmin(id *ga4gh.Identity) error {
 	return err
 }
 
+// transformIdentity move "identities" claim in "ext" claim to top level identities claim for hydra.
 func (s *authChecker) transformIdentity(id *ga4gh.Identity) *ga4gh.Identity {
+	if !s.s.useHydra {
+		return id
+	}
+
+	// move "identities" claim in "ext" claim to top level identities claim.
+	l, ok := id.Extra["identities"]
+	if !ok {
+		return id
+	}
+
+	list, ok := l.([]interface{})
+	if !ok {
+		glog.Warning("id.Extra[identities] in wrong type")
+		return id
+	}
+
+	if id.Identities == nil {
+		id.Identities = map[string][]string{}
+	}
+
+	for i, it := range list {
+		identity, ok := it.(string)
+		if !ok {
+			glog.Warningf("id.Extra[identities][%d] in wrong type", i)
+			continue
+		}
+
+		id.Identities[identity] = nil
+	}
+
 	return id
 }
