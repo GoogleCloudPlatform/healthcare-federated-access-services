@@ -17,9 +17,9 @@
 package ic
 
 import (
+	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"google3/third_party/golang/klog/glog/glog"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
