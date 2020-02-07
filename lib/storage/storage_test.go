@@ -31,6 +31,9 @@ func TestFilters(t *testing.T) {
 		"test.fruit": func(p proto.Message) string {
 			return "FRUIT"
 		},
+		"active": func(p proto.Message) string {
+			return "true"
+		},
 	}
 	tests := []struct {
 		input string
@@ -321,6 +324,33 @@ func TestFilters(t *testing.T) {
 						compare: "le",
 						value:   "app",
 					},
+				},
+			},
+			ok: false,
+		},
+		{
+			input: `active eq true`,
+			want: [][]Filter{
+				{
+					{compare: "eq", value: "true"},
+				},
+			},
+			ok: true,
+		},
+		{
+			input: `active ne true`,
+			want: [][]Filter{
+				{
+					{compare: "ne", value: "true"},
+				},
+			},
+			ok: false,
+		},
+		{
+			input: `active eq false`,
+			want: [][]Filter{
+				{
+					{compare: "eq", value: "false"},
 				},
 			},
 			ok: false,

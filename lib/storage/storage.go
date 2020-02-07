@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 )
 
 const (
@@ -59,7 +60,10 @@ const (
 )
 
 var (
-	orFilterRE = regexp.MustCompile(`(?i)(([^\s]+)\s+(eq|ne|co|sw|ew|pr|gt|ge|lt|le)\s+"([^"]*)(\s+(or|OR|Or|oR)\s+)?)+"`)
+	// orCheckRE checks that an entire OR-expression filter matches the pattern expected.
+	orCheckRE = regexp.MustCompile(`^(?i)\s*[^\s]+\s+(eq|ne|co|sw|ew|pr|gt|ge|lt|le)\s+("[^"]*"|true|false)(\s+or\s+[^\s]+\s+(eq|ne|co|sw|ew|pr|gt|ge|lt|le)\s+("[^"]*"|true|false))*\s*$`)
+	// orFilterRE extracts single clauses from an OR-expression filter.
+	orFilterRE = regexp.MustCompile(`(?i)([^\s]+)\s+(eq|ne|co|sw|ew|pr|gt|ge|lt|le)\s+("[^"]*"|true|false)`)
 )
 
 // Store is an interface to the storage layer.
@@ -119,7 +123,7 @@ func BuildFilters(str string, fields map[string]func(p proto.Message) string) ([
 		return nil, nil
 	}
 	var out [][]Filter
-	ands := strings.Split(str, " and ")
+	ands := common.QuoteSplit(str, " and ", false)
 	for _, a := range ands {
 		var ors []Filter
 		a = strings.Trim(a, " ")
@@ -130,29 +134,36 @@ func BuildFilters(str string, fields map[string]func(p proto.Message) string) ([
 			a = a[1 : len(a)-1]
 		}
 		// Perform additional checks to improve error handling.
-		parts := strings.Split(a, " ")
+		parts := common.QuoteSplit(a, " ", false)
 		for _, p := range parts {
-			if strings.HasPrefix(p, `"`) && strings.HasSuffix(p, `"`) {
+			if strings.HasPrefix(p, `"`) {
 				continue
 			}
 			if strings.Contains(p, "(") || strings.Contains(p, ")") {
-				return nil, fmt.Errorf("mismtched brackets on filter %q", str)
+				return nil, fmt.Errorf("mismatched or nested brackets on filter %q", str)
 			}
 			if strings.ToLower(p) == "or" && !brackets && len(ands) > 1 {
 				return nil, fmt.Errorf("brackets around OR clauses are required in filter %q", str)
 			}
 		}
 		// Use regexp to parse the OR clause or simple expression.
+		if !orCheckRE.MatchString(a) {
+			return nil, fmt.Errorf("invalid filter %q", str)
+		}
 		match := orFilterRE.FindAllStringSubmatch(a, -1)
 		if len(match) == 0 {
 			return nil, fmt.Errorf("invalid filter %q", str)
 		}
 		for _, m := range match {
-			fn, ok := fields[strings.ToLower(m[2])]
+			fn, ok := fields[strings.ToLower(m[1])]
 			if !ok {
-				return nil, fmt.Errorf("field %q not defined", m[2])
+				return nil, fmt.Errorf("field %q not defined", m[1])
 			}
-			ors = append(ors, Filter{extract: fn, compare: strings.ToLower(m[3]), value: strings.ToLower(m[4])})
+			val := strings.ToLower(m[3])
+			if strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`) {
+				val = val[1 : len(val)-1]
+			}
+			ors = append(ors, Filter{extract: fn, compare: strings.ToLower(m[2]), value: val})
 		}
 		out = append(out, ors)
 	}

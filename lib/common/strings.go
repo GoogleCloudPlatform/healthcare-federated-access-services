@@ -174,3 +174,28 @@ func IsTimeZone(name string) bool {
 	}
 	return false
 }
+
+// QuoteSplit is similiar to strings.Split() but doesn't split within double-quotes.
+func QuoteSplit(str, separator string, stripQuotes bool) []string {
+	out := []string{}
+	quotes := false
+	start := 0
+	for i, ch := range str {
+		switch {
+		case ch == '"':
+			quotes = !quotes
+		case !quotes && strings.HasPrefix(str[i:], separator):
+			out = append(out, str[start:i])
+			start = i + len(separator)
+		}
+	}
+	if start < len(str) {
+		out = append(out, str[start:])
+	}
+	if stripQuotes {
+		for i, s := range out {
+			out[i] = strings.Replace(s, `"`, "", -1)
+		}
+	}
+	return out
+}
