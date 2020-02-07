@@ -15,7 +15,7 @@
       "ui": {
         "label": "Google",
         "description": "Google identity provider",
-        "iconUrl": "/identity/static/google_identity.png"
+        "iconUrl": "/identity/static/images/google_identity.png"
       }
     },
     "persona": {

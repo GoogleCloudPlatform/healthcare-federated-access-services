@@ -14,7 +14,7 @@
       "ui": {
         "label": "Example",
         "description": "Example identity provider",
-        "iconUrl": "/identity/static/idp.png"
+        "iconUrl": "/identity/static/images/idp.png"
       }
     }
   },
