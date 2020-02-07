@@ -19,41 +19,22 @@
 <head>
   <meta charset="UTF-8">
   <title>Title</title>
-</head>
-<body>
+  <script src="${ASSET_DIR}/js/inforelease.js"></script>
+  <script>
+  var info = [${INFORMATION}];
+  var state = '${STATE}';
+  var path = '${PATH}';
+</script>
 
+</head>
+<body onLoad="onInit(info);">
 <div id="information-release">
   By clicking "Agree", you agree to release your following information to ${APPLICATION_NAME}
   <ul id="list">
   </ul>
 </div>
 
-<button id="agree">Agree</button>
-<button id="disagree">Disagree</button>
-
-<script>
-  let ul = document.getElementById("list");
-  let info = [${INFORMATION}];
-  for (let i of info) {
-    let li = document.createElement("li");
-    li.appendChild(document.createTextNode(i));
-    ul.appendChild(li);
-  }
-
-  function agree(yes) {
-    let state = "${STATE}";
-    let path = "${PATH}";
-    var url = [location.protocol, '//', location.host, path].join('');
-    url += "?state=" + encodeURIComponent(state) +
-        "&agree=" + encodeURIComponent(yes ? "y" : "n");
-    window.location.href = url;
-  }
-
-  let btn_agree = document.getElementById("agree");
-  let btn_disagree = document.getElementById("disagree");
-  btn_agree.onclick = () => agree(true);
-  btn_disagree.onclick = () => agree(false);
-</script>
-
+<button id="agree" onclick="agree(state,path,true);">Agree</button>
+<button id="disagree" onclick="agree(state,path,false);">Disagree</button>
 </body>
 </html>
