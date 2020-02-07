@@ -29,3 +29,8 @@ For information on how to deploy Federated Access, see [How To Deploy Federated 
 For configuration examples, see [deploy/config/ic-template](deploy/config/ic-template) and [deploy/config/ic-template](deploy/config/ic-template).
 
 For more information, see [IcConfig](proto/ic/v1/ic_service.proto) and [DamConfig](proto/dam/v1/dam_service.proto).
+
+## APIs
+
+For information about API endpoints available in Federated Access components,
+please refer to [API documentation](apis.md).
