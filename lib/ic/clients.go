@@ -19,8 +19,8 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -75,14 +75,14 @@ func (c *clientService) Save(tx storage.Tx, desc, typeName string, r *http.Reque
 }
 
 func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModification) *status.Status {
-	if err := common.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(codes.InvalidArgument, err.Error())
+	if err := httputil.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := configRevision(toICModification(m), c.cfg); err != nil {
-		return common.NewStatus(codes.InvalidArgument, err.Error())
+		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return common.NewStatus(codes.InvalidArgument, err.Error())
+		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	return nil
 }
@@ -108,14 +108,14 @@ func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModificatio
 //   Return nothing
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) configClientFactory() *common.HandlerFactory {
+func (s *Service) configClientFactory() *httputil.HandlerFactory {
 	c := &clientService{s: s}
 
-	return &common.HandlerFactory{
+	return &httputil.HandlerFactory{
 		TypeName:            "configClient",
 		PathPrefix:          configClientsPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return oathclients.NewAdminClientHandler(w, r, c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL)
 		},
 	}

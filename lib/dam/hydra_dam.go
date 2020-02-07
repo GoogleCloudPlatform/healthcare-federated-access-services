@@ -46,7 +46,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -56,7 +56,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -75,14 +75,14 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		in.tokenType = pb.ResourceTokenRequestState_DATASET
 		in.ttl, err = extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
 		if err != nil {
-			common.HandleError(http.StatusBadRequest, err, w)
+			httputil.HandleError(http.StatusBadRequest, err, w)
 			return
 		}
 
 		list := u.Query()["resource"]
 		in.resources, err = s.resourceViewRoleFromRequest(list)
 		if err != nil {
-			common.HandleError(http.StatusBadRequest, err, w)
+			httputil.HandleError(http.StatusBadRequest, err, w)
 			return
 		}
 
@@ -91,7 +91,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	out, st, err := s.auth(r.Context(), in)
 	if err != nil {
-		common.HandleError(st, err, w)
+		httputil.HandleError(st, err, w)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -154,11 +154,11 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 }
 
 func (s *Service) extractCartFromAccessToken(token string) (string, error) {

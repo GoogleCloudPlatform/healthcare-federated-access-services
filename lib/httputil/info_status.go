@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package httputil
 
 import (
 	"strings"
@@ -20,16 +20,11 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 
 	errpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
 )
 
 var (
-	// FromError is temprorary aliases.
-	FromError = httputil.FromError
-	// FromCode is temprorary aliases.
-	FromCode = httputil.HTTPStatus
 	// NewStatus is temprorary aliases.
 	NewStatus = status.New
 )

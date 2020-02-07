@@ -28,6 +28,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	"github.com/cenkalti/backoff" /* copybara-comment */
@@ -137,7 +138,7 @@ func (wh *AccountWarehouse) RegisterAccountProject(realm, project string, maxReq
 
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
 func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
-	if ttl > maxAccessTokenTTL || common.IsJSON(params.TokenFormat) {
+	if ttl > maxAccessTokenTTL || httputil.IsJSON(params.TokenFormat) {
 		return wh.GetAccountKey(ctx, id, ttl, maxTTL, numKeys, params)
 	}
 	return wh.GetAccessToken(ctx, id, params)
@@ -234,7 +235,7 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 		return nil, fmt.Errorf("creating key: %v", err)
 	}
 
-	if common.IsJSON(params.TokenFormat) {
+	if httputil.IsJSON(params.TokenFormat) {
 		bytes, err := base64.StdEncoding.DecodeString(key.PrivateKeyData)
 		if err != nil {
 			return nil, fmt.Errorf("decoding key: %v", err)

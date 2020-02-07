@@ -22,8 +22,8 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -31,12 +31,12 @@ import (
 )
 
 // HTTP handler for ".../config"
-func (s *Service) configFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) configFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "config",
 		PathPrefix:          configPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &config{
 				s:     s,
 				w:     w,
@@ -67,7 +67,7 @@ func (c *config) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (c *config) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.GetRequest(c.input, c.r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -89,7 +89,7 @@ func (c *config) NormalizeInput(name string, vars map[string]string) error {
 	return nil
 }
 func (c *config) Get(name string) error {
-	common.SendResponse(makeConfig(c.cfg), c.w)
+	httputil.SendResponse(makeConfig(c.cfg), c.w)
 	return nil
 }
 func (c *config) Post(name string) error {
@@ -112,20 +112,20 @@ func (c *config) Remove(name string) error {
 }
 func (c *config) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
-	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(bad, err.Error())
+	if err := httputil.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+		return httputil.NewStatus(bad, err.Error())
 	}
 	if len(c.input.Item.Version) == 0 {
-		return common.NewStatus(bad, "missing config version")
+		return httputil.NewStatus(bad, "missing config version")
 	}
 	if c.input.Item.Revision <= 0 {
-		return common.NewStatus(bad, "invalid config revision")
+		return httputil.NewStatus(bad, "invalid config revision")
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
+		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.input.Item); err != nil {
-		return common.NewStatus(bad, err.Error())
+		return httputil.NewStatus(bad, err.Error())
 	}
 	return nil
 }
@@ -138,7 +138,7 @@ func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 		return err
 	}
 	// Assumes that secrets don't change within this handler.
-	if c.s.useHydra && !common.ClientsEqual(c.input.Item.Clients, c.cfg.Clients) {
+	if c.s.useHydra && !httputil.ClientsEqual(c.input.Item.Clients, c.cfg.Clients) {
 		if err = c.s.syncToHydra(c.input.Item.Clients, secrets.ClientSecrets, 0); err != nil {
 			return err
 		}
@@ -147,12 +147,12 @@ func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 }
 
 // HTTP handler for ".../config/identityProviders/{name}"
-func (s *Service) configIdpFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) configIdpFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "configIDP",
 		PathPrefix:          configIdentityProvidersPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &configIDP{
 				s:     s,
 				w:     w,
@@ -190,7 +190,7 @@ func (c *configIDP) LookupItem(name string, vars map[string]string) bool {
 	return false
 }
 func (c *configIDP) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.GetRequest(c.input, c.r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -205,7 +205,7 @@ func (c *configIDP) NormalizeInput(name string, vars map[string]string) error {
 	return nil
 }
 func (c *configIDP) Get(name string) error {
-	common.SendResponse(c.item, c.w)
+	httputil.SendResponse(c.item, c.w)
 	return nil
 }
 func (c *configIDP) Post(name string) error {
@@ -234,14 +234,14 @@ func (c *configIDP) Remove(name string) error {
 }
 func (c *configIDP) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
-	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(bad, err.Error())
+	if err := httputil.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
+		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
+		return httputil.NewStatus(bad, err.Error())
 	}
 	return nil
 }
@@ -256,12 +256,12 @@ func (c *configIDP) Save(tx storage.Tx, name string, vars map[string]string, des
 }
 
 // HTTP handler for ".../config/options"
-func (s *Service) configOptionsFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) configOptionsFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "configOptions",
 		PathPrefix:          configOptionsPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &configOptions{
 				s:     s,
 				w:     w,
@@ -298,7 +298,7 @@ func (c *configOptions) LookupItem(name string, vars map[string]string) bool {
 }
 
 func (c *configOptions) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.GetRequest(c.input, c.r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -309,7 +309,7 @@ func (c *configOptions) NormalizeInput(name string, vars map[string]string) erro
 }
 
 func (c *configOptions) Get(name string) error {
-	common.SendResponse(makeConfigOptions(c.item), c.w)
+	httputil.SendResponse(makeConfigOptions(c.item), c.w)
 	return nil
 }
 
@@ -340,14 +340,14 @@ func (c *configOptions) Remove(name string) error {
 
 func (c *configOptions) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
-	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(bad, err.Error())
+	if err := httputil.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
+		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
+		return httputil.NewStatus(bad, err.Error())
 	}
 	return nil
 }
@@ -370,14 +370,14 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 	// TODO: consider requiring an "admin" scope (modify all admin handlerSetup calls).
 	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		common.HandleError(status, err, w)
+		httputil.HandleError(status, err, w)
 		return
 	}
 	h, status, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
-		common.HandleError(status, err, w)
+		httputil.HandleError(status, err, w)
 	}
-	common.SendResponse(h, w)
+	httputil.SendResponse(h, w)
 }
 
 // ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
@@ -385,35 +385,35 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 	name := getName(r)
 	rev, err := strconv.ParseInt(name, 10, 64)
 	if err != nil {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("invalid history revision: %q (must be a positive integer)", name), w)
+		httputil.HandleError(http.StatusBadRequest, fmt.Errorf("invalid history revision: %q (must be a positive integer)", name), w)
 		return
 	}
 	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		common.HandleError(status, err, w)
+		httputil.HandleError(status, err, w)
 		return
 	}
 	cfg := &pb.IcConfig{}
 	if status, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
-		common.HandleError(status, err, w)
+		httputil.HandleError(status, err, w)
 		return
 	}
-	common.SendResponse(cfg, w)
+	httputil.SendResponse(cfg, w)
 }
 
 // ConfigReset implements the corresponding method in the IC API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		common.HandleError(status, err, w)
+		httputil.HandleError(status, err, w)
 		return
 	}
 	if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 	if err = s.ImportFiles(importDefault); err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
@@ -421,18 +421,18 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if s.useHydra {
 		conf, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 
 		secrets, err := s.loadSecrets(nil)
 		if err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 
 		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, conf.Clients, secrets.ClientSecrets); err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 	}

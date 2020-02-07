@@ -17,7 +17,7 @@ package ic
 import (
 	"net/http"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
@@ -29,7 +29,7 @@ import (
 func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 	resp := &pb.GetIdentityProvidersResponse{
@@ -38,25 +38,25 @@ func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 	for name, idp := range cfg.IdentityProviders {
 		resp.IdentityProviders[name] = makeIdentityProvider(idp)
 	}
-	common.SendResponse(resp, w)
+	httputil.SendResponse(resp, w)
 }
 
 // PassportTranslators returns part of config: Passport Translators
 func (s *Service) PassportTranslators(w http.ResponseWriter, r *http.Request) {
 	out := translator.GetPassportTranslators()
-	common.SendResponse(out, w)
+	httputil.SendResponse(out, w)
 }
 
 // HTTP handler for ".../clients/{name}"
 // Return self client information.
-func (s *Service) clientFactory() *common.HandlerFactory {
+func (s *Service) clientFactory() *httputil.HandlerFactory {
 	c := &clientService{s: s}
 
-	return &common.HandlerFactory{
+	return &httputil.HandlerFactory{
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return oathclients.NewClientHandler(w, r, c)
 		},
 	}

@@ -18,7 +18,7 @@ import (
 	"net/http"
 
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -57,7 +57,7 @@ func (h *realmHandler) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (h *realmHandler) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(h.input, h.r); err != nil {
+	if err := httputil.GetRequest(h.input, h.r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -67,7 +67,7 @@ func (h *realmHandler) NormalizeInput(name string, vars map[string]string) error
 }
 func (h *realmHandler) Get(name string) error {
 	if h.item != nil {
-		common.SendResponse(h.item, h.w)
+		httputil.SendResponse(h.item, h.w)
 	}
 	return nil
 }

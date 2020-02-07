@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package httputil
 
 import (
 	"encoding/json"
@@ -29,7 +29,6 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
@@ -248,14 +247,14 @@ func HandleError(num int, err error, w http.ResponseWriter) {
 
 func handleIntegrityError(stat *status.Status, w http.ResponseWriter) {
 	if len(stat.Details()) > 0 {
-		httputil.WriteStatus(w, stat)
+		WriteStatus(w, stat)
 		return
 	}
-	HandleError(FromCode(stat.Code()), fmt.Errorf("%s", stat.Message()), w)
+	HandleError(HTTPStatus(stat.Code()), fmt.Errorf("%s", stat.Message()), w)
 }
 
 func AddCorsHeaders(w http.ResponseWriter) {
-	httputil.WriteCorsHeaders(w)
+	WriteCorsHeaders(w)
 }
 
 func GetRequest(pb proto.Message, r *http.Request) error {

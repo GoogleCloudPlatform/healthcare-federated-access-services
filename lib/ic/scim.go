@@ -128,12 +128,12 @@ func linkProto(p proto.Message) *cpb.ConnectedAccount {
 	return link
 }
 
-func (s *Service) scimMeFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) scimMeFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "user",
 		PathPrefix:          scimMePath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &scimMe{
 				s: s,
 				w: w,
@@ -209,12 +209,12 @@ func (h *scimMe) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) scimUserFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) scimUserFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "user",
 		PathPrefix:          scimUserPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &scimUser{
 				s:     s,
 				w:     w,
@@ -283,7 +283,7 @@ func (h *scimUser) NormalizeInput(name string, vars map[string]string) error {
 
 // Get sends a GET method response
 func (h *scimUser) Get(name string) error {
-	return common.SendResponse(h.s.newScimUser(h.item, getRealm(h.r)), h.w)
+	return httputil.SendResponse(h.s.newScimUser(h.item, getRealm(h.r)), h.w)
 }
 
 // Post receives a POST method request
@@ -436,7 +436,7 @@ func (h *scimUser) Patch(name string) error {
 			return fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
 		}
 	}
-	return common.SendResponse(h.s.newScimUser(h.save, getRealm(h.r)), h.w)
+	return httputil.SendResponse(h.s.newScimUser(h.save, getRealm(h.r)), h.w)
 }
 
 // Remove receives a DELETE method request
@@ -534,12 +534,12 @@ func linkToken(r *http.Request) (string, error) {
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) scimUsersFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) scimUsersFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "users",
 		PathPrefix:          scimUsersPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &scimUsers{
 				s: s,
 				w: w,
@@ -577,19 +577,19 @@ func (h *scimUsers) NormalizeInput(name string, vars map[string]string) error {
 
 // Get sends a GET method response
 func (h *scimUsers) Get(name string) error {
-	filters, err := storage.BuildFilters(common.GetParam(h.r, "filter"), scimUserFilterMap)
+	filters, err := storage.BuildFilters(httputil.GetParam(h.r, "filter"), scimUserFilterMap)
 	if err != nil {
 		return err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := common.ExtractIntParam(h.r, "startIndex")
+	start := httputil.ExtractIntParam(h.r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := common.ExtractIntParam(h.r, "count")
-	if len(common.GetParam(h.r, "count")) == 0 {
+	max := httputil.ExtractIntParam(h.r, "count")
+	if len(httputil.GetParam(h.r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 

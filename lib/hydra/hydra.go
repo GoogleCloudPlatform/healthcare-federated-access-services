@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 )
 
@@ -187,14 +186,14 @@ func putURL(hydraAdminURL, flow, action, challenge string) string {
 func httpResponse(resp *http.Response, response interface{}) error {
 	if httputil.IsHTTPError(resp.StatusCode) {
 		gErr := &hydraapi.GenericError{}
-		if err := common.DecodeJSONFromBody(resp.Body, gErr); err != nil {
+		if err := httputil.DecodeJSONFromBody(resp.Body, gErr); err != nil {
 			return err
 		}
 		// TODO: figure out what error from hydra should handle.
 		return gErr
 	}
 
-	return common.DecodeJSONFromBody(resp.Body, response)
+	return httputil.DecodeJSONFromBody(resp.Body, response)
 }
 
 func httpPut(client *http.Client, url string, request interface{}, response interface{}) error {

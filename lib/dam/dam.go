@@ -41,7 +41,9 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
@@ -85,7 +87,7 @@ type Service struct {
 	hydraPublicURL string
 	store          storage.Store
 	warehouse      clouds.ResourceTokenCreator
-	permissions    *common.Permissions
+	permissions    *permissions.Permissions
 	Handler        *ServiceHandler
 	httpClient     *http.Client
 	startTime      int64
@@ -127,7 +129,7 @@ func NewService(params *Options) *Service {
 	if err := fs.Read("role", storage.DefaultRealm, storage.DefaultUser, "en", storage.LatestRev, &roleCat); err != nil {
 		glog.Fatalf("cannot load role categories: %v", err)
 	}
-	perms, err := common.LoadPermissions(params.Store)
+	perms, err := permissions.LoadPermissions(params.Store)
 	if err != nil {
 		glog.Fatalf("cannot load permissions: %v", err)
 	}
@@ -246,7 +248,7 @@ func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, ite
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
-		common.AddCorsHeaders(w)
+		httputil.AddCorsHeaders(w)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -258,7 +260,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func checkName(name string) error {
-	return common.CheckName("name", name, nil)
+	return httputil.CheckName("name", name, nil)
 }
 
 func (s *Service) getIssuerString() string {
@@ -473,7 +475,7 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 
 func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string) (int, error) {
 	if stat := s.checkTrustedIssuer(id.Issuer, cfg); stat != nil {
-		return common.FromCode(stat.Code()), stat.Err()
+		return httputil.HTTPStatus(stat.Code()), stat.Err()
 	}
 	srcRes, ok := cfg.Resources[resourceName]
 	if !ok {
@@ -1122,7 +1124,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.GetInfo, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// readonly config endpoints
-	r.HandleFunc(clientPath, auth.MustWithAuth(common.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(clientPath, auth.MustWithAuth(httputil.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 	r.HandleFunc(resourcesPath, auth.MustWithAuth(s.GetResources, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(resourcePath, auth.MustWithAuth(s.GetResource, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(viewsPath, auth.MustWithAuth(s.GetViews, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
@@ -1134,26 +1136,26 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.GetPassportTranslators, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(damRoleCategoriesPath, auth.MustWithAuth(s.GetDamRoleCategories, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(testPersonasPath, auth.MustWithAuth(s.GetTestPersonas, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
-	r.HandleFunc(processesPath, auth.MustWithAuth(common.MakeHandler(s, s.processesFactory()), checker, auth.RequireClientIDAndSecret))
-	r.HandleFunc(processPath, auth.MustWithAuth(common.MakeHandler(s, s.processFactory()), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(processesPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processesFactory()), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(processPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processFactory()), checker, auth.RequireClientIDAndSecret))
 
 	// administration endpoints
-	r.HandleFunc(realmPath, auth.MustWithAuth(common.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(realmPath, auth.MustWithAuth(httputil.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 	r.HandleFunc(configTestPersonasPath, auth.MustWithAuth(s.ConfigTestPersonas, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
-	r.HandleFunc(configPath, auth.MustWithAuth(common.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configOptionsPath, auth.MustWithAuth(common.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configResourcePath, auth.MustWithAuth(common.MakeHandler(s, s.configResourceFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configViewPath, auth.MustWithAuth(common.MakeHandler(s, s.configViewFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configTrustedPassportIssuerPath, auth.MustWithAuth(common.MakeHandler(s, s.configIssuerFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configTrustedSourcePath, auth.MustWithAuth(common.MakeHandler(s, s.configSourceFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configPolicyPath, auth.MustWithAuth(common.MakeHandler(s, s.configPolicyFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClaimDefPath, auth.MustWithAuth(common.MakeHandler(s, s.configClaimDefinitionFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(common.MakeHandler(s, s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(common.MakeHandler(s, s.configPersonaFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClientPath, auth.MustWithAuth(common.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configOptionsPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configResourcePath, auth.MustWithAuth(httputil.MakeHandler(s, s.configResourceFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configViewPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configViewFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configTrustedPassportIssuerPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configIssuerFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configTrustedSourcePath, auth.MustWithAuth(httputil.MakeHandler(s, s.configSourceFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configPolicyPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configPolicyFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClaimDefPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClaimDefinitionFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(httputil.MakeHandler(s, s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configPersonaFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
 
 	// hydra related oidc endpoints
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)

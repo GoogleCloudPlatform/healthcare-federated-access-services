@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -118,16 +118,16 @@ func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, 
 func GetItemVariables(adapters *TargetAdapters, targetAdapter, itemFormat string, item *pb.View_Item) (map[string]string, string, error) {
 	adapter, ok := adapters.Descriptors[targetAdapter]
 	if !ok {
-		return nil, common.StatusPath("targetAdapter"), fmt.Errorf("target adapter %q is undefined", targetAdapter)
+		return nil, httputil.StatusPath("targetAdapter"), fmt.Errorf("target adapter %q is undefined", targetAdapter)
 	}
 	format, ok := adapter.ItemFormats[itemFormat]
 	if !ok {
-		return nil, common.StatusPath("itemFormats", itemFormat), fmt.Errorf("target adapter %q item format %q is undefined", targetAdapter, itemFormat)
+		return nil, httputil.StatusPath("itemFormats", itemFormat), fmt.Errorf("target adapter %q item format %q is undefined", targetAdapter, itemFormat)
 	}
 	for varname, val := range item.Vars {
 		_, ok := format.Variables[varname]
 		if !ok {
-			return nil, common.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q is undefined", targetAdapter, itemFormat, varname)
+			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q is undefined", targetAdapter, itemFormat, varname)
 		}
 		if len(val) == 0 {
 			// Treat empty input the same as not provided so long as the variable name is valid.
@@ -139,7 +139,7 @@ func GetItemVariables(adapters *TargetAdapters, targetAdapter, itemFormat string
 			continue
 		}
 		if !re.Match([]byte(val)) {
-			return nil, common.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q value %q does not match expected regexp", targetAdapter, itemFormat, varname, val)
+			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q value %q does not match expected regexp", targetAdapter, itemFormat, varname, val)
 		}
 	}
 	return item.Vars, "", nil

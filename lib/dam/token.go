@@ -23,6 +23,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -64,7 +65,7 @@ func (h *tokensHandler) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (h *tokensHandler) NormalizeInput(name string, vars map[string]string) error {
-	return common.GetRequest(h.input, h.r)
+	return httputil.GetRequest(h.input, h.r)
 }
 func (h *tokensHandler) Get(name string) error {
 	item := h.item
@@ -72,7 +73,7 @@ func (h *tokensHandler) Get(name string) error {
 		item = nil
 	}
 	if h.item != nil {
-		common.SendResponse(&pb.TokensResponse{
+		httputil.SendResponse(&pb.TokensResponse{
 			Tokens: item,
 		}, h.w)
 	}
@@ -138,10 +139,10 @@ func (h *tokenHandler) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (h *tokenHandler) NormalizeInput(name string, vars map[string]string) error {
-	return common.GetRequest(h.input, h.r)
+	return httputil.GetRequest(h.input, h.r)
 }
 func (h *tokenHandler) Get(name string) error {
-	common.SendResponse(&pb.TokenResponse{
+	httputil.SendResponse(&pb.TokenResponse{
 		Token: h.item,
 	}, h.w)
 	return nil

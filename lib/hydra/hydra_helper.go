@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 )
 
 const (
@@ -31,32 +31,32 @@ const (
 
 // ExtractLoginChallenge extracts login_challenge from request.
 func ExtractLoginChallenge(r *http.Request) (string, *status.Status) {
-	n := common.GetParam(r, "login_challenge")
+	n := httputil.GetParam(r, "login_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
-	return "", common.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'login challenge'")
+	return "", httputil.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'login challenge'")
 }
 
 // ExtractConsentChallenge extracts consent_challenge from request.
 func ExtractConsentChallenge(r *http.Request) (string, *status.Status) {
-	n := common.GetParam(r, "consent_challenge")
+	n := httputil.GetParam(r, "consent_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
-	return "", common.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'consent_challenge'")
+	return "", httputil.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'consent_challenge'")
 }
 
 // ExtractStateIDInConsent extracts stateID in ConsentRequest Context.
 func ExtractStateIDInConsent(consent *hydraapi.ConsentRequest) (string, *status.Status) {
 	st, ok := consent.Context[StateIDKey]
 	if !ok {
-		return "", common.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] not found", StateIDKey))
+		return "", httputil.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] not found", StateIDKey))
 	}
 
 	stateID, ok := st.(string)
 	if !ok {
-		return "", common.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] in wrong type", StateIDKey))
+		return "", httputil.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] in wrong type", StateIDKey))
 	}
 
 	return stateID, nil
@@ -73,13 +73,13 @@ func ExtractIdentitiesInConsent(consent *hydraapi.ConsentRequest) ([]string, *st
 
 	l, ok := v.([]interface{})
 	if !ok {
-		return nil, common.NewInfoStatus(codes.Internal, "", "consent.Context[identities] in wrong type")
+		return nil, httputil.NewInfoStatus(codes.Internal, "", "consent.Context[identities] in wrong type")
 	}
 
 	for i, it := range l {
 		id, ok := it.(string)
 		if !ok {
-			return nil, common.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[identities][%d] in wrong type", i))
+			return nil, httputil.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[identities][%d] in wrong type", i))
 		}
 
 		identities = append(identities, id)
@@ -101,11 +101,11 @@ func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, logi
 	// Now it's time to grant the login request. You could also deny the request if something went terribly wrong
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return true
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 	return true
 }
 
@@ -127,11 +127,11 @@ func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, co
 	}
 	resp, err := AcceptConsent(client, hydraAdminURL, challenge, consentReq)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return true
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 	return true
 }
 
@@ -152,9 +152,9 @@ func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Clien
 
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, req)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 }

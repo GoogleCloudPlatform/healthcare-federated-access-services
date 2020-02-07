@@ -17,16 +17,16 @@ package dam
 import (
 	"net/http"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 )
 
-func (s *Service) realmFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) realmFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "realm",
 		NameField:           "realm",
 		PathPrefix:          realmPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return NewRealmHandler(s, w, r)
 		},
 	}

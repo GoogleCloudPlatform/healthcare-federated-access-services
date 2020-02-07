@@ -17,7 +17,7 @@ package ic
 import (
 	"net/http"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
@@ -32,9 +32,9 @@ func (s *Service) Status(w http.ResponseWriter, r *http.Request) {
 		StartTime: s.startTime,
 	}
 
-	realm := common.GetParamOrDefault(r, "realm", storage.DefaultRealm)
+	realm := httputil.GetParamOrDefault(r, "realm", storage.DefaultRealm)
 	if cfg, err := s.loadConfig(nil, realm); err == nil {
 		out.Ui = cfg.Ui
 	}
-	common.SendResponse(out, w)
+	httputil.SendResponse(out, w)
 }

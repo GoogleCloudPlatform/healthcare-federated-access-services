@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package common contains codes share between IC and DAM.
-package common
+// Package permissions contains codes share between IC and DAM.
+package permissions
 
 import (
 	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -108,7 +109,7 @@ func (p *Permissions) IsAdmin(id *ga4gh.Identity) bool {
 	if id == nil {
 		return false
 	}
-	now := GetNowInUnixNano()
+	now := common.GetNowInUnixNano()
 	if p.isAdminUser(id.Subject, now) {
 		return true
 	}

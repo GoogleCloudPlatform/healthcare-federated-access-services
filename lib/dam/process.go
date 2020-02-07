@@ -21,19 +21,19 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp" /* copybara-comment: gcp */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
-func (s *Service) processesFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) processesFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "processes",
 		PathPrefix:          processesPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return NewProcessesHandler(s, w, r)
 		},
 	}
@@ -82,14 +82,14 @@ func (h *processesHandler) LookupItem(name string, vars map[string]string) bool 
 	return true
 }
 func (h *processesHandler) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(h.input, h.r); err != nil {
+	if err := httputil.GetRequest(h.input, h.r); err != nil {
 		return err
 	}
 	return nil
 }
 func (h *processesHandler) Get(name string) error {
 	if h.item != nil {
-		common.SendResponse(&pb.BackgroundProcessesResponse{
+		httputil.SendResponse(&pb.BackgroundProcessesResponse{
 			Processes: h.item,
 		}, h.w)
 	}
@@ -116,12 +116,12 @@ func (h *processesHandler) Save(tx storage.Tx, name string, vars map[string]stri
 
 /////////////////////////////////////////////////////////
 
-func (s *Service) processFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) processFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "process",
 		PathPrefix:          processPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return NewProcessHandler(s, w, r)
 		},
 	}
@@ -162,14 +162,14 @@ func (h *processHandler) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (h *processHandler) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(h.input, h.r); err != nil {
+	if err := httputil.GetRequest(h.input, h.r); err != nil {
 		return err
 	}
 	return nil
 }
 func (h *processHandler) Get(name string) error {
 	if h.item != nil {
-		common.SendResponse(&pb.BackgroundProcessResponse{
+		httputil.SendResponse(&pb.BackgroundProcessResponse{
 			Process: h.item,
 		}, h.w)
 	}
