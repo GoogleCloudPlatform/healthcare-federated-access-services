@@ -15,88 +15,17 @@
 package permissions
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
-
-	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 const (
 	testConfigPath = "testdata/config"
 	testService    = "permissions"
 )
-
-func TestIncludeTags(t *testing.T) {
-	fs := storage.NewMemoryStorage(testService, testConfigPath)
-
-	perm, err := LoadPermissions(fs)
-	if err != nil {
-		t.Fatalf("cannot load permission config")
-	}
-
-	type includeTagsTest struct {
-		testName    string
-		subject     string
-		email       string
-		tags        []string
-		tagDefs     []string
-		expectation []string
-	}
-
-	tests := []includeTagsTest{
-		{
-			testName:    "tags in permission settings",
-			subject:     "admin_and_has_tags",
-			email:       "admin_and_has_tags@example.com",
-			tags:        []string{},
-			tagDefs:     []string{},
-			expectation: []string{"t1", "t2"},
-		},
-		{
-			testName: "no tags in permission settings, tags in pass in tags and tagDefs",
-			subject:  "no_tags",
-			email:    "no_tags@example.com",
-			tags:     []string{"t3", "t4", "t5"},
-			tagDefs:  []string{"t3", "t4"},
-			// no t5 since t5 not in tagDefs
-			expectation: []string{"t3", "t4"},
-		},
-		{
-			testName: "user not in permission settings",
-			subject:  "not_a_user",
-			email:    "not_a_user@example.com",
-			tags:     []string{"t3", "t4", "t5"},
-			tagDefs:  []string{"t3", "t4"},
-			// no t5 since t5 not in tagDefs
-			expectation: []string{"t3", "t4"},
-		},
-		{
-			testName: "tags in  pass in tags and tagDefs",
-			subject:  "admin_and_has_tags",
-			email:    "admin_and_has_tags@example.com",
-			tags:     []string{"t3", "t4", "t5"},
-			tagDefs:  []string{"t3", "t4"},
-			// no t5 since t5 not in tagDefs
-			expectation: []string{"t1", "t2", "t3", "t4"},
-		},
-	}
-
-	for _, test := range tests {
-		tagDefs := make(map[string]*cpb.AccountTag)
-		for _, tagDef := range test.tagDefs {
-			tagDefs[tagDef] = &cpb.AccountTag{}
-		}
-
-		result := perm.IncludeTags(test.subject, test.email, test.tags, tagDefs)
-		if !reflect.DeepEqual(result, test.expectation) {
-			t.Fatalf("Test case [%q] failed. expected includedTags is %q, actual is %q", test.testName, test.expectation, result)
-		}
-	}
-}
 
 func TestAdmin(t *testing.T) {
 	fs := storage.NewMemoryStorage(testService, testConfigPath)
@@ -117,7 +46,7 @@ func TestAdmin(t *testing.T) {
 	tests := []adminTest{
 		{
 			testName:         "admin user in subject",
-			subject:          "admin_and_has_tags@example.com",
+			subject:          "admin@example.com",
 			identities:       []string{},
 			linkedIdentities: "",
 			expectIsAdmin:    true,
@@ -125,7 +54,7 @@ func TestAdmin(t *testing.T) {
 		{
 			testName:         "admin user in identities",
 			subject:          "no_admin@example.com",
-			identities:       []string{"admin_and_has_tags@example.com"},
+			identities:       []string{"admin@example.com"},
 			linkedIdentities: "",
 			expectIsAdmin:    true,
 		},
@@ -133,7 +62,7 @@ func TestAdmin(t *testing.T) {
 			testName:         "admin user in linkedIdentities",
 			subject:          "no_admin@example.com",
 			identities:       []string{},
-			linkedIdentities: "admin_and_has_tags@example.com,https://example.com/oidc",
+			linkedIdentities: "admin@example.com,https://example.com/oidc",
 			expectIsAdmin:    true,
 		},
 		{

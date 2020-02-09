@@ -14,8 +14,7 @@
       "properties": {
         "subject": "administrator",
         "email": "admin@faculty.example.edu"
-      },
-      "tags": ["IC", "DAM"]
+      }
     }
   ],
   "state": "ACTIVE"

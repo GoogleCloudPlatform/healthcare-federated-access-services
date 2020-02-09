@@ -60,29 +60,6 @@
       "responseTypes": ["token", "code", "id_token"]
     }
   },
-  "accountTags": {
-    "IC": {
-      "category": "system",
-      "ui": {
-        "label": "Identity Concentrator",
-        "description": "User has a System assigned role within an Identity Concentrator"
-      }
-    },
-    "DAM": {
-      "category": "system",
-      "ui": {
-        "label": "Data Access Manager",
-        "description": "User has a System assigned role within a Data Access Manager"
-      }
-    },
-    "GCP": {
-      "category": "platform",
-      "ui": {
-        "label": "Google Cloud Platform",
-        "description": "User is a target for resource access within GCP"
-      }
-    }
-  },
   "options": {
     "accountNameLength": 25,
     "readOnlyMasterRealm": true,

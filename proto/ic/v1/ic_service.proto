@@ -32,6 +32,7 @@ message IcConfig {
   double commit_time = 3;
   map<string, common.IdentityProvider> identity_providers = 4;
   map<string, common.Client> clients = 5;
+  // TODO: remove tags.
   map<string, common.AccountTag> account_tags = 6;
   ConfigOptions options = 7;
   map<string, string> ui = 8;

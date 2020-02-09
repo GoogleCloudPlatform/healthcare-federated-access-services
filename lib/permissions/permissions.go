@@ -145,26 +145,3 @@ func (p *Permissions) isAdminUser(user string, now float64) bool {
 	}
 	return false
 }
-
-// IncludeTags returns user's tags and matched tags passed in.
-func (p *Permissions) IncludeTags(subject, email string, tags []string, tagDefs map[string]*cpb.AccountTag) []string {
-	out := []string{}
-	if len(email) == 0 {
-		email = subject
-	}
-	user, ok := p.perm.Users[email]
-	if ok && len(user.Tags) > 0 {
-		out = append(out, user.Tags...)
-	}
-	if len(tags) == 0 || tagDefs == nil {
-		return out
-	}
-	for _, tag := range tags {
-		_, ok := tagDefs[tag]
-		if !ok {
-			continue
-		}
-		out = append(out, tag)
-	}
-	return out
-}

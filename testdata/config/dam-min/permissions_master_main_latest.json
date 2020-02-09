@@ -6,8 +6,7 @@
     "admin@faculty.example.edu": {
       "roles": {
         "admin": -1
-      },
-      "tags": ["IC", "DAM"]
+      }
     }
   }
 }

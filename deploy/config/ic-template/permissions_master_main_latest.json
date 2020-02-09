@@ -6,26 +6,7 @@
     "admin@nci.nih.gov": {
       "roles": {
         "admin": -1
-      },
-      "tags": ["IC", "DAM"]
-    },
-    "dr_joe@faculty.example.edu": {
-      "roles": {
-        "admin": -1
-      },
-      "tags": ["IC", "DAM"]
-    },
-    "dr_joe@era.nih.gov": {
-      "roles": {
-        "admin": -1
-      },
-      "tags": ["IC", "DAM"]
-    },
-    "nci_researcher@nci.nih.gov": {
-      "roles": {
-        "admin": -1
-      },
-      "tags": ["IC", "DAM"]
+      }
     }
   }
 }

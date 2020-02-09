@@ -893,11 +893,7 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *cpb.Account, cfg 
 		if len(email) == 0 {
 			email = subject
 		}
-		tags := s.permissions.IncludeTags(subject, email, link.Tags, cfg.AccountTags)
-		if len(tags) == 0 {
-			tags = []string{"IC"}
-		}
-		identities[email] = tags
+		identities[email] = []string{"IC"}
 		// TODO: consider skipping claims if idp=cfg.IdProvider[link.Provider] is missing (not <persona>) or idp.State != "ACTIVE".
 		if err := s.populateLinkVisas(ctx, id, link, ttl, cfg, secrets); err != nil {
 			return nil, err
@@ -1459,16 +1455,6 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 	for name, client := range cfg.Clients {
 		if err := oathclients.CheckClientIntegrity(name, client); err != nil {
 			return err
-		}
-	}
-
-	for name, at := range cfg.AccountTags {
-		if err := httputil.CheckName(tagField, name, tagNameCheck); err != nil {
-			return fmt.Errorf("invalid account tag name %q: %v", name, err)
-		}
-
-		if _, err := check.CheckUI(at.Ui, true); err != nil {
-			return fmt.Errorf("account tag %q: %v", name, err)
 		}
 	}
 

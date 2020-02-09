@@ -39,17 +39,18 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type IcConfig struct {
-	Version              string                          `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
-	Revision             int64                           `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	CommitTime           float64                         `protobuf:"fixed64,3,opt,name=commit_time,json=commitTime,proto3" json:"commit_time,omitempty"`
-	IdentityProviders    map[string]*v1.IdentityProvider `protobuf:"bytes,4,rep,name=identity_providers,json=identityProviders,proto3" json:"identity_providers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Clients              map[string]*v1.Client           `protobuf:"bytes,5,rep,name=clients,proto3" json:"clients,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	AccountTags          map[string]*v1.AccountTag       `protobuf:"bytes,6,rep,name=account_tags,json=accountTags,proto3" json:"account_tags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Options              *ConfigOptions                  `protobuf:"bytes,7,opt,name=options,proto3" json:"options,omitempty"`
-	Ui                   map[string]string               `protobuf:"bytes,8,rep,name=ui,proto3" json:"ui,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
-	XXX_unrecognized     []byte                          `json:"-"`
-	XXX_sizecache        int32                           `json:"-"`
+	Version           string                          `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	Revision          int64                           `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	CommitTime        float64                         `protobuf:"fixed64,3,opt,name=commit_time,json=commitTime,proto3" json:"commit_time,omitempty"`
+	IdentityProviders map[string]*v1.IdentityProvider `protobuf:"bytes,4,rep,name=identity_providers,json=identityProviders,proto3" json:"identity_providers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Clients           map[string]*v1.Client           `protobuf:"bytes,5,rep,name=clients,proto3" json:"clients,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// TODO: remove tags.
+	AccountTags          map[string]*v1.AccountTag `protobuf:"bytes,6,rep,name=account_tags,json=accountTags,proto3" json:"account_tags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Options              *ConfigOptions            `protobuf:"bytes,7,opt,name=options,proto3" json:"options,omitempty"`
+	Ui                   map[string]string         `protobuf:"bytes,8,rep,name=ui,proto3" json:"ui,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
+	XXX_unrecognized     []byte                    `json:"-"`
+	XXX_sizecache        int32                     `json:"-"`
 }
 
 func (m *IcConfig) Reset()         { *m = IcConfig{} }

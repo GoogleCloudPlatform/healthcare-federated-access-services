@@ -6,14 +6,12 @@
     "admin@faculty.example.edu": {
       "roles": {
         "admin": -1
-      },
-      "tags": ["IC", "DAM"]
+      }
     },
     "dr_joe@faculty.example.edu": {
       "roles": {
         "admin": -1
-      },
-      "tags": ["IC", "DAM"]
+      }
     }
   }
 }
