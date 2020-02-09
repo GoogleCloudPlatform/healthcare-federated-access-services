@@ -23,13 +23,11 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 	"golang.org/x/oauth2/google" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp" /* copybara-comment: gcp */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
-// MustBuildAccountWarehouse builds a *gcp.AccountWarehouse from the
-// environment variables PROJECT, ROLE, and SCOPES.  It panics on failure.
-func MustBuildAccountWarehouse(ctx context.Context, store storage.Store) clouds.ResourceTokenCreator {
+// MustBuildAccountWarehouse builds a *gcp.AccountWarehouse. It panics on failure.
+func MustBuildAccountWarehouse(ctx context.Context, store storage.Store) *gcp.AccountWarehouse {
 	client, err := google.DefaultClient(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		glog.Fatalf("Error creating HTTP client: %v", err)

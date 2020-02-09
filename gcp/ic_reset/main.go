@@ -54,5 +54,5 @@ func main() {
 	if err := ics.ImportFiles("FORCE_WIPE"); err != nil {
 		glog.Fatalf("error importing files: %v", err)
 	}
-	glog.Infof("SUCCESS reseting IC service %q", service)
+	glog.Infof("SUCCESS resetting IC service %q", service)
 }
