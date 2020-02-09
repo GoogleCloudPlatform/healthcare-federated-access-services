@@ -8,14 +8,14 @@
   },
   "trustedPassportIssuers": {
     "default_ic": {
-      "issuer": "https://ic-dot-${YOUR_PROJECT_ID}.appspot.com/",
+      "issuer": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/",
       "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
       "ui": {
         "label": "IC",
         "description": "IC passport issuer"
       },
-      "authUrl": "https://ic-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/auth",
-      "tokenUrl": "https://ic-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/token"
+      "authUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/auth",
+      "tokenUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/token"
     },
     "nih": {
       "issuer": "https://login.nih.gov/oidc",
@@ -461,12 +461,12 @@
     "test_page": {
       "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
       "ui": {
-        "label": "IC Test Page",
-        "description": "The Identity Concentrator's test page can access DAM directly"
+        "label": "DAM Test Page",
+        "description": "The DAM demo test page"
       },
       "redirectUris": [
         "http://localhost:8092/test",
-        "https://damdemo-dot-${YOUR_PROJECT_ID}.appspot.com/test"
+        "https://damdemo${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/test"
       ],
       "scope": "openid offline ga4gh_passport_v1 profile email identities",
       "grantTypes": ["authorization_code"],

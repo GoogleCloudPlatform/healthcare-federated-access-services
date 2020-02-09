@@ -28,10 +28,12 @@ ENV=""
 unset PROMPT
 unset BYPASS_BUILD
 unset FAST_DEPLOY
+unset CONFIG_ONLY
 
 print_usage() {
-  echo -e ${RED?}'Usage: deploy [-b] [-e environment] [-f] [-h] [-i] [-p project_id] [service_name service_name ...]'${RESET?}
+  echo -e ${RED?}'Usage: deploy [-c] [-b] [-e environment] [-f] [-h] [-i] [-p project_id] [service_name service_name ...]'${RESET?}
   echo -e ${RED?}'  -b \t bypass build of services'${RESET?}
+  echo -e ${RED?}'  -c \t config generation only'${RESET?}
   echo -e ${RED?}'  -e \t extra environment namespace to include in the deployed service name'${RESET?}
   echo -e ${RED?}'     \t example: "deploy -e staging dam ic" will deploy services as "dam-staging", "ic-staging"'${RESET?}
   echo -e ${RED?}'  -f \t fast deploy will skip project initialization and service dependency setup'${RESET?}
@@ -73,9 +75,10 @@ if [[ "${#DEPLOY[@]}" == "0" ]]; then
   DEPLOY=("${SERVICE_NAMES[@]}")
 fi
 
-while getopts ':bfhie:p:' flag; do
+while getopts ':bce:fhip:' flag; do
   case "${flag}" in
     b) BYPASS_BUILD='true' ;;
+    c) CONFIG_ONLY='true' ;;
     e) ENV="-${OPTARG}" ;;
     f) FAST_DEPLOY='true' ;;
     h) print_usage
@@ -143,8 +146,11 @@ else
 fi
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/config_master_main_latest.json
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/ic/config_master_main_latest.json
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/secrets_master_main_latest.json
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/ic/secrets_master_main_latest.json
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/dam/config_master_main_latest.json
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/dam/config_master_main_latest.json
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/personas/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/hydra/Dockerfile
@@ -159,11 +165,16 @@ sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/icdemo/icdemo.yaml
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/dam/dam.yaml
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/damdemo/damdemo.yaml
 
-sed -i 's/${ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/personas/personas.yaml
-sed -i 's/${ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/ic/ic.yaml
-sed -i 's/${ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/icdemo/icdemo.yaml
-sed -i 's/${ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/dam/dam.yaml
-sed -i 's/${ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/damdemo/damdemo.yaml
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/personas/personas.yaml
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/ic/ic.yaml
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/icdemo/icdemo.yaml
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/dam/dam.yaml
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/damdemo/damdemo.yaml
+
+if [[ -v CONFIG_ONLY ]]; then
+  echo -e ${GREEN?}'CONFIG_ONLY flag is set. Skipping all other steps.'${RESET?}
+  exit 0
+fi
 
 if [[ -v FAST_DEPLOY ]]; then
   echo -e ${GREEN?}'FAST_DEPLOY flag is set. Skipping preparing the GCP project for deployment.'${RESET?}

@@ -14,9 +14,9 @@
 
 runtime: custom
 env: flex
-service: "damdemo${ENVIRONMENT}"
+service: "damdemo${YOUR_ENVIRONMENT}"
 
 env_variables:
-  TYPE: "damdemo${ENVIRONMENT}"
-  DAM_TYPE: "dam${ENVIRONMENT}"
+  TYPE: "damdemo${YOUR_ENVIRONMENT}"
+  DAM_TYPE: "dam${YOUR_ENVIRONMENT}"
   PROJECT: "${YOUR_PROJECT_ID}"

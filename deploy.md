@@ -69,8 +69,7 @@ To create a Google Cloud project, do the following:
         *  password: "hydra"
 
 For more information on deploying federated access services, see
-[deploy.bash](/google3/third_party/hcls_federated_access/deploy.bash) and
-run `deploy.bash -h` for help.
+[deploy.bash](deploy.bash) and run `deploy.bash -h` for help.
 
 Configuration details are also contained within the following files:
 

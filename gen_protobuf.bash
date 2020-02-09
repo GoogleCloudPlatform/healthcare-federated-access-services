@@ -17,7 +17,7 @@
 echo "List of proto files:"
 find ./proto/ -type f -name "*.proto" -exec echo {} \;
 
-echo "Creating symlink for third_party/googleapis/google"
+echo "Creating symlink for googleapis/google"
 ln -s ../googleapis/google ./google
 
 echo
@@ -30,5 +30,5 @@ echo "Adding license to go packages"
 find ./proto/ -type f -name "*.pb.go" -exec addlicense {} \;
 echo "Adding license to go packages: completed"
 
-echo "Removing symlink for third_party/googleapis/google"
+echo "Removing symlink for googleapis/google"
 rm ./google

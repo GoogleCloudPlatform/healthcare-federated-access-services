@@ -14,14 +14,14 @@
 
 runtime: custom
 env: flex
-service: "ic${ENVIRONMENT}"
+service: "ic${YOUR_ENVIRONMENT}"
 
 env_variables:
   # Service type: dam or ic
   TYPE: "ic"
   # Service name: "ic" with an optional environment to distinguish between instances,
   # which typically matches the "service" field above.
-  SERVICE_NAME: "ic${ENVIRONMENT}"
+  SERVICE_NAME: "ic${YOUR_ENVIRONMENT}"
   # Project id
   PROJECT: "${YOUR_PROJECT_ID}"
 

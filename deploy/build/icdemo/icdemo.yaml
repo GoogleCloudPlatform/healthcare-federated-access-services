@@ -14,9 +14,9 @@
 
 runtime: custom
 env: flex
-service: "icdemo${ENVIRONMENT}"
+service: "icdemo${YOUR_ENVIRONMENT}"
 
 env_variables:
-  TYPE: "icdemo${ENVIRONMENT}"
-  IC_TYPE: "ic${ENVIRONMENT}"
+  TYPE: "icdemo${YOUR_ENVIRONMENT}"
+  IC_TYPE: "ic${YOUR_ENVIRONMENT}"
   PROJECT: "${YOUR_PROJECT_ID}"

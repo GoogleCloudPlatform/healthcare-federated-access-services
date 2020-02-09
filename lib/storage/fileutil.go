@@ -19,15 +19,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 func checkFile(path string) error {
 	_, err := os.Stat(path)
-	if err != nil {
-		glog.Errorf("os.Stat(%v) = %v", path, err)
-	}
 	return err
 }
 
