@@ -45,10 +45,17 @@ To create a Google Cloud project, do the following:
 
 1.  Create a GCP project using the GCP Developer Console.
 
+1.  Learn about Project Initialization [here](#project-initialization). When
+    ready, run:
+
+    ```
+    ./project_init.bash -p <gcp-project-id>
+    ```
+
 1.  Run the following setup script to deploy components with default settings
     that can be tested:
 
-        ```bash
+        ```
         export PROJECT=<gcp-project-id>
         ./deploy.bash
         ```
@@ -95,14 +102,14 @@ In a browser, open `https://icdemo-dot-${YOUR_PROJECT_ID}.appspot.com/test` and 
 For example, `deploy.bash -e staging -p my-project` would create an `icdemo`
 page of: `https://icdemo-staging-dot-my-project.appspot.com/test`.
 
-## Fast deploy mode
+## Project Initialization
 
-Fast deploy mode is available in `deploy.bash` using the `-f` flag as a means
-to bypass setting up the federated access service dependencies within a project.
-Fast deploy may not be appropriate for production environments, and should be
-reviewed carefully before attempting to use it on production binaries.
+**Warning**: The project initialization may not be appropriate for production
+environments, and should be reviewed carefully before attempting to use it for a
+production environment.
 
-Fast deploy skips steps such as:
+Project initialization prepares a GCP project to host Federated Access services.
+For example, it initializes or enables the following:
 
 *  enabling gcloud services on the project
 *  setting up Google App Engine (GAE) to deploy services within a given region
@@ -115,9 +122,9 @@ Fast deploy skips steps such as:
    etc.)
 *  ... and potentially more items as well
 
-If any dependencies change with these underlying services, then `-f` should
-not be used. In this way, a rebuild of the underlying services can attempt to
-deploy these changes. Examples include:
+If any dependencies change with these underlying services, then project
+initialization will need to be performed again. In this way, a rebuild of the
+underlying services can attempt to deploy these changes. Examples include:
 
 *  changes to usernames and passwords of databases
 *  deploying to different regions or using other underlying services to deploy
@@ -125,16 +132,10 @@ deploy these changes. Examples include:
 *  permission changes
 *  etc.
 
-However, this flag exists because many non-prod deployments may have regular
-roll outs without affecting the underlying services, and in such cases the use
-of `-f` can speed up the deployment time.
-
-**tip:** if your deployment environment does not match your expectations and
-it was deployed using `-f`, then you may wish to deploy again without `-f`
-to see if a rebuild of your environment fixes the problem.
-
-**warning:** use this flag with care in production environments, or even
-consider removing it from your production deployment script all together.
+**Tip:** if over time your deployment environment does not match your
+expectations and it was deployed using `project_init.bash`, then you may wish
+run `project_init.bash` again to see if a rebuild of your environment fixes the
+problem.
 
 ## Environment variables for the deploy script
 
@@ -142,7 +143,6 @@ It may be useful to create a wrapper script to control some settings to
 `deploy.bash`. Here is an example `my_deploy.bash`:
 
 ```
-export CUSTOM_CONFIG_DIR=/<path-to-my-configs>
 export PROJECT=<my-gcp-project>
 export DAM_CONFIG=${CUSTOM_CONFIG_DIR?}/dam
 export IC_CONFIG=${CUSTOM_CONFIG_DIR?}/ic

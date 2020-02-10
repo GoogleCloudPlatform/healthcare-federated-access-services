@@ -27,7 +27,6 @@ SERVICE_NAMES=("_ic_" "_dam_" "_personas_" "_icdemo_" "_damdemo_")
 ENV=""
 unset PROMPT
 unset BYPASS_BUILD
-unset FAST_DEPLOY
 unset CONFIG_ONLY
 
 print_usage() {
@@ -36,7 +35,6 @@ print_usage() {
   echo -e ${RED?}'  -c \t config generation only'${RESET?}
   echo -e ${RED?}'  -e \t extra environment namespace to include in the deployed service name'${RESET?}
   echo -e ${RED?}'     \t example: "deploy -e staging dam ic" will deploy services as "dam-staging", "ic-staging"'${RESET?}
-  echo -e ${RED?}'  -f \t fast deploy will skip project initialization and service dependency setup'${RESET?}
   echo -e ${RED?}'  -h \t show this help usage'${RESET?}
   echo -e ${RED?}'  -i \t interactive prompts to proceed between steps'${RESET?}
   echo -e ${RED?}'  -p \t GCP project_id to deploy to'${RESET?}
@@ -52,7 +50,7 @@ ARGS=("$@")
 DEPLOY=()
 unset SKIP_ARG
 for arg in "${ARGS[@]}"; do
-  if [[ -v SKIP_ARG ]]; then
+  if [[ "${SKIP_ARG}" != "" ]]; then
     # previous was a flag and this is that flag's string argument
     unset SKIP_ARG
   elif [[ $arg == -* ]]; then
@@ -75,12 +73,11 @@ if [[ "${#DEPLOY[@]}" == "0" ]]; then
   DEPLOY=("${SERVICE_NAMES[@]}")
 fi
 
-while getopts ':bce:fhip:' flag; do
+while getopts ':bce:hip:' flag; do
   case "${flag}" in
     b) BYPASS_BUILD='true' ;;
     c) CONFIG_ONLY='true' ;;
     e) ENV="-${OPTARG}" ;;
-    f) FAST_DEPLOY='true' ;;
     h) print_usage
        exit 1 ;;
     i) PROMPT='true' ;;
@@ -91,7 +88,7 @@ while getopts ':bce:fhip:' flag; do
   esac
 done
 
-if [[ -z "${PROJECT}" ]]; then
+if [[ "${PROJECT}" == "" ]]; then
   echo -e ${RED?}'Must provide a project via $PROJECT or -p project'${RESET?}
   print_usage
   exit 1
@@ -109,22 +106,21 @@ deploy_service() {
 # Export the id of your project to environment variable PROJECT.
 echo -e ${GREEN?}'Starting deployment to project: '${PROJECT?}${RESET?}
 gcloud config set project ${PROJECT?}
-export PROJECT_NUMBER=$(gcloud projects list --filter="${PROJECT?}" --format="value(PROJECT_NUMBER)")
 
 # Generate the config files
-if [[ -v IC_CONFIG ]]; then
-  echo -e ${GREEN?}'Using the provided IC_CONFIG files at: '${IC_CONFIG?}${RESET?}
-else
+if [[ "${IC_CONFIG}" == "" ]]; then
   echo -e ${GREEN?}'Generating the default IC config files.'${RESET?}
   echo -e ${GREEN?}'To use your own configs instead, set environment variable "IC_CONFIG" to point to your config folders.'${RESET?}
-fi
-if [[ -v DAM_CONFIG ]]; then
-  echo -e ${GREEN?}'Using the provided DAM_CONFIG file at: '${DAM_CONFIG?}${RESET?}
 else
+  echo -e ${GREEN?}'Using the provided IC_CONFIG files at: '${IC_CONFIG?}${RESET?}
+fi
+if [[ "${DAM_CONFIG}" == "" ]]; then
   echo -e ${GREEN?}'Generating the default DAM config files.'${RESET?}
   echo -e ${GREEN?}'To use your own configs instead, set environment variable "DAM_CONFIG" to point to your config folders.'${RESET?}
+else
+  echo -e ${GREEN?}'Using the provided DAM_CONFIG file at: '${DAM_CONFIG?}${RESET?}
 fi
-if [[ -v PROMPT ]]; then
+if [[ "$PROMPT" != "" ]]; then
   echo -e ${GREEN?}'PRESS ENTER TO CONTINUE...'${RESET?}
   read
 fi
@@ -133,16 +129,16 @@ fi
 mkdir -p ./deploy/config/ic/
 mkdir -p ./deploy/config/dam/
 
-if [ -v IC_CONFIG ]; then
-  cp -R $IC_CONFIG/* ./deploy/config/ic/
-else
+if [[ "${IC_CONFIG}" == "" ]]; then
   cp -R ./deploy/config/ic-template/* ./deploy/config/ic/
+else
+  cp -R $IC_CONFIG/* ./deploy/config/ic/
 fi
 
-if [ -v DAM_CONFIG ]; then
-  cp -R $DAM_CONFIG/* ./deploy/config/dam/
-else
+if [[ "${DAM_CONFIG}" == "" ]]; then
   cp -R ./deploy/config/dam-template/* ./deploy/config/dam/
+else
+  cp -R $DAM_CONFIG/* ./deploy/config/dam/
 fi
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/config_master_main_latest.json
@@ -173,96 +169,15 @@ sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/icdemo/icdemo.yaml
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/dam/dam.yaml
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/damdemo/damdemo.yaml
 
-if [[ -v CONFIG_ONLY ]]; then
+if [[ "${CONFIG_ONLY}" != "" ]]; then
   echo -e ${GREEN?}'CONFIG_ONLY flag is set. Skipping all other steps.'${RESET?}
   exit 0
 fi
 
-if [[ -v FAST_DEPLOY ]]; then
-  echo -e ${GREEN?}'FAST_DEPLOY flag is set. Skipping preparing the GCP project for deployment.'${RESET?}
-else
-  echo -e ${GREEN?}'Preparing the GCP project for deployment. To skip, set "FAST_DEPLOY" flag -f.'${RESET?}
-  # Enbable the required APIs.
-  echo -e ${GREEN?}'Enabling the required APIs.'${RESET?}
-
-  gcloud services enable \
-    appengine.googleapis.com \
-    appengineflex.googleapis.com \
-    appenginestandard.googleapis.com \
-    sql-component.googleapis.com \
-    sqladmin.googleapis.com \
-    datastore.googleapis.com \
-    iam.googleapis.com \
-    cloudbuild.googleapis.com \
-    bigquery.googleapis.com \
-    storage-component.googleapis.com \
-    cloudkms.googleapis.com
-
-  # Create a GAE app.
-  gcloud app create --region=us-central
-
-  # Grant the required permissions.
-  echo -e ${GREEN?}'Granting the required permissions.'${RESET?}
-
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} \
-    --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} \
-    --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
-
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} \
-    --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudsql.client
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} \
-    --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/editor
-  gcloud projects add-iam-policy-binding -q ${PROJECT?} \
-    --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/resourcemanager.projectIamAdmin
-
-  # TODO: make region configurable.
-
-  # Setup Cloud SQL
-  # Create a CloudSQL db-f1-micro (memory=128M, disk=250G) postgres 11 instance in us-central-1.
-  echo -e ${GREEN?}'Creating Cloud SQL database for Hydra.'${RESET?}
-
-  gcloud sql instances create hydra --database-version=POSTGRES_11 \
-    --tier=db-f1-micro --region=us-central1
-  # Create user: name="${NAME}", password="${PASSWORD}"
-  gcloud sql users create hydra --instance=hydra --password=hydra
-  # Create database ic
-  gcloud sql databases create ic --instance=hydra
-  # Create database dam
-  gcloud sql databases create dam --instance=hydra
-
-  echo -e ${GREEN?}'Creating a GCS bucket with an example file.'${RESET?}
-
-  gsutil mb gs://${PROJECT?}-test-dataset
-  tempdir=`mktemp -d`
-  pushd $tempdir
-  echo "This is an example" > example.txt
-  gsutil cp example.txt gs://${PROJECT?}-test-dataset
-  popd
-  rm -rf $tempdir
-
-  # Deploy a simple defaut app to GAE default service.
-  echo -e ${GREEN?}'Deploy a helloworld to GAE default service.'${RESET?}
-
-  tempdir=`mktemp -d`
-  pushd $tempdir
-  git clone https://github.com/GoogleCloudPlatform/golang-samples.git
-  pushd golang-samples/appengine/go11x/helloworld
-  gcloud -q app deploy .
-  popd
-  popd
-  rm -rf $tempdir
-
-  echo -e ${GREEN?}'Building Base Hydra Docker Image.'${RESET?}
-  gcloud builds submit --config deploy/build/hydra/cloudbuild.yaml .
-fi
-
 # Build the Personas, IC, ICDEMO, DAM, and DAMDEMO images
-if [[ -v BYPASS_BUILD ]]; then
-  echo -e ${GREEN?}'BYPASS_BUILD flag is set. Bypassing the building of Docker images for the services.'${RESET?}
-else
+if [[ "${BYPASS_BUILD}" == "" ]]; then
   echo -e ${GREEN?}'Building Docker images for the services.'${RESET?}
-  if [[ -v PROMPT ]]; then
+  if [[ "$PROMPT" != "" ]]; then
     echo -e ${GREEN?}'PRESS ENTER TO CONTINUE...'${RESET?}
     read
   fi
@@ -291,11 +206,13 @@ else
     echo -e ${GREEN?}'Building DAMDEMO Docker Image.'${RESET?}
     gcloud builds submit --config deploy/build/damdemo/cloudbuild.yaml .
   fi
+else
+  echo -e ${GREEN?}'BYPASS_BUILD flag is set. Bypassing the building of Docker images for the services.'${RESET?}
 fi
 
 # Deploy Services
 echo -e ${GREEN?}'Deploying services to the GCP project.'${RESET?}
-if [[ -v PROMPT ]]; then
+if [[ "${PROMPT}" != "" ]]; then
   echo -e ${GREEN?}'PRESS ENTER TO CONTINUE...'${RESET?}
   read
 fi

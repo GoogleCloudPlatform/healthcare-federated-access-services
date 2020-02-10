@@ -47,7 +47,7 @@ while getopts ':he:p:' flag; do
   esac
 done
 
-if [[ -z "${PROJECT}" ]]; then
+if [[ "${PROJECT}" == "" ]]; then
   echo -e ${RED?}'Must provide a project via $PROJECT or -p project'${RESET?}
   print_usage
   exit 1
