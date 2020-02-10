@@ -58,11 +58,13 @@ func (c *realm) Setup(tx storage.Tx) (int, error) {
 	c.id = id
 	return status, err
 }
+
 func (c *realm) LookupItem(name string, vars map[string]string) bool {
 	// Accept any name that passes the name check.
 	c.item = &pb.Realm{}
 	return true
 }
+
 func (c *realm) NormalizeInput(name string, vars map[string]string) error {
 	if err := httputil.GetRequest(c.input, c.r); err != nil {
 		return err
@@ -75,24 +77,29 @@ func (c *realm) NormalizeInput(name string, vars map[string]string) error {
 	}
 	return nil
 }
+
 func (c *realm) Get(name string) error {
 	if c.item != nil {
 		httputil.SendResponse(c.item, c.w)
 	}
 	return nil
 }
+
 func (c *realm) Post(name string) error {
 	// Accept, but do nothing.
 	return nil
 }
+
 func (c *realm) Put(name string) error {
 	// Accept, but do nothing.
 	return nil
 }
+
 func (c *realm) Patch(name string) error {
 	// Accept, but do nothing.
 	return nil
 }
+
 func (c *realm) Remove(name string) error {
 	if err := c.s.store.Wipe(name); err != nil {
 		return err
@@ -102,9 +109,11 @@ func (c *realm) Remove(name string) error {
 	}
 	return nil
 }
+
 func (c *realm) CheckIntegrity() *status.Status {
 	return nil
 }
+
 func (c *realm) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	// Accept, but do nothing.
 	return nil

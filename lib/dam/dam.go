@@ -1026,12 +1026,6 @@ func (s *Service) registerProject(cfg *pb.DamConfig, realm string) error {
 	return s.warehouse.RegisterAccountProject(realm, cfg.Options.GcpServiceAccountProject, int(ttl.Seconds()), int(cfg.Options.GcpManagedKeysPerAccount))
 }
 
-func (s *Service) unregisterRealm(cfg *pb.DamConfig, realm string) error {
-	if s.warehouse == nil {
-		return nil
-	}
-	return s.warehouse.RegisterAccountProject(realm, "", 0, 0)
-}
 
 // ImportFiles ingests bootstrap configuration files to the DAM's storage sytem.
 func (s *Service) ImportFiles(importType string) error {
