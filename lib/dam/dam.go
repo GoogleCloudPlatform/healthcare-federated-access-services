@@ -139,6 +139,7 @@ func NewService(params *Options) *Service {
 		roleCategories: roleCat.DamRoleCategories,
 		domainURL:      params.Domain,
 		defaultBroker:  params.DefaultBroker,
+		serviceName:    params.ServiceName,
 		store:          params.Store,
 		warehouse:      params.Warehouse,
 		permissions:    perms,

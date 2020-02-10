@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -87,7 +88,7 @@ func TestHandlers(t *testing.T) {
 	}
 	crypt := fakeencryption.New()
 
-	s := NewService(&Options{
+	opts := &Options{
 		HTTPClient:     server.Client(),
 		Domain:         domain,
 		ServiceName:    "ic",
@@ -97,7 +98,15 @@ func TestHandlers(t *testing.T) {
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraURL,
-	})
+	}
+	s := NewService(opts)
+	verifyService(t, s.domain, opts.Domain, "domain")
+	verifyService(t, s.serviceName, opts.ServiceName, "serviceName")
+	verifyService(t, s.accountDomain, opts.AccountDomain, "accountDomain")
+	verifyService(t, strconv.FormatBool(s.useHydra), strconv.FormatBool(opts.UseHydra), "useHydra")
+	verifyService(t, s.hydraAdminURL, opts.HydraAdminURL, "hydraAdminURL")
+	verifyService(t, s.hydraPublicURL, opts.HydraPublicURL, "hydraPublicURL")
+
 	// identity := &ga4gh.Identity{
 	// 	Issuer:  s.getIssuerString(),
 	// 	Subject: "someone-account",
@@ -753,6 +762,12 @@ func TestAdminHandlers(t *testing.T) {
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests, hydraURL, server.Config())
+}
+
+func verifyService(t *testing.T, got, want, field string) {
+	if got != want {
+		t.Errorf("service %q mismatch: got %q, want %q", field, got, want)
+	}
 }
 
 func TestAddLinkedIdentities(t *testing.T) {

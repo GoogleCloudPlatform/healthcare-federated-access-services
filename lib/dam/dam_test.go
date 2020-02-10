@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -847,7 +848,7 @@ func TestMinConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
-	s := NewService(&Options{
+	opts := &Options{
 		HTTPClient:     server.Client(),
 		Domain:         "test.org",
 		ServiceName:    "dam",
@@ -857,7 +858,15 @@ func TestMinConfig(t *testing.T) {
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,
-	})
+	}
+	s := NewService(opts)
+	verifyService(t, s.domainURL, opts.Domain, "domainURL")
+	verifyService(t, s.defaultBroker, opts.DefaultBroker, "defaultBroker")
+	verifyService(t, s.serviceName, opts.ServiceName, "serviceName")
+	verifyService(t, strconv.FormatBool(s.useHydra), strconv.FormatBool(opts.UseHydra), "useHydra")
+	verifyService(t, s.hydraAdminURL, opts.HydraAdminURL, "hydraAdminURL")
+	verifyService(t, s.hydraPublicURL, opts.HydraPublicURL, "hydraPublicURL")
+
 	tests := []test.HandlerTest{
 		{
 			Name:    "restricted access of 'dr_joe_elixir' (which only exists in min config subdirectory)",
@@ -877,6 +886,12 @@ func TestMinConfig(t *testing.T) {
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests, hydraPublicURL, server.Config())
+}
+
+func verifyService(t *testing.T, got, want, field string) {
+	if got != want {
+		t.Errorf("service %q mismatch: got %q, want %q", field, got, want)
+	}
 }
 
 type contextMatcher struct{}
