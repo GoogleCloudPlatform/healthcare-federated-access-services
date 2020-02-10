@@ -1,20 +1,32 @@
 # Deploy on Google App Engine Flex
 
-See the readme file in project root for other requirements and steps.
+See the [README](../README.md) file in project root for other requirements and
+steps.
 
-This deployment will create a docker container run on Google App Engine Flex with service:
+This deployment will create a docker container run on Google App Engine Flex
+bundled a bundle of services:
 
 - [nginx](https://www.nginx.com/) accepts incoming http request
 - [hydra](https://github.com/ory/hydra) resolves oauth/oidc requests
 - **IC or DAM** resolves IC/DAM requests.
 
-## Enable Service in GCP
+In addition, the testing playground deployment services will be deployed:
+
+- Personas Broker for test accounts, including administration privledges
+- IC demo test page service ("icdemo")
+- DAM demo test page service ("damdemo")
+
+**Important:** The default deploy script is not for use with production data.
+See the [deploy script documentation](../deploy.md) for more information.
+
+## Deployment Service Dependencies in GCP
 
 1. [GAE flex](https://cloud.google.com/appengine/docs/flexible/custom-runtimes/quickstart)
 2. [CloudSQL](https://cloud.google.com/sql/docs/mysql/quickstart) for Hydra
 3. [CloudBuild](https://cloud.google.com/source-repositories/docs/quickstart-triggering-builds-with-source-repositories)
 
-Add IAM Roles to service account for GAE Flex `service-PROJECT_NUMBER@gae-api-prod.google.com.iam.gserviceaccount.com`:
+The deployment will make use of IAM Roles for a GAE Flex service account
+`service-${PROJECT_NUMBER}@gae-api-prod.google.com.iam.gserviceaccount.com`:
 
 - App Engine flexible environment Service Agent
 - Cloud KMS CryptoKey Encrypter/Decrypter
@@ -22,37 +34,26 @@ Add IAM Roles to service account for GAE Flex `service-PROJECT_NUMBER@gae-api-pr
 - Editor
 - Service Account Token Creator
 
-```bash
-PROJECT=$(gcloud config get-value project)
-NUM=$(gcloud projects list --filter="${PROJECT?}" --format="value(PROJECT_NUMBER)")
-gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${NUM?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
-gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${NUM?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudsql.client
-gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${NUM?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/editor
-gcloud projects add-iam-policy-binding -q ${PROJECT?} --member serviceAccount:service-${NUM?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
-```
+**Tip:** for details, view the `deploy.bash` script for specific steps
+performed.
 
-## Create user and database in CloudSQL
+## Users and Databases in CloudSQL
 
-Currently, it is using username: hydra, password: hydra, database name: GAE service name (eg. ic, dam).
+Currently, the deployment makes use of:
+
+*   **username**: hydra
+*   **password**: hydra
+*   **database name**: `<GAE service name>` (eg. ic, dam).
 
 ## Update the base image
 
-To speed up the build, we also push the base image to gcr which include golang, nginx and hydra.
-
-```bash
-cd deploy/gae-flex/base-image
-gcloud builds submit --config cloudbuild.yaml .
-```
+To speed up the build, the deployment script also pushes the base image to GCR.
+This includes `golang`, `nginx` and `hydra`.
 
 ## Run deploy script
 
-Replace `Your_Project_ID` in `deploy/gae-flex/build/Dockerfile` and yaml files under `deploy/gae-flex/build/config/`. Then
-
-```bash
-gcloud builds submit --config gae-cloudbuild.yaml --substitutions=_VERSION_="latest" .
-gcloud -q app deploy deploy/gae-flex/config/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
-gcloud -q app deploy deploy/gae-flex/config/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-gae:latest
-```
+See the [deployment instructions](../deploy.md) to perform a deployment with a
+testing playground configuration.
 
 ## Appendix:
 

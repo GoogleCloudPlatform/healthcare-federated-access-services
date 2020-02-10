@@ -15,11 +15,38 @@
 package srcutil
 
 import (
+	"path/filepath"
 	"testing"
 )
 
 const testfileContent string = `This is a text file for testing.
 `
+
+func TestPath(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "",
+			want:  root,
+		},
+		{
+			input: "deploy/config",
+			want:  filepath.Join(root, "deploy/config"),
+		},
+		{
+			input: "/my/path/from/root",
+			want:  "/my/path/from/root",
+		},
+	}
+
+	for _, tc := range tests {
+		if got := Path(tc.input); got != tc.want {
+			t.Errorf("Path(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
 
 func TestRead(t *testing.T) {
 	path := "lib/srcutil/testfile.txt"

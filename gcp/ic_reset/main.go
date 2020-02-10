@@ -32,11 +32,14 @@ func main() {
 	flag.Parse()
 
 	if len(args) < 3 {
-		glog.Fatalf("Usage: ic_reset <project> <service>")
+		glog.Fatalf("Usage: ic_reset <project> <service> [path]")
 	}
 	project := args[1]
 	service := args[2]
 	path := "deploy/config"
+	if len(args) > 3 {
+		path = args[3]
+	}
 
 	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
 

@@ -16,7 +16,7 @@
 
 # Reset IC and DAM service data storage (i.e. wipe database)
 # Usage:
-#   ./reset.sh $environment [$ic-or-dam]
+#   ./reset.bash [<flags>] [dam | ic]
 
 GREEN="\e[32m"
 RED="\e[31m"
@@ -24,6 +24,16 @@ RESET="\e[0m"
 
 PROJECT=${PROJECT}
 ENV_LABEL=""
+
+print_usage() {
+  echo -e ${RED?}'Usage: reset [-e environment] [-h] [-p project_id] [-P config_path] [dam | ic] ...'${RESET?}
+  echo -e ${RED?}'  -e \t extra environment namespace to include in the deployed service name'${RESET?}
+  echo -e ${RED?}'     \t example: "reset -e staging dam ic" will reset services "dam-staging", "ic-staging"'${RESET?}
+  echo -e ${RED?}'  -h \t show this help usage'${RESET?}
+  echo -e ${RED?}'  -p \t GCP project_id to deploy to'${RESET?}
+  echo
+  echo -e ${RED?}'  all flags must be provided before service names'${RESET?}
+}
 
 while getopts ':he:p:' flag; do
   case "${flag}" in
@@ -71,7 +81,7 @@ fi
 
 if [ "$DAM" == true ] ; then
   echo "RESET DAM (${ENV_LABEL?}) in project ${PROJECT?}"
-  $(go run "gcp/dam_reset/main.go" "${PROJECT?}" "dam${ENV?}" >/dev/null)
+  $(go run "gcp/dam_reset/main.go" "${PROJECT?}" "dam${ENV?}" "deploy/config" "ic${ENV?}-" >/dev/null)
   STATUS=$?
   if [ "$STATUS" == 0 ]; then
     echo -e "${GREEN?}Reset DAM succeeded${RESET?}"

@@ -151,6 +151,8 @@ sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/ic/secrets_master_
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/ic/secrets_master_main_latest.json
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/dam/config_master_main_latest.json
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/dam/config_master_main_latest.json
+sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/dam/secrets_master_main_latest.json
+sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/dam/secrets_master_main_latest.json
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/personas/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/hydra/Dockerfile

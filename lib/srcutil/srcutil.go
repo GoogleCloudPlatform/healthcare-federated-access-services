@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -29,6 +30,9 @@ var (
 // Path returns the path to a file in the repo given its relative path to
 // the root of the module.
 func Path(path string) string {
+	if strings.HasPrefix(path, "/") {
+		return path
+	}
 	return filepath.Join(root, path)
 }
 

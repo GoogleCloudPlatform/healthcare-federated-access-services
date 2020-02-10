@@ -34,18 +34,21 @@ func main() {
 	flag.Parse()
 
 	if len(args) < 3 {
-		glog.Fatalf("Usage: dam_reset <project> <service> [service_account_prefix]")
+		glog.Fatalf("Usage: dam_reset <project> <service> [path] [service_account_prefix]")
 	}
 	project := args[1]
 	service := args[2]
 	path := "deploy/config"
 	accountPrefix := ""
 	if len(args) > 3 {
-		accountPrefix = args[3]
+		path = args[3]
+	}
+	if len(args) > 4 {
+		accountPrefix = args[4]
 	}
 
 	ctx := context.Background()
-	store := gcp_storage.NewDatastoreStorage(ctx, project, service, path)
+	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
 	dams := dam.NewService(&dam.Options{
 		Domain:         "reset.example.org",
 		ServiceName:    service,
