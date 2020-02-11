@@ -23,4 +23,8 @@ var (
 	// Experimental is a global flag determining if experimental features should be enabled.
 	// Set from env var: `export FEDERATED_ACCESS_ENABLE_EXPERIMENTAL=true`
 	Experimental = os.Getenv("FEDERATED_ACCESS_ENABLE_EXPERIMENTAL") == "true"
+
+	// DisableAuditLog is a global flag determining if you want to disable audit log.
+	// Set from env var: `export FEDERATED_ACCESS_DISABLE_AUDIT_LOG=true`
+	DisableAuditLog = os.Getenv("FEDERATED_ACCESS_DISABLE_AUDIT_LOG") == "true"
 )
