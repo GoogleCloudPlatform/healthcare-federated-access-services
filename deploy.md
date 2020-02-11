@@ -39,6 +39,34 @@ gcloud config set account ${GCP_USERNAME?}
 
 For more information, see the [SDK documentation](https://cloud.google.com/sdk/docs).
 
+## Fetch the latest release from GitHub
+
+If you haven't already done so, install `git` and related tools as per the
+Github's [Set up Git](https://help.github.com/en/github/getting-started-with-github/set-up-git) documentation.
+
+If this is your first time installing Federated Access components, you will need
+to clone the repository:
+
+```
+git clone https://github.com/GoogleCloudPlatform/healthcare-federated-access-services.git
+```
+
+**Tip:** If you are less familiar with `git`, then [Git Basics](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository) is a good starting point
+to understanding the command line interface.
+
+Then `checkout` the latest release:
+
+```
+cd healthcare-federated-access-services
+git pull
+export FA_VERSION=$(git describe --tags)
+git checkout ${FA_VERSION?}
+```
+
+**Important:** It is recommended to checkout git's release tags (as per
+`FA_VERSION` above) instead of `master` as releases have typically gone through
+additional testing processes.
+
 ## Create a test Google Cloud deployment of Federated Access services
 
 To create a Google Cloud project, do the following:
