@@ -25,7 +25,7 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
@@ -64,7 +64,7 @@ func main() {
 	var store storage.Store
 	switch storageType {
 	case "datastore":
-		store = gcp_storage.NewDatastoreStorage(ctx, project, srvName, cfgPath)
+		store = dsstore.NewDatastoreStorage(ctx, project, srvName, cfgPath)
 	case "memory":
 		store = storage.NewMemoryStorage(srvName, cfgPath)
 	default:

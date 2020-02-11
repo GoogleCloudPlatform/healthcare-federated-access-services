@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp" /* copybara-comment: gcp */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -68,7 +68,7 @@ func (h *processesHandler) Setup(tx storage.Tx) (int, error) {
 func (h *processesHandler) LookupItem(name string, vars map[string]string) bool {
 	h.item = make(map[string]*pb.BackgroundProcess)
 	m := make(map[string]map[string]proto.Message)
-	_, err := h.s.store.MultiReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &pb.BackgroundProcess{}, h.tx)
+	_, err := h.s.store.MultiReadTx(saw.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &pb.BackgroundProcess{}, h.tx)
 	if err != nil {
 		return false
 	}
@@ -155,7 +155,7 @@ func (h *processHandler) Setup(tx storage.Tx) (int, error) {
 }
 func (h *processHandler) LookupItem(name string, vars map[string]string) bool {
 	h.item = &pb.BackgroundProcess{}
-	err := h.s.store.ReadTx(gcp.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, name, storage.LatestRev, h.item, h.tx)
+	err := h.s.store.ReadTx(saw.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, name, storage.LatestRev, h.item, h.tx)
 	if err != nil {
 		return false
 	}

@@ -24,9 +24,9 @@ import (
 	"os"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/internal/appengine" /* copybara-comment: appengine */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
@@ -61,14 +61,14 @@ func main() {
 	var store storage.Store
 	switch storageType {
 	case "datastore":
-		store = gcp_storage.NewDatastoreStorage(ctx, project, srvName, cfgPath)
+		store = dsstore.NewDatastoreStorage(ctx, project, srvName, cfgPath)
 	case "memory":
 		store = storage.NewMemoryStorage(srvName, cfgPath)
 	default:
 		glog.Fatalf("Unknown storage type %q", storageType)
 	}
 
-	wh := appengine.MustBuildAccountWarehouse(ctx, store)
+	wh := saw.MustBuildAccountWarehouse(ctx, store)
 
 	if useHydra {
 		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")

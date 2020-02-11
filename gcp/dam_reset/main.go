@@ -23,9 +23,9 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/api/iam/v1" /* copybara-comment: iam */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/internal/appengine" /* copybara-comment: appengine */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 )
 
 func main() {
@@ -48,7 +48,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
+	store := dsstore.NewDatastoreStorage(context.Background(), project, service, path)
 	dams := dam.NewService(&dam.Options{
 		Domain:         "reset.example.org",
 		ServiceName:    service,
@@ -71,8 +71,8 @@ func main() {
 	glog.Infof("SUCCESS resetting DAM service %q", service)
 }
 
-func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, store *gcp_storage.DatastoreStorage) {
-	wh := appengine.MustBuildAccountWarehouse(ctx, store)
+func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, store *dsstore.DatastoreStorage) {
+	wh := saw.MustBuildAccountWarehouse(ctx, store)
 	var (
 		removed, skipped, errors int
 		emails                   []string

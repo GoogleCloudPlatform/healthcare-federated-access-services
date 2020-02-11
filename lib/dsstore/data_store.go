@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gcp_storage
+// Package dsstore is a Datastore-based storage for DAM/IC.
+package dsstore
 
 import (
 	"context"

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package gcp abstracts interacting with certain aspects of Google Cloud
+// Package saw abstracts interacting with certain aspects of Google Cloud
 // Platform, such as creating service account keys and access tokens.
-package gcp
+package saw
 
 import (
 	"context"
@@ -26,13 +26,14 @@ import (
 	"strings"
 	"time"
 
+	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/cenkalti/backoff" /* copybara-comment */
+	"golang.org/x/crypto/sha3" /* copybara-comment */
+	"golang.org/x/oauth2/google" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
-
-	"github.com/cenkalti/backoff" /* copybara-comment */
-	"golang.org/x/crypto/sha3" /* copybara-comment */
 
 	// Using a deprecated library because the new version doesn't support setting IAM roles in
 	// BigQuery datasets yet.
@@ -82,6 +83,22 @@ type AccountWarehouse struct {
 	cs    *cloudstorage.Service
 	bqDs  *bigquery.DatasetsService
 	keyGC *KeyGarbageCollector
+}
+
+// MustBuildAccountWarehouse builds a *AccountWarehouse. It panics on failure.
+func MustBuildAccountWarehouse(ctx context.Context, store storage.Store) *AccountWarehouse {
+	client, err := google.DefaultClient(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		glog.Fatalf("Error creating HTTP client: %v", err)
+		return nil
+	}
+
+	wh, err := NewAccountWarehouse(client, store)
+	if err != nil {
+		glog.Fatalf("Error creating account warehouse: %v", err)
+		return nil
+	}
+	return wh
 }
 
 // NewAccountWarehouse creates a new AccountWarehouse using the provided client

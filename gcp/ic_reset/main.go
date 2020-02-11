@@ -20,7 +20,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -41,7 +41,7 @@ func main() {
 		path = args[3]
 	}
 
-	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
+	store := dsstore.NewDatastoreStorage(context.Background(), project, service, path)
 
 	ics := ic.NewService(&ic.Options{
 		Domain:         "reset.example.org",
