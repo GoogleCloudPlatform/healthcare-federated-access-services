@@ -1026,7 +1026,6 @@ func (s *Service) registerProject(cfg *pb.DamConfig, realm string) error {
 	return s.warehouse.RegisterAccountProject(realm, cfg.Options.GcpServiceAccountProject, int(ttl.Seconds()), int(cfg.Options.GcpManagedKeysPerAccount))
 }
 
-
 // ImportFiles ingests bootstrap configuration files to the DAM's storage sytem.
 func (s *Service) ImportFiles(importType string) error {
 	wipe := false
@@ -1131,8 +1130,6 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.GetPassportTranslators, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(damRoleCategoriesPath, auth.MustWithAuth(s.GetDamRoleCategories, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(testPersonasPath, auth.MustWithAuth(s.GetTestPersonas, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
-	r.HandleFunc(processesPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processesFactory()), checker, auth.RequireClientIDAndSecret))
-	r.HandleFunc(processPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processFactory()), checker, auth.RequireClientIDAndSecret))
 
 	// administration endpoints
 	r.HandleFunc(realmPath, auth.MustWithAuth(httputil.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
@@ -1151,6 +1148,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(httputil.MakeHandler(s, s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configPersonaFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configClientPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
+
+	r.HandleFunc(processesPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processesFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(processPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processFactory()), checker, auth.RequireAdminToken))
 
 	// hydra related oidc endpoints
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
