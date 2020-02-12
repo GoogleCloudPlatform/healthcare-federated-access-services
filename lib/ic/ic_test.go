@@ -782,6 +782,7 @@ func TestAddLinkedIdentities(t *testing.T) {
 		Subject:  subject,
 		Issuer:   issuer,
 		VisaJWTs: []string{},
+		Expiry:   time.Now().Unix() + 10000,
 	}
 
 	link := &cpb.ConnectedAccount{
@@ -850,6 +851,10 @@ func TestAddLinkedIdentities(t *testing.T) {
 
 	if diff := cmp.Diff(want, got); len(diff) != 0 {
 		t.Fatalf("v.Data() returned diff (-want +got):\n%s", diff)
+	}
+
+	if got.ExpiresAt-time.Now().Unix() > 3600 {
+		t.Errorf("got.ExpiresAt = now + %v seconds, want less than a hour", (got.ExpiresAt - time.Now().Unix()))
 	}
 }
 

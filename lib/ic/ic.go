@@ -59,6 +59,8 @@ const (
 
 	maxClaimsLength = 1900
 
+	linkedIdentitiesMaxLifepan = time.Hour
+
 	loginPageFile              = "pages/login.html"
 	loginPageInfoFile          = "pages/login-info.html"
 	clientLoginPageFile        = "pages/client_login.html"
@@ -996,10 +998,13 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAcc
 	}
 
 	subjectIssuers := map[string]bool{}
-	now := time.Now().Unix()
+	now := time.Now()
 
 	// TODO: add config option for LinkedIdentities expiry.
-	exp := id.Expiry
+	exp := now.Add(linkedIdentitiesMaxLifepan).Unix()
+	if exp > id.Expiry {
+		exp = id.Expiry
+	}
 
 	idp, ok := cfg.IdentityProviders[link.Provider]
 	if !ok {
@@ -1029,7 +1034,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAcc
 		StdClaims: ga4gh.StdClaims{
 			Subject:   id.Subject,
 			Issuer:    s.getVisaIssuerString(),
-			IssuedAt:  now,
+			IssuedAt:  now.Unix(),
 			ExpiresAt: exp,
 		},
 		Scope: "openid",
