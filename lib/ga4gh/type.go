@@ -16,6 +16,7 @@ package ga4gh
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -60,14 +61,18 @@ func StandardType(t Type) bool {
 	switch t {
 	case AffiliationAndRole, AcceptedTermsAndPolicies, ResearcherStatus, ControlledAccessGrants, LinkedIdentities:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
 // CustomType checks if the Type of an Assertion is a custom.
 // http://bit.ly/ga4gh-passport-v1#custom-passport-visa-types
+// http://bit.ly/ga4gh-passport-v1#url-fields
 func CustomType(t Type) bool {
-	// TODO: check that it is a valid URL.
+	if _, err := url.ParseRequestURI(string(t)); err != nil {
+		return false
+	}
 	return true
 }
 
@@ -139,8 +144,9 @@ func MatchPatterns(p Pattern, v string) error {
 		}
 		return fmt.Errorf("split_pattern not matched: %q %q", p, v)
 
+	default:
+		return fmt.Errorf("unkown pattern")
 	}
-	return fmt.Errorf("unkown pattern")
 }
 
 // matchSuffix gets a suffix for a pattern and checks if v matches it.
@@ -188,5 +194,3 @@ func MatchRegExp(e RegExp, x Value) bool {
 // Scope is the AAI Scope claim
 // http://bit.ly/ga4gh-aai-profile#ga4gh-jwt-format
 type Scope string
-
-// TODO: add tests for this file.
