@@ -45,6 +45,7 @@ type realmHandler struct {
 	item  *pb.Realm
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
+	tx    storage.Tx
 }
 
 func newRealmHandler(s *Service, w http.ResponseWriter, r *http.Request) *realmHandler {
@@ -60,6 +61,7 @@ func (h *realmHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
+	h.tx = tx
 	return status, err
 }
 

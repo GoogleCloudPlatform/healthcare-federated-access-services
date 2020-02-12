@@ -20,6 +20,7 @@ package dam.v1;
 
 import "proto/common/v1/common.proto"; /* copybara-comment */
 import "proto/common/v1/oauthclient.proto"; /* copybara-comment */
+import "proto/process/v1/process.proto"; /* copybara-comment */
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1";
 
@@ -375,13 +376,13 @@ message GetTestPersonasResponse {
 message BackgroundProcessesRequest {}
 
 message BackgroundProcessesResponse {
-  map<string, BackgroundProcess> processes = 1;
+  map<string, process.Process> processes = 1;
 }
 
 message BackgroundProcessRequest {}
 
 message BackgroundProcessResponse {
-  BackgroundProcess process = 1;
+  process.Process process = 1;
 }
 
 message TokensRequest {}

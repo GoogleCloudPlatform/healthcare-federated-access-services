@@ -20,12 +20,12 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
+	ppb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
 
 func (s *Service) processesFactory() *httputil.HandlerFactory {
@@ -44,7 +44,7 @@ type processesHandler struct {
 	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.BackgroundProcessesRequest
-	item  map[string]*pb.BackgroundProcess
+	item  map[string]*ppb.Process
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -66,15 +66,15 @@ func (h *processesHandler) Setup(tx storage.Tx) (int, error) {
 	return status, err
 }
 func (h *processesHandler) LookupItem(name string, vars map[string]string) bool {
-	h.item = make(map[string]*pb.BackgroundProcess)
+	h.item = make(map[string]*ppb.Process)
 	m := make(map[string]map[string]proto.Message)
-	_, err := h.s.store.MultiReadTx(saw.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &pb.BackgroundProcess{}, h.tx)
+	_, err := h.s.store.MultiReadTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &ppb.Process{}, h.tx)
 	if err != nil {
 		return false
 	}
 	for _, userVal := range m {
 		for k, v := range userVal {
-			if process, ok := v.(*pb.BackgroundProcess); ok {
+			if process, ok := v.(*ppb.Process); ok {
 				h.item[k] = process
 			}
 		}
@@ -132,7 +132,7 @@ type processHandler struct {
 	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.BackgroundProcessRequest
-	item  *pb.BackgroundProcess
+	item  *ppb.Process
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -154,8 +154,8 @@ func (h *processHandler) Setup(tx storage.Tx) (int, error) {
 	return status, err
 }
 func (h *processHandler) LookupItem(name string, vars map[string]string) bool {
-	h.item = &pb.BackgroundProcess{}
-	err := h.s.store.ReadTx(saw.BackgroundProcessDataType, storage.DefaultRealm, storage.DefaultUser, name, storage.LatestRev, h.item, h.tx)
+	h.item = &ppb.Process{}
+	err := h.s.store.ReadTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, name, storage.LatestRev, h.item, h.tx)
 	if err != nil {
 		return false
 	}
