@@ -34,7 +34,7 @@ import (
 
 func TestLogger_Write(t *testing.T) {
 	ctx := context.Background()
-	f, stop := New(t)
+	f, stop := New()
 	defer stop()
 
 	msg := "something has happened"

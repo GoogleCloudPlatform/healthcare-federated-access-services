@@ -17,7 +17,6 @@ package fakesdl
 
 import (
 	"context"
-	"testing"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -38,15 +37,15 @@ type Fake struct {
 }
 
 // New creates a new Fake.
-func New(t *testing.T) (*Fake, func()) {
+func New() (*Fake, func()) {
 	ctx := context.Background()
 
-	rpc, cleanup := fakegrpc.New(t)
+	rpc, cleanup := fakegrpc.New()
 
 	s := &Server{}
 	lgrpcpb.RegisterLoggingServiceV2Server(rpc.Server, s)
 
-	stop := rpc.Start(t)
+	stop := rpc.Start()
 
 	c, err := logging.NewClient(ctx, "projects/fake-project-id", option.WithGRPCConn(rpc.Client), option.WithoutAuthentication(), option.WithGRPCDialOption(grpc.WithInsecure()))
 	if err != nil {
@@ -54,13 +53,13 @@ func New(t *testing.T) (*Fake, func()) {
 	}
 
 	return &Fake{
-		GRPC:   rpc,
-		Server: s,
-		Client: c,
-	}, func(){
-		stop()
-		cleanup()
-	}
+			GRPC:   rpc,
+			Server: s,
+			Client: c,
+		}, func() {
+			stop()
+			cleanup()
+		}
 }
 
 // Server is a fake logging server.

@@ -17,7 +17,6 @@ package fakegrpc
 
 import (
 	"net"
-	"testing"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc" /* copybara-comment */
@@ -31,9 +30,7 @@ type Fake struct {
 }
 
 // New creates a gRPC client and server connected to eachother.
-func New(t *testing.T) (*Fake, func() error) {
-	t.Helper()
-
+func New() (*Fake, func() error) {
 	f := &Fake{}
 
 	// Create a gRPC server.
@@ -46,14 +43,14 @@ func New(t *testing.T) (*Fake, func() error) {
 	var err error
 	f.Listener, err = net.Listen("tcp", port)
 	if err != nil {
-		t.Fatalf("net.Listen(\"tcp\", %v) failed: %v", port, err)
+		glog.Fatalf("net.Listen(\"tcp\", %v) failed: %v", port, err)
 	}
 
 	// Set up a client connection to the server.
 	addr := f.Listener.Addr().String()
 	f.Client, err = grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
-		t.Fatalf("grpc.Dial(%v, _) failed: %v", addr, err)
+		glog.Fatalf("grpc.Dial(%v, _) failed: %v", addr, err)
 	}
 
 	return f, f.Client.Close
@@ -61,9 +58,7 @@ func New(t *testing.T) (*Fake, func() error) {
 
 // Start starts the server.
 // Must be called after registering the services on the server.
-func (f *Fake) Start(t *testing.T) func() error {
-	t.Helper()
-
+func (f *Fake) Start() func() error {
 	// gRPC server serves on the port.
 	go func() {
 		if err := f.Server.Serve(f.Listener); err != nil {

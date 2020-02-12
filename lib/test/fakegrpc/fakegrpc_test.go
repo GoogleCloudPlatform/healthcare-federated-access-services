@@ -19,26 +19,26 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	rpc, cleanup := New(t)
-  defer cleanup()
+	rpc, cleanup := New()
+	defer cleanup()
 
-  // Register your server using rpc.Server.
-  // s := &Server{}
-  // fgrpcpb.RegisterFooServiceServer(rpc.Server, s)
+	// Register your server using rpc.Server.
+	// s := &Server{}
+	// fgrpcpb.RegisterFooServiceServer(rpc.Server, s)
 
-	stop := rpc.Start(t)
-  defer stop()
+	stop := rpc.Start()
+	defer stop()
 
-  // Create a client using rpc.Client.
-  // c := foo.NewClient(ctx,
-  //   option.WithGRPCConn(rpc.Client),
-  //   option.WithoutAuthentication(),
-  //   option.WithGRPCDialOption(grpc.WithInsecure()),
-  // )
+	// Create a client using rpc.Client.
+	// c := foo.NewClient(ctx,
+	//   option.WithGRPCConn(rpc.Client),
+	//   option.WithoutAuthentication(),
+	//   option.WithGRPCDialOption(grpc.WithInsecure()),
+	// )
 
-  // Inject the client into your code.
+	// Inject the client into your code.
 
-  // Run the code under the test.
+	// Run the code under the test.
 
-  // Check test post-conditions using s.
+	// Check test post-conditions using s.
 }
