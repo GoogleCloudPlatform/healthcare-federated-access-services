@@ -64,8 +64,8 @@ func main() {
 	ctx := context.Background()
 
 	serviceinfo.Project = project
-	serviceinfo.ServiceType = "ic"
-	serviceinfo.ServiceName = srvName
+	serviceinfo.Type = "ic"
+	serviceinfo.Name = srvName
 
 	var store storage.Store
 	switch storageType {

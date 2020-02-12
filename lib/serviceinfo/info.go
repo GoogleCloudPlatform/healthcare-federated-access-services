@@ -16,10 +16,10 @@
 package serviceinfo
 
 var (
-	// Project the GCP project hosting the service
+	// Project the GCP project that the service is running in.
 	Project = "unknown"
-	// ServiceType ic, dam, persona, ...
-	ServiceType = "unknown"
-	// ServiceName the GAE runtime service name.
-	ServiceName = "unknown"
+	// Type ic, dam, persona, to identity the binary.
+	Type = "unknown"
+	// Name the GAE runtime service name, to identity the service.
+	Name = "unknown"
 )

@@ -43,8 +43,8 @@ func main() {
 	flag.Parse()
 
 	serviceinfo.Project = project
-	serviceinfo.ServiceType = "persona"
-	serviceinfo.ServiceName = srvName
+	serviceinfo.Type = "persona"
+	serviceinfo.Name = srvName
 
 	broker, err := persona.NewBroker(oidcAddr, &testkeys.PersonaBrokerKey, service, cfgPath, true)
 	if err != nil {

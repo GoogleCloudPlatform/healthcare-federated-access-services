@@ -46,8 +46,8 @@ func main() {
 	flag.Parse()
 
 	serviceinfo.Project = project
-	serviceinfo.ServiceType = "icdemo"
-	serviceinfo.ServiceName = srvName
+	serviceinfo.Type = "icdemo"
+	serviceinfo.Name = srvName
 
 	b, err := srcutil.Read(htmlFile)
 	if err != nil {
