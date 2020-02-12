@@ -82,29 +82,29 @@ func New(ctx context.Context, projectID, keyRingLocation, keyRingName, keyName s
 
 // Encrypt data with Cloud KMS.
 func (s *Client) Encrypt(ctx context.Context, data []byte, additionalAuthData string) ([]byte, error) {
-	resp, err := s.client.Encrypt(ctx, &kmspb.EncryptRequest{
+	req := &kmspb.EncryptRequest{
 		Name:                        s.cryptoKeyID,
 		Plaintext:                   data,
 		AdditionalAuthenticatedData: []byte(additionalAuthData),
-	})
-	if err != nil {
-		return nil, err
 	}
-
+	resp, err := s.client.Encrypt(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("kms.Encrypt(%+v) failed: %v", req.Name, err)
+	}
 	return resp.Ciphertext, nil
 }
 
 // Decrypt data with Cloud KMS.
 func (s *Client) Decrypt(ctx context.Context, encrypted []byte, additionalAuthData string) ([]byte, error) {
-	resp, err := s.client.Decrypt(ctx, &kmspb.DecryptRequest{
+	req := &kmspb.DecryptRequest{
 		Name:                        s.cryptoKeyID,
 		Ciphertext:                  encrypted,
 		AdditionalAuthenticatedData: []byte(additionalAuthData),
-	})
-	if err != nil {
-		return nil, err
 	}
-
+	resp, err := s.client.Decrypt(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("kms.Decrypt(%+v) failed: %v", req.Name, err)
+	}
 	return resp.Plaintext, nil
 }
 

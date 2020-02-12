@@ -26,22 +26,53 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	spb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2" /* copybara-comment: go_proto */
+)
+
+const (
+	linkAuthorization = "X-Link-Authorization"
 )
 
 var (
 	// As used by storage.BuildFilters(), this maps the SCIM data model
 	// filter path names to a slice path of where the field exists in
-	// the storage data model. SCIM names are expected to be lowercase.
+	// the storage data model. SCIM names are expected to be the lowercase
+	// version of the names from the SCIM spec.
 	scimUserFilterMap = map[string]func(p proto.Message) string{
+		"active": func(p proto.Message) string {
+			if acctProto(p).State == storage.StateActive {
+				return "true"
+			}
+			return "false"
+		},
+		"displayname": func(p proto.Message) string {
+			return acctProto(p).GetProfile().Name
+		},
+		"emails": func(p proto.Message) string {
+			list := []string{}
+			for _, link := range acctProto(p).ConnectedAccounts {
+				list = append(list, link.GetProperties().Email)
+			}
+			return common.JoinNonEmpty(list, " ")
+		},
+		"externalid": func(p proto.Message) string {
+			return acctProto(p).GetProperties().Subject
+		},
 		"id": func(p proto.Message) string {
 			return acctProto(p).GetProperties().Subject
 		},
+		"locale": func(p proto.Message) string {
+			return acctProto(p).GetProfile().Locale
+		},
+		"preferredlanguage": func(p proto.Message) string {
+			return acctProto(p).GetProfile().Locale
+		},
 		"name.formatted": func(p proto.Message) string {
-			return acctProto(p).GetProfile().Name
+			return formattedName(acctProto(p))
 		},
 		"name.givenname": func(p proto.Message) string {
 			return acctProto(p).GetProfile().GivenName
@@ -52,31 +83,57 @@ var (
 		"name.middlename": func(p proto.Message) string {
 			return acctProto(p).GetProfile().MiddleName
 		},
+		"timezone": func(p proto.Message) string {
+			return acctProto(p).GetProfile().ZoneInfo
+		},
 		"username": func(p proto.Message) string {
 			return acctProto(p).GetProperties().Subject
 		},
 	}
 
+	scimEmailFilterMap = map[string]func(p proto.Message) string{
+		"$ref": func(p proto.Message) string {
+			return emailRef(linkProto(p))
+		},
+		"value": func(p proto.Message) string {
+			return linkProto(p).GetProperties().Email
+		},
+		"primary": func(p proto.Message) string {
+			if linkProto(p).Primary {
+				return "true"
+			}
+			return "false"
+		},
+	}
+
+	emailPathRE = regexp.MustCompile(`^emails\[(.*)\](\.primary)?$`)
 	photoPathRE = regexp.MustCompile(`^photos.*\.value$`)
 )
 
 //////////////////////////////////////////////////////////////////
 
-func acctProto(p proto.Message) *pb.Account {
-	acct, ok := p.(*pb.Account)
+func acctProto(p proto.Message) *cpb.Account {
+	acct, ok := p.(*cpb.Account)
 	if !ok {
-		return &pb.Account{}
+		return &cpb.Account{}
 	}
 	return acct
 }
 
-func (s *Service) scimMeFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func linkProto(p proto.Message) *cpb.ConnectedAccount {
+	link, ok := p.(*cpb.ConnectedAccount)
+	if !ok {
+		return &cpb.ConnectedAccount{}
+	}
+	return link
+}
+
+func (s *Service) scimMeFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "user",
 		PathPrefix:          scimMePath,
 		HasNamedIdentifiers: false,
-		IsAdmin:             false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &scimMe{
 				s: s,
 				w: w,
@@ -94,14 +151,15 @@ type scimMe struct {
 }
 
 // Setup initializes the handler
-func (h *scimMe) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (h *scimMe) Setup(tx storage.Tx) (int, error) {
+	h.r.ParseForm()
 	h.user = &scimUser{
 		s:     h.s,
 		w:     h.w,
 		r:     h.r,
 		input: &spb.Patch{},
 	}
-	return h.user.Setup(tx, isAdmin)
+	return h.user.Setup(tx)
 }
 
 // LookupItem returns true if the named object is found
@@ -151,13 +209,12 @@ func (h *scimMe) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) scimUserFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) scimUserFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "user",
 		PathPrefix:          scimUserPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &scimUser{
 				s:     s,
 				w:     w,
@@ -172,16 +229,16 @@ type scimUser struct {
 	s     *Service
 	w     http.ResponseWriter
 	r     *http.Request
-	item  *pb.Account
+	item  *cpb.Account
 	input *spb.Patch
-	save  *pb.Account
+	save  *cpb.Account
 	id    *ga4gh.Identity
 	tx    storage.Tx
 }
 
 // Setup initializes the handler
-func (h *scimUser) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
+func (h *scimUser) Setup(tx storage.Tx) (int, error) {
+	_, _, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	if err != nil {
 		return status, err
 	}
@@ -203,7 +260,7 @@ func (h *scimUser) LookupItem(name string, vars map[string]string) bool {
 		return false
 	}
 	realm := getRealm(h.r)
-	acct := &pb.Account{}
+	acct := &cpb.Account{}
 	if _, err := h.s.singleRealmReadTx(storage.AccountDatatype, realm, storage.DefaultUser, name, storage.LatestRev, acct, h.tx); err != nil {
 		return false
 	}
@@ -226,7 +283,7 @@ func (h *scimUser) NormalizeInput(name string, vars map[string]string) error {
 
 // Get sends a GET method response
 func (h *scimUser) Get(name string) error {
-	return common.SendResponse(h.s.newScimUser(h.item, getRealm(h.r)), h.w)
+	return httputil.SendResponse(h.s.newScimUser(h.item, getRealm(h.r)), h.w)
 }
 
 // Post receives a POST method request
@@ -241,7 +298,7 @@ func (h *scimUser) Put(name string) error {
 
 // Patch receives a PATCH method request
 func (h *scimUser) Patch(name string) error {
-	h.save = &pb.Account{}
+	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for i, patch := range h.input.Operations {
 		src := patch.Value
@@ -250,6 +307,8 @@ func (h *scimUser) Patch(name string) error {
 		// When updating a photo from the list, always update the photo in the primary profile.
 		if photoPathRE.MatchString(path) {
 			path = "photo"
+		} else if emailPathRE.MatchString(path) {
+			path = "emails"
 		}
 		switch path {
 		case "active":
@@ -266,8 +325,8 @@ func (h *scimUser) Patch(name string) error {
 			}
 
 		case "name.formatted":
-			dst = &h.save.Profile.Name
-			if patch.Op == "remove" {
+			dst = &h.save.Profile.FormattedName
+			if patch.Op == "remove" || len(src) == 0 {
 				return fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
 			}
 
@@ -279,6 +338,77 @@ func (h *scimUser) Patch(name string) error {
 
 		case "name.middleName":
 			dst = &h.save.Profile.MiddleName
+
+		case "displayName":
+			dst = &h.save.Profile.Name
+			if patch.Op == "remove" || len(src) == 0 {
+				return fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
+			}
+
+		case "profileUrl":
+			dst = &h.save.Profile.Profile
+
+		case "locale":
+			dst = &h.save.Profile.Locale
+			if len(src) > 0 && !common.IsLocale(src) {
+				return fmt.Errorf("operation %d: %q is not a recognized locale", i, path)
+			}
+
+		case "timezone":
+			dst = &h.save.Profile.ZoneInfo
+			if len(src) > 0 && !common.IsTimeZone(src) {
+				return fmt.Errorf("operation %d: %q is not a recognized time zone", i, src)
+			}
+
+		case "emails":
+			if patch.Op == "add" {
+				// SCIM extension for linking accounts.
+				if patch.Value != linkAuthorization {
+					return fmt.Errorf("operation %d: %q must be set to %q", i, patch.Value, linkAuthorization)
+				}
+				if err := h.linkEmail(); err != nil {
+					return err
+				}
+				break
+			}
+			// Standard SCIM email functionality.
+			link, match, err := selectLink(patch.Path, emailPathRE, scimEmailFilterMap, h.save)
+			if err != nil {
+				return err
+			}
+			dst = nil // operation can be skipped by logic after this switch block (i.e. no destination to write)
+			if link == nil {
+				break
+			}
+			if len(match[2]) == 0 {
+				// When match[2] is empty, the operation applies to the entire email object.
+				if patch.Op != "remove" {
+					return fmt.Errorf("operation %d: path %q only supported for remove", i, path)
+				}
+				if len(h.save.ConnectedAccounts) < 2 {
+					return fmt.Errorf("operation %d: cannot unlink the only email address for a given account", i)
+				}
+				// Unlink account
+				for idx, connect := range h.save.ConnectedAccounts {
+					if connect.Properties.Subject == link.Properties.Subject {
+						h.save.ConnectedAccounts = append(h.save.ConnectedAccounts[:idx], h.save.ConnectedAccounts[idx+1:]...)
+						if err := h.s.removeAccountLookup(link.LinkRevision, getRealm(h.r), link.Properties.Subject, h.r, h.id, h.tx); err != nil {
+							return fmt.Errorf("service dependencies not available; try again later")
+						}
+						break
+					}
+				}
+			} else {
+				// This logic is valid for all patch.Op operations.
+				primary := strings.ToLower(patch.Value) == "true" && patch.Op != "remove"
+				if primary {
+					// Make all entries not primary, then set the primary below
+					for _, entry := range h.save.ConnectedAccounts {
+						entry.Primary = false
+					}
+				}
+				link.Primary = primary
+			}
 
 		case "photo":
 			dst = &h.save.Profile.Picture
@@ -306,12 +436,12 @@ func (h *scimUser) Patch(name string) error {
 			return fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
 		}
 	}
-	return common.SendResponse(h.s.newScimUser(h.save, getRealm(h.r)), h.w)
+	return httputil.SendResponse(h.s.newScimUser(h.save, getRealm(h.r)), h.w)
 }
 
 // Remove receives a DELETE method request
 func (h *scimUser) Remove(name string) error {
-	h.save = &pb.Account{}
+	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for _, link := range h.save.ConnectedAccounts {
 		if link.Properties == nil || len(link.Properties.Subject) == 0 {
@@ -321,7 +451,7 @@ func (h *scimUser) Remove(name string) error {
 			return fmt.Errorf("service dependencies not available; try again later")
 		}
 	}
-	h.save.ConnectedAccounts = []*pb.ConnectedAccount{}
+	h.save.ConnectedAccounts = []*cpb.ConnectedAccount{}
 	h.save.State = "DELETED"
 	return nil
 }
@@ -339,15 +469,77 @@ func (h *scimUser) Save(tx storage.Tx, name string, vars map[string]string, desc
 	return h.s.saveAccount(h.item, h.save, desc, h.r, h.id.Subject, h.tx)
 }
 
+func (h *scimUser) linkEmail() error {
+	link, err := linkToken(h.r)
+	if err != nil {
+		return err
+	}
+	if !hasScopes("link", h.id.Scope, matchFullScope) {
+		return fmt.Errorf("bearer token unauthorized for scope %q", "link")
+	}
+	linkID, _, err := h.s.requestTokenToIdentity(link, "link", h.r, h.tx)
+	if err != nil {
+		return err
+	}
+	if !hasScopes("link", linkID.Scope, matchFullScope) {
+		return fmt.Errorf("link bearer token unauthorized for scope %q", "link")
+	}
+	linkSub := linkID.Subject
+	idSub := h.save.Properties.Subject
+	if linkSub == idSub {
+		return fmt.Errorf("the accounts provided are already linked together")
+	}
+	linkAcct, _, err := h.s.loadAccount(linkSub, getRealm(h.r), h.tx)
+	if err != nil {
+		return err
+	}
+	if linkAcct.State != storage.StateActive {
+		return fmt.Errorf("the link account is not found or no longer available")
+	}
+	for _, acct := range linkAcct.ConnectedAccounts {
+		if acct.Properties == nil || len(acct.Properties.Subject) == 0 {
+			continue
+		}
+		lookup := &cpb.AccountLookup{
+			Subject:  h.save.Properties.Subject,
+			Revision: acct.LinkRevision,
+			State:    storage.StateActive,
+		}
+		if err := h.s.saveAccountLookup(lookup, getRealm(h.r), acct.Properties.Subject, h.r, h.id, h.tx); err != nil {
+			return fmt.Errorf("service dependencies not available; try again later")
+		}
+		acct.LinkRevision++
+		h.save.ConnectedAccounts = append(h.save.ConnectedAccounts, acct)
+	}
+	linkAcct.ConnectedAccounts = make([]*cpb.ConnectedAccount, 0)
+	linkAcct.State = "LINKED"
+	linkAcct.Owner = h.save.Properties.Subject
+	if err = h.s.saveAccount(nil, linkAcct, "LINK account", h.r, h.id.Subject, h.tx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func linkToken(r *http.Request) (string, error) {
+	parts := strings.SplitN(r.Header.Get(linkAuthorization), " ", 2)
+	tok := ""
+	if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+		tok = parts[1]
+	}
+	if len(tok) == 0 {
+		return "", fmt.Errorf("missing or invalid %q header", linkAuthorization)
+	}
+	return tok, nil
+}
+
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) scimUsersFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
+func (s *Service) scimUsersFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
 		TypeName:            "users",
 		PathPrefix:          scimUsersPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return &scimUsers{
 				s: s,
 				w: w,
@@ -366,8 +558,8 @@ type scimUsers struct {
 }
 
 // Setup initializes the handler
-func (h *scimUsers) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, nil)
+func (h *scimUsers) Setup(tx storage.Tx) (int, error) {
+	_, _, id, status, err := h.s.handlerSetup(tx, h.r, noScope, nil)
 	h.id = id
 	h.tx = tx
 	return status, err
@@ -385,32 +577,32 @@ func (h *scimUsers) NormalizeInput(name string, vars map[string]string) error {
 
 // Get sends a GET method response
 func (h *scimUsers) Get(name string) error {
-	filters, err := storage.BuildFilters(common.GetParam(h.r, "filter"), scimUserFilterMap)
+	filters, err := storage.BuildFilters(httputil.GetParam(h.r, "filter"), scimUserFilterMap)
 	if err != nil {
 		return err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := common.ExtractIntParam(h.r, "startIndex")
+	start := httputil.ExtractIntParam(h.r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := common.ExtractIntParam(h.r, "count")
-	if len(common.GetParam(h.r, "count")) == 0 {
+	max := httputil.ExtractIntParam(h.r, "count")
+	if len(httputil.GetParam(h.r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 
 	m := make(map[string]map[string]proto.Message)
-	count, err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, offset, max, m, &pb.Account{}, h.tx)
+	count, err := h.s.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, offset, max, m, &cpb.Account{}, h.tx)
 	if err != nil {
 		return err
 	}
-	accts := make(map[string]*pb.Account)
+	accts := make(map[string]*cpb.Account)
 	subjects := []string{}
 	for _, u := range m {
 		for _, v := range u {
-			if acct, ok := v.(*pb.Account); ok {
+			if acct, ok := v.(*cpb.Account); ok {
 				accts[acct.Properties.Subject] = acct
 				subjects = append(subjects, acct.Properties.Subject)
 			}
@@ -418,7 +610,7 @@ func (h *scimUsers) Get(name string) error {
 	}
 	sort.Strings(subjects)
 	realm := getRealm(h.r)
-	list := []*spb.User{}
+	var list []*spb.User
 	for _, sub := range subjects {
 		list = append(list, h.s.newScimUser(accts[sub], realm))
 	}
@@ -433,7 +625,8 @@ func (h *scimUsers) Get(name string) error {
 		StartIndex:   uint32(start),
 		Resources:    list,
 	}
-	return common.SendResponse(resp, h.w)
+	httputil.WriteProtoResp(h.w, resp)
+	return nil
 }
 
 // Post receives a POST method request
@@ -466,7 +659,7 @@ func (h *scimUsers) Save(tx storage.Tx, name string, vars map[string]string, des
 	return nil
 }
 
-func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
+func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 	var emails []*spb.Attribute
 	var photos []*spb.Attribute
 	primaryPic := acct.GetProfile().GetPicture()
@@ -474,10 +667,14 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 		photos = append(photos, &spb.Attribute{Value: primaryPic, Primary: true})
 	}
 	for _, ca := range acct.ConnectedAccounts {
-		emails = append(emails, &spb.Attribute{
-			Value:             ca.Properties.Email,
-			ExtensionVerified: ca.Properties.EmailVerified,
-		})
+		if len(ca.Properties.Email) > 0 {
+			emails = append(emails, &spb.Attribute{
+				Value:             ca.Properties.Email,
+				ExtensionVerified: ca.Properties.EmailVerified,
+				Primary:           ca.Primary,
+				Ref:               emailRef(ca),
+			})
+		}
 		if ca.Profile == nil {
 			continue
 		}
@@ -485,6 +682,7 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 			photos = append(photos, &spb.Attribute{Value: pic})
 		}
 	}
+
 	return &spb.User{
 		Schemas:    []string{"urn:ietf:params:scim:schemas:core:2.0:User"},
 		Id:         acct.Properties.Subject,
@@ -493,18 +691,56 @@ func (s *Service) newScimUser(acct *pb.Account, realm string) *spb.User {
 			ResourceType: "User",
 			Created:      common.TimestampString(int64(acct.Properties.Created)),
 			LastModified: common.TimestampString(int64(acct.Properties.Modified)),
-			Location:     s.getDomainURL() + strings.ReplaceAll(scimUsersPath, common.RealmVariable, realm) + "/" + acct.Properties.Subject,
+			Location:     s.getDomainURL() + strings.ReplaceAll(scimUsersPath, "{realm}", realm) + "/" + acct.Properties.Subject,
 			Version:      strconv.FormatInt(acct.Revision, 10),
 		},
 		Name: &spb.Name{
-			Formatted:  acct.Profile.Name,
+			Formatted:  formattedName(acct),
 			FamilyName: acct.Profile.FamilyName,
 			GivenName:  acct.Profile.GivenName,
 			MiddleName: acct.Profile.MiddleName,
 		},
-		UserName: acct.Properties.Subject,
-		Emails:   emails,
-		Photos:   photos,
-		Active:   acct.State == storage.StateActive,
+		DisplayName:       acct.Profile.Name,
+		ProfileUrl:        acct.Profile.Profile,
+		PreferredLanguage: acct.Profile.Locale,
+		Locale:            acct.Profile.Locale,
+		Timezone:          acct.Profile.ZoneInfo,
+		UserName:          acct.Properties.Subject,
+		Emails:            emails,
+		Photos:            photos,
+		Active:            acct.State == storage.StateActive,
 	}
+}
+
+func formattedName(acct *cpb.Account) string {
+	profile := acct.GetProfile()
+	name := profile.FormattedName
+	if len(name) == 0 {
+		name = common.JoinNonEmpty([]string{profile.GivenName, profile.MiddleName, profile.FamilyName}, " ")
+	}
+	if len(name) == 0 {
+		name = profile.Name
+	}
+	return name
+}
+
+func selectLink(selector string, re *regexp.Regexp, filterMap map[string]func(p proto.Message) string, acct *cpb.Account) (*cpb.ConnectedAccount, []string, error) {
+	match := re.FindStringSubmatch(selector)
+	if match == nil {
+		return nil, nil, nil
+	}
+	filter, err := storage.BuildFilters(match[1], filterMap)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, link := range acct.ConnectedAccounts {
+		if storage.MatchProtoFilters(filter, link) {
+			return link, match, nil
+		}
+	}
+	return nil, match, nil
+}
+
+func emailRef(link *cpb.ConnectedAccount) string {
+	return "email/" + link.Provider + "/" + link.Properties.Subject
 }

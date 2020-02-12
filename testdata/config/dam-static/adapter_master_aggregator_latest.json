@@ -13,6 +13,7 @@
     "view": {
       "variables": {
         "resource": {
+          "type": "const",
           "regexp": "^[A-Za-z][\\w\\-]*$",
           "ui": {
             "label": "Name of an existing resource in DAM",
@@ -20,6 +21,7 @@
           }
         },
         "view": {
+          "type": "const",
           "regexp": "^[A-Za-z][\\w\\-]*$",
           "ui": {
             "label": "Name of an existing view",

@@ -20,10 +20,11 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -39,7 +40,7 @@ var (
 
 // ClientService provides data storage for clients.
 type ClientService interface {
-	HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error)
+	HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error)
 	ClientByName(name string) *pb.Client
 	SaveClient(name, secret string, cli *pb.Client)
 	RemoveClient(name string, cli *pb.Client)
@@ -63,17 +64,17 @@ type clientHandler struct {
 }
 
 // NewClientHandler returns clientHandler.
-func NewClientHandler(w http.ResponseWriter, r *http.Request, s ClientService) common.HandlerInterface {
+func NewClientHandler(w http.ResponseWriter, r *http.Request, s ClientService) httputil.HandlerInterface {
 	return &clientHandler{w: w, r: r, s: s}
 }
 
-func (c *clientHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
+func (c *clientHandler) Setup(tx storage.Tx) (int, error) {
 	clientID := ExtractClientID(c.r)
 	if len(clientID) == 0 {
 		return http.StatusBadRequest, fmt.Errorf("request requires clientID")
 	}
 
-	id, status, err := c.s.HandlerSetup(tx, isAdmin, c.r)
+	id, status, err := c.s.HandlerSetup(tx, c.r)
 	c.id = id
 	c.clientID = clientID
 
@@ -95,7 +96,7 @@ func (c *clientHandler) NormalizeInput(name string, vars map[string]string) erro
 }
 
 func (c *clientHandler) Get(name string) error {
-	return common.SendResponse(&pb.ClientResponse{
+	return httputil.SendResponse(&pb.ClientResponse{
 		Client: c.item,
 	}, c.w)
 }
@@ -164,12 +165,12 @@ type adminClientHandler struct {
 }
 
 // NewAdminClientHandler returns adminClientHandler
-func NewAdminClientHandler(w http.ResponseWriter, r *http.Request, s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) common.HandlerInterface {
+func NewAdminClientHandler(w http.ResponseWriter, r *http.Request, s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) httputil.HandlerInterface {
 	return &adminClientHandler{w: w, r: r, s: s, useHydra: useHydra, httpClient: httpClient, hydraAdminURL: hydraAdminURL}
 }
 
-func (c *adminClientHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	id, status, err := c.s.HandlerSetup(tx, isAdmin, c.r)
+func (c *adminClientHandler) Setup(tx storage.Tx) (int, error) {
+	id, status, err := c.s.HandlerSetup(tx, c.r)
 	c.id = id
 	c.tx = tx
 	return status, err
@@ -182,7 +183,7 @@ func (c *adminClientHandler) LookupItem(name string, vars map[string]string) boo
 
 func (c *adminClientHandler) NormalizeInput(name string, vars map[string]string) error {
 	c.input = &pb.ConfigClientRequest{}
-	if err := common.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.GetRequest(c.input, c.r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -199,7 +200,7 @@ func (c *adminClientHandler) NormalizeInput(name string, vars map[string]string)
 }
 
 func (c *adminClientHandler) Get(name string) error {
-	return common.SendResponse(&pb.ConfigClientResponse{Client: c.item}, c.w)
+	return httputil.SendResponse(&pb.ConfigClientResponse{Client: c.item}, c.w)
 }
 
 func (c *adminClientHandler) Post(name string) error {
@@ -227,8 +228,7 @@ func (c *adminClientHandler) Post(name string) error {
 
 	// Create the client on hydra.
 	if c.useHydra {
-		hyCli := toHydraClient(c.input.Item, sec)
-		hyCli.Name = name
+		hyCli := toHydraClient(c.input.Item, name, sec, strfmt.NewDateTime())
 		resp, err := hydra.CreateClient(c.httpClient, c.hydraAdminURL, hyCli)
 		if err != nil {
 			return err
@@ -240,7 +240,7 @@ func (c *adminClientHandler) Post(name string) error {
 	c.s.SaveClient(name, sec, out)
 
 	// Return the created client.
-	return common.SendResponse(&pb.ConfigClientResponse{
+	return httputil.SendResponse(&pb.ConfigClientResponse{
 		Client:       out,
 		ClientSecret: sec}, c.w)
 }
@@ -283,8 +283,7 @@ func (c *adminClientHandler) Patch(name string) error {
 	sec := uuid.New()
 
 	if c.useHydra {
-		hyCli := toHydraClient(input, sec)
-		hyCli.Name = name
+		hyCli := toHydraClient(input, name, sec, strfmt.NewDateTime())
 		resp, err := hydra.UpdateClient(c.httpClient, c.hydraAdminURL, hyCli.ClientID, hyCli)
 		if err != nil {
 			return err
@@ -296,7 +295,7 @@ func (c *adminClientHandler) Patch(name string) error {
 	c.s.SaveClient(name, sec, out)
 
 	// Return the updated client.
-	return common.SendResponse(&pb.ConfigClientResponse{
+	return httputil.SendResponse(&pb.ConfigClientResponse{
 		Client:       out,
 		ClientSecret: sec}, c.w)
 }
@@ -329,14 +328,16 @@ func extractConfigModification(input *pb.ConfigClientRequest) *pb.ConfigModifica
 	return input.Modification
 }
 
-func toHydraClient(c *pb.Client, secret string) *hydraapi.Client {
+func toHydraClient(c *pb.Client, name, secret string, createdAt strfmt.DateTime) *hydraapi.Client {
 	return &hydraapi.Client{
+		Name:          name,
 		ClientID:      c.ClientId,
 		Secret:        secret,
 		Scope:         c.Scope,
 		GrantTypes:    c.GrantTypes,
 		ResponseTypes: c.ResponseTypes,
 		RedirectURIs:  c.RedirectUris,
+		CreatedAt:     createdAt,
 	}
 }
 

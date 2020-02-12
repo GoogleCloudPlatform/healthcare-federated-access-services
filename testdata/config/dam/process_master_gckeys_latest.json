@@ -1,81 +1,66 @@
 {
   "processName":"gckeys",
   "instance":"439bfc29-dfac-4b71-bfd4-394ba5c57267",
-  "startTime":"1554487316",
-  "progressTime":"1554487316",
-  "finishTime":"1554487320",
-  "successStartTime":"1554487316",
-  "successFinishTime":"1554487320",
-  "settingsChangeTime":"1554477883",
+  "scheduleFrequency":"3600s",
   "activeProjects":{
     "test-project":{
-      "timestamp":"1554477883",
-      "params":{
-        "intParams":{
-          "collectFrequency":"75600",
-          "keyTtl":"680401",
-          "keysPerAccount":"8",
-          "maxRequestedTtl":"604800"
-        }
-      }
-    }
-  },
-  "activeRealms":{
-    "master":{
-      "timestamp":"1554477883",
-      "project":"test-project",
-      "params":{
-        "intParams":{
-          "collectFrequency":"75600",
-          "keyTtl":"680401",
-          "keysPerAccount":"8",
-          "maxRequestedTtl":"604800"
-        }
+      "modified":"2020-01-01T15:00:00Z",
+      "params":{},
+      "status":{
+        "startTime":"2020-01-02T15:00:00Z",
+        "progressTime":"2020-01-02T16:00:00Z",
+        "finishTime":"2020-01-02T16:00:00Z",
+        "stats":{
+          "accounts":"20",
+          "accountsRemoved":"0",
+          "keysKept":"13",
+          "keysRemoved":"2"
+        },
+        "errors":[],
+        "totalErrors":"0",
+        "state":"COMPLETED"
       }
     }
   },
   "cleanupProjects":{},
   "droppedProjects":{},
-  "projectStatus":{
-    "test-project":{
-      "finishTime":"1554487320",
-      "stats":{
-        "accounts":"20",
-        "cleanupProjects":"0",
-        "errors":"0",
-        "keptKeys":"13",
-        "lifetimeCleanupProjects":"0",
-        "lifetimeErrors":"0",
-        "lifetimeRemovedAccounts":"0",
-        "lifetimeRemovedKeys":"0",
-        "removedAccounts":"0",
-        "removedKeys":"0"
-      },
-      "errors":[],
-      "params":{
-        "intParams":{
-          "collectFrequency":"75600",
-          "keyTtl":"680401",
-          "keysPerAccount":"8",
-          "maxRequestedTtl":"604800"
-        }
-      }
+  "settings": {
+    "intParams": {
+      "keyTtl":"680401",
+      "keysPerAccount":"8",
+      "maxRequestedTtl":"604800"
     }
   },
-  "successStatus":{
-    "finishTime":"1554487320",
+  "processStatus":{
+    "startTime":"2020-01-02T15:00:00Z",
+    "progressTime":"2020-01-02T16:00:00Z",
+    "finishTime":"2020-01-02T16:00:00Z",
     "stats":{
-      "accounts":"20",
-      "cleanupProjects":"0",
-      "errors":"0",
-      "keptKeys":"13",
-      "lifetimeCleanupProjects":"0",
-      "lifetimeErrors":"0",
-      "lifetimeRemovedAccounts":"0",
-      "lifetimeRemovedKeys":"0",
-      "removedAccounts":"0",
-      "removedKeys":"0"
+      "errors":"1",
+      "project.accounts":"20",
+      "project.accountsRemoved":"0",
+      "project.keysKept":"13",
+      "project.keysRemoved":"2",
+      "projectsCleaned":"0",
+      "runs":"1",
+      "state.completed":"1"
     },
-    "errors":[]
+    "errors":[],
+    "totalErrors":"0",
+    "state":"COMPLETED"
+  },
+  "aggregateStats":{
+    "duration":"1000",
+    "errors":"10",
+    "project.accounts":"200",
+    "project.accountsRemoved":"45",
+    "project.keysKept":"113",
+    "project.keysRemoved":"2003",
+    "projects":"3",
+    "projectsCleaned":"1",
+    "runs":"993",
+    "state.completed":"990",
+    "state.aborted":"1",
+    "state.incomplete":"2"
   }
 }

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -231,45 +232,45 @@ func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sour
 	for i, any := range policy.AnyOf {
 		for j, clause := range any.AllOf {
 			if err := validateVisaType(clause.Type, defs); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "type"), err
+				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "type"), err
 			}
 			if _, err := expandSources(clause.Type, clause.Source, sources); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "source"), err
+				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "source"), err
 			}
 			if _, err := expandValues(clause.Value, valArgs); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
+				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}
 			valArgs, err := common.ExtractVariables(clause.Value)
 			if err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
+				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}
 			for arg := range valArgs {
 				usedArgs[arg] = true
 			}
 			if _, err := expandBy(clause.By); err != nil {
-				return common.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "by"), err
+				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "by"), err
 			}
 		}
 	}
 	for name, v := range policy.VariableDefinitions {
 		if len(v.Regexp) == 0 {
-			return common.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("regular expression not specified")
+			return httputil.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("regular expression not specified")
 		}
 		re, err := regexp.Compile(v.Regexp)
 		if err != nil {
-			return common.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("invalid regular expression: %v", err)
+			return httputil.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("invalid regular expression: %v", err)
 		}
 		if args != nil {
 			arg, ok := args[name]
 			if !ok {
-				return common.StatusPath("variableDefinitions", name), fmt.Errorf("variable not provided")
+				return httputil.StatusPath("variableDefinitions", name), fmt.Errorf("variable not provided")
 			}
 			if !re.Match([]byte(arg)) {
-				return common.StatusPath("variableDefinitions", name), fmt.Errorf("variable value %q invalid format", arg)
+				return httputil.StatusPath("variableDefinitions", name), fmt.Errorf("variable value %q invalid format", arg)
 			}
 		}
 		if v.Ui == nil || v.Ui[common.UIDescription] == "" {
-			return common.StatusPath("variableDefinitions", name, "ui", common.UIDescription), fmt.Errorf("description not provided")
+			return httputil.StatusPath("variableDefinitions", name, "ui", common.UIDescription), fmt.Errorf("description not provided")
 		}
 	}
 
@@ -279,20 +280,20 @@ func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sour
 	}
 	for arg := range usedArgs {
 		if len(policy.VariableDefinitions) == 0 {
-			return common.StatusPath(prefix, arg), fmt.Errorf("policy does not use variables")
+			return httputil.StatusPath(prefix, arg), fmt.Errorf("policy does not use variables")
 		}
 		if _, ok := policy.VariableDefinitions[arg]; !ok {
-			return common.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
+			return httputil.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
 		}
 		if args != nil {
 			if _, ok := args[arg]; !ok {
-				return common.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
+				return httputil.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
 			}
 		}
 	}
 	for arg := range args {
 		if _, ok := usedArgs[arg]; !ok {
-			return common.StatusPath(prefix, arg), fmt.Errorf("unused variable")
+			return httputil.StatusPath(prefix, arg), fmt.Errorf("unused variable")
 		}
 	}
 	return "", nil

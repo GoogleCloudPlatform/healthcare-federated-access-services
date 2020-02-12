@@ -8,7 +8,7 @@
   },
   "trustedPassportIssuers": {
     "test": {
-      "issuer": "https://example.org/oidc",
+      "issuer": "https://hydra.example.com/",
       "clientId": "00000000-0000-0000-0000-000000000000",
       "ui": {
         "label": "Test",
@@ -61,9 +61,9 @@
       }
     },
     "testBroker": {
-      "issuer": "https://example.com/oidc",
-      "authUrl": "https://example.com/authorize",
-      "tokenUrl": "https://example.com/oidc/token",
+      "issuer": "https://hydra.example.com/",
+      "authUrl": "https://hydra.example.com/authorize",
+      "tokenUrl": "https://hydra.example.com/token",
       "clientId": "00000000-0000-0000-0000-000000000000",
       "ui": {
         "label": "Local IC Dev",
@@ -340,7 +340,8 @@
               "vars": {
                 "project": "dataset-example-project",
                 "bucket": "dataset-example-payer-bucket2",
-                "type": "requester-pays"
+                "type": "requester-pays",
+                "paths": "/hello/there*;/goodbye/charlie"
               }
             }
           ],

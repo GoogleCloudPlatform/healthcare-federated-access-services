@@ -5,16 +5,16 @@
   },
   "identityProviders": {
     "idp": {
-      "issuer": "https://example.com/oidc",
-      "authorizeUrl": "https://example.com/authorize",
+      "issuer": "https://hydra.example.com/",
+      "authorizeUrl": "https://hydra.example.com/authorize",
       "responseType": "code",
-      "tokenUrl": "https://example.com/oidc/token",
+      "tokenUrl": "https://hydra.example.com/token",
       "clientId": "cid",
-      "scopes": ["openid", "profile", "ga4gh_passport_v1", "email", "identities", "account_admin"],
+      "scopes": ["openid", "profile", "ga4gh_passport_v1", "email", "identities", "account_admin", "link"],
       "ui": {
         "label": "Example",
         "description": "Example identity provider",
-        "iconUrl": "/identity/static/idp.png"
+        "iconUrl": "/identity/static/images/idp.png"
       }
     }
   },
@@ -28,7 +28,7 @@
       "redirectUris": [
         "http://example.com"
       ],
-      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin link",
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
     },
@@ -41,7 +41,7 @@
       "redirectUris": [
         "http://example.com"
       ],
-      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin link",
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
     }

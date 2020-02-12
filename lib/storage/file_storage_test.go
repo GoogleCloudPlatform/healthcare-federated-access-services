@@ -17,6 +17,8 @@ package storage
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 )
 
 const (
@@ -38,13 +40,13 @@ func TestPath(t *testing.T) {
 			testName:     "standard path",
 			serviceName:  damService,
 			path:         testConfigPath,
-			expectedPath: filepath.Join(ProjectRoot, testConfigPath, damService),
+			expectedPath: srcutil.Path(filepath.Join(testConfigPath, damService)),
 		},
 		{
 			testName:     "min service path",
 			serviceName:  damMinService,
 			path:         testConfigPath,
-			expectedPath: filepath.Join(ProjectRoot, testConfigPath, damMinService),
+			expectedPath: srcutil.Path(filepath.Join(testConfigPath, damMinService)),
 		},
 	}
 

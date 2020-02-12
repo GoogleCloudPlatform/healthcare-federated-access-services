@@ -461,3 +461,159 @@ func TestExtractVariableErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestIsLocale(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "simple string",
+			input: "en",
+			want:  true,
+		},
+		{
+			name:  "locale with country",
+			input: "en-ca",
+			want:  true,
+		},
+		{
+			name:  "not a locale",
+			input: "hello",
+			want:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		got := IsLocale(tc.input)
+		if got != tc.want {
+			t.Errorf("test case %q: IsLocale(%q) = %v, want %v", tc.name, tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestIsTimeZone(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "simple string",
+			input: "America/Los_Angeles",
+			want:  true,
+		},
+		{
+			name:  "not a time zone",
+			input: "America/NotaTimeZone",
+			want:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		got := IsTimeZone(tc.input)
+		if got != tc.want {
+			t.Errorf("test case %q: IsTimeZone(%q) = %v, want %v", tc.name, tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestQuoteSplit(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		separator string
+		quotes    bool
+		want      []string
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  []string{},
+		},
+		{
+			name:  "simple string",
+			input: "hi",
+			want:  []string{"hi"},
+		},
+		{
+			name:  "string with non-alphanumeric",
+			input: "en-ca",
+			want:  []string{"en-ca"},
+		},
+		{
+			name:  "simple split on spaces",
+			input: "hello there world!",
+			want:  []string{"hello", "there", "world!"},
+		},
+		{
+			name:  "simple split on spaces",
+			input: "hello there world!",
+			want:  []string{"hello", "there", "world!"},
+		},
+		{
+			name:  "quoted split on spaces",
+			input: `this "is a test" of.the system`,
+			want:  []string{"this", "is a test", "of.the", "system"},
+		},
+		{
+			name:  "quoted split on spaces with quote in the middle",
+			input: `this "is a test"of.the system`,
+			want:  []string{"this", "is a testof.the", "system"},
+		},
+		{
+			name:   "quoted split on spaces with quote in the middle (keep quotes)",
+			input:  `this "is a test"of.the system`,
+			quotes: true,
+			want:   []string{"this", `"is a test"of.the`, "system"},
+		},
+		{
+			name:      "quoted split on separator word",
+			input:     `"cats and dogs" and humans and "fish and penguins"`,
+			separator: " and ",
+			want:      []string{"cats and dogs", "humans", "fish and penguins"},
+		},
+		{
+			name:      "quoted split on separator word (keep quotes)",
+			input:     `"cats and dogs" and humans and "fish and penguins"`,
+			separator: " and ",
+			quotes:    true,
+			want:      []string{`"cats and dogs"`, "humans", `"fish and penguins"`},
+		},
+		{
+			name:      "quoted no split on separator word",
+			input:     `I like "cats and dogs"`,
+			separator: " and ",
+			quotes:    true,
+			want:      []string{`I like "cats and dogs"`},
+		},
+	}
+
+	for _, tc := range tests {
+		separator := " "
+		if len(tc.separator) > 0 {
+			separator = tc.separator
+		}
+		stripQuotes := true
+		if tc.quotes {
+			stripQuotes = false
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			got := QuoteSplit(tc.input, separator, stripQuotes)
+			if diff := cmp.Diff(got, tc.want); diff != "" {
+				t.Errorf("test case %q: QuoteSplit(%q, %q, %v) returned diff (-want +got):\n%s", tc.name, tc.input, separator, stripQuotes, diff)
+			}
+		})
+	}
+}

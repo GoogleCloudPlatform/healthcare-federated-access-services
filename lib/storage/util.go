@@ -17,6 +17,7 @@ package storage
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -55,8 +56,7 @@ func MakeConfigHistory(desc, resType string, rev int64, ts float64, r *http.Requ
 			if _, ok := secretParams[name]; ok {
 				value = "***"
 			}
-			// TODO: escape name and value
-			query += name + "=" + value
+			query += url.QueryEscape(name) + "=" + url.QueryEscape(value)
 		}
 	}
 	m := jsonpb.Marshaler{}

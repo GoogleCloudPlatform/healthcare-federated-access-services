@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 )
 
@@ -117,10 +116,10 @@ func DeleteClient(client *http.Client, hydraAdminURL, id string) error {
 
 // Introspect token, validate the given token and return token claims.
 func Introspect(client *http.Client, hydraAdminURL, token string) (*hydraapi.Introspection, error) {
-	u := hydraAdminURL + "/oauth2/introspection"
+	u := hydraAdminURL + "/oauth2/introspect"
 
 	data := url.Values{}
-	data.Set("token", token)
+	data.Set("token", url.QueryEscape(token))
 
 	response := &hydraapi.Introspection{}
 
@@ -143,6 +142,37 @@ func Introspect(client *http.Client, hydraAdminURL, token string) (*hydraapi.Int
 	return response, nil
 }
 
+// ListConsents lists all consents of user (subject).
+func ListConsents(client *http.Client, hydraAdminURL, subject string) ([]*hydraapi.PreviousConsentSession, error) {
+	// TODO: consider support page param.
+	u := hydraAdminURL + "/oauth2/auth/sessions/consent?subject=" + subject
+
+	resp := []*hydraapi.PreviousConsentSession{}
+	if err := httpGet(client, u, &resp); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// RevokeConsents revokes all consents of user for a client. clientID is optional, will revoke all consent of user if no clientID.
+func RevokeConsents(client *http.Client, hydraAdminURL, subject, clientID string) error {
+	u, err := url.Parse(hydraAdminURL + "/oauth2/auth/sessions/consent")
+	if err != nil {
+		return err
+	}
+
+	q := url.Values{}
+	q.Add("subject", subject)
+	if len(clientID) != 0 {
+		q.Add("client", clientID)
+	}
+
+	u.RawQuery = q.Encode()
+
+	return httpDelete(client, u.String())
+}
+
 func getURL(hydraAdminURL, flow, challenge string) string {
 	const getURLPattern = "%s/oauth2/auth/requests/%s?%s_challenge=%s"
 	return fmt.Sprintf(getURLPattern, hydraAdminURL, flow, flow, url.QueryEscape(challenge))
@@ -156,14 +186,14 @@ func putURL(hydraAdminURL, flow, action, challenge string) string {
 func httpResponse(resp *http.Response, response interface{}) error {
 	if httputil.IsHTTPError(resp.StatusCode) {
 		gErr := &hydraapi.GenericError{}
-		if err := common.DecodeJSONFromBody(resp.Body, gErr); err != nil {
+		if err := httputil.DecodeJSONFromBody(resp.Body, gErr); err != nil {
 			return err
 		}
 		// TODO: figure out what error from hydra should handle.
 		return gErr
 	}
 
-	return common.DecodeJSONFromBody(resp.Body, response)
+	return httputil.DecodeJSONFromBody(resp.Body, response)
 }
 
 func httpPut(client *http.Client, url string, request interface{}, response interface{}) error {

@@ -15,7 +15,6 @@
 package dam_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -28,12 +27,22 @@ import (
 
 const (
 	hydraAdminURL = "https://admin.hydra.example.com"
-	notUseHydra   = false
+	hydraURL      = "https://example.com/oidc"
+	useHydra      = true
 )
 
 func TestCheckIntegrity(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	s := dam.NewService(context.Background(), "test.org", "no-broker", hydraAdminURL, store, nil, notUseHydra)
+	s := dam.NewService(&dam.Options{
+		Domain:         "test.org",
+		ServiceName:    "dam",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      nil,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+	})
 	cfg := &pb.DamConfig{}
 	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		t.Fatalf("error reading config: %v", err)

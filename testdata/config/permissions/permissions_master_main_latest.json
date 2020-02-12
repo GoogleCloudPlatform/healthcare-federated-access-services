@@ -3,28 +3,19 @@
   "revision": "1",
   "commitTime": "1544824316",
   "users": {
-    "admin_and_has_tags@example.com": {
+    "admin@example.com": {
       "roles": {
         "admin": -1
-      },
-      "tags": ["t1", "t2"]
+      }
     },
     "no_admin@example.com": {
       "roles": {
-      },
-      "tags": ["t1", "t2"]
-    },
-    "no_tags@example.com": {
-      "roles": {
-        "admin": -1
-      },
-      "tags": []
+      }
     },
     "expire_admin@example.com": {
       "roles": {
         "admin": 1
-      },
-      "tags": []
+      }
     }
   }
 }

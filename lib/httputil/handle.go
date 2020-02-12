@@ -20,6 +20,7 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 )
 
@@ -54,25 +55,52 @@ func WriteRPCResp(w http.ResponseWriter, resp interface{}, err error) {
 	}
 }
 
-// WriteStatus writes an error status to the response.
-func WriteStatus(w http.ResponseWriter, stat *status.Status) {
+// WriteProtoResp writes an error status to the response.
+func WriteProtoResp(w http.ResponseWriter, m proto.Message) {
 	WriteCorsHeaders(w)
-	if stat == nil {
-		return
-	}
-	w.WriteHeader(HTTPStatus(stat.Code()))
 	w.Header().Set("Content-Type", "application/json")
-	ma := jsonpb.Marshaler{}
-	if err := ma.Marshal(w, stat.Proto()); err != nil {
-		glog.Errorf("json.NewEncoder(writer).Encode(resp) failed: %v", err)
+	if err := (&jsonpb.Marshaler{}).Marshal(w, m); err != nil {
+		glog.Errorf("(&jsonpb.Marshaler{}).Marshal(w,resp) failed: %v", err)
 		http.Error(w, "encoding the response status failed", http.StatusInternalServerError)
 		return
 	}
 }
 
+// WriteStatus writes an error status to the response.
+func WriteStatus(w http.ResponseWriter, s *status.Status) {
+	if s == nil {
+		return
+	}
+	w.WriteHeader(HTTPStatus(s.Code()))
+	WriteProtoResp(w, s.Proto())
+}
+
 // WriteCorsHeaders writes CORS headers (https://www.w3.org/TR/cors) to the response.
 func WriteCorsHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, Authorization, X-Link-Authorization")
 	w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+}
+
+// WriteHTMLResp writes a "text/html" type string to the ResponseWriter.
+func WriteHTMLResp(w http.ResponseWriter, b []byte) {
+	WriteCorsHeaders(w)
+	w.Header().Set("Content-Type", "text/html")
+	w.Write(b)
+}
+
+// WriteJSONResp writes "application.json" type string to the ResponseWriter.
+func WriteJSONResp(w http.ResponseWriter, b []byte) {
+	WriteCorsHeaders(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	w.Write(b)
+}
+
+// WriteRedirect writes a redirect to the provider URL.
+// If the provided URL is relative, it will be relative to the request URL.
+func WriteRedirect(w http.ResponseWriter, r *http.Request, redirect string) {
+	WriteCorsHeaders(w)
+	http.Redirect(w, r, redirect, http.StatusTemporaryRedirect)
 }

@@ -19,8 +19,9 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -40,8 +41,8 @@ func (c *clientService) ClientByName(name string) *cpb.Client {
 	return c.cfg.Clients[name]
 }
 
-func (c *clientService) HandlerSetup(tx storage.Tx, isAdmin bool, r *http.Request) (*ga4gh.Identity, int, error) {
-	cfg, sec, id, status, err := c.s.handlerSetup(tx, isAdmin, r, noScope, nil)
+func (c *clientService) HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
+	cfg, sec, id, status, err := c.s.handlerSetup(tx, r, noScope, nil)
 	c.cfg = cfg
 	c.sec = sec
 	return id, status, err
@@ -75,36 +76,16 @@ func (c *clientService) Save(tx storage.Tx, desc, typeName string, r *http.Reque
 }
 
 func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModification) *status.Status {
-	if err := common.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(codes.InvalidArgument, err.Error())
+	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := configRevision(toICModification(m), c.cfg); err != nil {
-		return common.NewStatus(codes.InvalidArgument, err.Error())
+		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return common.NewStatus(codes.InvalidArgument, err.Error())
+		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-// GET /identity/v1alpha/{realm}/clients/{name}:
-//   Return self client information
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) clientFactory() *common.HandlerFactory {
-	c := &clientService{s: s}
-
-	return &common.HandlerFactory{
-		TypeName:            "client",
-		PathPrefix:          clientPath,
-		HasNamedIdentifiers: true,
-		// Only return self information, does not need admin permission.
-		IsAdmin: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return oathclients.NewClientHandler(w, r, c)
-		},
-	}
 }
 
 //////////////////////////////////////////////////////////////////
@@ -128,15 +109,14 @@ func (s *Service) clientFactory() *common.HandlerFactory {
 //   Return nothing
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) configClientFactory() *common.HandlerFactory {
+func (s *Service) configClientFactory() *httputil.HandlerFactory {
 	c := &clientService{s: s}
 
-	return &common.HandlerFactory{
+	return &httputil.HandlerFactory{
 		TypeName:            "configClient",
 		PathPrefix:          configClientsPath,
 		HasNamedIdentifiers: true,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
 			return oathclients.NewAdminClientHandler(w, r, c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL)
 		},
 	}

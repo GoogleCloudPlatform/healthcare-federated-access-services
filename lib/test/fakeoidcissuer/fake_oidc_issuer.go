@@ -34,8 +34,8 @@ type Server struct {
 }
 
 // New returns Server
-func New(issuerURL string, key *testkeys.Key, service, path string) (*Server, error) {
-	broker, err := persona.NewBroker(issuerURL, key, service, path)
+func New(issuerURL string, key *testkeys.Key, service, path string, useOIDCPrefix bool) (*Server, error) {
+	broker, err := persona.NewBroker(issuerURL, key, service, path, useOIDCPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,11 @@ func (s *Server) Sign(header map[string]string, claim jwt.Claims) (string, error
 // ContextWithClient injects stub http client to context.
 func (s *Server) ContextWithClient(ctx context.Context) context.Context {
 	return oidc.ClientContext(ctx, s.client)
+}
+
+// Client returns the stub http client.
+func (s *Server) Client() *http.Client {
+	return s.client
 }
 
 // Config returns the DAM configuration currently in use.

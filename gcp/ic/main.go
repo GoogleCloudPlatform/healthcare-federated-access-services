@@ -19,79 +19,89 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"os"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
-const (
-	ProductName        = "Identity Concentrator"
-	DefaultServiceName = "ic"
+var (
+	// srvName is the name of this service.
+	srvName = osenv.VarWithDefault("SERVICE_NAME", "ic")
+	// srvAddr determines the URL for "issuer" field of objects issued by this and
+	// the address identity providers use to redirect back to IC.
+	srvAddr = osenv.MustVar("SERVICE_DOMAIN")
+	// accDomain is the postfix for accounts created by IC.
+	acctDomain = osenv.MustVar("ACCOUNT_DOMAIN")
+	// cfgPath is the path to the config file.
+	cfgPath = osenv.MustVar("CONFIG_PATH")
+	// project is default GCP project for hosting storage,
+	// config options can override this.
+	project = osenv.MustVar("PROJECT")
+	// storageType determines we should be using in-mem storage or not.
+	storageType = osenv.MustVar("STORAGE")
+
+	port = osenv.VarWithDefault("IC_PORT", "8080")
+
+	useHydra = os.Getenv("USE_HYDRA") != ""
+	// hydraAdminAddr is the address for the Hydra admin endpoint.
+	hydraAdminAddr = ""
+	// hydraPublicAddr is the address for the Hydra public endpoint.
+	hydraPublicAddr = ""
 )
 
 func main() {
+	flag.Parse()
 	ctx := context.Background()
-	domain := os.Getenv("SERVICE_DOMAIN")
-	if domain == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "SERVICE_DOMAIN")
-	}
-	acctDomain := os.Getenv("ACCOUNT_DOMAIN")
-	if acctDomain == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "ACCOUNT_DOMAIN")
-	}
-	path := os.Getenv("CONFIG_PATH")
-	if path == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
-	}
-	project := os.Getenv("PROJECT")
-	if project == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
-	}
-	storeName := os.Getenv("STORAGE")
-	if storeName == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "STORAGE")
-	}
-	serviceName := os.Getenv("SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = DefaultServiceName
-	}
-	hydraAdminURL := os.Getenv("HYDRA_ADMIN_URL")
-	if hydraAdminURL == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
-	}
-	// TODO will remove this flag after hydra integration complete.
-	useHydra := os.Getenv("USE_HYDRA") != ""
+
+	serviceinfo.Project = project
+	serviceinfo.Type = "ic"
+	serviceinfo.Name = srvName
 
 	var store storage.Store
-	switch storeName {
+	switch storageType {
 	case "datastore":
-		store = gcp_storage.NewDatastoreStorage(ctx, project, serviceName, path)
+		store = dsstore.NewDatastoreStorage(ctx, project, srvName, cfgPath)
 	case "memory":
-		store = storage.NewMemoryStorage(serviceName, path)
+		store = storage.NewMemoryStorage(srvName, cfgPath)
 	default:
-		glog.Fatalf("environment variable %q: unknown storage type %q", "STORAGE", storeName)
+		glog.Exitf("Unknown storage type: %q", storageType)
 	}
 
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
-		glog.Fatalf("NewKeyManagementClient(ctx, clientOpt) failed: %v", err)
+		glog.Fatalf("kms.NewKeyManagementClient(ctx) failed: %v", err)
 	}
-	gcpkms, err := gcpcrypt.New(ctx, project, "global", serviceName+"_ring", serviceName+"_key", client)
+	gcpkms, err := gcpcrypt.New(ctx, project, "global", srvName+"_ring", srvName+"_key", client)
 	if err != nil {
-		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client): %v", project, "global", serviceName+"_ring", serviceName+"_key", err)
+		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
 	}
 
-	s := ic.NewService(ctx, domain, acctDomain, hydraAdminURL, store, gcpkms, useHydra)
-	port := os.Getenv("PORT")
-	if len(port) == 0 {
-		port = "8080"
+	if useHydra {
+		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
+		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
 	}
-	glog.Infof("%s using port %v", ProductName, port)
-	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
+
+	s := ic.NewService(&ic.Options{
+		Domain:         srvAddr,
+		ServiceName:    srvName,
+		AccountDomain:  acctDomain,
+		Store:          store,
+		Encryption:     gcpkms,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminAddr,
+		HydraPublicURL: hydraPublicAddr,
+	})
+
+	glog.Infof("IC listening on port %v", port)
+	glog.Exit(http.ListenAndServe(":"+port, s.Handler))
 }

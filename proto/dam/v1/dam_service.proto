@@ -20,6 +20,7 @@ package dam.v1;
 
 import "proto/common/v1/common.proto"; /* copybara-comment */
 import "proto/common/v1/oauthclient.proto"; /* copybara-comment */
+import "proto/process/v1/process.proto"; /* copybara-comment */
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1";
 
@@ -169,6 +170,7 @@ message VariableFormat {
   string regexp = 1;
   bool optional = 2;
   map<string, string> ui = 3;
+  string type = 4;
 }
 
 message Realm {}
@@ -341,12 +343,6 @@ message GetTestResultsResponse {
   string error = 9;
 }
 
-message ClientSecretRequest {}
-
-message ClientSecretResponse {
-  string secret = 1;
-}
-
 message TargetAdaptersRequest {}
 
 message TargetAdaptersResponse {
@@ -380,13 +376,13 @@ message GetTestPersonasResponse {
 message BackgroundProcessesRequest {}
 
 message BackgroundProcessesResponse {
-  map<string, BackgroundProcess> processes = 1;
+  map<string, process.Process> processes = 1;
 }
 
 message BackgroundProcessRequest {}
 
 message BackgroundProcessResponse {
-  BackgroundProcess process = 1;
+  process.Process process = 1;
 }
 
 message TokensRequest {}
@@ -471,12 +467,19 @@ message ConfigTestPersonaRequest {
 }
 
 message ResourceTokenRequestState {
+  enum TokenType {
+    UNSPECIFIED = 0;
+    DATASET = 1;
+    ENDPOINT = 2;
+  }
+  TokenType type = 12;
   message Resource {
     string realm = 1;
     string resource = 2;
     string view = 3;
     string role = 4;
-    string url = 5;
+    string interface = 5;
+    string url = 6;
   }
   repeated Resource resources = 1;
   string client_id = 2 [deprecated = true];
@@ -489,6 +492,8 @@ message ResourceTokenRequestState {
   string issuer = 9;
   string subject = 10;
   int64 epoch_seconds = 11;
+  string realm = 13;
+  repeated string identities = 14;
 }
 
 message AuthCode {
@@ -522,19 +527,4 @@ message ResourceTokens {
   map<string, Descriptor> resources = 1;
   map<string, ResourceToken> access = 2;
   uint32 epoch_seconds = 3;
-}
-
-///////////////////////////////////////////////////
-// oidc
-
-message OidcConfig {
-  string issuer = 1 [json_name = "issuer"];
-  string jwks_uri = 2 [json_name = "jwks_uri"];
-  string auth_url = 3 [json_name = "auth_url"];
-  repeated string response_types_supported = 4
-      [json_name = "response_types_supported"];
-  string token_endpoint = 5 [json_name = "token_endpoint"];
-  string revocation_endpoint = 8 [json_name = "revocation_endpoint"];
-  string userinfo_endpoint = 6 [json_name = "userinfo_endpoint"];
-  repeated string scopes_supported = 7 [json_name = "scopes_supported"];
 }

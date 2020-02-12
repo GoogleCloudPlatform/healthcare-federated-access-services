@@ -1,0 +1,143 @@
+/*
+ * Copyright 2019 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  font-size: 16px;
+  color: #2B2B2B;
+}
+
+p {
+  font-size: 16px;
+}
+
+h2 {
+  font-size: 3rem;
+  font-weight: 300;
+}
+
+h4 {
+  font-size: 2rem;
+  font-weight: 300;
+  margin-bottom: 1rem;
+}
+
+h4:not(:first-child) {
+  margin-top: 4rem;
+}
+
+h4:first-of-type {
+  --margin: 0 0 1rem 0;
+}
+
+a:not(:last-of-type) {
+  margin-bottom: 0.35rem;
+}
+
+a:not(:first-of-type) {
+  margin-top: 0.35rem;
+}
+
+a {
+  text-decoration: none;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex--column {
+  flex-direction: column;
+}
+
+.vertical-center {
+  align-items: center;
+}
+
+.horizontal-center {
+  justify-content: center;
+}
+
+.stretch {
+  flex-grow: 1;
+}
+
+.hide {
+  display: none;
+}
+
+button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
+.mdl-button--primary.mdl-button--primary.mdl-button--fab {
+  background-color: #77777a;
+  color: #ffffff;
+}
+
+.mdl-button--primary.mdl-button--primary.mdl-button--raised,
+.mdl-button--primary.mdl-button--primary.mdl-button--fab {
+  background-color: #00bdd4;
+  padding-left: 4rem;
+  padding-right: 4rem;
+}
+
+.mdl-button--primary.mdl-button--primary.mdl-button--google {
+  background-color: #ff3b30;
+}
+
+.mdl-button {
+  overflow: initial;
+}
+
+#providers-container {
+  padding: 0 4rem;
+  justify-content: center;
+  background-color: #ffffff;
+  margin-bottom: 2rem;
+}
+
+#providers-container .mdl-card {
+  min-height: 0;
+  font-weight: 500;
+}
+
+#providers-container img {
+  width: 4rem;
+  height: 4rem;
+  margin-right: 0.75rem;
+}
+
+#main-container {
+    background: url(../images/background.png) center center / cover no-repeat;
+}
+
+#main-container.persona {
+  background: url(../images/persona_bg.png) center center / cover no-repeat;
+}
+
+#main-container .mdl-card {
+  padding: 2rem;
+  width: 65%;
+  max-width: 60rem;
+}
+
+#main-container h2.mdl-card__title-text {
+  font-size: 3rem;
+  font-weight: bold;
+}
+
+#main-container .mdl-card__supporting-text {
+  font-size: 1.2rem;
+}

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -35,6 +34,7 @@ import (
 
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	// Use login_challenge fetch information from hydra.
 	challenge, status := hydra.ExtractLoginChallenge(r)
 	if status != nil {
@@ -44,7 +44,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -54,7 +54,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -65,7 +65,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	cfg, err := s.loadConfig(nil, realm)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -74,26 +74,46 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		scopes = defaultIdpScopes
 	}
 
-	// Return Login page.
-	query := fmt.Sprintf("?scope=%s&login_challenge=%s", url.QueryEscape(strings.Join(scopes, " ")), url.QueryEscape(challenge))
-	page, err := s.renderLoginPage(cfg, map[string]string{"realm": realm}, query)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+	// Return login page if no login hint.
+	loginHint := u.Query().Get("login_hint")
+	if !strings.Contains(loginHint, ":") {
+		// Return Login page.
+		query := fmt.Sprintf("?scope=%s&login_challenge=%s", url.QueryEscape(strings.Join(scopes, " ")), url.QueryEscape(challenge))
+		page, err := s.renderLoginPage(cfg, map[string]string{"realm": realm}, query)
+		if err != nil {
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
+			return
+		}
+		httputil.SendHTML(page, w)
 		return
 	}
-	common.SendHTML(page, w)
+
+	// Skip login page and select the given idp when if contains login hint.
+	hint := strings.SplitN(loginHint, ":", 2)
+	loginHintProvider := hint[0]
+	loginHintAccount := hint[1]
+
+	// Idp login
+	in := loginIn{
+		realm:     realm,
+		scope:     scopes,
+		loginHint: loginHintAccount,
+		idpName:   loginHintProvider,
+		challenge: challenge,
+	}
+	s.login(in, w, r, cfg)
 }
 
 func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state, errName, errDesc string) {
 	var loginState cpb.LoginState
 	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, state, storage.LatestRev, &loginState)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
+		httputil.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
 		return
 	}
 
 	if len(loginState.Challenge) == 0 {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state challenge parameter"), w)
+		httputil.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state challenge parameter"), w)
 		return
 	}
 
@@ -104,15 +124,16 @@ func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state,
 	}
 	resp, err := hydra.RejectLogin(s.httpClient, s.hydraAdminURL, loginState.Challenge, hyErr)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 }
 
 // HydraConsent handles consent request from hydra.
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	// Use consent_challenge fetch information from hydra.
 	challenge, status := hydra.ExtractConsentChallenge(r)
 	if status != nil {
@@ -122,7 +143,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -135,13 +156,13 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		clientName = consent.Client.ClientID
 	}
 	if len(clientName) == 0 {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Client.Name empty"), w)
+		httputil.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Client.Name empty"), w)
 		return
 	}
 
 	sub := consent.Subject
 	if len(sub) == 0 {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Subject empty"), w)
+		httputil.HandleError(http.StatusServiceUnavailable, fmt.Errorf("consent.Subject empty"), w)
 		return
 	}
 
@@ -153,7 +174,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 	defer tx.Finish()
@@ -161,7 +182,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 	state := &cpb.AuthTokenState{}
 	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
@@ -170,31 +191,31 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 	state.Audience = append(consent.RequestedAudience, consent.Client.ClientID)
 	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	acct, st, err := s.loadAccount(sub, state.Realm, tx)
 	if err != nil {
-		common.HandleError(st, err, w)
+		httputil.HandleError(st, err, w)
 		return
 	}
 
 	cfg, err := s.loadConfig(tx, state.Realm)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
 	secrets, err := s.loadSecrets(tx)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	id, err := s.accountToIdentity(s.ctx, acct, cfg, secrets)
+	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
@@ -206,7 +227,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 func (s *Service) hydraRejectConsent(w http.ResponseWriter, r *http.Request, stateID string) {
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 	defer tx.Finish()
@@ -214,14 +235,14 @@ func (s *Service) hydraRejectConsent(w http.ResponseWriter, r *http.Request, sta
 	state := &cpb.AuthTokenState{}
 	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	// The temporary state for information releasing process can be only used once.
 	err = s.store.DeleteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
@@ -233,11 +254,11 @@ func (s *Service) hydraRejectConsent(w http.ResponseWriter, r *http.Request, sta
 
 	resp, err := hydra.RejectConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 }
 
 func identityToHydraMap(id *ga4gh.Identity) (map[string]interface{}, error) {
@@ -263,19 +284,19 @@ func identityToHydraMap(id *ga4gh.Identity) (map[string]interface{}, error) {
 func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, state *cpb.AuthTokenState, cfg *pb.IcConfig, tx storage.Tx) {
 	secrets, err := s.loadSecrets(tx)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
 	acct, status, err := s.loadAccount(state.Subject, state.Realm, tx)
 	if err != nil {
-		common.HandleError(status, err, w)
+		httputil.HandleError(status, err, w)
 		return
 	}
 
-	id, err := s.accountToIdentity(s.ctx, acct, cfg, secrets)
+	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
@@ -286,7 +307,7 @@ func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, sta
 	scoped := scopedIdentity(id, state.Scope, s.getIssuerString(), state.Subject, "", now, id.NotBefore, id.Expiry, []string{}, "")
 	m, err := identityToHydraMap(scoped)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
@@ -298,18 +319,22 @@ func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, sta
 		},
 	}
 
+	if len(scoped.Identities) != 0 {
+		var identities []string
+		for k := range scoped.Identities {
+			identities = append(identities, k)
+		}
+
+		req.Session.AccessToken = map[string]interface{}{
+			"identities": identities,
+		}
+	}
+
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
-}
-
-// HydraTestPage send hydra test page.
-func (s *Service) HydraTestPage(w http.ResponseWriter, r *http.Request) {
-	hydraURL := os.Getenv("HYDRA_PUBLIC_URL")
-	page := strings.ReplaceAll(s.hydraTestPage, "${HYDRA_URL}", hydraURL)
-	common.SendHTML(page, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 }

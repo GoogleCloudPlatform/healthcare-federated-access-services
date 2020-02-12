@@ -21,6 +21,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
@@ -34,7 +35,7 @@ func TestServer(t *testing.T) {
 	)
 	now := time.Now().Unix()
 
-	server, err := New(issuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config")
+	server, err := New(issuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", true)
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(issuerURL) failed: %v", err)
 	}
@@ -77,7 +78,7 @@ func TestServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translator.NewOIDCIdentityTranslator(ctx, %q, _) failed: %v", issuerURL, err)
 	}
-	id, err := translator.FetchUserinfoClaims(ctx, string(acTok), issuerURL, sub, trans)
+	id, err := translator.FetchUserinfoClaims(ctx, &ga4gh.Identity{Issuer: issuerURL}, string(acTok), trans)
 	if err != nil {
 		t.Fatalf("translator.FetchUserinfoClaims(ctx, tok, %q, %q, trans) failed: %v", issuerURL, sub, err)
 	}

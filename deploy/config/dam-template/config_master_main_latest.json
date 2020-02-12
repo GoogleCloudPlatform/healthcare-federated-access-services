@@ -1,0 +1,482 @@
+{
+  "version": "v0",
+  "revision": "1",
+  "commitTime": "1544824316",
+  "ui": {
+    "label": "Test Dataset Repository A",
+    "description": "Test Dataset Repository A"
+  },
+  "trustedPassportIssuers": {
+    "default_ic": {
+      "issuer": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/",
+      "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
+      "ui": {
+        "label": "IC",
+        "description": "IC passport issuer"
+      },
+      "authUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/auth",
+      "tokenUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/token"
+    },
+    "nih": {
+      "issuer": "https://login.nih.gov/oidc",
+      "translateUsing": "dbgap_translator",
+      "ui": {
+        "label": "nih passport issuer",
+        "description": "nih passport issuer"
+      }
+    }
+  },
+  "trustedSources": {
+    "nih_institutes": {
+      "sources": [
+        "https://dbgap.nlm.nih.gov/aa",
+        "https://nci.nih.gov",
+        "https://institute1.nih.gov",
+        "https://institute2.nih.gov",
+        "https://institute3.nih.gov",
+        "https://institute4.nih.gov"
+      ],
+      "ui": {
+        "label": "nih institutes",
+        "description": "nih institutes claim source"
+      }
+    }
+  },
+  "policies": {
+    "bona_fide": {
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "ResearcherStatus",
+              "value": "split_pattern:https://doi.org/10.1038/s41431-018-0219-y;http://www.ga4gh.org/beacon/bonafide/ver1.0",
+              "source": "split_pattern:nih_institutes"
+            }
+          ]
+        }
+      ],
+      "ui": {
+        "label": "Bona Fide",
+        "description": "Bona Fide researcher status",
+        "infoUrl": "https://doi.org/10.1038/s41431-018-0219-y#Sec6"
+      }
+    },
+    "nih_dac": {
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "type": "ControlledAccessGrants",
+              "value": "const:https://dac.nih.gov/datasets/${DATASET}",
+              "source": "split_pattern:nih_institutes",
+              "by": "const:dac"
+            }
+          ]
+        }
+      ],
+      "variableDefinitions": {
+        "DATASET": {
+          "regexp": "^phs\\d{6}$",
+          "ui": {
+            "description": "The name of an NIH dataset of the form 'phsXXXXXX'"
+          }
+        }
+      },
+      "ui": {
+        "label": "NIH Data Access Committee Approval",
+        "description": "Approval from a NIH DAC for the researcher to access specific datasets",
+        "infoUrl": "https://osp.od.nih.gov/scientific-sharing/policy-oversight/"
+      }
+    }
+  },
+  "resources": {
+    "test-dataset": {
+      "views": {
+        "gcs_read": {
+          "serviceTemplate": "gcs",
+          "version": "1.0",
+          "topic": "variants",
+          "partition": "all",
+          "fidelity": "normalized",
+          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "contentTypes": [
+            "application/bam"
+          ],
+          "items": [
+            {
+              "vars": {
+                "project": "${YOUR_PROJECT_ID}",
+                "bucket": "${YOUR_PROJECT_ID}-test-dataset"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": [
+                {
+                  "name": "nih_dac",
+                  "vars": {
+                    "DATASET": "phs000710"
+                  }
+                }
+              ]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "File Read",
+            "description": "Read files from gcs bucket"
+          }
+        }
+      },
+      "maxTokenTtl": "1h",
+      "ui": {
+        "applyUrl": "http://apply.ga4gh-apis.org",
+        "description": "Google demo of GA4GH APIs using a subset of 1000 Genomes data. See: https://www.nature.com/articles/nature15393.",
+        "imageUrl": "https://www.ebi.ac.uk/sites/ebi.ac.uk/files/groups/external_relations/images/wide-imagery/Global_Alliance_news_logo_780x400_0.jpg",
+        "infoUrl": "http://info.ga4gh-apis.org",
+        "label": "GA4GH APIs",
+        "troubleshootUrl": "http://troubleshoot.ga4gh-apis.org",
+        "owner":"Human Genome Project",
+        "size":"200 GB",
+        "access":"controlled",
+        "year":"2016",
+        "tags":"Demo, Genomes, Research"
+      }
+    }
+  },
+  "serviceTemplates": {
+    "gcs": {
+      "targetAdapter": "token:gcp:sa",
+      "itemFormat": "gcs",
+      "roles": {
+        "viewer": {
+          "targetRoles": ["roles/storage.objectViewer"],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read"],
+          "ui": {
+            "label": "File Viewer",
+            "description": "List and read files"
+          }
+        },
+        "creator": {
+          "targetRoles": ["roles/storage.objectCreator"],
+          "damRoleCategories": ["write"],
+          "ui": {
+            "label": "File Creator",
+            "description": "Write files (without read access)"
+          }
+        },
+        "editor": {
+          "targetRoles": [
+            "roles/storage.objectViewer",
+            "roles/storage.objectCreator"
+          ],
+          "targetScopes": [
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "damRoleCategories": ["metadata", "list", "read", "write"],
+          "ui": {
+            "label": "File Editor",
+            "description": "Read and write files plus manipulate file metadata"
+          }
+        }
+      },
+      "interfaces": {
+        "gcp:gs": "gs://${bucket}",
+        "http:gcp:gs": "https://www.googleapis.com/storage/v1/b/${bucket}"
+      },
+      "ui": {
+        "label": "Google Cloud Storage",
+        "description": "Offers Google Cloud Storage access"
+      }
+    }
+  },
+  "claimDefinitions": {
+    "AffiliationAndRole": {
+      "ui": {
+        "label": "Affiliation and Role",
+        "description": "The Identity’s roles within affiliated institutions as specified by eduPerson with specific vocabulary extensions",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.vod2g2cjxjmp"
+      }
+    },
+    "AcceptedTermsAndPolicies": {
+      "ui": {
+        "label": "Accepted Terms and Policies",
+        "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms and conditions indicated by the URL",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.pif6raoahha5"
+      }
+    },
+    "ResearcherStatus": {
+      "ui": {
+        "label": "Bona Fide Researcher Status",
+        "description": "Canonical URLs that indicate that the person has been acknowledged to be a bona fide researcher",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.jdh4ks6h3zzp"
+      }
+    },
+    "ControlledAccessGrants": {
+      "ui": {
+        "label": "Controlled Access Grants",
+        "description": "A list of datasets or other objects for which controlled access has been granted to this researcher",
+        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.s459xswt1qt3"
+      }
+    }
+  },
+  "testPersonas": {
+    "administrator": {
+      "ui": {
+        "label": "Administrator"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://ic-${YOUR_PROJECT_ID}.appspot.com/oidc",
+          "email": "admin@nci.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        }
+      }
+    },
+    "dr_joe_elixir": {
+      "ui": {
+        "label": "Dr. Joe (Elixir)"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "email": "dr_joe@faculty.uni-heidelberg.de",
+          "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
+        },
+        "ga4ghAssertions": [
+          {
+            "type": "ResearcherStatus",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "source": "https://ga4gh.org/duri/no_org",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "peer"
+          },
+          {
+            "type": "AcceptedTermsAndPolicies",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "source": "https://uni-heidelberg.de",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "self"
+          }
+        ]
+      },
+      "access": [
+      ]
+    },
+    "john": {
+      "ui": {
+        "label": "John Persona"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "me",
+          "email": "you@me.com",
+          "picture": "http://icons.iconarchive.com/icons/dapino/people/256/brown-man-icon.png"
+        },
+        "ga4ghAssertions": [
+          {
+            "type": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000111",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac"
+          }
+        ]
+      }
+    },
+    "dr_joe_era_commons": {
+      "ui": {
+        "label": "Dr. Joe (eRA Commons)"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://login.nih.gov/oidc",
+          "email": "dr_joe@era.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        },
+        "ga4ghAssertions": [
+          {
+            "type": "AffiliationAndRole",
+            "source": "https://uni-heidelberg.de",
+            "value": "faculty@uni-heidelberg.de",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "so"
+          },
+          {
+            "type": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000710",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac",
+            "anyOfConditions": [
+              {
+                "allOf": [
+                  {
+                    "type": "AffiliationAndRole",
+                    "value": "const:faculty@uni-heidelberg.de",
+                    "source": "const:https://uni-heidelberg.de",
+                    "by": "const:so"
+                  }
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "type": "AffiliationAndRole",
+                    "value": "const:faculty@uni-heidelberg.de",
+                    "source": "const:https://login.elixir-czech.org/oidc/",
+                    "by": "const:system"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "access": [
+        "test-dataset/gcs_read/viewer"
+      ]
+    },
+    "nci_researcher": {
+      "ui": {
+        "label": "NCI Researcher"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://login.nih.gov/oidc",
+          "email": "nci_researcher@nci.nih.gov",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        },
+        "ga4ghAssertions": [
+          {
+            "type": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000710",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "dac"
+          },
+          {
+            "type": "ResearcherStatus",
+            "source": "https://nci.nih.gov",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "so"
+          },
+          {
+            "type": "AcceptedTermsAndPolicies",
+            "source": "https://nci.nih.gov",
+            "value": "https://doi.org/10.1038/s41431-018-0219-y",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "self"
+          }
+        ]
+      },
+      "access": [
+        "test-dataset/gcs_read/viewer"
+      ]
+    },
+    "undergrad_candice": {
+      "ui": {
+        "label": "Undergrad Candice"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "email": "undergrad_candice@uni-heidelberg.de",
+          "picture": "https://www.cl.uni-heidelberg.de/images/siegel_uni_hd_gross.gif"
+        }
+      }
+    },
+    "retired_bill": {
+      "ui": {
+        "label": "Retired Bill"
+      },
+      "passport": {
+        "standardClaims": {
+          "iss": "https://login.elixir-czech.org/oidc/",
+          "email": "undergrad_candice@uni-heidelberg.de",
+          "picture": "https://www.cl.uni-heidelberg.de/images/siegel_uni_hd_gross.gif"
+        },
+        "ga4ghAssertions": [
+          {
+            "type": "ControlledAccessGrants",
+            "source": "https://dbgap.nlm.nih.gov/aa",
+            "value": "https://dac.nih.gov/datasets/phs000710",
+            "assertedDuration": "100d",
+            "expiresDuration": "-30d",
+            "by": "dac"
+          }
+        ]
+      }
+    },
+    "test_user_with_access": {
+      "passport": {
+        "standardClaims": {
+          "iss": "https://ic-${YOUR_PROJECT_ID}.appspot.com/oidc",
+          "email": "test-user-with-access@dnastack.com",
+          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+        },
+        "ga4ghAssertions": [
+          {
+            "type": "testing.only.Whitelist",
+            "source": "https://ddap.test.source.dnastack.com",
+            "value": "https://ddap-frontend.staging.dnastack.com",
+            "assertedDuration": "1d",
+            "expiresDuration": "30d",
+            "by": "so"
+          }
+        ]
+      },
+      "ui": {
+        "label": "Test User Access"
+      }
+    },
+    "test_user_without_access": {
+      "passport": {
+        "standardClaims": {
+          "iss": "https://ddap.test.source.dnastack.com",
+          "email": "test-user-no-access@dnastack.com",
+          "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
+        },
+        "ga4ghAssertions": []
+      },
+      "ui": {
+        "label": "Test user no access"
+      }
+    }
+  },
+  "clients": {
+    "test_page": {
+      "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
+      "ui": {
+        "label": "DAM Test Page",
+        "description": "The DAM demo test page"
+      },
+      "redirectUris": [
+        "http://localhost:8092/test",
+        "https://damdemo${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/test"
+      ],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
+    }
+  },
+  "options": {
+    "readOnlyMasterRealm": true,
+    "gcpManagedKeysMaxRequestedTtl": "7d",
+    "gcpManagedKeysPerAccount": 8,
+    "gcpServiceAccountProject": "${YOUR_PROJECT_ID}"
+  }
+}

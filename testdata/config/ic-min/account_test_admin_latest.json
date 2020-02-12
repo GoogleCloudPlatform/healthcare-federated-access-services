@@ -12,9 +12,9 @@
   "connectedAccounts": [
     {
       "properties": {
-        "subject": "admin@faculty.example.edu"
-      },
-      "tags": ["IC", "DAM"]
+        "subject": "administrator",
+        "email": "admin@faculty.example.edu"
+      }
     }
   ],
   "state": "ACTIVE"

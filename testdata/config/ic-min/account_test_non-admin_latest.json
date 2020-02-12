@@ -28,6 +28,25 @@
       "passport": {
       },
       "loginHint": "persona:non-admin"
+    },
+    {
+      "profile": {
+        "username": "non-admin-1",
+        "name": "Non Administrator 1"
+      },
+      "properties": {
+        "subject": "non-admin-1",
+        "email": "non-admin-1@example.org",
+        "created": 1571241500,
+        "modified": 1571241500
+      },
+      "provider": "persona",
+      "refreshed": 1571241500,
+      "revision": "1",
+      "linkRevision": "1",
+      "passport": {
+      },
+      "loginHint": "persona:non-admin-1"
     }
   ],
   "state": "ACTIVE"

@@ -20,6 +20,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -77,7 +78,7 @@ func (a *SawAdapter) IsAggregator() bool {
 // CheckConfig validates that a new configuration is compatible with this adapter.
 func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error) {
 	if cfg.Options == nil || len(cfg.Options.GcpServiceAccountProject) == 0 {
-		return common.StatusPath("serviceTemplates", templateName, "targetAdapter"), fmt.Errorf("target adapter uses service accounts but options.gcpServiceAccountProject is not defined")
+		return httputil.StatusPath("serviceTemplates", templateName, "targetAdapter"), fmt.Errorf("target adapter uses service accounts but options.gcpServiceAccountProject is not defined")
 	}
 	return "", nil
 }

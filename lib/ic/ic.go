@@ -19,14 +19,12 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -38,16 +36,16 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
-	"google.golang.org/grpc/codes" /* copybara-comment */
-	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
@@ -57,14 +55,11 @@ import (
 )
 
 const (
-	oidcPath           = "/oidc"
-	oidcWellKnownPath  = oidcPath + "/.well-known"
-	oidcConfiguarePath = oidcWellKnownPath + "/openid-configuration"
-	oidcJwksPath       = oidcWellKnownPath + "/jwks"
-	oidcUserInfoPath   = oidcPath + "/userinfo"
-	keyID              = "kid"
+	keyID = "kid"
 
 	maxClaimsLength = 1900
+
+	linkedIdentitiesMaxLifepan = time.Hour
 
 	loginPageFile              = "pages/login.html"
 	loginPageInfoFile          = "pages/login-info.html"
@@ -74,84 +69,26 @@ const (
 	tokenFlowTestPageFile      = "pages/new-flow-test.html"
 	hydraICTestPageFile        = "pages/hydra-ic-test.html"
 	staticDirectory            = "assets/serve/"
-	version                    = "v1alpha"
-	requiresAdmin              = true
 
-	basePath         = "/identity"
-	versionPath      = basePath + "/" + version
-	realmPath        = versionPath + "/" + common.RealmVariable
-	methodPrefix     = realmPath + "/"
-	acceptLoginPath  = basePath + "/loggedin"
-	assetPath        = basePath + "/static"
-	staticFilePath   = assetPath + "/"
-	configPathPrefix = methodPrefix + "config"
-
-	infoPath                    = basePath
-	clientPath                  = methodPrefix + "clients/{name}"
-	configPath                  = methodPrefix + "config"
-	configHistoryPath           = configPath + "/history"
-	configHistoryRevisionPath   = configHistoryPath + "/{name}"
-	configResetPath             = configPath + "/reset"
-	configIdentityProvidersPath = configPath + "/identityProviders/{name}"
-	configClientsPath           = configPath + "/clients/{name}"
-	configOptionsPath           = configPath + "/options"
-
-	identityProvidersPath        = methodPrefix + "identityProviders"
-	translatorsPath              = methodPrefix + "passportTranslators"
-	tokenPath                    = methodPrefix + "token"
-	tokenMetadataPath            = methodPrefix + "token/{sub}/{jti}"
-	revocationPath               = methodPrefix + "revoke"
-	loginPagePath                = methodPrefix + "login"
-	loginPathPrefix              = methodPrefix + "login/"
-	loginPath                    = loginPathPrefix + "{name}"
-	finishLoginPrefix            = methodPrefix + "loggedin/"
-	finishLoginPath              = finishLoginPrefix + "{name}"
-	acceptInformationReleasePath = methodPrefix + "inforelease"
-
-	personasPath       = methodPrefix + "personas"
-	personaPath        = personasPath + "/{name}"
-	accountPath        = methodPrefix + "accounts/{name}"
-	accountSubjectPath = accountPath + "/subjects/{subject}"
-
-	scimPrefix    = basePath + "/scim/v2/" + common.RealmVariable + "/"
-	scimUsersPath = scimPrefix + "Users"
-	scimUserPath  = scimPrefix + "Users/{name}"
-	scimMePath    = scimPrefix + "Me"
-
-	adminPathPrefix        = methodPrefix + "admin"
-	adminClaimsPath        = adminPathPrefix + "/subjects/{name}/account/claims"
-	adminTokenMetadataPath = adminPathPrefix + "/tokens"
-
-	hydraLoginPath   = basePath + "/login"
-	hydraConsentPath = basePath + "/consent"
-	hydraTestPage    = basePath + "/hydra-test"
-
-	testPath          = methodPrefix + "test"
-	tokenFlowTestPath = basePath + "/new-flow-test"
-	authorizePath     = methodPrefix + "authorize"
-
-	serviceTitle         = "Identity Concentrator"
-	loginInfoTitle       = "Data Discovery and Access Platform"
-	noClientID           = ""
-	noScope              = ""
-	noNonce              = ""
-	scopeOpenID          = "openid"
-	matchFullScope       = false
-	matchPrefixScope     = true
-	generateRefreshToken = true
-	noRefreshToken       = false
-	noDuration           = 0 * time.Second
+	serviceTitle            = "Identity Concentrator"
+	loginInfoTitle          = "Data Discovery and Access Platform"
+	noClientID              = ""
+	noScope                 = ""
+	noNonce                 = ""
+	scopeOpenID             = "openid"
+	matchFullScope          = false
+	matchPrefixScope        = true
+	generateRefreshToken    = true
+	noRefreshToken          = false
+	noDuration              = 0 * time.Second
+	minResetClientFrequency = 2 * time.Minute
 )
 
 func defaultPath(path string) string {
-	return strings.Replace(path, common.RealmVariable, storage.DefaultRealm, -1)
+	return strings.Replace(path, "{realm}", storage.DefaultRealm, -1)
 }
 
 var (
-	defaultAuthorizePath  = defaultPath(authorizePath)
-	defaultTokenPath      = defaultPath(tokenPath)
-	defaultRevocationPath = defaultPath(revocationPath)
-
 	secretParams = map[string]bool{
 		"clientSecret":  true,
 		"client_secret": true,
@@ -265,43 +202,22 @@ var (
 	skipURLValidationInTokenURL = regexp.MustCompile("^[A-Z_]*=https://.*$")
 
 	importDefault = os.Getenv("IMPORT")
-
-	// skipClientCredsPaths are the paths for which we don't check client credentials.
-	skipClientCredsPaths = map[string]bool{
-		infoPath:                     true,
-		hydraLoginPath:               true,
-		hydraConsentPath:             true,
-		acceptInformationReleasePath: true,
-		testPath:                     true,
-		tokenFlowTestPath:            true,
-		hydraTestPage:                true,
-	}
-	// skipClientCredsPaths are the path prefixes for which we don't check client credentials.
-	skipClientCredPrefixes = []string{
-		staticFilePath,
-		loginPathPrefix,
-		acceptLoginPath,
-		finishLoginPrefix,
-		oidcPath,
-	}
 )
 
 type Service struct {
 	store                 storage.Store
 	Handler               *ServiceHandler
-	ctx                   context.Context
 	httpClient            *http.Client
 	loginPage             string
 	clientLoginPage       string
 	infomationReleasePage string
-	testPage              string
-	tokenFlowTestPage     string
-	hydraTestPage         string
 	startTime             int64
-	permissions           *common.Permissions
+	permissions           *permissions.Permissions
 	domain                string
+	serviceName           string
 	accountDomain         string
 	hydraAdminURL         string
+	hydraPublicURL        string
 	translators           sync.Map
 	encryption            Encryption
 	useHydra              bool
@@ -318,71 +234,78 @@ type Encryption interface {
 	Decrypt(ctx context.Context, encrypted []byte, additionalAuthData string) ([]byte, error)
 }
 
+// Options contains parameters to New IC Service.
+type Options struct {
+	// HTTPClient: http client for making http request.
+	HTTPClient *http.Client
+	// Domain: domain used to host ic service.
+	Domain string
+	// ServiceName: name of the service including environment (example: "ic-staging")
+	ServiceName string
+	// AccountDomain: domain used to host service account warehouse.
+	AccountDomain string
+	// Store: data storage and configuration storage.
+	Store storage.Store
+	// Encryption: the encryption use for storing tokens safely in database.
+	Encryption Encryption
+	// UseHydra: service use hydra integrated OIDC.
+	UseHydra bool
+	// HydraAdminURL: hydra admin endpoints url.
+	HydraAdminURL string
+	// HydraPublicURL: hydra public endpoints url.
+	HydraPublicURL string
+}
+
 // NewService create new IC service.
-// - domain: domain used to host ic service
-// - accountDomain: domain used to host service account warehouse
-// - hydraAdminURL: hydra admin endpoints url
-// - store: data storage and configuration storage
-// - encryption: the encryption use for storing tokens safely in database
-func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string, store storage.Store, encryption Encryption, useHydra bool) *Service {
+func NewService(params *Options) *Service {
 	sh := &ServiceHandler{}
-	lp, err := common.LoadFile(loginPageFile)
+	lp, err := srcutil.LoadFile(loginPageFile)
 	if err != nil {
 		glog.Fatalf("cannot load login page: %v", err)
 	}
-	lpi, err := common.LoadFile(loginPageInfoFile)
+	lpi, err := srcutil.LoadFile(loginPageInfoFile)
 	if err != nil {
 		glog.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
 	}
 	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
-	clp, err := common.LoadFile(clientLoginPageFile)
+	clp, err := srcutil.LoadFile(clientLoginPageFile)
 	if err != nil {
 		glog.Fatalf("cannot load client login page: %v", err)
 	}
-	irp, err := common.LoadFile(informationReleasePageFile)
+	irp, err := srcutil.LoadFile(informationReleasePageFile)
 	if err != nil {
 		glog.Fatalf("cannot load information release page: %v", err)
 	}
-	tp, err := common.LoadFile(testPageFile)
-	if err != nil {
-		glog.Fatalf("cannot load test page: %v", err)
-	}
-	tfp, err := common.LoadFile(tokenFlowTestPageFile)
-	if err != nil {
-		glog.Fatalf("cannot load token flow test page: %v", err)
-	}
-	htp, err := common.LoadFile(hydraICTestPageFile)
-	if err != nil {
-		glog.Fatalf("cannot load hydra test page: %v", err)
-	}
 
-	perms, err := common.LoadPermissions(store)
+	perms, err := permissions.LoadPermissions(params.Store)
 	if err != nil {
 		glog.Fatalf("cannot load permissions:%v", err)
 	}
 	s := &Service{
-		store:                 store,
+		store:                 params.Store,
 		Handler:               sh,
-		ctx:                   ctx,
-		httpClient:            http.DefaultClient,
+		httpClient:            params.HTTPClient,
 		loginPage:             lp,
 		clientLoginPage:       clp,
 		infomationReleasePage: irp,
-		testPage:              tp,
-		tokenFlowTestPage:     tfp,
-		hydraTestPage:         htp,
 		startTime:             time.Now().Unix(),
 		permissions:           perms,
-		domain:                domain,
-		accountDomain:         accountDomain,
-		hydraAdminURL:         hydraAdminURL,
-		encryption:            encryption,
-		useHydra:              useHydra,
+		domain:                params.Domain,
+		serviceName:           params.ServiceName,
+		accountDomain:         params.AccountDomain,
+		hydraAdminURL:         params.HydraAdminURL,
+		hydraPublicURL:        params.HydraPublicURL,
+		encryption:            params.Encryption,
+		useHydra:              params.UseHydra,
+	}
+
+	if s.httpClient == nil {
+		s.httpClient = http.DefaultClient
 	}
 
 	if err := validateURLs(map[string]string{
-		"DOMAIN as URL":         "https://" + domain,
-		"ACCOUNT_DOMAIN as URL": "https://" + accountDomain,
+		"DOMAIN as URL":         "https://" + params.Domain,
+		"ACCOUNT_DOMAIN as URL": "https://" + params.AccountDomain,
 	}); err != nil {
 		glog.Fatalf(err.Error())
 	}
@@ -401,36 +324,38 @@ func NewService(ctx context.Context, domain, accountDomain, hydraAdminURL string
 		glog.Fatalf("cannot load client secrets: %v", err)
 	}
 
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
 	for name, cfgIdp := range cfg.IdentityProviders {
-		_, err = s.getIssuerTranslator(s.ctx, cfgIdp.Issuer, cfg, secrets)
+		_, err = s.getIssuerTranslator(ctx, cfgIdp.Issuer, cfg, secrets)
 		if err != nil {
 			glog.Infof("failed to create translator for issuer %q: %v", name, err)
 		}
 	}
 
 	sh.s = s
-	sh.Handler = s.buildHandlerMux()
+	sh.Handler = mux.NewRouter()
+	registerHandlers(sh.Handler, s)
 	return s
 }
 
 func getClientID(r *http.Request) string {
-	cid := common.GetParam(r, "client_id")
+	cid := httputil.GetParam(r, "client_id")
 	if len(cid) > 0 {
 		return cid
 	}
-	return common.GetParam(r, "clientId")
+	return httputil.GetParam(r, "clientId")
 }
 
 func getClientSecret(r *http.Request) string {
-	cs := common.GetParam(r, "client_secret")
+	cs := httputil.GetParam(r, "client_secret")
 	if len(cs) > 0 {
 		return cs
 	}
-	return common.GetParam(r, "clientSecret")
+	return httputil.GetParam(r, "clientSecret")
 }
 
 func getNonce(r *http.Request) (string, error) {
-	n := common.GetParam(r, "nonce")
+	n := httputil.GetParam(r, "nonce")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -439,13 +364,8 @@ func getNonce(r *http.Request) (string, error) {
 	return "no-nonce", nil
 }
 
-func isUserInfo(r *http.Request) bool {
-	path := common.RequestAbstractPath(r)
-	return path == oidcUserInfoPath
-}
-
 func extractState(r *http.Request) (string, error) {
-	n := common.GetParam(r, "state")
+	n := httputil.GetParam(r, "state")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -456,403 +376,15 @@ func extractState(r *http.Request) (string, error) {
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
-		common.AddCorsHeaders(w)
+		httputil.AddCorsHeaders(w)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	r.ParseForm()
 
-	if err := sh.s.checkClientCreds(r); err != nil {
-		httputil.WriteStatus(w, status.Convert(err))
-		return
-	}
+	// Inject http client for oauth lib.
+	r = r.WithContext(context.WithValue(r.Context(), oauth2.HTTPClient, sh.s.httpClient))
 
 	sh.Handler.ServeHTTP(w, r)
-}
-
-func (s *Service) checkClientCreds(r *http.Request) error {
-	// Allow some requests to proceed without client IDs and/or secrets.
-	path := common.RequestAbstractPath(r)
-
-	for p := range skipClientCredsPaths {
-		if path == p {
-			return nil
-		}
-	}
-
-	for _, p := range skipClientCredPrefixes {
-		if strings.HasPrefix(path, p) {
-			return nil
-		}
-	}
-
-	return s.checkClient(path, r)
-}
-
-func (s *Service) checkClient(path string, r *http.Request) error {
-	cid := getClientID(r)
-	if len(cid) == 0 {
-		return status.Error(codes.Unauthenticated, "authorization requires a client ID")
-	}
-
-	// TODO: should also check the client id in config.
-
-	if isClientOnly(path) {
-		return nil
-	}
-
-	cs := getClientSecret(r)
-	if len(cs) == 0 {
-		return status.Error(codes.Unauthenticated, "authorization requires a client secret")
-	}
-
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		return status.Error(codes.Unavailable, "configuration unavailable")
-	}
-
-	if secret, ok := secrets.ClientSecrets[cid]; !ok || secret != cs {
-		return status.Error(codes.Unauthenticated, "unauthorized client")
-	}
-
-	return nil
-}
-
-func isClientOnly(path string) bool {
-	return strings.HasPrefix(path, authorizePath) || strings.HasPrefix(path, loginPagePath) || strings.HasPrefix(path, finishLoginPrefix) || strings.HasPrefix(path, personasPath) || strings.HasPrefix(path, clientPath) || strings.HasPrefix(path, translatorsPath) || strings.HasPrefix(path, identityProvidersPath)
-}
-
-func (s *Service) buildHandlerMux() *mux.Router {
-	r := mux.NewRouter()
-	r.HandleFunc(infoPath, s.GetInfo)
-	r.HandleFunc(realmPath, common.MakeHandler(s, s.realmFactory()))
-	r.HandleFunc(clientPath, common.MakeHandler(s, s.clientFactory()))
-	r.HandleFunc(configPath, common.MakeHandler(s, s.configFactory()))
-	r.HandleFunc(configHistoryPath, s.ConfigHistory)
-	r.HandleFunc(configHistoryRevisionPath, s.ConfigHistoryRevision)
-	r.HandleFunc(configResetPath, s.ConfigReset)
-	r.HandleFunc(configIdentityProvidersPath, common.MakeHandler(s, s.configIdpFactory()))
-	r.HandleFunc(configClientsPath, common.MakeHandler(s, s.configClientFactory()))
-	r.HandleFunc(configOptionsPath, common.MakeHandler(s, s.configOptionsFactory()))
-	r.HandleFunc(identityProvidersPath, s.IdentityProviders)
-	r.HandleFunc(translatorsPath, s.PassportTranslators)
-	r.HandleFunc(tokenPath, s.Token)
-	r.HandleFunc(tokenMetadataPath, common.MakeHandler(s, s.tokenMetadataFactory()))
-	r.HandleFunc(adminTokenMetadataPath, common.MakeHandler(s, s.adminTokenMetadataFactory()))
-	r.HandleFunc(revocationPath, s.Revocation)
-	r.HandleFunc(loginPagePath, s.LoginPage)
-	r.HandleFunc(loginPath, s.Login)
-	r.HandleFunc(acceptLoginPath, s.AcceptLogin)
-	r.HandleFunc(finishLoginPath, s.FinishLogin)
-	r.HandleFunc(acceptInformationReleasePath, s.acceptInformationRelease).Methods("GET")
-	r.HandleFunc(testPath, s.Test)
-	r.HandleFunc(tokenFlowTestPath, s.TokenFlowTest)
-	r.HandleFunc(authorizePath, s.Authorize)
-	r.HandleFunc(accountPath, common.MakeHandler(s, s.accountFactory()))
-	r.HandleFunc(accountSubjectPath, common.MakeHandler(s, s.accountSubjectFactory()))
-	r.HandleFunc(adminClaimsPath, common.MakeHandler(s, s.adminClaimsFactory()))
-
-	r.HandleFunc(scimMePath, common.MakeHandler(s, s.scimMeFactory()))
-	r.HandleFunc(scimUserPath, common.MakeHandler(s, s.scimUserFactory()))
-	r.HandleFunc(scimUsersPath, common.MakeHandler(s, s.scimUsersFactory()))
-
-	r.HandleFunc(oidcConfiguarePath, s.OidcWellKnownConfig).Methods("GET")
-	r.HandleFunc(oidcJwksPath, s.OidcKeys).Methods("GET")
-	r.HandleFunc(oidcUserInfoPath, s.OidcUserInfo).Methods("GET", "POST")
-
-	r.HandleFunc(hydraLoginPath, s.HydraLogin).Methods(http.MethodGet)
-	r.HandleFunc(hydraConsentPath, s.HydraConsent).Methods(http.MethodGet)
-	r.HandleFunc(hydraTestPage, s.HydraTestPage).Methods(http.MethodGet)
-
-	tokens := &stubTokens{token: fakeToken}
-	r.HandleFunc("/tokens", NewTokensHandler(tokens).ListTokens).Methods(http.MethodGet)
-	r.HandleFunc("/tokens/", NewTokensHandler(tokens).GetToken).Methods(http.MethodGet)
-	r.HandleFunc("/tokens/", NewTokensHandler(tokens).DeleteToken).Methods(http.MethodDelete)
-
-	consents := &stubConsents{consent: fakeConsent}
-	r.HandleFunc("/consents", NewConsentsHandler(consents).ListConsents).Methods(http.MethodGet)
-	r.HandleFunc("/consents/", NewConsentsHandler(consents).DeleteConsent).Methods(http.MethodDelete)
-
-	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(filepath.Join(storage.ProjectRoot, staticDirectory))))
-	r.PathPrefix(staticFilePath).Handler(sfs)
-	return r
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) GetInfo(w http.ResponseWriter, r *http.Request) {
-	out := &pb.GetInfoResponse{
-		Name:      "Identity Concentrator",
-		Versions:  []string{version},
-		StartTime: s.startTime,
-	}
-	if err := s.checkClient(common.RequestAbstractPath(r), r); err == nil {
-		out.Modules = []string{}
-	}
-
-	realm := common.GetParamOrDefault(r, "realm", storage.DefaultRealm)
-	if cfg, err := s.loadConfig(nil, realm); err == nil {
-		out.Ui = cfg.Ui
-	}
-	common.SendResponse(out, w)
-}
-
-// ConfigHistory implements the HistoryConfig RPC method.
-func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	// TODO: consider requiring an "admin" scope (modify all admin handlerSetup calls).
-	_, _, _, status, err := s.handlerSetup(nil, requiresAdmin, r, noScope, nil)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	h, status, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
-	if err != nil {
-		common.HandleError(status, err, w)
-	}
-	common.SendResponse(h, w)
-}
-
-// ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
-func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	name := getName(r)
-	rev, err := strconv.ParseInt(name, 10, 64)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("invalid history revision: %q (must be a positive integer)", name), w)
-		return
-	}
-	_, _, _, status, err := s.handlerSetup(nil, requiresAdmin, r, noScope, nil)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	cfg := &pb.IcConfig{}
-	if status, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	common.SendResponse(cfg, w)
-}
-
-// ConfigReset implements the corresponding method in the IC API.
-func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
-	// TODO: probably should not be a GET, but handy for now on a browser...
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	_, _, _, status, err := s.handlerSetup(nil, requiresAdmin, r, noScope, nil)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-	if err = s.ImportFiles(importDefault); err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-}
-
-func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	resp := &pb.GetIdentityProvidersResponse{
-		IdentityProviders: make(map[string]*pb.IdentityProvider),
-	}
-	for name, idp := range cfg.IdentityProviders {
-		resp.IdentityProviders[name] = makeIdentityProvider(idp)
-	}
-	common.SendResponse(resp, w)
-}
-
-// PassportTranslators implements the corresponding REST API endpoint.
-func (s *Service) PassportTranslators(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	out := translator.GetPassportTranslators()
-	common.SendResponse(out, w)
-}
-
-func (s *Service) Token(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	typ := common.GetParam(r, "grant_type")
-	if typ != "authorization_code" && typ != "refresh_token" {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("grant type not supported: %q", typ), w)
-		return
-	}
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	var identity *ga4gh.Identity
-	var status int
-	genRefresh := generateRefreshToken
-	if typ == "authorization_code" {
-		redirect := common.GetParam(r, "redirect_uri")
-		if len(redirect) == 0 {
-			common.HandleError(http.StatusBadRequest, fmt.Errorf("redirect not specified"), w)
-			return
-		}
-		// TODO: match redirect_uri with the one in the auth code.
-		if !matchRedirect(getClient(cfg, r), redirect) {
-			common.HandleError(http.StatusBadRequest, fmt.Errorf("redirect not registered"), w)
-			return
-		}
-		code, status, err := getAuthCode(r)
-		if err != nil {
-			common.HandleError(status, err, w)
-			return
-		}
-		identity, status, err = s.authCodeToIdentity(code, r, cfg, secrets, nil)
-		if err != nil {
-			common.HandleError(status, err, w)
-			return
-		}
-	} else {
-		genRefresh = noRefreshToken
-		identity, status, err = s.refreshTokenToIdentity(common.GetParam(r, "refresh_token"), r, cfg, secrets, nil)
-		if err != nil {
-			common.HandleError(status, err, w)
-			return
-		}
-		if !hasScopes("refresh", identity.Scope, matchFullScope) {
-			common.HandleError(http.StatusBadRequest, fmt.Errorf("token provided is not a refresh_token"), w)
-			return
-		}
-	}
-	resp, err := s.createTokens(identity, genRefresh, r, cfg, nil)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	common.SendResponse(resp, w)
-}
-
-// Revocation implements the /revoke endpoint for revoking tokens.
-func (s *Service) Revocation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	tx, err := s.GetStore().Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, fmt.Errorf("service dependencies not available; try again later"), w)
-		return
-	}
-	defer tx.Finish()
-
-	cfg, err := s.loadConfig(tx, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	// Parse the token to be revoked.
-	// TODO: remove the RevocationRequest proto fields as GetParam() is needed instead.
-	inputToken := common.GetParam(r, "token")
-	if len(inputToken) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("missing token parameter"), w)
-		return
-	}
-	identity, status, err := s.refreshTokenToIdentity(inputToken, r, cfg, secrets, tx)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-	if !hasScopes("refresh", identity.Scope, matchFullScope) {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("token provided is not a refresh token"), w)
-		return
-	}
-
-	// Delete the token from storage.
-	if err := s.store.DeleteTx(storage.TokensDatatype, getRealm(r), identity.Subject, identity.ID, storage.LatestRev, tx); err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("failed to revoke token: %v", err), w)
-	}
-	return
-}
-
-func (s *Service) LoginPage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	redirect, err := s.getAndValidateStateRedirect(r, cfg)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-	}
-
-	scope, err := getScope(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	state, err := extractState(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	nonce, err := getNonce(r)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
-	}
-
-	params := "?client_id=" + getClientID(r) + "&redirect_uri=" + url.QueryEscape(redirect) + "&state=" + url.QueryEscape(state) + "&nonce=" + url.QueryEscape(nonce)
-	if len(scope) > 0 {
-		params += "&scope=" + url.QueryEscape(scope)
-	}
-	vars := mux.Vars(r)
-
-	page, err := s.renderLoginPage(cfg, vars, params)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-	}
-	common.SendHTML(page, w)
 }
 
 func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, queryParams string) (string, error) {
@@ -879,46 +411,22 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 	return page, nil
 }
 
-func (s *Service) idpAuthorize(idpName string, idp *pb.IdentityProvider, redirect string, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
-	scope, err := getScope(r)
-	if err != nil {
-		return nil, "", err
-	}
+func (s *Service) idpAuthorize(in loginIn, idp *cpb.IdentityProvider, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
+	scope := strings.Join(in.scope, " ")
 
 	// TODO: Remove after all idp use passport visa.
 	if idp.UsePassportVisa {
 		scope = strings.Join(idp.Scopes, " ")
 	}
 
-	state := ""
-	nonce := ""
-	challenge := ""
-	var st *status.Status
-
-	if s.useHydra {
-		challenge, st = hydra.ExtractLoginChallenge(r)
-		if st != nil {
-			return nil, "", st.Err()
-		}
-	} else {
-		state, err = extractState(r)
-		if err != nil {
-			return nil, "", err
-		}
-		nonce, err = getNonce(r)
-		if err != nil {
-			return nil, "", err
-		}
-	}
-
-	stateID, err := s.buildState(idpName, getRealm(r), getClientID(r), scope, redirect, state, nonce, challenge, tx)
+	stateID, err := s.buildState(in.idpName, in.realm, scope, in.challenge, tx)
 	if err != nil {
 		return nil, "", err
 	}
 	return idpConfig(idp, s.getDomainURL(), nil), stateID, nil
 }
 
-func idpConfig(idp *pb.IdentityProvider, domainURL string, secrets *pb.IcSecrets) *oauth2.Config {
+func idpConfig(idp *cpb.IdentityProvider, domainURL string, secrets *pb.IcSecrets) *oauth2.Config {
 	scopes := idp.Scopes
 	if scopes == nil || len(scopes) == 0 {
 		scopes = defaultIdpScopes
@@ -942,15 +450,11 @@ func idpConfig(idp *pb.IdentityProvider, domainURL string, secrets *pb.IcSecrets
 	}
 }
 
-func (s *Service) buildState(idpName, realm, clientID, scope, redirect, state, nonce, challenge string, tx storage.Tx) (string, error) {
+func (s *Service) buildState(idpName, realm, scope, challenge string, tx storage.Tx) (string, error) {
 	login := &cpb.LoginState{
 		IdpName:   idpName,
 		Realm:     realm,
-		ClientId:  clientID,
 		Scope:     scope,
-		Redirect:  redirect,
-		State:     state,
-		Nonce:     nonce,
 		Challenge: challenge,
 	}
 
@@ -972,7 +476,7 @@ func buildPath(muxPath string, name string, vars map[string]string) string {
 	return out
 }
 
-func buildRedirectNonOIDC(idp *pb.IdentityProvider, idpc *oauth2.Config, state string) string {
+func buildRedirectNonOIDC(idp *cpb.IdentityProvider, idpc *oauth2.Config, state string) string {
 	url, err := url.Parse(idpc.RedirectURL)
 	if err != nil {
 		return idpc.RedirectURL
@@ -991,37 +495,26 @@ func (s *Service) idpUsesClientLoginPage(idpName, realm string, cfg *pb.IcConfig
 	return idp.TranslateUsing == translator.DbGapTranslatorName
 }
 
-func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig, idpName, loginHint string) {
-	nonce := ""
-	redirect := ""
+type loginIn struct {
+	idpName   string
+	loginHint string
+	realm     string
+	challenge string
+	scope     []string
+}
+
+func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig) {
 	var err error
 
-	if !s.useHydra {
-		nonce, err = getNonce(r)
-		if err != nil {
-			common.HandleError(http.StatusBadRequest, err, w)
-			return
-		}
-		redirect, err = s.getAndValidateStateRedirect(r, cfg)
-		if err != nil {
-			common.HandleError(http.StatusBadRequest, err, w)
-			return
-		}
-		if clientID := getClientID(r); len(clientID) == 0 {
-			common.HandleError(http.StatusBadRequest, err, w)
-			return
-		}
-	}
-
-	idp, ok := cfg.IdentityProviders[idpName]
+	idp, ok := cfg.IdentityProviders[in.idpName]
 	if !ok {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("login service %q not found", idpName), w)
+		httputil.HandleError(http.StatusNotFound, fmt.Errorf("login service %q not found", in.idpName), w)
 		return
 	}
 
-	idpc, state, err := s.idpAuthorize(idpName, idp, redirect, r, cfg, nil)
+	idpc, state, err := s.idpAuthorize(in, idp, cfg, nil)
 	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
+		httputil.HandleError(http.StatusBadRequest, err, w)
 		return
 	}
 	resType := idp.ResponseType
@@ -1032,264 +525,23 @@ func (s *Service) login(w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig
 		oauth2.SetAuthURLParam("response_type", resType),
 		oauth2.SetAuthURLParam("prompt", "login consent"),
 	}
-	if len(nonce) > 0 {
-		options = append(options, oauth2.SetAuthURLParam("nonce", nonce))
-	}
-	if len(loginHint) > 0 {
-		options = append(options, oauth2.SetAuthURLParam("login_hint", loginHint))
+	if len(in.loginHint) > 0 {
+		options = append(options, oauth2.SetAuthURLParam("login_hint", in.loginHint))
 	}
 
 	url := idpc.AuthCodeURL(state, options...)
 	url = strings.Replace(url, "${CLIENT_ID}", idp.ClientId, -1)
 	url = strings.Replace(url, "${REDIRECT_URI}", buildRedirectNonOIDC(idp, idpc, state), -1)
-	common.SendRedirect(url, r, w)
-}
-
-// Login login/{name} endpoint handler
-func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	s.login(w, r, cfg, getName(r), "")
-}
-
-func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-
-	stateParam := common.GetParam(r, "state")
-	errStr := common.GetParam(r, "error")
-	errDesc := common.GetParam(r, "error_description")
-	if len(errStr) > 0 || len(errDesc) > 0 {
-		if s.useHydra && len(stateParam) > 0 {
-			s.hydraLoginError(w, r, stateParam, errStr, errDesc)
-			return
-		}
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("authorization error: %q, description: %q", errStr, errDesc), w)
-		return
-	}
-
-	extract := common.GetParam(r, "client_extract") // makes sure we only grab state from client once
-
-	// Some IdPs need state extracted from html anchor.
-	if len(stateParam) == 0 && len(extract) == 0 {
-		page := s.clientLoginPage
-		page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
-		page = pageVariableRE.ReplaceAllString(page, `""`)
-		common.SendHTML(page, w)
-		return
-	}
-
-	var loginState cpb.LoginState
-	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
-		return
-	}
-	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
-		return
-	}
-	if s.useHydra && len(loginState.Challenge) == 0 {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
-		return
-	}
-
-	// For the purposes of simplifying OIDC redirect_uri registrations, this handler is on a path without
-	// realms or other query param context. To make the handling of these requests compatible with the
-	// rest of the code, this request will be forwarded to a standard path at "finishLoginPath" and state
-	// parameters received from the OIDC call flow will be normalized into query parameters.
-	path := strings.Replace(finishLoginPath, "{realm}", loginState.Realm, -1)
-	path = strings.Replace(path, "{name}", loginState.IdpName, -1)
-
-	u, err := url.Parse(path)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("bad redirect format: %v", err), w)
-		return
-	}
-	u.RawQuery = r.URL.RawQuery
-	common.SendRedirect(u.String(), r, w)
-}
-
-func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-
-	code := common.GetParam(r, "code")
-	idToken := common.GetParam(r, "id_token")
-	accessToken := common.GetParam(r, "access_token")
-	stateParam := common.GetParam(r, "state")
-	extract := common.GetParam(r, "client_extract") // makes sure we only grab state from client once
-
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	defer tx.Finish()
-
-	cfg, err := s.loadConfig(tx, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	idpName := getName(r)
-	idp, ok := cfg.IdentityProviders[idpName]
-	if !ok {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid identity provider %q", idpName), w)
-		return
-	}
-
-	if len(extract) == 0 && len(code) == 0 && len(idToken) == 0 && len(accessToken) == 0 {
-		instructions := ""
-		if len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
-			// Allow the client login page to follow instructions encoded in the TokenUrl.
-			// This enables support for some non-OIDC clients.
-			instructions = `"` + idp.TokenUrl + `"`
-		}
-		page := s.clientLoginPage
-		page = strings.Replace(page, "${INSTRUCTIONS}", instructions, -1)
-		page = pageVariableRE.ReplaceAllString(page, `""`)
-		common.SendHTML(page, w)
-		return
-	}
-
-	var loginState cpb.LoginState
-	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState, tx)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err), w)
-		return
-	}
-	// state should be one time usage.
-	err = s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, tx)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, fmt.Errorf("delete login state failed, %q", err), w)
-		return
-	}
-
-	// TODO: add security checks here as per OIDC spec.
-	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
-		return
-	}
-
-	if s.useHydra {
-		if len(loginState.Challenge) == 0 {
-			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
-			return
-		}
-	} else {
-		if len(loginState.ClientId) == 0 || len(loginState.Redirect) == 0 || len(loginState.Nonce) == 0 {
-			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"), w)
-			return
-		}
-	}
-
-	if len(code) == 0 && len(idToken) == 0 && !s.idpUsesClientLoginPage(loginState.IdpName, loginState.Realm, cfg) {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("missing auth code"), w)
-		return
-	}
-
-	redirect := loginState.Redirect
-	scope := loginState.Scope
-	state := loginState.State
-	nonce := loginState.Nonce
-	clientID := loginState.ClientId
-
-	if idpName != loginState.IdpName {
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("request idp does not match login state, want %q, got %q", loginState.IdpName, idpName), w)
-		return
-	}
-
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	if len(accessToken) == 0 {
-		idpc := idpConfig(idp, s.getDomainURL(), secrets)
-		tok, err := idpc.Exchange(s.ctx, code)
-		if err != nil {
-			common.HandleError(http.StatusUnauthorized, fmt.Errorf("invalid code: %v", err), w)
-			return
-		}
-		accessToken = tok.AccessToken
-		if len(idToken) == 0 {
-			idToken, ok = tok.Extra("id_token").(string)
-			if !ok && len(accessToken) == 0 {
-				common.HandleError(http.StatusUnauthorized, fmt.Errorf("identity provider response does not contain an access_token nor id_token token"), w)
-				return
-			}
-		}
-	}
-
-	login, status, err := s.loginTokenToIdentity(accessToken, idToken, idp, r, cfg, secrets)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-
-	// If Idp does not support nonce field, use nonce in state instead.
-	if len(login.Nonce) == 0 {
-		login.Nonce = nonce
-	}
-	if nonce != login.Nonce {
-		common.HandleError(status, fmt.Errorf("nonce in id token is not equal to nonce linked to auth code"), w)
-		return
-	}
-
-	s.finishLogin(login, idpName, redirect, scope, clientID, state, loginState.Challenge, tx, cfg, secrets, r, w)
-}
-
-func (s *Service) Authorize(w http.ResponseWriter, r *http.Request) {
-	typ := common.GetParam(r, "response_type")
-	if len(typ) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("response type required"), w)
-		return
-	}
-	if typ != "code" {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("response type not supported: %q", typ), w)
-		return
-	}
-
-	// skip login page if request include login_hint.
-	loginHint := common.GetParam(r, "login_hint")
-	if !strings.Contains(loginHint, ":") {
-		s.LoginPage(w, r)
-		return
-	}
-
-	hint := strings.SplitN(loginHint, ":", 2)
-	loginHintProvider := hint[0]
-	loginHintAccount := hint[1]
-
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-
-	// Idp login
-	s.login(w, r, cfg, loginHintProvider, loginHintAccount)
+	httputil.SendRedirect(url, r, w)
 }
 
 func getStateRedirect(r *http.Request) (string, error) {
-	redirect, err := url.Parse(common.GetParam(r, "redirect_uri"))
+	redirect, err := url.Parse(httputil.GetParam(r, "redirect_uri"))
 	if err != nil {
 		return "", fmt.Errorf("redirect_uri missing or invalid: %v", err)
 	}
 	q := redirect.Query()
-	if clientState := common.GetParam(r, "state"); len(clientState) > 0 {
+	if clientState := httputil.GetParam(r, "state"); len(clientState) > 0 {
 		q.Set("state", clientState)
 	}
 	redirect.RawQuery = q.Encode()
@@ -1315,7 +567,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	realm := getRealm(r)
 	lookup, err := s.accountLookup(realm, id.Subject, tx)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 	var subject string
@@ -1323,36 +575,36 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		subject = lookup.Subject
 		acct, _, err := s.loadAccount(subject, realm, tx)
 		if err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
-		claims, err := s.accountLinkToClaims(s.ctx, acct, id.Subject, cfg, secrets)
+		claims, err := s.accountLinkToClaims(r.Context(), acct, id.Subject, cfg, secrets)
 		if err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 		if !claimsAreEqual(claims, id.GA4GH) {
 			// Refresh the claims in the storage layer.
-			if err := s.populateAccountClaims(s.ctx, acct, id, provider); err != nil {
-				common.HandleError(http.StatusServiceUnavailable, err, w)
+			if err := s.populateAccountClaims(r.Context(), acct, id, provider); err != nil {
+				httputil.HandleError(http.StatusServiceUnavailable, err, w)
 				return
 			}
 			err := s.saveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
 			if err != nil {
-				common.HandleError(http.StatusServiceUnavailable, err, w)
+				httputil.HandleError(http.StatusServiceUnavailable, err, w)
 				return
 			}
 		}
 	} else {
 		// Create an account for the identity automatically.
-		acct, err := s.newAccountWithLink(s.ctx, id, provider, cfg)
+		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
 		if err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 
 		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
-			common.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}
 		subject = acct.Properties.Subject
@@ -1376,41 +628,15 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 
 	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
 	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
+		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}
 
 	if s.useHydra {
-		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID)
+		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID, nil)
 	} else {
 		s.sendInformationReleasePage(id, stateID, extractClientName(cfg, clientID), scope, realm, cfg, w)
 	}
-}
-
-func (s *Service) sendAuthTokenToRedirect(redirect, subject, scope, provider, realm, state, nonce, loginHint string, cfg *pb.IcConfig, tx storage.Tx, r *http.Request, w http.ResponseWriter) {
-	auth, err := s.createAuthToken(subject, scope, provider, realm, nonce, time.Now(), cfg, tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	if len(redirect) == 0 {
-		common.SendResponse(&cpb.OidcTokenResponse{
-			AccessToken: auth,
-			TokenType:   "code",
-		}, w)
-		return
-	}
-	url, err := url.Parse(redirect)
-	if err != nil {
-		common.HandleError(http.StatusNotFound, fmt.Errorf("invalid redirect URL format: %v", err), w)
-		return
-	}
-	q := url.Query()
-	q.Set("code", auth)
-	q.Set("login_hint", loginHint)
-	q.Set("state", state)
-	url.RawQuery = q.Encode()
-	common.SendRedirect(url.String(), r, w)
 }
 
 func extractClientName(cfg *pb.IcConfig, clientID string) string {
@@ -1434,10 +660,12 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 	scopes := strings.Split(scope, " ")
 
 	for _, s := range scopes {
-		if s == "openid" && len(id.Subject) != 0 {
-			info = append(info, "openid: "+id.Subject)
-		}
-		if s == "profile" {
+		switch {
+		case s == "openid":
+			if len(id.Subject) != 0 {
+				info = append(info, "openid: "+id.Subject)
+			}
+		case s == "profile":
 			var profile []string
 			if len(id.Name) != 0 {
 				profile = append(profile, id.Name)
@@ -1446,12 +674,20 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 				profile = append(profile, id.Email)
 			}
 			info = append(info, "profile: "+strings.Join(profile, ","))
-		}
-		if (s == passportScope || s == ga4ghScope) && len(id.VisaJWTs) != 0 {
-			info = append(info, "passport visas")
-		}
-		if s == "account_admin" {
-			info = append(info, "admin claims")
+
+		case (s == passportScope || s == ga4ghScope):
+			if len(id.VisaJWTs) != 0 {
+				info = append(info, "passport visas")
+			}
+
+		case s == "account_admin":
+			info = append(info, "manage (modify) this account")
+
+		case s == "link":
+			info = append(info, "link this account to other accounts")
+
+		default:
+			info = append(info, s)
 		}
 	}
 
@@ -1460,1132 +696,18 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 	}
 
 	page := strings.Replace(s.infomationReleasePage, "${APPLICATION_NAME}", clientName, -1)
-	page = strings.Replace(page, "${INFORMATION}", strings.Join(info, ","), -1)
-	page = strings.Replace(page, "${STATE}", stateID, -1)
-	page = strings.Replace(page, "${ASSET_DIR}", assetPath, -1)
-	page = strings.Replace(page, "${PATH}", strings.Replace(acceptInformationReleasePath, "{realm}", realm, -1), -1)
+	page = strings.ReplaceAll(page, "${ASSET_DIR}", assetPath)
+	page = strings.ReplaceAll(page, "${INFORMATION}", strings.Join(info, ","))
+	page = strings.ReplaceAll(page, "${STATE}", stateID)
+	page = strings.ReplaceAll(page, "${PATH}", strings.ReplaceAll(acceptInformationReleasePath, "{realm}", realm))
 
-	common.SendHTML(page, w)
-}
-
-func (s *Service) acceptInformationRelease(w http.ResponseWriter, r *http.Request) {
-	stateID := common.GetParam(r, "state")
-	if len(stateID) == 0 {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("missing %q parameter", "state"), w)
-		return
-	}
-
-	agree := common.GetParam(r, "agree")
-	if agree != "y" {
-		if s.useHydra {
-			s.hydraRejectConsent(w, r, stateID)
-			return
-		}
-
-		common.HandleError(http.StatusUnauthorized, fmt.Errorf("no information release"), w)
-		return
-	}
-
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	defer tx.Finish()
-
-	state := &cpb.AuthTokenState{}
-	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	err = s.store.DeleteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	cfg, err := s.loadConfig(tx, state.Realm)
-	if err != nil {
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	if s.useHydra {
-		s.hydraAcceptConsent(w, r, state, cfg, tx)
-	} else {
-		s.sendAuthTokenToRedirect(state.Redirect, state.Subject, state.Scope, state.Provider, state.Realm, state.State, state.Nonce, state.LoginHint, cfg, tx, r, w)
-	}
-}
-
-func (s *Service) Test(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	dam := os.Getenv("PERSONA_DAM_URL")
-	if len(dam) == 0 {
-		scheme := "http:"
-		if len(r.URL.Scheme) > 0 {
-			scheme = r.URL.Scheme
-		}
-		dam = strings.Replace(scheme+"//"+s.accountDomain, "ic-", "dam-", -1)
-	}
-
-	page := strings.Replace(s.testPage, "${DAM_URL}", dam, -1)
-	common.SendHTML(page, w)
-}
-
-// TokenFlowTest send token flow test page.
-func (s *Service) TokenFlowTest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		common.HandleError(http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method), w)
-		return
-	}
-	dam := os.Getenv("PERSONA_DAM_URL")
-	if len(dam) == 0 {
-		scheme := "http:"
-		if len(r.URL.Scheme) > 0 {
-			scheme = r.URL.Scheme
-		}
-		dam = strings.Replace(scheme+"//"+s.accountDomain, "ic-", "dam-", -1)
-	}
-
-	page := strings.Replace(s.tokenFlowTestPage, "${DAM_URL}", dam, -1)
-	common.SendHTML(page, w)
+	httputil.SendHTML(page, w)
 }
 
 //////////////////////////////////////////////////////////////////
 
 func (s *Service) GetStore() storage.Store {
 	return s.store
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) realmFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "realm",
-		NameField:           "realm",
-		PathPrefix:          realmPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &realm{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.RealmRequest{},
-			}
-		},
-	}
-}
-
-type realm struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.RealmRequest
-	item  *pb.Realm
-	cfg   *pb.IcConfig
-	id    *ga4gh.Identity
-}
-
-func (c *realm) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.id = id
-	return status, err
-}
-func (c *realm) LookupItem(name string, vars map[string]string) bool {
-	// Accept any name that passes the name check.
-	c.item = &pb.Realm{}
-	return true
-}
-func (c *realm) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	if c.input == nil {
-		c.input = &pb.RealmRequest{}
-	}
-	if c.input.Item == nil {
-		c.input.Item = &pb.Realm{}
-	}
-	return nil
-}
-func (c *realm) Get(name string) error {
-	if c.item != nil {
-		common.SendResponse(c.item, c.w)
-	}
-	return nil
-}
-func (c *realm) Post(name string) error {
-	// Accept, but do nothing.
-	return nil
-}
-func (c *realm) Put(name string) error {
-	// Accept, but do nothing.
-	return nil
-}
-func (c *realm) Patch(name string) error {
-	// Accept, but do nothing.
-	return nil
-}
-func (c *realm) Remove(name string) error {
-	if err := c.s.store.Wipe(name); err != nil {
-		return err
-	}
-	if name == storage.DefaultRealm {
-		return c.s.ImportFiles(importDefault)
-	}
-	return nil
-}
-func (c *realm) CheckIntegrity() *status.Status {
-	return nil
-}
-func (c *realm) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	// Accept, but do nothing.
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) configFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "config",
-		PathPrefix:          configPath,
-		HasNamedIdentifiers: false,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &config{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.ConfigRequest{},
-			}
-		},
-	}
-}
-
-type config struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.ConfigRequest
-	cfg   *pb.IcConfig
-	id    *ga4gh.Identity
-}
-
-func (c *config) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.id = id
-	return status, err
-}
-func (c *config) LookupItem(name string, vars map[string]string) bool {
-	// Trival name as there is only one config.
-	return true
-}
-func (c *config) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	if c.input.Item == nil {
-		c.input.Item = &pb.IcConfig{}
-	}
-	if c.input.Modification == nil {
-		c.input.Modification = &pb.ConfigModification{}
-	}
-	if c.input.Item.IdentityProviders == nil {
-		c.input.Item.IdentityProviders = make(map[string]*pb.IdentityProvider)
-	}
-	if c.input.Item.Clients == nil {
-		c.input.Item.Clients = make(map[string]*cpb.Client)
-	}
-	if c.input.Item.Options == nil {
-		c.input.Item.Options = &pb.ConfigOptions{}
-	}
-	c.input.Item.Options = receiveConfigOptions(c.input.Item.Options)
-	return nil
-}
-func (c *config) Get(name string) error {
-	common.SendResponse(makeConfig(c.cfg), c.w)
-	return nil
-}
-func (c *config) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-func (c *config) Put(name string) error {
-	if c.cfg.Version != c.input.Item.Version {
-		// TODO: consider upgrading older config versions automatically.
-		return fmt.Errorf("PUT of config version %q mismatched with existing config version %q", c.input.Item.Version, c.cfg.Version)
-	}
-	// Retain the revision number (it will be incremented upon saving).
-	c.input.Item.Revision = c.cfg.Revision
-	return nil
-}
-func (c *config) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
-}
-func (c *config) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
-}
-func (c *config) CheckIntegrity() *status.Status {
-	bad := codes.InvalidArgument
-	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	if len(c.input.Item.Version) == 0 {
-		return common.NewStatus(bad, "missing config version")
-	}
-	if c.input.Item.Revision <= 0 {
-		return common.NewStatus(bad, "invalid config revision")
-	}
-	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	if err := c.s.checkConfigIntegrity(c.input.Item); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	return nil
-}
-func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return c.s.saveConfig(c.input.Item, desc, typeName, c.r, c.id, c.cfg, c.input.Item, c.input.Modification, tx)
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) configIdpFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "configIDP",
-		PathPrefix:          configIdentityProvidersPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &configIDP{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.ConfigIdentityProviderRequest{},
-			}
-		},
-	}
-}
-
-type configIDP struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.ConfigIdentityProviderRequest
-	item  *pb.IdentityProvider
-	save  *pb.IdentityProvider
-	cfg   *pb.IcConfig
-	id    *ga4gh.Identity
-	tx    storage.Tx
-}
-
-func (c *configIDP) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.id = id
-	c.tx = tx
-	return status, err
-}
-func (c *configIDP) LookupItem(name string, vars map[string]string) bool {
-	if item, ok := c.cfg.IdentityProviders[name]; ok {
-		c.item = item
-		return true
-	}
-	return false
-}
-func (c *configIDP) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	if c.input.Item == nil {
-		c.input.Item = &pb.IdentityProvider{}
-	}
-	if c.input.Item.Scopes == nil {
-		c.input.Item.Scopes = []string{}
-	}
-	if c.input.Item.Ui == nil {
-		c.input.Item.Ui = make(map[string]string)
-	}
-	return nil
-}
-func (c *configIDP) Get(name string) error {
-	common.SendResponse(c.item, c.w)
-	return nil
-}
-func (c *configIDP) Post(name string) error {
-	c.save = c.input.Item
-	c.cfg.IdentityProviders[name] = c.save
-	return nil
-}
-func (c *configIDP) Put(name string) error {
-	c.save = c.input.Item
-	c.cfg.IdentityProviders[name] = c.save
-	return nil
-}
-func (c *configIDP) Patch(name string) error {
-	c.save = &pb.IdentityProvider{}
-	proto.Merge(c.save, c.item)
-	proto.Merge(c.save, c.input.Item)
-	c.save.Scopes = c.input.Item.Scopes
-	c.save.Ui = c.input.Item.Ui
-	c.cfg.IdentityProviders[name] = c.save
-	return nil
-}
-func (c *configIDP) Remove(name string) error {
-	delete(c.cfg.IdentityProviders, name)
-	c.save = &pb.IdentityProvider{}
-	return nil
-}
-func (c *configIDP) CheckIntegrity() *status.Status {
-	bad := codes.InvalidArgument
-	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	return nil
-}
-func (c *configIDP) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
-		return nil
-	}
-	if err := c.s.saveConfig(c.cfg, desc, typeName, c.r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
-		return err
-	}
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) configOptionsFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "configOptions",
-		PathPrefix:          configOptionsPath,
-		HasNamedIdentifiers: false,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &configOptions{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.ConfigOptionsRequest{},
-			}
-		},
-	}
-}
-
-type configOptions struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.ConfigOptionsRequest
-	item  *pb.ConfigOptions
-	save  *pb.ConfigOptions
-	cfg   *pb.IcConfig
-	id    *ga4gh.Identity
-	tx    storage.Tx
-}
-
-func (c *configOptions) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.id = id
-	c.tx = tx
-	return status, err
-}
-func (c *configOptions) LookupItem(name string, vars map[string]string) bool {
-	c.item = c.cfg.Options
-	return true
-}
-func (c *configOptions) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	if c.input.Item == nil {
-		c.input.Item = &pb.ConfigOptions{}
-	}
-	c.input.Item = receiveConfigOptions(c.input.Item)
-	return nil
-}
-func (c *configOptions) Get(name string) error {
-	common.SendResponse(makeConfigOptions(c.item), c.w)
-	return nil
-}
-func (c *configOptions) Post(name string) error {
-	c.save = c.input.Item
-	c.cfg.Options = c.save
-	return nil
-}
-func (c *configOptions) Put(name string) error {
-	c.save = c.input.Item
-	c.cfg.Options = c.save
-	return nil
-}
-func (c *configOptions) Patch(name string) error {
-	c.save = &pb.ConfigOptions{}
-	proto.Merge(c.save, c.item)
-	proto.Merge(c.save, c.input.Item)
-	c.save.ReadOnlyMasterRealm = c.input.Item.ReadOnlyMasterRealm
-	c.cfg.Options = c.save
-	return nil
-}
-func (c *configOptions) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
-}
-func (c *configOptions) CheckIntegrity() *status.Status {
-	bad := codes.InvalidArgument
-	if err := common.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return common.NewStatus(bad, err.Error())
-	}
-	return nil
-}
-func (c *configOptions) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
-		return nil
-	}
-	if err := c.s.saveConfig(c.cfg, desc, typeName, c.r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
-		return err
-	}
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) tokenMetadataFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "token",
-		PathPrefix:          tokenMetadataPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             false,
-		NameChecker: map[string]*regexp.Regexp{
-			"sub": common.SubRE,
-			"jti": common.JTIRE,
-		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &tokenMetadataHandler{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.TokenMetadataRequest{},
-			}
-		},
-	}
-}
-
-type tokenMetadataHandler struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.TokenMetadataRequest
-	sub   string
-	jti   string
-	item  *pb.TokenMetadata
-	id    *ga4gh.Identity
-	tx    storage.Tx
-}
-
-func (h *tokenMetadataHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	_, _, id, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
-	h.id = id
-	h.tx = tx
-	return status, err
-}
-
-func (h *tokenMetadataHandler) LookupItem(name string, vars map[string]string) bool {
-	sub, ok := vars["sub"]
-	if !ok {
-		return false
-	}
-	h.sub = sub
-	if _, err := h.s.permissions.CheckSubjectOrAdmin(h.id, sub); err != nil {
-		return false
-	}
-
-	jti, ok := vars["jti"]
-	if !ok || len(jti) == 0 {
-		return false
-	}
-	h.jti = jti
-
-	h.item = &pb.TokenMetadata{}
-	if err := h.s.store.ReadTx(storage.TokensDatatype, getRealm(h.r), sub, jti, storage.LatestRev, h.item, h.tx); err != nil {
-		return false
-	}
-	return true
-}
-
-func (h *tokenMetadataHandler) NormalizeInput(name string, vars map[string]string) error {
-	return common.GetRequest(h.input, h.r)
-}
-
-func (h *tokenMetadataHandler) Get(name string) error {
-	common.SendResponse(&pb.TokenMetadataResponse{
-		TokenMetadata: h.item,
-	}, h.w)
-	return nil
-}
-
-func (h *tokenMetadataHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-
-func (h *tokenMetadataHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
-}
-
-func (h *tokenMetadataHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
-}
-
-func (h *tokenMetadataHandler) Remove(name string) error {
-	return h.s.store.DeleteTx(storage.TokensDatatype, getRealm(h.r), h.sub, h.jti, storage.LatestRev, h.tx)
-}
-
-func (h *tokenMetadataHandler) CheckIntegrity() *status.Status {
-	return nil
-}
-
-func (h *tokenMetadataHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) adminTokenMetadataFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "tokens",
-		PathPrefix:          adminTokenMetadataPath,
-		HasNamedIdentifiers: false,
-		IsAdmin:             true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &adminTokenMetadataHandler{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.TokensMetadataRequest{},
-			}
-		},
-	}
-}
-
-type adminTokenMetadataHandler struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	input *pb.TokensMetadataRequest
-	item  map[string]*pb.TokenMetadata
-	tx    storage.Tx
-}
-
-func (h *adminTokenMetadataHandler) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	h.tx = tx
-	_, _, _, status, err := h.s.handlerSetup(tx, isAdmin, h.r, noScope, h.input)
-	return status, err
-}
-
-func (h *adminTokenMetadataHandler) LookupItem(name string, vars map[string]string) bool {
-	h.item = make(map[string]*pb.TokenMetadata)
-	m := make(map[string]map[string]proto.Message)
-	_, err := h.s.store.MultiReadTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &pb.TokenMetadata{}, h.tx)
-	if err != nil {
-		return false
-	}
-	for userKey, userVal := range m {
-		for idKey, idVal := range userVal {
-			if id, ok := idVal.(*pb.TokenMetadata); ok {
-				h.item[userKey+"/"+idKey] = id
-			}
-		}
-	}
-	return true
-}
-
-func (h *adminTokenMetadataHandler) NormalizeInput(name string, vars map[string]string) error {
-	return common.GetRequest(h.input, h.r)
-}
-
-func (h *adminTokenMetadataHandler) Get(name string) error {
-	item := h.item
-	if len(item) == 0 {
-		item = nil
-	}
-	common.SendResponse(&pb.TokensMetadataResponse{
-		TokensMetadata: item,
-	}, h.w)
-	return nil
-}
-
-func (h *adminTokenMetadataHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-
-func (h *adminTokenMetadataHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
-}
-
-func (h *adminTokenMetadataHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
-}
-
-func (h *adminTokenMetadataHandler) Remove(name string) error {
-	return h.s.store.MultiDeleteTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, h.tx)
-}
-
-func (h *adminTokenMetadataHandler) CheckIntegrity() *status.Status {
-	return nil
-}
-
-func (h *adminTokenMetadataHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) accountFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "account",
-		PathPrefix:          accountPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             false,
-		NameChecker: map[string]*regexp.Regexp{
-			"name": common.PlaceholderOrNameRE,
-		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &account{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.AccountRequest{},
-			}
-		},
-	}
-}
-
-type account struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	item  *pb.Account
-	input *pb.AccountRequest
-	save  *pb.Account
-	cfg   *pb.IcConfig
-	sec   *pb.IcSecrets
-	id    *ga4gh.Identity
-	tx    storage.Tx
-}
-
-func (c *account) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, sec, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.sec = sec
-	c.id = id
-	c.tx = tx
-	return status, err
-}
-func (c *account) LookupItem(name string, vars map[string]string) bool {
-	if name == common.PlaceholderName {
-		name = c.id.Subject
-	} else if strings.Contains(name, "@") {
-		lookup, err := c.s.accountLookup(getRealm(c.r), name, c.tx)
-		if err != nil || !isLookupActive(lookup) {
-			return false
-		}
-		name = lookup.Subject
-	}
-	if _, err := c.s.permissions.CheckSubjectOrAdmin(c.id, name); err != nil {
-		return false
-	}
-	acct, _, err := c.s.loadAccount(name, getRealm(c.r), c.tx)
-	if err != nil {
-		return false
-	}
-	c.item = acct
-	return true
-}
-func (c *account) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	if c.input.Item == nil {
-		c.input.Item = &pb.Account{}
-	}
-	if c.input.Modification == nil {
-		c.input.Modification = &pb.ConfigModification{}
-	}
-	if c.input.Item.Profile == nil {
-		c.input.Item.Profile = &pb.AccountProfile{}
-	}
-	if c.input.Item.Ui == nil {
-		c.input.Item.Ui = make(map[string]string)
-	}
-	if c.input.Item.ConnectedAccounts == nil {
-		c.input.Item.ConnectedAccounts = []*pb.ConnectedAccount{}
-	}
-	for _, a := range c.input.Item.ConnectedAccounts {
-		if a.Profile == nil {
-			a.Profile = &pb.AccountProfile{}
-		}
-		if a.Properties == nil {
-			a.Properties = &pb.AccountProperties{}
-		}
-		if a.Passport == nil {
-			a.Passport = &cpb.Passport{}
-		}
-		a.ComputedIdentityProvider = nil
-	}
-	return nil
-}
-func (c *account) Get(name string) error {
-	secrets, err := c.s.loadSecrets(c.tx)
-	if err != nil {
-		// Do not expose internal errors related to secrets to users, return generic error instead.
-		return fmt.Errorf("internal system information unavailable")
-	}
-	common.SendResponse(&pb.AccountResponse{
-		Account: c.s.makeAccount(c.s.ctx, c.item, c.cfg, secrets),
-	}, c.w)
-	return nil
-}
-func (c *account) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-func (c *account) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
-}
-func (c *account) Patch(name string) error {
-	c.save = &pb.Account{}
-	proto.Merge(c.save, c.item)
-	link := common.GetParam(c.r, "link_token")
-	if len(link) > 0 {
-		if !hasScopes("link", c.id.Scope, matchFullScope) {
-			return fmt.Errorf("bearer token unauthorized for scope %q", "link")
-		}
-		linkID, _, err := c.s.tokenToIdentity(link, c.r, "link:"+c.item.Properties.Subject, getRealm(c.r), c.cfg, c.sec, c.tx)
-		if err != nil {
-			return err
-		}
-		linkSub := linkID.Subject
-		idSub := c.item.Properties.Subject
-		if linkSub == idSub {
-			return fmt.Errorf("the accounts provided are already linked together")
-		}
-		linkAcct, _, err := c.s.loadAccount(linkSub, getRealm(c.r), c.tx)
-		if err != nil {
-			return err
-		}
-		if linkAcct.State != storage.StateActive {
-			return fmt.Errorf("the link account is not found or no longer available")
-		}
-		for _, acct := range linkAcct.ConnectedAccounts {
-			if acct.Properties == nil || len(acct.Properties.Subject) == 0 {
-				continue
-			}
-			if c.input.Modification != nil && c.input.Modification.DryRun {
-				continue
-			}
-			lookup := &pb.AccountLookup{
-				Subject:  c.item.Properties.Subject,
-				Revision: acct.LinkRevision,
-				State:    storage.StateActive,
-			}
-			if err := c.s.saveAccountLookup(lookup, getRealm(c.r), acct.Properties.Subject, c.r, c.id, c.tx); err != nil {
-				return fmt.Errorf("service dependencies not available; try again later")
-			}
-			acct.LinkRevision++
-			c.save.ConnectedAccounts = append(c.save.ConnectedAccounts, acct)
-		}
-		linkAcct.ConnectedAccounts = make([]*pb.ConnectedAccount, 0)
-		linkAcct.State = "LINKED"
-		linkAcct.Owner = c.item.Properties.Subject
-		if c.input.Modification == nil || !c.input.Modification.DryRun {
-			err := c.s.saveAccount(nil, linkAcct, "LINK account", c.r, c.id.Subject, c.tx)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		// PATCH Profile, but not core elements like subject and timestamps.
-		if len(c.input.Item.Ui) > 0 {
-			c.save.Ui = c.input.Item.Ui
-		}
-		proto.Merge(c.save.Profile, c.input.Item.Profile)
-	}
-	return nil
-}
-func (c *account) Remove(name string) error {
-	if c.input.Modification != nil && c.input.Modification.DryRun {
-		return nil
-	}
-	c.save = &pb.Account{}
-	proto.Merge(c.save, c.item)
-	for _, link := range c.save.ConnectedAccounts {
-		if link.Properties == nil || len(link.Properties.Subject) == 0 {
-			continue
-		}
-		if err := c.s.removeAccountLookup(link.LinkRevision, getRealm(c.r), link.Properties.Subject, c.r, c.id, c.tx); err != nil {
-			return fmt.Errorf("service dependencies not available; try again later")
-		}
-	}
-	c.save.ConnectedAccounts = []*pb.ConnectedAccount{}
-	c.save.State = "DELETED"
-	return nil
-}
-func (c *account) CheckIntegrity() *status.Status {
-	// TODO: add more checks for accounts here.
-	return nil
-}
-func (c *account) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
-		return nil
-	}
-	if err := c.s.saveAccount(c.item, c.save, desc, c.r, c.id.Subject, c.tx); err != nil {
-		return err
-	}
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) accountSubjectFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "accountLink",
-		PathPrefix:          accountSubjectPath,
-		HasNamedIdentifiers: true,
-		IsAdmin:             false,
-		NameChecker: map[string]*regexp.Regexp{
-			// Some upstream IdPs may use a wider selection of characters, including email-looking format.
-			"subject": regexp.MustCompile(`^[\w][^/\\@]*@?[\w][^/\\@]*$`),
-		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &accountLink{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.AccountSubjectRequest{},
-			}
-		},
-	}
-}
-
-type accountLink struct {
-	s         *Service
-	w         http.ResponseWriter
-	r         *http.Request
-	acct      *pb.Account
-	item      *pb.ConnectedAccount
-	itemIndex int
-	input     *pb.AccountSubjectRequest
-	save      *pb.Account
-	cfg       *pb.IcConfig
-	id        *ga4gh.Identity
-	tx        storage.Tx
-}
-
-func (c *accountLink) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.id = id
-	c.tx = tx
-	return status, err
-}
-func (c *accountLink) LookupItem(name string, vars map[string]string) bool {
-	acct, _, err := c.s.loadAccount(name, getRealm(c.r), c.tx)
-	if err != nil {
-		return false
-	}
-	c.acct = acct
-	if link, i := findLinkedAccount(acct, vars["subject"]); link != nil {
-		c.item = link
-		c.itemIndex = i
-		return true
-	}
-	return false
-}
-func (c *accountLink) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	if c.input.Item == nil {
-		c.input.Item = &pb.ConnectedAccount{}
-	}
-	if c.input.Item.Profile == nil {
-		c.input.Item.Profile = &pb.AccountProfile{}
-	}
-	if c.input.Item.Passport == nil {
-		c.input.Item.Passport = &cpb.Passport{}
-	}
-	c.input.Item.ComputedIdentityProvider = nil
-	return nil
-}
-func (c *accountLink) Get(name string) error {
-	secrets, err := c.s.loadSecrets(c.tx)
-	if err != nil {
-		// Do not expose internal errors related to secrets to users, return generic error instead.
-		return fmt.Errorf("internal system information unavailable")
-	}
-	common.SendResponse(&pb.AccountSubjectResponse{
-		Item: c.s.makeConnectedAccount(c.s.ctx, c.item, c.cfg, secrets),
-	}, c.w)
-	return nil
-}
-func (c *accountLink) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-func (c *accountLink) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
-}
-func (c *accountLink) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
-}
-func (c *accountLink) Remove(name string) error {
-	if c.input.Modification != nil && c.input.Modification.DryRun {
-		return nil
-	}
-	c.save = &pb.Account{}
-	proto.Merge(c.save, c.acct)
-	c.save.ConnectedAccounts = append(c.save.ConnectedAccounts[:c.itemIndex], c.save.ConnectedAccounts[c.itemIndex+1:]...)
-	if len(c.save.ConnectedAccounts) == 0 {
-		return fmt.Errorf("cannot remove primary linked account; delete full account instead")
-	}
-	if err := c.s.removeAccountLookup(c.item.LinkRevision, getRealm(c.r), c.item.Properties.Subject, c.r, c.id, c.tx); err != nil {
-		return fmt.Errorf("service dependencies not available; try again later")
-	}
-	return nil
-}
-func (c *accountLink) CheckIntegrity() *status.Status {
-	// TODO: add more checks for accounts here (such as removing the primary email account).
-	return nil
-}
-func (c *accountLink) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
-		return nil
-	}
-	if err := c.s.saveAccount(c.acct, c.save, desc, c.r, c.id.Subject, c.tx); err != nil {
-		return err
-	}
-	return nil
-}
-
-//////////////////////////////////////////////////////////////////
-
-func (s *Service) adminClaimsFactory() *common.HandlerFactory {
-	return &common.HandlerFactory{
-		TypeName:            "adminClaims",
-		PathPrefix:          adminClaimsPath,
-		HasNamedIdentifiers: false,
-		IsAdmin:             true,
-		NameChecker: map[string]*regexp.Regexp{
-			"name": regexp.MustCompile(`^[\w][^/\\]*@[\w][^/\\]*$`),
-		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) common.HandlerInterface {
-			return &adminClaims{
-				s:     s,
-				w:     w,
-				r:     r,
-				input: &pb.SubjectClaimsRequest{},
-			}
-		},
-	}
-}
-
-type adminClaims struct {
-	s     *Service
-	w     http.ResponseWriter
-	r     *http.Request
-	item  *pb.Account
-	input *pb.SubjectClaimsRequest
-	save  *pb.Account
-	cfg   *pb.IcConfig
-	id    *ga4gh.Identity
-	tx    storage.Tx
-}
-
-func (c *adminClaims) Setup(tx storage.Tx, isAdmin bool) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, isAdmin, c.r, noScope, c.input)
-	c.cfg = cfg
-	c.id = id
-	c.tx = tx
-	return status, err
-}
-func (c *adminClaims) LookupItem(name string, vars map[string]string) bool {
-	acct, _, err := c.s.lookupAccount(name, getRealm(c.r), c.tx)
-	if err != nil {
-		return false
-	}
-	c.item = acct
-	return true
-}
-func (c *adminClaims) NormalizeInput(name string, vars map[string]string) error {
-	if err := common.GetRequest(c.input, c.r); err != nil {
-		return err
-	}
-	return nil
-}
-func (c *adminClaims) Get(name string) error {
-	// Collect all claims across linked accounts.
-	out := []*cpb.Assertion{}
-	for _, link := range c.item.ConnectedAccounts {
-		if link.Passport == nil {
-			continue
-		}
-		for _, v := range link.Passport.Ga4GhAssertions {
-			out = append(out, v)
-		}
-	}
-
-	common.SendResponse(&pb.SubjectClaimsResponse{
-		Assertions: out,
-	}, c.w)
-	return nil
-}
-func (c *adminClaims) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-func (c *adminClaims) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
-}
-func (c *adminClaims) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
-}
-func (c *adminClaims) Remove(name string) error {
-	if c.input.Modification != nil && c.input.Modification.DryRun {
-		return nil
-	}
-	c.save = &pb.Account{}
-	proto.Merge(c.save, c.item)
-	for _, link := range c.save.ConnectedAccounts {
-		link.Passport = &cpb.Passport{}
-	}
-	return nil
-}
-func (c *adminClaims) CheckIntegrity() *status.Status {
-	return nil
-}
-func (c *adminClaims) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
-		return nil
-	}
-	if err := c.s.saveAccount(c.item, c.save, desc, c.r, c.id.Subject, c.tx); err != nil {
-		return err
-	}
-	return nil
 }
 
 //////////////////////////////////////////////////////////////////
@@ -2607,7 +729,8 @@ func getName(r *http.Request) string {
 	return ""
 }
 
-func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, scope string, item proto.Message) (*pb.IcConfig, *pb.IcSecrets, *ga4gh.Identity, int, error) {
+func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, item proto.Message) (*pb.IcConfig, *pb.IcSecrets, *ga4gh.Identity, int, error) {
+	r.ParseForm()
 	if item != nil {
 		if err := jsonpb.Unmarshal(r.Body, item); err != nil && err != io.EOF {
 			return nil, nil, nil, http.StatusBadRequest, err
@@ -2625,33 +748,22 @@ func (s *Service) handlerSetup(tx storage.Tx, isAdmin bool, r *http.Request, sco
 	if err != nil {
 		return nil, nil, nil, status, err
 	}
-	// TODO: use only isAdmin by upgrading each handler to set this flag.
-	path := common.RequestAbstractPath(r)
-	if strings.HasPrefix(path, configPathPrefix) || isAdmin {
-		if status, err := s.permissions.CheckAdmin(id); err != nil {
-			return nil, nil, nil, status, err
-		}
-	}
-	if path == realmPath {
-		if status, err := s.permissions.CheckAdmin(id); err != nil {
-			return nil, nil, nil, status, err
-		}
-	}
+
 	return cfg, secrets, id, status, err
 }
 
 func (s *Service) getIdentity(r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	tok, status, err := getAuthCode(r)
-	if err != nil {
-		return nil, status, err
+	tok := getBearerToken(r)
+	if len(tok) == 0 {
+		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token not found")
 	}
 	return s.tokenToIdentity(tok, r, scope, realm, cfg, secrets, tx)
 }
 
 func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
-	tok, status, err := getAuthCode(r)
-	if err != nil {
-		return "", status, err
+	tok := getBearerToken(r)
+	if len(tok) == 0 {
+		return "", http.StatusUnauthorized, fmt.Errorf("bearer token not found")
 	}
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
@@ -2664,52 +776,24 @@ func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
 	return realm, http.StatusOK, nil
 }
 
-func defaultPermissionTTL(cfg *pb.IcConfig) time.Duration {
-	return getDurationOption(cfg.Options.MaxPassportTokenTtl, descMaxPassportTokenTTL)
-}
-
-func getAuthCode(r *http.Request) (string, int, error) {
-	tok := common.GetParam(r, "code")
-	if tok == "" {
-		tok = getBearerToken(r)
-		if len(tok) == 0 {
-			return "", http.StatusUnauthorized, fmt.Errorf("authorization requires a bearer token")
-		}
-	}
-	return tok, http.StatusOK, nil
-}
-
-func (s *Service) authCodeToIdentity(code string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(code)
-	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
-	}
-	if err := id.Valid(); err != nil {
-		return nil, http.StatusUnauthorized, err
-	}
-	realm := getRealm(r)
-	var tokenMetadata pb.TokenMetadata
-	if err := s.store.ReadTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, id.ID, storage.LatestRev, &tokenMetadata, tx); err != nil {
-		if storage.ErrNotFound(err) {
-			return nil, http.StatusUnauthorized, fmt.Errorf("auth code invalid or has already been exchanged")
-		}
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("reading auth code metadata from storage: %v", err)
-	}
-	if err := s.store.DeleteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, id.ID, storage.LatestRev, tx); err != nil {
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("removing auth code metadata from storage: %v", err)
-	}
-
-	id.Subject = tokenMetadata.Subject
-	id.Scope = tokenMetadata.Scope
-	id.IdentityProvider = tokenMetadata.IdentityProvider
-	id.Nonce = tokenMetadata.Nonce
-	return s.getTokenAccountIdentity(s.ctx, id, realm, cfg, secrets, tx)
-}
-
-func (s *Service) getTokenIdentity(tok, scope, clientID string, anyAudience bool, tx storage.Tx) (*ga4gh.Identity, int, error) {
+func (s *Service) getTokenIdentity(ctx context.Context, tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
+	}
+
+	v, err := common.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
+	if err != nil {
+		return nil, http.StatusServiceUnavailable, fmt.Errorf("GetOIDCTokenVerifier failed: %v", err)
+	}
+
+	if _, err = v.Verify(ctx, tok); err != nil {
+		return nil, http.StatusServiceUnavailable, fmt.Errorf("token unauthorized: %v", err)
+	}
+
+	if len(id.Scope) == 0 && len(id.Scp) > 0 {
+		// Hydra populates "scp" instead of "scope", so populate "scope" accordingly.
+		id.Scope = common.JoinNonEmpty(id.Scp, " ")
 	}
 
 	// TODO: add more checks here as appropriate.
@@ -2720,7 +804,7 @@ func (s *Service) getTokenIdentity(tok, scope, clientID string, anyAudience bool
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for issuer %q", id.Issuer)
 	} else if len(scope) > 0 && !hasScopes(scope, id.Scope, matchFullScope) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for scope %q", scope)
-	} else if !anyAudience && !common.IsAudience(id, clientID, iss) {
+	} else if !common.IsAudience(id, clientID, iss) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized party")
 	}
 	return id, http.StatusOK, nil
@@ -2747,16 +831,29 @@ func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Iden
 	return id, http.StatusOK, nil
 }
 
+func (s *Service) requestTokenToIdentity(tok, scope string, r *http.Request, tx storage.Tx) (*ga4gh.Identity, int, error) {
+	realm := getRealm(r)
+	cfg, err := s.loadConfig(tx, realm)
+	if err != nil {
+		return nil, http.StatusServiceUnavailable, err
+	}
+	secrets, err := s.loadSecrets(tx)
+	if err != nil {
+		return nil, http.StatusServiceUnavailable, err
+	}
+	return s.tokenToIdentity(tok, r, scope, realm, cfg, secrets, tx)
+}
+
 func (s *Service) tokenToIdentity(tok string, r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	token, status, err := s.getTokenIdentity(tok, scope, getClientID(r), isUserInfo(r), tx)
+	token, status, err := s.getTokenIdentity(r.Context(), tok, scope, getClientID(r), tx)
 	if err != nil {
 		return token, status, err
 	}
-	return s.getTokenAccountIdentity(s.ctx, token, realm, cfg, secrets, tx)
+	return s.getTokenAccountIdentity(r.Context(), token, realm, cfg, secrets, tx)
 }
 
 func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, status, err := s.getTokenIdentity(tok, "", getClientID(r), isUserInfo(r), tx)
+	id, status, err := s.getTokenIdentity(r.Context(), tok, "", getClientID(r), tx)
 	if err != nil {
 		return nil, status, fmt.Errorf("inspecting token: %v", err)
 	}
@@ -2767,10 +864,10 @@ func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.Ic
 		}
 		return nil, http.StatusServiceUnavailable, err
 	}
-	return s.getTokenAccountIdentity(s.ctx, id, getRealm(r), cfg, secrets, tx)
+	return s.getTokenAccountIdentity(r.Context(), id, getRealm(r), cfg, secrets, tx)
 }
 
-func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
+func (s *Service) accountToIdentity(ctx context.Context, acct *cpb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
 	email := acct.Properties.Subject + "@" + s.accountDomain
 	id := &ga4gh.Identity{
 		Subject: acct.Properties.Subject,
@@ -2797,11 +894,7 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 		if len(email) == 0 {
 			email = subject
 		}
-		tags := s.permissions.IncludeTags(subject, email, link.Tags, cfg.AccountTags)
-		if len(tags) == 0 {
-			tags = []string{"IC"}
-		}
-		identities[email] = tags
+		identities[email] = []string{"IC"}
 		// TODO: consider skipping claims if idp=cfg.IdProvider[link.Provider] is missing (not <persona>) or idp.State != "ACTIVE".
 		if err := s.populateLinkVisas(ctx, id, link, ttl, cfg, secrets); err != nil {
 			return nil, err
@@ -2813,21 +906,21 @@ func (s *Service) accountToIdentity(ctx context.Context, acct *pb.Account, cfg *
 	return id, nil
 }
 
-func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
-	t, err := s.getIssuerTranslator(s.ctx, idp.Issuer, cfg, secrets)
+func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityProvider, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, int, error) {
+	t, err := s.getIssuerTranslator(r.Context(), idp.Issuer, cfg, secrets)
 	if err != nil {
 		return nil, http.StatusUnauthorized, err
 	}
 
 	if len(acTok) > 0 && s.idpProvidesPassports(idp) {
-		tid, err := t.TranslateToken(s.ctx, acTok)
+		tid, err := t.TranslateToken(r.Context(), acTok)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("translating access token from issuer %q: %v", idp.Issuer, err)
 		}
 		if !common.HasUserinfoClaims(tid) {
 			return tid, http.StatusOK, nil
 		}
-		id, err := translator.FetchUserinfoClaims(s.ctx, acTok, idp.Issuer, tid.Subject, t)
+		id, err := translator.FetchUserinfoClaims(r.Context(), tid, acTok, t)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
 		}
@@ -2835,7 +928,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProv
 	}
 	if len(idTok) > 0 {
 		// Assumes the login ID token is a JWT containing standard claims.
-		tid, err := t.TranslateToken(s.ctx, idTok)
+		tid, err := t.TranslateToken(r.Context(), idTok)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("translating ID token from issuer %q: %v", idp.Issuer, err)
 		}
@@ -2844,7 +937,27 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *pb.IdentityProv
 	return nil, http.StatusBadRequest, fmt.Errorf("fetching identity: the IdP is not configured to fetch passports and the IdP did not provide an ID token")
 }
 
-func (s *Service) idpProvidesPassports(idp *pb.IdentityProvider) bool {
+// syncToHydra pushes the configuration of clients and secrets to Hydra.
+// Use minFrequency of 0 if you always want the sync to proceed immediately after
+// the last one (if it doesn't time out), or non-zero to indicate that a recent sync
+// is good enough. Note there are some race conditions with several client changes
+// overlapping in flight that could still have the two services be out of sync.
+func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string]string, minFrequency time.Duration) error {
+	if !s.useHydra {
+		return nil
+	}
+	tx := s.store.LockTx("hydra_"+s.serviceName, minFrequency, nil)
+	if tx != nil {
+		defer tx.Finish()
+		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, clients, secrets); err != nil {
+			glog.Errorf("failed to reset hydra clients: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) idpProvidesPassports(idp *cpb.IdentityProvider) bool {
 	if len(idp.TranslateUsing) > 0 {
 		return true
 	}
@@ -2856,7 +969,7 @@ func (s *Service) idpProvidesPassports(idp *pb.IdentityProvider) bool {
 	return false
 }
 
-func (s *Service) accountLinkToClaims(ctx context.Context, acct *pb.Account, subject string, cfg *pb.IcConfig, secrets *pb.IcSecrets) (map[string][]ga4gh.OldClaim, error) {
+func (s *Service) accountLinkToClaims(ctx context.Context, acct *cpb.Account, subject string, cfg *pb.IcConfig, secrets *pb.IcSecrets) (map[string][]ga4gh.OldClaim, error) {
 	id := &ga4gh.Identity{
 		GA4GH: make(map[string][]ga4gh.OldClaim),
 	}
@@ -2878,16 +991,19 @@ func linkedIdentityValue(sub, iss string) string {
 	return fmt.Sprintf("%s,%s", sub, iss)
 }
 
-func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAccount, privateKey *rsa.PrivateKey, cfg *pb.IcConfig) error {
+func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAccount, privateKey *rsa.PrivateKey, cfg *pb.IcConfig) error {
 	if len(id.Subject) == 0 {
 		return nil
 	}
 
 	subjectIssuers := map[string]bool{}
-	now := time.Now().Unix()
+	now := time.Now()
 
 	// TODO: add config option for LinkedIdentities expiry.
-	exp := id.Expiry
+	exp := now.Add(linkedIdentitiesMaxLifepan).Unix()
+	if exp > id.Expiry {
+		exp = id.Expiry
+	}
 
 	idp, ok := cfg.IdentityProviders[link.Provider]
 	if !ok {
@@ -2916,8 +1032,8 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAcco
 	d := &ga4gh.VisaData{
 		StdClaims: ga4gh.StdClaims{
 			Subject:   id.Subject,
-			Issuer:    s.getIssuerString(),
-			IssuedAt:  now,
+			Issuer:    s.getVisaIssuerString(),
+			IssuedAt:  now.Unix(),
 			ExpiresAt: exp,
 		},
 		Scope: "openid",
@@ -2925,7 +1041,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAcco
 			Type:     ga4gh.LinkedIdentities,
 			Asserted: int64(link.Refreshed),
 			Value:    ga4gh.Value(strings.Join(linked, ";")),
-			Source:   ga4gh.Source(s.getIssuerString()),
+			Source:   ga4gh.Source(s.getVisaIssuerString()),
 		},
 	}
 
@@ -2938,7 +1054,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *pb.ConnectedAcco
 	return nil
 }
 
-func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, link *pb.ConnectedAccount, ttl time.Duration, cfg *pb.IcConfig, secrets *pb.IcSecrets) error {
+func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, link *cpb.ConnectedAccount, ttl time.Duration, cfg *pb.IcConfig, secrets *pb.IcSecrets) error {
 	passport := link.Passport
 	if passport == nil {
 		passport = &cpb.Passport{}
@@ -2948,7 +1064,7 @@ func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, lin
 		return err
 	}
 
-	priv, err := s.privateKeyFromSecrets(s.getIssuerString(), secrets)
+	priv, err := s.privateKeyFromSecrets(s.getVisaIssuerString(), secrets)
 	if err != nil {
 		return err
 	}
@@ -2962,30 +1078,7 @@ func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, lin
 	return nil
 }
 
-func findSimilarClaim(claims []ga4gh.OldClaim, match *ga4gh.OldClaim) *ga4gh.OldClaim {
-	for _, c := range claims {
-		if c.Value == match.Value && c.Source == match.Source && c.By == match.By && conditionEqual(c.Condition, match.Condition) {
-			return &c
-		}
-	}
-	return nil
-}
-
-func conditionEqual(a, b map[string]ga4gh.OldClaimCondition) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return reflect.DeepEqual(a, b)
-}
-
 func getBearerToken(r *http.Request) string {
-	tok := common.GetParam(r, "access_token")
-	if len(tok) > 0 {
-		return tok
-	}
 	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
 	if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
 		return parts[1]
@@ -2994,23 +1087,11 @@ func getBearerToken(r *http.Request) string {
 }
 
 func getScope(r *http.Request) (string, error) {
-	s := common.GetParam(r, "scope")
+	s := httputil.GetParam(r, "scope")
 	if !hasScopes(scopeOpenID, s, matchFullScope) {
 		return "", fmt.Errorf("scope must include 'openid'")
 	}
 	return s, nil
-}
-
-func filterScopes(scope string, filter map[string]bool) string {
-	parts := strings.Split(scope, " ")
-	out := []string{}
-	for _, p := range parts {
-		baseScope := strings.Split(p, ":")[0]
-		if _, ok := filter[baseScope]; ok {
-			out = append(out, p)
-		}
-	}
-	return strings.Join(out, " ")
 }
 
 func hasScopes(want, got string, matchPrefix bool) bool {
@@ -3060,6 +1141,9 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 			claims.Email = identity.Email
 			claims.Picture = identity.Picture
 		}
+		if hasScopes("ga4gh_passport_v1", scope, matchFullScope) {
+			claims.VisaJWTs = identity.VisaJWTs
+		}
 	}
 
 	return claims
@@ -3081,127 +1165,16 @@ func (auth *authToken) Valid() error {
 	return nil
 }
 
-func (s *Service) createAuthToken(subject, scope, provider, realm, nonce string, now time.Time, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
-	ttl := getDurationOption(cfg.Options.AuthCodeTokenTtl, descAuthCodeTokenTTL)
-	token := &authToken{
-		ID:     common.GenerateGUID(),
-		Expiry: now.Add(ttl).Unix(),
-	}
-	tokenMetadata := &pb.TokenMetadata{
-		TokenType:        "code",
-		IssuedAt:         now.Unix(),
-		Scope:            scope,
-		IdentityProvider: provider,
-		Subject:          subject,
-		Nonce:            nonce,
-	}
-	err := s.store.WriteTx(storage.AuthCodeDatatype, realm, storage.DefaultUser, token.ID, storage.LatestRev, tokenMetadata, nil, tx)
-	if err != nil {
-		return "", fmt.Errorf("writing refresh token metadata to storage: %v", err)
-	}
-	priv, err := s.getIssuerPrivateKey(s.getIssuerString(), tx)
-	if err != nil {
-		return "", err
-	}
-	jot := jwt.NewWithClaims(jwt.SigningMethodRS256, token)
-	// TODO: should set key id properly and sync with JWKS.
-	jot.Header[keyID] = keyID
-	return jot.SignedString(priv)
-}
-
-func (s *Service) createToken(identity *ga4gh.Identity, scope, aud, azp, realm, nonce string, now time.Time, ttl time.Duration, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
-	subject := identity.Subject
-	iss := s.getIssuerString()
-	exp := now.Add(ttl)
-	var audiences []string
-	if aud == "" || hasScopes("link", scope, matchPrefixScope) {
-		// This token is designed to be ONLY consumed by the IC itself.
-		audiences = append(audiences, iss)
-	} else {
-		audiences = append(audiences, aud)
-		// TODO: we will change the token flow in phase 2, after that we just set the DAM needed to be audience here.
-		for name, client := range cfg.Clients {
-			if strings.HasPrefix(name, "ga4gh_") {
-				audiences = append(audiences, client.ClientId)
-			}
-		}
-		if hasScopes("account_admin", scope, matchFullScope) {
-			audiences = append(audiences, iss)
-		}
-	}
-	priv, err := s.getIssuerPrivateKey(iss, tx)
-	if err != nil {
-		return "", err
-	}
-
-	claims := scopedIdentity(identity, scope, iss, subject, nonce, now.Unix(), now.Add(-1*time.Minute).Unix(), exp.Unix(), audiences, azp)
-	claims.Realm = realm
-
-	jot := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	// TODO: should set key id properly and sync with JWKS.
-	jot.Header[keyID] = keyID
-	token, err := jot.SignedString(priv)
-	if err != nil {
-		return "", err
-	}
-
-	if hasScopes("refresh", scope, matchFullScope) {
-		tokenMetadata := &pb.TokenMetadata{
-			TokenType:        "refresh",
-			IssuedAt:         claims.IssuedAt,
-			Scope:            claims.Scope,
-			IdentityProvider: claims.IdentityProvider,
-		}
-		err := s.store.WriteTx(storage.TokensDatatype, realm, claims.Subject, claims.ID, storage.LatestRev, tokenMetadata, nil, tx)
-		if err != nil {
-			return "", fmt.Errorf("writing refresh token metadata to storage: %v", err)
-		}
-	}
-
-	return token, nil
-}
-
-func (s *Service) createTokens(identity *ga4gh.Identity, includeRefresh bool, r *http.Request, cfg *pb.IcConfig, tx storage.Tx) (*cpb.OidcTokenResponse, error) {
-	now := time.Now()
-	ttl := common.GetParam(r, "ttl")
-	if len(ttl) == 0 {
-		ttl = cfg.Options.DefaultPassportTokenTtl
-	}
-	duration := getDurationOption(ttl, descDefaultPassportTokenTTL)
-	maxTTL := getDurationOption(cfg.Options.MaxPassportTokenTtl, descMaxPassportTokenTTL)
-	if duration > maxTTL {
-		duration = maxTTL
-	}
-
-	clientID := getClientID(r)
-	realm := getRealm(r)
-	accessTok, err := s.createToken(identity, filterScopes(identity.Scope, filterAccessTokScope), clientID, clientID, realm, noNonce, now, duration, cfg, tx)
-	if err != nil {
-		return nil, fmt.Errorf("creating access token: %v", err)
-	}
-	idTok, err := s.createToken(identity, filterScopes(identity.Scope, filterIDTokScope), clientID, clientID, realm, identity.Nonce, now, duration, cfg, tx)
-	if err != nil {
-		return nil, fmt.Errorf("creating id token: %v", err)
-	}
-	refreshTok := ""
-	if includeRefresh {
-		if refreshTok, err = s.createToken(identity, "refresh "+identity.Scope, "", "", realm, noNonce, now, getDurationOption(cfg.Options.RefreshTokenTtl, descRefreshTokenTTL), cfg, tx); err != nil {
-			return nil, fmt.Errorf("creating refresh token: %v", err)
-		}
-	}
-
-	return &cpb.OidcTokenResponse{
-		AccessToken:  accessTok,
-		IdToken:      idTok,
-		RefreshToken: refreshTok,
-		TokenType:    "bearer",
-		ExpiresIn:    int32(duration.Seconds()),
-		Uid:          common.GenerateGUID(),
-	}, nil
+func (s *Service) getVisaIssuerString() string {
+	return s.getDomainURL() + "/oidc"
 }
 
 func (s *Service) getIssuerString() string {
-	return s.getDomainURL() + "/oidc"
+	if s.useHydra {
+		return strings.TrimRight(s.hydraPublicURL, "/") + "/"
+	}
+
+	return ""
 }
 
 func (s *Service) getDomainURL() string {
@@ -3245,18 +1218,18 @@ func matchRedirect(client *cpb.Client, redirect string) bool {
 	return false
 }
 
-func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) (*pb.Account, error) {
+func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) (*cpb.Account, error) {
 	now := common.GetNowInUnixNano()
 	genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
 	accountPrefix := "ic_"
 	genlen -= len(accountPrefix)
 	subject := accountPrefix + strings.Replace(common.GenerateGUID(), "-", "", -1)[:genlen]
 
-	acct := &pb.Account{
+	acct := &cpb.Account{
 		Revision:          0,
 		Profile:           setupAccountProfile(linkID),
 		Properties:        setupAccountProperties(linkID, subject, now, now),
-		ConnectedAccounts: make([]*pb.ConnectedAccount, 0),
+		ConnectedAccounts: make([]*cpb.ConnectedAccount, 0),
 		State:             storage.StateActive,
 		Ui:                make(map[string]string),
 	}
@@ -3293,11 +1266,11 @@ func (s *Service) decryptEmbeddedTokens(ctx context.Context, tokens [][]byte) ([
 	return res, nil
 }
 
-func (s *Service) populateAccountClaims(ctx context.Context, acct *pb.Account, id *ga4gh.Identity, provider string) error {
+func (s *Service) populateAccountClaims(ctx context.Context, acct *cpb.Account, id *ga4gh.Identity, provider string) error {
 	link, _ := findLinkedAccount(acct, id.Subject)
 	now := common.GetNowInUnixNano()
 	if link == nil {
-		link = &pb.ConnectedAccount{
+		link = &cpb.ConnectedAccount{
 			Profile:      setupAccountProfile(id),
 			Properties:   setupAccountProperties(id, id.Subject, now, now),
 			Provider:     provider,
@@ -3322,8 +1295,8 @@ func (s *Service) populateAccountClaims(ctx context.Context, acct *pb.Account, i
 	return nil
 }
 
-func setupAccountProfile(id *ga4gh.Identity) *pb.AccountProfile {
-	return &pb.AccountProfile{
+func setupAccountProfile(id *ga4gh.Identity) *cpb.AccountProfile {
+	return &cpb.AccountProfile{
 		Username:   id.Username,
 		Name:       id.Name,
 		GivenName:  id.GivenName,
@@ -3336,8 +1309,8 @@ func setupAccountProfile(id *ga4gh.Identity) *pb.AccountProfile {
 	}
 }
 
-func setupAccountProperties(id *ga4gh.Identity, subject string, created, modified float64) *pb.AccountProperties {
-	return &pb.AccountProperties{
+func setupAccountProperties(id *ga4gh.Identity, subject string, created, modified float64) *cpb.AccountProperties {
+	return &cpb.AccountProperties{
 		Subject:       subject,
 		Email:         id.Email,
 		EmailVerified: id.EmailVerified,
@@ -3374,7 +1347,7 @@ func claimsAreEqual(a, b map[string][]ga4gh.OldClaim) bool {
 	return true
 }
 
-func findLinkedAccount(acct *pb.Account, subject string) (*pb.ConnectedAccount, int) {
+func findLinkedAccount(acct *cpb.Account, subject string) (*cpb.ConnectedAccount, int) {
 	if acct.ConnectedAccounts == nil {
 		return nil, -1
 	}
@@ -3418,7 +1391,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 		}
 		return t, nil
 	}
-	var cfgIdp *pb.IdentityProvider
+	var cfgIdp *cpb.IdentityProvider
 	for _, idp := range cfg.IdentityProviders {
 		if idp.Issuer == issuer {
 			cfgIdp = idp
@@ -3428,7 +1401,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 	if cfgIdp == nil {
 		return nil, fmt.Errorf("passport issuer not found %q", issuer)
 	}
-	t, err = s.createIssuerTranslator(s.ctx, cfgIdp, secrets)
+	t, err = s.createIssuerTranslator(ctx, cfgIdp, secrets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translator for issuer %q: %v", issuer, err)
 	}
@@ -3436,7 +1409,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 	return t, err
 }
 
-func (s *Service) createIssuerTranslator(ctx context.Context, cfgIdp *pb.IdentityProvider, secrets *pb.IcSecrets) (translator.Translator, error) {
+func (s *Service) createIssuerTranslator(ctx context.Context, cfgIdp *cpb.IdentityProvider, secrets *pb.IcSecrets) (translator.Translator, error) {
 	iss := cfgIdp.Issuer
 	publicKey := ""
 	k, ok := secrets.TokenKeys[iss]
@@ -3457,7 +1430,7 @@ func (s *Service) createIssuerTranslator(ctx context.Context, cfgIdp *pb.Identit
 func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 	// Check Id Providers.
 	for name, idp := range cfg.IdentityProviders {
-		if err := common.CheckName("name", name, nil); err != nil {
+		if err := httputil.CheckName("name", name, nil); err != nil {
 			return fmt.Errorf("invalid idProvider name %q: %v", name, err)
 		}
 		if len(idp.Issuer) == 0 {
@@ -3477,7 +1450,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		if err := validateTranslator(idp.TranslateUsing, idp.Issuer); err != nil {
 			return fmt.Errorf("identity provider %q: %v", name, err)
 		}
-		if _, err := common.CheckUI(idp.Ui, true); err != nil {
+		if _, err := check.CheckUI(idp.Ui, true); err != nil {
 			return fmt.Errorf("identity provider %q: %v", name, err)
 		}
 	}
@@ -3489,41 +1462,31 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		}
 	}
 
-	for name, at := range cfg.AccountTags {
-		if err := common.CheckName(tagField, name, tagNameCheck); err != nil {
-			return fmt.Errorf("invalid account tag name %q: %v", name, err)
-		}
-
-		if _, err := common.CheckUI(at.Ui, true); err != nil {
-			return fmt.Errorf("account tag %q: %v", name, err)
-		}
-	}
-
 	// Check Options.
 	opts := makeConfigOptions(cfg.Options)
-	descs := common.ToCommonDescriptors(opts.ComputedDescriptors)
-	if err := common.CheckIntOption(opts.AccountNameLength, "accountNameLength", descs); err != nil {
+	descs := check.ToCommonDescriptors(opts.ComputedDescriptors)
+	if err := check.CheckIntOption(opts.AccountNameLength, "accountNameLength", descs); err != nil {
 		return err
 	}
-	if err := common.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", descs); err != nil {
+	if err := check.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", descs); err != nil {
 		return err
 	}
-	if err := common.CheckStringOption(opts.DefaultPassportTokenTtl, "defaultPassportTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.DefaultPassportTokenTtl, "defaultPassportTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := common.CheckStringOption(opts.MaxPassportTokenTtl, "maxPassportTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.MaxPassportTokenTtl, "maxPassportTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := common.CheckStringOption(opts.AuthCodeTokenTtl, "authCodeTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.AuthCodeTokenTtl, "authCodeTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := common.CheckStringOption(opts.AccessTokenTtl, "accessTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.AccessTokenTtl, "accessTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := common.CheckStringOption(opts.RefreshTokenTtl, "refreshTokenTtl", descs); err != nil {
+	if err := check.CheckStringOption(opts.RefreshTokenTtl, "refreshTokenTtl", descs); err != nil {
 		return err
 	}
-	if err := common.CheckStringOption(opts.ClaimTtlCap, "claimTtlCap", descs); err != nil {
+	if err := check.CheckStringOption(opts.ClaimTtlCap, "claimTtlCap", descs); err != nil {
 		return err
 	}
 	dpTTL := getDurationOption(opts.DefaultPassportTokenTtl, descDefaultPassportTokenTTL)
@@ -3532,7 +1495,7 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 		return fmt.Errorf("defaultPassportTtl (%s) must not be greater than maxPassportTtl (%s)", dpTTL, mpTTL)
 	}
 
-	if _, err := common.CheckUI(cfg.Ui, true); err != nil {
+	if _, err := check.CheckUI(cfg.Ui, true); err != nil {
 		return fmt.Errorf("config root: %v", err)
 	}
 
@@ -3574,26 +1537,26 @@ func receiveConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 	return out
 }
 
-func makeIdentityProvider(idp *pb.IdentityProvider) *pb.IdentityProvider {
-	return &pb.IdentityProvider{
+func makeIdentityProvider(idp *cpb.IdentityProvider) *cpb.IdentityProvider {
+	return &cpb.IdentityProvider{
 		Issuer: idp.Issuer,
 		Ui:     idp.Ui,
 	}
 }
 
-func (s *Service) makeAccount(ctx context.Context, acct *pb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) *pb.Account {
-	out := &pb.Account{}
+func (s *Service) makeAccount(ctx context.Context, acct *cpb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) *cpb.Account {
+	out := &cpb.Account{}
 	proto.Merge(out, acct)
 	out.State = ""
-	out.ConnectedAccounts = []*pb.ConnectedAccount{}
+	out.ConnectedAccounts = []*cpb.ConnectedAccount{}
 	for _, ca := range acct.ConnectedAccounts {
 		out.ConnectedAccounts = append(out.ConnectedAccounts, s.makeConnectedAccount(ctx, ca, cfg, secrets))
 	}
 	return out
 }
 
-func (s *Service) makeConnectedAccount(ctx context.Context, ca *pb.ConnectedAccount, cfg *pb.IcConfig, secrets *pb.IcSecrets) *pb.ConnectedAccount {
-	out := &pb.ConnectedAccount{}
+func (s *Service) makeConnectedAccount(ctx context.Context, ca *cpb.ConnectedAccount, cfg *pb.IcConfig, secrets *pb.IcSecrets) *cpb.ConnectedAccount {
+	out := &cpb.ConnectedAccount{}
 	proto.Merge(out, ca)
 	if out.Passport == nil {
 		out.Passport = &cpb.Passport{}
@@ -3622,8 +1585,8 @@ func makeLoginHint(provider, subject string) string {
 	return provider + ":" + subject
 }
 
-func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*pb.Account, int, error) {
-	acct := &pb.Account{}
+func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*cpb.Account, int, error) {
+	acct := &cpb.Account{}
 	status, err := s.singleRealmReadTx(storage.AccountDatatype, realm, storage.DefaultUser, name, storage.LatestRev, acct, tx)
 	if err != nil {
 		return nil, status, err
@@ -3634,7 +1597,7 @@ func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*pb.Account, i
 	return acct, http.StatusOK, nil
 }
 
-func (s *Service) lookupAccount(fedAcct, realm string, tx storage.Tx) (*pb.Account, int, error) {
+func (s *Service) lookupAccount(fedAcct, realm string, tx storage.Tx) (*cpb.Account, int, error) {
 	lookup, err := s.accountLookup(realm, fedAcct, tx)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
@@ -3645,7 +1608,7 @@ func (s *Service) lookupAccount(fedAcct, realm string, tx storage.Tx) (*pb.Accou
 	return s.loadAccount(lookup.Subject, realm, tx)
 }
 
-func (s *Service) saveNewLinkedAccount(newAcct *pb.Account, id *ga4gh.Identity, desc string, r *http.Request, tx storage.Tx, lookup *pb.AccountLookup) error {
+func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity, desc string, r *http.Request, tx storage.Tx, lookup *cpb.AccountLookup) error {
 	if err := s.saveAccount(nil, newAcct, desc, r, id.Subject, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
 	}
@@ -3653,7 +1616,7 @@ func (s *Service) saveNewLinkedAccount(newAcct *pb.Account, id *ga4gh.Identity, 
 	if lookup != nil {
 		rev = lookup.Revision
 	}
-	lookup = &pb.AccountLookup{
+	lookup = &cpb.AccountLookup{
 		Subject:  newAcct.Properties.Subject,
 		Revision: rev,
 		State:    storage.StateActive,
@@ -3719,6 +1682,7 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.IcConfig, error) 
 		return nil, fmt.Errorf("invalid %q file: %v", storage.ConfigDatatype, err)
 	}
 
+	// glog.Infof("loaded IC config: %+v", cfg)
 	return cfg, nil
 }
 
@@ -3743,45 +1707,6 @@ func (s *Service) loadSecrets(tx storage.Tx) (*pb.IcSecrets, error) {
 	return secrets, nil
 }
 
-func (s *Service) getIssuerKeys(iss string, tx storage.Tx) (*pb.IcSecrets_TokenKeys, error) {
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		return nil, fmt.Errorf("error loading secrets: %v", err)
-	}
-	k, ok := secrets.TokenKeys[iss]
-	if !ok {
-		return nil, fmt.Errorf("token keys not found for passport issuer %q", iss)
-	}
-	return k, nil
-}
-
-func (s *Service) getIssuerPublicKey(iss string, tx storage.Tx) (*rsa.PublicKey, error) {
-	k, err := s.getIssuerKeys(iss, tx)
-	if err != nil {
-		// TODO: Use OIDC JWKS to look up the public key.
-		return nil, fmt.Errorf("fetching public key for issuer %q: %v", iss, err)
-	}
-	block, _ := pem.Decode([]byte(k.PublicKey))
-	pub, err := x509.ParsePKCS1PublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parsing public key for issuer %q: %v", iss, err)
-	}
-	return pub, nil
-}
-
-func (s *Service) getIssuerPrivateKey(iss string, tx storage.Tx) (*rsa.PrivateKey, error) {
-	k, err := s.getIssuerKeys(iss, tx)
-	if err != nil {
-		return nil, fmt.Errorf("fetching private key for issuer %q: %v", iss, err)
-	}
-	block, _ := pem.Decode([]byte(k.PrivateKey))
-	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parsing private key for issuer %q: %v", iss, err)
-	}
-	return priv, nil
-}
-
 func (s *Service) privateKeyFromSecrets(iss string, secrets *pb.IcSecrets) (*rsa.PrivateKey, error) {
 	k, ok := secrets.TokenKeys[iss]
 	if !ok {
@@ -3804,8 +1729,8 @@ func (s *Service) saveSecrets(secrets *pb.IcSecrets, desc, resType string, r *ht
 	return nil
 }
 
-func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*pb.AccountLookup, error) {
-	lookup := &pb.AccountLookup{}
+func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*cpb.AccountLookup, error) {
+	lookup := &cpb.AccountLookup{}
 	status, err := s.singleRealmReadTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, acct, storage.LatestRev, lookup, tx)
 	if err != nil && status == http.StatusNotFound {
 		return nil, nil
@@ -3813,7 +1738,7 @@ func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*pb.AccountL
 	return lookup, err
 }
 
-func (s *Service) saveAccountLookup(lookup *pb.AccountLookup, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
+func (s *Service) saveAccountLookup(lookup *cpb.AccountLookup, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
 	lookup.Revision++
 	lookup.CommitTime = common.GetNowInUnixNano()
 	if err := s.store.WriteTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, fedAcct, lookup.Revision, lookup, storage.MakeConfigHistory("link account", storage.AccountLookupDatatype, lookup.Revision, lookup.CommitTime, r, id.Subject, nil, lookup), tx); err != nil {
@@ -3823,7 +1748,7 @@ func (s *Service) saveAccountLookup(lookup *pb.AccountLookup, realm, fedAcct str
 }
 
 func (s *Service) removeAccountLookup(rev int64, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
-	lookup := &pb.AccountLookup{
+	lookup := &cpb.AccountLookup{
 		Subject:  "",
 		Revision: rev,
 		State:    "DELETED",
@@ -3834,7 +1759,7 @@ func (s *Service) removeAccountLookup(rev int64, realm, fedAcct string, r *http.
 	return nil
 }
 
-func (s *Service) saveAccount(oldAcct, newAcct *pb.Account, desc string, r *http.Request, subject string, tx storage.Tx) error {
+func (s *Service) saveAccount(oldAcct, newAcct *cpb.Account, desc string, r *http.Request, subject string, tx storage.Tx) error {
 	newAcct.Revision++
 	newAcct.Properties.Modified = common.GetNowInUnixNano()
 	if newAcct.Properties.Created == 0 {
@@ -3885,7 +1810,7 @@ func (s *Service) realmReadTx(datatype, realm, user, id string, rev int64, item 
 	return http.StatusServiceUnavailable, fmt.Errorf("service storage unavailable: %v, retry later", err)
 }
 
-func isLookupActive(lookup *pb.AccountLookup) bool {
+func isLookupActive(lookup *cpb.AccountLookup) bool {
 	return lookup != nil && lookup.State == storage.StateActive
 }
 
@@ -3970,118 +1895,67 @@ func (s *Service) ImportFiles(importType string) error {
 	return nil
 }
 
-/////////////////////////////////////////////////////////
-// OIDC related
-
-// OidcWellKnownConfig handle OpenID Provider configuration request.
-func (s *Service) OidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
-	scopeSet := map[string]bool{}
-	for k, v := range filterAccessTokScope {
-		scopeSet[k] = v
-	}
-	for k, v := range filterIDTokScope {
-		scopeSet[k] = v
-	}
-	scopes := []string{}
-	for k := range scopeSet {
-		scopes = append(scopes, k)
+// TODO: move registeration of endpoints to main package.
+func registerHandlers(r *mux.Router, s *Service) {
+	a := &authChecker{s: s}
+	checker := &auth.Checker{
+		Issuer:             s.getIssuerString(),
+		FetchClientSecrets: a.fetchClientSecrets,
+		IsAdmin:            a.isAdmin,
+		TransformIdentity:  a.transformIdentity,
 	}
 
-	conf := &cpb.OidcConfig{
-		Issuer:       s.getIssuerString(),
-		JwksUri:      s.getDomainURL() + oidcJwksPath,
-		AuthEndpoint: s.getDomainURL() + defaultAuthorizePath,
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint:      s.getDomainURL() + defaultTokenPath,
-		RevocationEndpoint: s.getDomainURL() + defaultRevocationPath,
-		UserinfoEndpoint:   s.getDomainURL() + oidcUserInfoPath,
-		ScopesSupported:    scopes,
-	}
-	common.SendResponse(conf, w)
-}
+	// static files
+	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(srcutil.Path(staticDirectory))))
+	r.PathPrefix(staticFilePath).Handler(sfs)
 
-// OidcKeys handle OpenID Provider jwks request.
-func (s *Service) OidcKeys(w http.ResponseWriter, r *http.Request) {
-	pub, err := s.getIssuerPublicKey(s.getIssuerString(), nil)
-	if err != nil {
-		glog.Infof("getIssuerPublicKey %q failed: %q", s.getIssuerString(), err)
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
+	// oidc login flow endpoints
+	r.HandleFunc(loginPath, auth.MustWithAuth(s.Login, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(finishLoginPath, auth.MustWithAuth(s.FinishLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(acceptInformationReleasePath, auth.MustWithAuth(s.AcceptInformationRelease, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(acceptLoginPath, auth.MustWithAuth(s.AcceptLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 
-	jwks := jose.JSONWebKeySet{
-		Keys: []jose.JSONWebKey{
-			{
-				Key:       pub,
-				Algorithm: "RS256",
-				Use:       "sig",
-				KeyID:     "kid",
-			},
-		},
-	}
+	// hydra related oidc endpoints
+	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
 
-	data, err := json.Marshal(jwks)
-	if err != nil {
-		glog.Infof("Marshal failed: %q", err)
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
+	// info endpoint
+	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)
 
-	w.Header().Set("Content-Type", "application/json")
-	common.AddCorsHeaders(w)
-	w.Write(data)
-}
+	// administration endpoints
+	r.HandleFunc(realmPath, auth.MustWithAuth(httputil.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configIdentityProvidersPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configIdpFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientsPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configOptionsPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
+	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
+	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 
-// OidcUserInfo /oidc/userinfo handler
-func (s *Service) OidcUserInfo(w http.ResponseWriter, r *http.Request) {
-	tx, err := s.store.Tx(true)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
-	defer tx.Finish()
+	// readonly config endpoints
+	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
+	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
+	r.HandleFunc(clientPath, auth.MustWithAuth(httputil.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 
-	realm, status, err := s.tokenRealm(r)
-	if err != nil {
-		common.HandleError(status, err, w)
-	}
+	// scim service endpoints
+	r.HandleFunc(scimMePath, auth.MustWithAuth(httputil.MakeHandler(s, s.scimMeFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUserPath, auth.MustWithAuth(httputil.MakeHandler(s, s.scimUserFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUsersPath, auth.MustWithAuth(httputil.MakeHandler(s, s.scimUsersFactory()), checker, auth.RequireAdminToken))
 
-	cfg, err := s.loadConfig(tx, realm)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
+	// token service endpoints
+	tokens := &stubTokens{token: fakeToken}
+	r.HandleFunc(tokensPath, auth.MustWithAuth(NewTokensHandler(tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(NewTokensHandler(tokens).GetToken, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(NewTokensHandler(tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
-		return
-	}
+	// consents service endpoints
+	consents := &stubConsents{consent: fakeConsent}
+	r.HandleFunc(consentsPath, auth.MustWithAuth(NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(consentPath, auth.MustWithAuth(NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
-	id, status, err := s.getIdentity(r, "", realm, cfg, secrets, tx)
-	if err != nil {
-		common.HandleError(status, err, w)
-		return
-	}
-
-	// TODO: should also check the client id of access token is same as request client id.
-
-	// scope down identity information based on the token scope.
-	claims := scopedIdentity(id, id.Scope, id.Issuer, id.Subject, noNonce, id.IssuedAt, id.NotBefore, id.Expiry, nil, "")
-	if hasScopes(passportScope, id.Scope, matchFullScope) || hasScopes(ga4ghScope, id.Scope, matchFullScope) {
-		claims.VisaJWTs = id.VisaJWTs
-	}
-
-	data, err := json.Marshal(claims)
-	if err != nil {
-		glog.Infof("cannot encode user identity into JSON: %v", err)
-		common.HandleError(http.StatusInternalServerError, err, w)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	common.AddCorsHeaders(w)
-	w.Write(data)
+	// legacy endpoints
+	r.HandleFunc(accountPath, auth.MustWithAuth(httputil.MakeHandler(s, s.accountFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(accountSubjectPath, auth.MustWithAuth(httputil.MakeHandler(s, s.accountSubjectFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(httputil.MakeHandler(s, s.adminClaimsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(httputil.MakeHandler(s, s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
 }

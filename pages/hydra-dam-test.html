@@ -16,89 +16,35 @@
 
 <html>
   <head>
-    <style>
-      h3 .small {
-        font-size: 12px;
-      }
-      .btn {
-        display: inline-block;
-        text-align: center;
-        white-space: nowrap;
-        vertical-align: middle;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        border: 1px solid transparent;
-        padding: .375rem .75rem;
-        font-size: 1rem;
-        line-height: 1.5;
-        border-radius: .25rem;
-        text-decoration: none;
-        cursor: pointer;
-        font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
-        margin: 10px;
-      }
-      .blue {
-        background: #007bff;
-        color: white;
-      }
-      .white {
-        color: #666;
-        border: 1px solid #bbb;
-      }
-      .white:hover {
-        color: #333;
-        border: 1px solid #888;
-      }
-      .black {
-        color: #ddd;
-        background: #222;
-      }
-      .black:hover {
-        color: #fff;
-        background: #000;
-      }
-      .red {
-        color: #fff;
-        background: #dc3545;
-      }
-      .red:hover {
-        color: #fff;
-        background: #c82333;
-      }
-      .box {
-        margin: 20px 0 20px 0;
-      }
-      pre {
-        border: 1px solid #888;
-        background: #eee;
-      }
-    </style>
+    <link rel="stylesheet" href="/static/css/damdemo-test.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script>
       var clientId = "903cfaeb-57d9-4ef6-5659-04377794ed65";
       var clientSecret = "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
-      var hydraClientId = "dam-test-page";
-      var hydraClientSecret = "secret";
-      var scope = "openid offline";
-      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + hydraClientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_&max_age=3600&resource=_RESOURCES_";
+      var scope = "openid+offline";
+      var identitiesScope = "openid+offline+identities";
+      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=" + scope + "&state=_STATE_&max_age=_MAX_AGE_&resource=_RESOURCES_";
+      var loginIdentitiesURL= "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=" + identitiesScope + "&state=_STATE_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
+      var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
       var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
-      var resourceURL = "_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_"
+      var resourceURL = "_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_/interfaces/_INTERFACE_"
       var resources = {};
+      var checkoutURL = "_DAM_URL_/dam/checkout?client_id="+clientId+"&client_secret="+clientSecret;
 
       function validateState(stateID) {
+        if (!stateID) {
+          return false
+        }
         var state = window.localStorage.getItem('state');
         if (!state) {
-          $("#log").text(`request with invalid 'state' ${stateID}, no 'state' in database`)
-          window.alert(`app maybe under attack.`);
+          displayError(`request with invalid 'state' ${stateID}, no 'state' in database`,
+                       `app maybe under attack.`);
           return false;
         }
         var s = JSON.parse(state)
         if (s.id !== stateID) {
-          $("#log").text(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`)
-          window.alert(`app maybe under attack.`);
+          displayError(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`, `app maybe under attack.`);
           return false;
         }
 
@@ -111,9 +57,8 @@
         var params = new URLSearchParams(window.location.search);
         var code = params.get('code');
         if (code) {
-          $("#auth_code").val(code);
-          var state = params.get('state');
-          validateState(state)
+          $("#auth_code").text(code);
+          $("#auth_code_div").addClass("available");
         }
         var damUrl = $("#dam_url").val();
         if (damUrl.includes("//localhost:")) {
@@ -122,6 +67,15 @@
           $("#dam_url").val(damUrl);
         }
         populateResources();
+        var error = params.get('error');
+        if (error) {
+          displayError(error, params.get("error_description"), params.get("error_hint"))
+        }
+        if (validateState(params.get('state'))) {
+          code && tokenExchange();
+          window.history.replaceState({}, document.title, makeURL("_PATH_"));
+        }
+        resourceListChanged();
       }
 
       function randomString(length) {
@@ -148,7 +102,7 @@
         return s.replace(" ", "+")
       }
       function makeURL(pattern, token, params, state, resources) {
-        var path = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + window.location.pathname;
+        var path = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + (window.location.pathname == "/" ? "" : window.location.pathname);
         var hydraUrl = $("#hydra_url").val();
         var damUrl = $("#dam_url").val();
         if (damUrl.startsWith("http://localhost:")) {
@@ -165,51 +119,87 @@
           }
         }
         return pattern.replace(/_PATH_/g, encodeURI(path))
-                      .replace(/_SCOPE_/g, encodeSpaceToPlus(scope))
                       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
                       .replace(/_REALM_/g, encodeURIComponent(realm))
+                      .replace(/_MAX_AGE_/g, encodeURIComponent($("#max_age").val() || "3600"))
                       .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
                       .replace(/_VIEW_/g, encodeURIComponent($("#resource_view").val()))
                       .replace(/_ROLE_/g, encodeURIComponent($("#resource_role").val()))
+                      .replace(/_INTERFACE_/g, encodeURIComponent($("#resource_interface").val()))
                       .replace(/_DAM_URL_/g, encodeURI($("#dam_url").val()))
                       .replace(/_HYDRA_URL_/g, encodeURI($("#hydra_url").val()))
                       .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
                       .replace(/_STATE_/g, state)
+                      .replace(/_NONCE_/g, state)
                       .replace(/_RESOURCES_/g, resEncoded)
                       .replace(/_RESOURCE_/g, encodeURIComponent($("#resource_name").val()))
       }
       function auth() {
-        var resources = $("#resources").val().trim();
-        if (!resources) {
-          $("#log").text("must include resources first...");
-          return;
-        }
+        var type = $("#token_type").val();
+        var resources = "";
         var stateID = randomString(16);
         var state = new Object();
         state.id = stateID;
-        state.resList = resources;
+        var u = loginURL;
+
+        if (type === "dataset") {
+          resources = $("#resources").val().trim();
+          if (!resources) {
+            displayError("must include resources first...");
+            return;
+          }
+          state.resList = resources;
+        } else if (type === "endpoint") {
+          u = loginIdentitiesURL;
+        }
+
         window.localStorage.setItem('state', JSON.stringify(state));
 
-        var url = makeURL(loginURL, /*token*/ undefined, /*params*/ undefined, stateID, resources.split("\n"));
+        var url = makeURL(u, /*token*/ undefined, /*params*/ undefined, stateID, resources.split("\n"));
         window.location.href = url;
       }
       function tokenExchange() {
-        var authCode = $("#auth_code").val();
+        var authCode = $("#auth_code").text();
         if (!authCode) {
-          $("#log").text("must login first...");
+          displayError("must authorize resources first...");
           return;
         }
-        var url = makeURL(tokenURL, authCode);
+        var url = makeURL(tokenURL);
         $.ajax({
           url: url,
           type: "POST",
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + authCode);},
+          data: makeURL(tokenQuery, authCode),
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
-            $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#token").val(resp.token);
+            clearError();
+            $("#token").text(resp.access_token);
+            $("#access_token_div").addClass("available");
+            $("#cart-btn").removeClass("white").addClass("blue");
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("token exchanged failed", "", JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
+      function cartTokens() {
+        var token = $("#token").text();
+        if (!token) {
+          $("#log").text("must authorize resources first...");
+          return;
+        }
+        var url = makeURL(checkoutURL);
+        $.ajax({
+          url: url,
+          type: "POST",
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'bearer ' + token);},
+          success: function(resp) {
+            cart = resp;
+            clearError();
+            $("#log").text("Cart Tokens: " + JSON.stringify(resp, undefined, 2));
+            populateCartTable(resp);
+          },
+          error: function(err) {
+            displayError("cart token request failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
@@ -228,7 +218,14 @@
                 for (var role in view.roles) {
                   roles.push(role)
                 }
-                views[viewName] = roles;
+                var interf = [];
+                for (var intf in view.interfaces) {
+                  interf.push(intf)
+                }
+                views[viewName] = {
+                  "roles": roles,
+                  "interfaces": interf
+                }
               }
               resources[resName] = views;
             }
@@ -262,10 +259,17 @@
         $("#log").text(JSON.stringify(result, undefined, 2));
       }
       function displaySuccess(str) {
+        clearError();
         $("#log").text(str);
       }
-      function displayError(str) {
-        $("#log").text(str);
+      function clearError() {
+        $('#error_info').addClass("hidden");
+      }
+      function displayError(error, desc, hint) {
+        $('#error').text(error);
+        $('#error_desc').text(desc || "");
+        $('#error_hint').text(hint || "");
+        $('#error_info').removeClass("hidden");
       }
       function resourceChanged() {
         var val = $('#resource_name').val();
@@ -276,60 +280,157 @@
       function viewChanged() {
         var val = $('#resource_view').val();
         var list = resources[$('#resource_name').val()][val];
-        populateDropdown('resource_role', list);
+        populateDropdown('resource_role', list.roles);
+        populateDropdown('resource_interface', list.interfaces);
+      }
+      function resourceListChanged() {
+        var txt = $("#resources").val();
+        if (txt.length > 0) {
+          $("#auth-btn").removeClass("white").addClass("blue");
+        } else {
+          $("#auth-btn").removeClass("blue").addClass("white");
+        }
+      }
+      function localDam() {
+        $('#dam_url').val('http://localhost:8081');
+        populateResources();
       }
       function clearPage() {
         window.location.href = makeURL("_PATH_");
       }
       function add() {
-        var resURL = makeURL(resourceURL)
+        // Decode resources for now as they are URI encoded when sent as part of auth() request.
+        var resURL = decodeURIComponent(makeURL(resourceURL))
         var resources = $("#resources").val();
         resources = resources ? resources + "\n" + resURL : resURL;
-        $("#resources").text(resources);
+        $("#resources").val(resources);
+        $("#auth-btn").removeClass("white").addClass("blue");
+        clearError();
       }
       function jwt(id) {
         var token = $("#"+id).val();
         window.open("https://jwt.io/#debugger-io?token="+token);
       }
+      function populateCartTable(cart) {
+        var html = "<tr><th>Resource</th><th>Paths</th><th>Permissions</th></tr>";
+        browsePaths = [];
+        for (var name in cart.resources) {
+          var res = cart.resources[name];
+          var paths = [];
+          var btnClass = "";
+          for (var i in res.interfaces) {
+            for (var uri in res.interfaces[i].uri) {
+              var p = res.interfaces[i].uri[uri];
+              if (i == "http:gcp:gs") {
+                var num = browsePaths.length;
+                browsePaths.push({
+                  url: p,
+                  access: res.access
+                });
+                p = `<span class="browse" onclick="browseDataset(${num})">${escapeHTML(p)}</span>`;
+              } else {
+                p = escapeHTML(p);
+              }
+              paths.push(p);
+            }
+          }
+          html += `<tr><td>${escapeHTML(name)}</td><td>${paths.join(", ")}</td><td>${escapeHTML(res.permissions.join(", "))}</td></tr>`;
+        }
+        $("#cart_table").html(html);
+      }
+      var entityMap = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;',
+        '`': '&#x60;',
+        '=': '&#x3D;'
+      };
+      function escapeHTML (string) {
+        return String(string).replace(/[&<>"'`=\/]/g, function (s) {
+          return entityMap[s];
+        });
+      }
+      function browseDataset(index) {
+        var entry = browsePaths[index];
+        var token = cart.access[entry.access].access_token;
+        var url = entry.url.length ? entry.url+"/o/" + "?access_token=" + token : "";
+        if (!url) {
+          return;
+        }
+        $.ajax({
+          url: url,
+          type: "GET",
+          success: function(resp) {
+            displaySuccess(JSON.stringify(resp, undefined, 2));
+          },
+          error: function(err) {
+            displayError("browse request failed", "", JSON.stringify(err, undefined, 2));
+          }
+        });
+
+      }
+      function reveal(elem) {
+        $(elem).parent().addClass("reveal");
+        $(elem).hide();
+      }
+      function debugJWT(selector) {
+        var token = $(selector).text();
+        window.open("https://jwt.io/#debugger-io?token="+token);
+      }
     </script>
   </head>
   <body onload="init()">
-    <h1>New Token Flow Test</h1>
+    <h1>Hydra Token Flow DAM Test</h1>
+    <div id="error_info" class="error-info hidden">
+      <div id="error" class="error"></div>
+      <div id="error_desc" class="error-desc"></div>
+      <div id="error_hint" class="error-hint"></div>
+    </div>
     <div class="box">
-      <h3>1. Select Resource on DAM</h3>
-      <label for="hydra_url">DAM URL</label>
+      <h3>1. Select Token for DAM endpoint or dataset access</h3>
+      <select id="token_type">
+        <option value="dataset">dataset</option>
+        <option value="endpoint">endpoint</option>
+      </select>
+      <h3>2. Select Resource on DAM</h3>
+      <label for="hydra_url">Hydra URL: </label>
       <input id="hydra_url" style="width:40%" value="${HYDRA_URL}">
-      <label for="dam_url">DAM URL</label>
+      <label for="dam_url">DAM URL: </label>
       <input id="dam_url" style="width:40%" value="${DAM_URL}" onchange="populateResources()">
 
-      <select id="resource_name" style="width:33%" onchange="resourceChanged()"></select>
-      <select id="resource_view" style="width:33%" onchange="viewChanged()"></select>
-      <select id="resource_role" style="width:33%"></select>
+      <select id="resource_name" style="width:24%" onchange="resourceChanged()"></select>
+      <select id="resource_view" style="width:24%" onchange="viewChanged()"></select>
+      <select id="resource_role" style="width:24%"></select>
+      <select id="resource_interface" style="width:24%"></select>
       <div>
         <a class="btn blue" onclick="add()">Include Resource</a>
-        <a class="btn white" onclick="$('#dam_url').val('http://localhost:8081');">Local DAM</a>
+        <a class="btn white" onclick="localDam()">Local DAM</a>
         <a class="btn white" onclick="clearPage()">Clear</a>
-        <input id="realm" style="width:200px" value="master">
+        <span><label>realm: </label><input id="realm" style="width:200px" value="master" placeholder="realm name"></span>
       </div>
       <h4>&nbsp;&nbsp;&nbsp;Included Resources:</h4>
-      <textarea id="resources" style="width:100%" value="" rows="4"></textarea>
+      <textarea id="resources" style="width:100%" value="" rows="4" onkeyup="resourceListChanged()" onpaste="resourceListChanged()"></textarea>
       <div>
-        <a class="btn blue" onclick="auth()">Auth for Resources</a>
+        <a id="auth-btn" class="btn white" class="btn blue" onclick="auth()">Auth for Resources</a>
+        <span><label>maxAge: </label><input id="max_age" style="width:100px" value="3600" placeholder="seconds TTL"></span>
       </div>
     </div>
     <div class="box">
-      <h3>2. Get Authentication Code</h3>
-      <textarea id="auth_code" rows="4" style="width:100%" readonly></textarea>
-      <div>
-        <a class="btn blue" onclick="tokenExchange()">Token Exchange</a>
+      <h3>3. Cart Resource Tokens</h3>
+      <div style="width:100%">
+        <div id="auth_code_div" style="width:50%;float:left">
+          Auth Code: <span class="reveal-empty">-none-</span><a onclick="reveal(this)" class="reveal-btn">show</a><span id="auth_code" class="revealed"></span>
+        </div>
+        <div id="access_token_div" style="width:50%;float:left">
+          DAM Access Token: <span class="reveal-empty">-none-</span>&nbsp;<a onclick="debugJWT('#token')" class="jwt-btn">jwt.io</a> - <a onclick="reveal(this)" class="reveal-btn">show</a><span id="token" class="revealed"></span>
+        </div>
       </div>
-    </div>
-    <div class="box">
-      <h3>3. Resource Access Token</h3>
-      <textarea id="token" rows="7" style="width:100%" readonly></textarea>
+      <table id="cart_table" class="cart-table"></table>
       <div>
-        <a class="btn black" onclick="browseDataset()">Browse Resource</a>
-        <a class="btn white" onclick="jwt('token')">JWT.IO</a>
+        <a id="cart-btn" class="btn white" onclick="cartTokens()">Cart Tokens</a>
       </div>
     </div>
 

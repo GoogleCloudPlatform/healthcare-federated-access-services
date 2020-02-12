@@ -22,10 +22,12 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -34,30 +36,24 @@ const (
 	storageVersion = "v0"
 )
 
-var (
-	// ProjectRoot locates resources of project.
-	ProjectRoot = os.Getenv("PROJECT_ROOT")
-)
-
 type FileStorage struct {
 	service string
 	path    string
-
-	mu    sync.Mutex
-	cache *StorageCache
+	mu      sync.Mutex
+	cache   *StorageCache
 }
 
 func NewFileStorage(service, path string) *FileStorage {
-	path = filepath.Join(ProjectRoot, path)
 	// Add the service name directory to the path:
 	// 1. Add the full service name if the subdirectory exists; or
 	// 2. The base service name (i.e. before the first "-" character).
-	servicePath := filepath.Join(path, service)
+	servicePath := srcutil.Path(filepath.Join(path, service))
 	if err := checkFile(servicePath); err == nil {
 		path = servicePath
 	} else {
-		path = filepath.Join(path, strings.Split(service, "-")[0])
+		path = srcutil.Path(filepath.Join(path, strings.Split(service, "-")[0]))
 	}
+
 	glog.Infof("file storage for service %q using path %q.", service, path)
 	f := &FileStorage{
 		service: strings.Split(service, "-")[0],
@@ -85,7 +81,8 @@ func (f *FileStorage) Exists(datatype, realm, user, id string, rev int64) (bool,
 	err := checkFile(fn)
 	if err == nil {
 		return true, nil
-	} else if os.IsNotExist(err) {
+	}
+	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return false, err
@@ -135,7 +132,7 @@ func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, conten
 }
 
 // MultiReadTx reads a set of objects matching the input parameters and filters
-func (f *FileStorage) MultiReadTx(datatype, realm, user string, filters []Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error) {
+func (f *FileStorage) MultiReadTx(datatype, realm, user string, filters [][]Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error) {
 	return 0, fmt.Errorf("file storage does not support MultiReadTx")
 }
 
@@ -207,22 +204,12 @@ func (f *FileStorage) Tx(update bool) (Tx, error) {
 	}, nil
 }
 
-func (f *FileStorage) fname(datatype, realm, user, id string, rev int64) string {
-	r := LatestRevName
-	if rev > 0 {
-		r = fmt.Sprintf("%06d", rev)
-	}
-	// TODO: use path.Join(...)
-	return fmt.Sprintf("%s/%s_%s%s_%s_%s.json", f.path, datatype, realm, UserFragment(user), id, r)
-}
-
-func (f *FileStorage) historyName(datatype, realm, user, id string) string {
-	return fmt.Sprintf("%s/%s_%s%s_%s_%s.json", f.path, datatype, realm, UserFragment(user), id, HistoryRevName)
-}
-
-func checkFile(path string) error {
-	_, err := os.Stat(path)
-	return err
+// LockTx returns a storage-wide lock by the given name. Only one such lock should
+// be requested at a time. If Tx is provided, it must be an update Tx.
+func (f *FileStorage) LockTx(lockName string, minFrequency time.Duration, tx Tx) Tx {
+	// Filestore does not support writing transactions, and returning nil indicates that
+	// the lock is not acquired.
+	return nil
 }
 
 type FileTx struct {

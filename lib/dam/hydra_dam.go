@@ -17,13 +17,17 @@ package dam
 import (
 	"net/http"
 	"net/url"
-	"os"
-	"strings"
 
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
+	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
 const (
@@ -32,6 +36,7 @@ const (
 
 // HydraLogin handles login request from hydra.
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	// Use login_challenge fetch information from hydra.
 	challenge, status := hydra.ExtractLoginChallenge(r)
 	if status != nil {
@@ -41,7 +46,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
@@ -51,45 +56,60 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	ttl, err := extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
+	in := authHandlerIn{
+		challenge: challenge,
+	}
+
+	// Request tokens for call DAM endpoints, if scope includes "identities".
+	if common.ListContains(login.RequestedScope, "identities") {
+		in.tokenType = pb.ResourceTokenRequestState_ENDPOINT
+		in.realm = u.Query().Get("realm")
+		if len(in.realm) == 0 {
+			in.realm = storage.DefaultRealm
+		}
+	} else {
+		in.tokenType = pb.ResourceTokenRequestState_DATASET
+		in.ttl, err = extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
+		if err != nil {
+			httputil.HandleError(http.StatusBadRequest, err, w)
+			return
+		}
+
+		list := u.Query()["resource"]
+		in.resources, err = s.resourceViewRoleFromRequest(list)
+		if err != nil {
+			httputil.HandleError(http.StatusBadRequest, err, w)
+			return
+		}
+
+		in.responseKeyFile = u.Query().Get("response_type") == "key-file-type"
+	}
+
+	out, st, err := s.auth(r.Context(), in)
 	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
+		httputil.HandleError(st, err, w)
 		return
 	}
 
-	list := u.Query()["resource"]
-	resList, err := s.resourceViewRoleFromRequest(list)
-	if err != nil {
-		common.HandleError(http.StatusBadRequest, err, w)
-		return
+	var opts []oauth2.AuthCodeOption
+	loginHint := u.Query().Get("login_hint")
+	if len(loginHint) != 0 {
+		opt := oauth2.SetAuthURLParam("login_hint", loginHint)
+		opts = append(opts, opt)
 	}
 
-	responseKeyFile := u.Query().Get("response_type") == "key-file-type"
-
-	in := resourceAuthHandlerIn{
-		ttl:             ttl,
-		responseKeyFile: responseKeyFile,
-		resources:       resList,
-		challenge:       challenge,
-	}
-
-	out, st, err := s.resourceAuth(r.Context(), in)
-	if err != nil {
-		common.HandleError(st, err, w)
-		return
-	}
-
-	auth := out.oauth.AuthCodeURL(out.stateID)
+	auth := out.oauth.AuthCodeURL(out.stateID, opts...)
 
 	sendRedirect(auth, r, w)
 }
 
 // HydraConsent handles consent request from hydra.
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	// Use consent_challenge fetch information from hydra.
 	challenge, status := hydra.ExtractConsentChallenge(r)
 	if status != nil {
@@ -99,37 +119,63 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	stateID, status := hydra.ExtractStateIDInConsent(consent)
+	identities, status := hydra.ExtractIdentitiesInConsent(consent)
 	if status != nil {
 		httputil.WriteStatus(w, status)
 		return
+	}
+
+	var stateID string
+	if len(identities) == 0 {
+		stateID, status = hydra.ExtractStateIDInConsent(consent)
+		if status != nil {
+			httputil.WriteStatus(w, status)
+			return
+		}
 	}
 
 	req := &hydraapi.HandledConsentRequest{
 		GrantedAudience: append(consent.RequestedAudience, consent.Client.ClientID),
 		GrantedScope:    consent.RequestedScope,
 		Session: &hydraapi.ConsentRequestSessionData{
-			AccessToken: map[string]interface{}{"cart": stateID},
+			AccessToken: map[string]interface{}{},
 		},
+	}
+
+	if len(stateID) > 0 {
+		req.Session.AccessToken["cart"] = stateID
+	} else if len(identities) > 0 {
+		req.Session.AccessToken["identities"] = identities
 	}
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
 	if err != nil {
-		common.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.HandleError(http.StatusServiceUnavailable, err, w)
 		return
 	}
 
-	common.SendRedirect(resp.RedirectTo, r, w)
+	httputil.SendRedirect(resp.RedirectTo, r, w)
 }
 
-// HydraTestPage send hydra test page.
-func (s *Service) HydraTestPage(w http.ResponseWriter, r *http.Request) {
-	hydraURL := os.Getenv("HYDRA_PUBLIC_URL")
-	page := strings.ReplaceAll(s.hydraTestPage, "${HYDRA_URL}", hydraURL)
-	page = strings.ReplaceAll(page, "${DAM_URL}", s.domainURL)
-	common.SendHTML(page, w)
+func (s *Service) extractCartFromAccessToken(token string) (string, error) {
+	claims, err := hydra.Introspect(s.httpClient, s.hydraAdminURL, token)
+	if err != nil {
+		return "", err
+	}
+
+	v, ok := claims.Extra["cart"]
+	if !ok {
+		return "", status.Errorf(codes.Unauthenticated, "token does not have 'cart' claim")
+	}
+
+	cart, ok := v.(string)
+	if !ok {
+		return "", status.Errorf(codes.Internal, "token 'cart' claim have unwanted type")
+	}
+
+	return cart, nil
 }

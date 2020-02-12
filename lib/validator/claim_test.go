@@ -269,7 +269,7 @@ func TestClaimValidator(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Unexpected error during validator creation of %q: %v", test.name, err)
 			}
-			ctx := context.WithValue(context.Background(), requestTTLInNanoFloat64, test.ttl)
+			ctx := context.WithValue(context.Background(), RequestTTLInNanoFloat64, test.ttl)
 			ok, err := v.Validate(ctx, test.id)
 			if test.err != (err != nil) {
 				t.Fatalf("Unexpected error during validation of %q: %v", test.name, err)

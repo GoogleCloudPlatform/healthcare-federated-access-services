@@ -17,9 +17,19 @@ package ga4gh
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+)
+
+// SigningMethod for JWT.
+type SigningMethod = jwt.SigningMethod
+
+var (
+	// RS256 is RSA. Used for signing/validation with private/public keys.
+	// Expects *rsa.PrivateKey for signing and *rsa.PublicKey for validation.
+	RS256 = jwt.SigningMethodRS256
 )
 
 // StdClaims contains the standard claims.
@@ -37,10 +47,10 @@ type StdClaims struct {
 
 // Valid validates time based claims "exp, iat, nbf".
 // There is no accounting for clock skew.
-// As well, if any of the above claims are not in the token, it will still
-// be considered a valid claim.
+// The presence of the above claims is not required for validity.
 func (c StdClaims) Valid() error {
 	// TODO: handle validation of c.Audience.
+	// TODO: consider requiring the presence of ExpiresAt.
 	tmp := &jwt.StandardClaims{
 		ExpiresAt: c.ExpiresAt,
 		Id:        c.ID,
@@ -52,14 +62,14 @@ func (c StdClaims) Valid() error {
 	return tmp.Valid()
 }
 
-// SigningMethod for JWT.
-type SigningMethod = jwt.SigningMethod
-
-var (
-	// RS256 is RSA. Used for signing/validation with private/public keys.
-	// Expects *rsa.PrivateKey for signing and *rsa.PublicKey for validation.
-	RS256 = jwt.SigningMethodRS256
-)
+// NewStdClaimsFromJWT extracts StdClaims from a serialized JWT token.
+func NewStdClaimsFromJWT(token string) (*StdClaims, error) {
+	d := &StdClaims{}
+	if _, _, err := (&jwt.Parser{}).ParseUnverified(token, d); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
 
 var indent = "  "
 
@@ -93,26 +103,25 @@ func payloadFromJWT(j string) (string, error) {
 type jsontxt string
 
 func jsontxtCanonical(j jsontxt) string {
+	s, err := jsontxtCanonicalize(j)
+	if err != nil {
+		glog.Fatalf("jsontxtCanonicalize() failed: %v", err)
+	}
+	return s
+}
+
+func jsontxtCanonicalize(j jsontxt) (string, error) {
 	var s interface{}
 	if err := json.Unmarshal([]byte(j), &s); err != nil {
-		glog.Fatalf("json.Unmarshal(%v) failed: %v", j, err)
+		return "", fmt.Errorf("json.Unmarshal(%v) failed: %v", j, err)
 	}
 	d, err := json.Marshal(&s)
 	if err != nil {
-		glog.Fatalf("json.Marshal(%v) failed: %v", s, err)
+		return "", fmt.Errorf("json.Marshal(%v) failed: %v", s, err)
 	}
 	c := &bytes.Buffer{}
 	if err := json.Indent(c, d, "", indent); err != nil {
-		glog.Fatalf("json.Indent(%v,%v,%v,%v) failed: %v", c, d, "", indent, err)
+		return "", fmt.Errorf("json.Indent(%v,%v,%v,%v) failed: %v", c, d, "", indent, err)
 	}
-	return c.String()
-}
-
-// NewStdClaimsFromJWT extracts StdClaims from a serialized JWT token.
-func NewStdClaimsFromJWT(token string) (*StdClaims, error) {
-	d := &StdClaims{}
-	if _, _, err := (&jwt.Parser{}).ParseUnverified(token, d); err != nil {
-		return nil, err
-	}
-	return d, nil
+	return c.String(), nil
 }

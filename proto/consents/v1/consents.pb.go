@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 // Package v1 provides protocol buffer versions of OAuth Consents API for
 // listing and revoking OAuth consents.
+
 package v1
 
 import (

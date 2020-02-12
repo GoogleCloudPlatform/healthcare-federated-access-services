@@ -435,3 +435,73 @@ func TestIntrospect_Error(t *testing.T) {
 		t.Errorf("Introspect wants error: %v", err)
 	}
 }
+
+func TestListConsents(t *testing.T) {
+	s, c := setup()
+
+	sub := subject
+	s.ListConsentsResp = []*hydraapi.PreviousConsentSession{
+		{ConsentRequest: &hydraapi.ConsentRequest{Challenge: "1"}},
+		{ConsentRequest: &hydraapi.ConsentRequest{Challenge: "2"}},
+	}
+
+	resp, err := ListConsents(c, hydraAdminURL, sub)
+	if err != nil {
+		t.Errorf("ListConsents return error: %v", err)
+	}
+
+	if s.ListConsentsReq != sub {
+		t.Errorf("s.ListConsentsReq = %s, wants %s", s.ListConsentsReq, sub)
+	}
+
+	if d := cmp.Diff(s.ListConsentsResp, resp); len(d) != 0 {
+		t.Errorf("resp (-wants, +got) %s", d)
+	}
+}
+
+func TestListConsents_Error(t *testing.T) {
+	s, c := setup()
+
+	sub := subject
+	s.ListConsentsErr = genericError
+
+	if _, err := ListConsents(c, hydraAdminURL, sub); err == nil {
+		t.Errorf("ListConsents wants error: %v", err)
+	}
+}
+
+func TestRevokeConsents(t *testing.T) {
+	s, c := setup()
+
+	sub := subject
+	clients := []string{"c", ""}
+
+	for _, cli := range clients {
+		err := RevokeConsents(c, hydraAdminURL, sub, cli)
+		if err != nil {
+			t.Errorf("ListConsents return error: %v", err)
+		}
+
+		subject := s.RevokeConsentsReq.URL.Query().Get("subject")
+		client := s.RevokeConsentsReq.URL.Query().Get("client")
+
+		if subject != sub {
+			t.Errorf("subject = %s wants %s", subject, sub)
+		}
+
+		if client != cli {
+			t.Errorf("client = %s wants %s", client, cli)
+		}
+	}
+}
+
+func TestRevokeConsents_Error(t *testing.T) {
+	s, c := setup()
+
+	sub := subject
+	s.RevokeConsentsErr = genericError
+
+	if err := RevokeConsents(c, hydraAdminURL, sub, ""); err == nil {
+		t.Errorf("RevokeConsents wants error: %v", err)
+	}
+}

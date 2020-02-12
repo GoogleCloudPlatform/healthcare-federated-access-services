@@ -17,26 +17,45 @@ package main
 
 import (
 	"context"
+	"flag"
 	"os"
 
-	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/gcp/storage" /* copybara-comment: gcp_storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 func main() {
-	if len(os.Args) < 3 {
-		glog.Fatalf("Usage: ic_reset <project> <service>")
-	}
-	project := os.Args[1]
-	service := os.Args[2]
-	path := "deploy/config"
+	args := make([]string, len(os.Args))
+	copy(args, os.Args)
+	flag.Parse()
 
-	store := gcp_storage.NewDatastoreStorage(context.Background(), project, service, path)
-	ics := ic.NewService(context.Background(), "reset.example.org", "reset.example.org", "https://reset.example.org", store, nil, false)
+	if len(args) < 3 {
+		glog.Fatalf("Usage: ic_reset <project> <service> [path]")
+	}
+	project := args[1]
+	service := args[2]
+	path := "deploy/config"
+	if len(args) > 3 {
+		path = args[3]
+	}
+
+	store := dsstore.NewDatastoreStorage(context.Background(), project, service, path)
+
+	ics := ic.NewService(&ic.Options{
+		Domain:         "reset.example.org",
+		ServiceName:    service,
+		AccountDomain:  "reset.example.org",
+		Store:          store,
+		Encryption:     nil,
+		UseHydra:       true,
+		HydraAdminURL:  "https://reset.example.org",
+		HydraPublicURL: "https://reset.example.org",
+	})
 
 	if err := ics.ImportFiles("FORCE_WIPE"); err != nil {
 		glog.Fatalf("error importing files: %v", err)
 	}
-	glog.Infof("SUCCESS reseting IC service %q", service)
+	glog.Infof("SUCCESS resetting IC service %q", service)
 }

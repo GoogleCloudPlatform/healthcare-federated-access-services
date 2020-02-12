@@ -1,125 +1,36 @@
 # `healthcare-federated-access-services`
 
-This repository contains an implementation of the
-[GA4GH](https://www.ga4gh.org/) Researcher Identity and
-Authentication Profile specifications.
+This repository contains an implementation of a [GA4GH Passport Broker](http://bit.ly/ga4gh-passport-v1#passport-broker) and a [GA4GH Passport Clearinghouse](http://bit.ly/ga4gh-passport-v1#passport-clearinghouse).
+
+For more information, visit:
+
+*  [GA4GH Overview of Passports](http://bit.ly/ga4gh-passport-v1#overview) and
+   [GA4GH Researcher Identity Introduction](http://bit.ly/ga4gh-ri-intro).
+*  [GA4GH Passport v1.0](http://bit.ly/ga4gh-passport-v1) full specification.
+*  [GA4GH AAI OpenID Connect Profile v1.0](http://bit.ly/ga4gh-aai-profile) specification.
+*  [GA4GH](https://www.ga4gh.org/)
 
 **IMPORTANT: This is an early pre-release that should only be used for testing and demo purposes. Only synthetic or public datasets should be used. Customer support is not currently provided.**
 
-## Contributing
+## Contributing to the repository
 
-See the [contributing](CONTRIBUTING.md) document for information about how to
-contribute to this repository.
+For information on how to contribute to the repository, see [How to Contribute](CONTRIBUTING.md).
 
 ## Notice
 
 This is not an officially supported Google product.
 
-## Getting started
+## How to Deploy
 
-### Install Google Cloud SDK
+For information on how to deploy Federated Access, see [How To Deploy Federated Access](deploy.md).
 
-https://cloud.google.com/sdk/docs
+## Configuration
 
-```
-gcloud auth application-default login
-gcloud config set account [YOUR_GCP_ACCOUNT, eg: user@example.com]
-```
+For configuration examples, see [deploy/config/ic-template](deploy/config/ic-template) and [deploy/config/ic-template](deploy/config/ic-template).
 
-### Prepare Google Cloud project(s)
+For more information, see [IcConfig](proto/ic/v1/ic_service.proto) and [DamConfig](proto/dam/v1/dam_service.proto).
 
-For minimum setup, only one project is needed.
+## APIs
 
-#### Setup one project
-
-- create a gcp project
-
-  ```bash
-  export PROJECT="[YOUR_PROJECT_NAME]"
-  gcloud projects create $PROJECT --set-as-default
-  gcloud config set project $PROJECT
-  ```
-
-- Setup for app engine, https://cloud.google.com/appengine/docs/standard/go112/quickstart#before-you-begin
-- In the Cloud Developer Console's [IAM page](https://console.cloud.google.com/iam-admin/iam) for your project", add `Service Account Token Creator` and `IAM Admin` role to `App Engine default service account`
-
-More information for cross project/environment scenarios:
-
--   data hosting project: the GCP project hosting datasets.
--   service account project: the GCP project hosting service accounts for
-    researchers.
--   server (IC/DAM) hosting project: the GCP project hosting IC and DAM server.
-
-#### Setup a server hosting project
-
-https://cloud.google.com/appengine/docs/standard/go112/quickstart#before-you-begin
-
-#### Setup a data hosting project
-
-Add the IAM Admin role to the `App Engine default service account` of the server hosting project, e.g. ${server-hosting-project}@appspot.gserviceaccount.com.
-
-#### Setup service account project
-
-Add `Service Account Token Creator` and `Cloud KMS CryptoKey Encrypter/Decrypter` role to `App Engine default service account` of server hosting project.
-
-### Configure
-
-- Fill in `gcp/{dam|ic}/app.yaml`. Example:
-
-  ```
-  # dam/app.yaml
-  runtime: go112
-  service: "dam"
-
-  env_variables:
-    DAM_URL: "https://dam-dot-${dam-hosting-project}.appspot.com"
-    SERVICE_NAME: "dam"
-    PROJECT: "${dam-hosting-project}"
-    CONFIG_PATH: "config"
-    STORAGE: "datastore"
-    DEFAULT_BROKER: "${your-ic-name-in-config-file}"
-
-  # ic/app.yaml
-  runtime: go112
-  service: "ic"
-
-  env_variables:
-    SERVICE_NAME: "ic"
-    SERVICE_DOMAIN: "ic-dot-${ic-hosting-project}.appspot.com"
-    ACCOUNT_DOMAIN: "${account-project-domain}"
-    CONFIG_PATH: "config"
-    PROJECT: "${ic-hosting-project}"
-    PERSONA_DAM_URL: "https://dam-dot-${dam-hosting-project}.appspot.com"
-    PERSONA_DAM_CLIENT_ID: "${dam-client-id}"
-    PERSONA_DAM_CLIENT_SECRET: "${dam-client-secret}"
-    STORAGE: "datastore"
-  ```
-
-- In `deploy/config/dam/config_master_main_latest.json`, add your IC to "trustedPassportIssuers".
-
-  ```
-  "ic": {
-      "issuer": "https://ic-dot-${ic-hosting-project}.appspot.com/oidc",
-      "clientId": "${client-id}"
-  },
-  ```
-
-- Generate keys for `deploy/config/{dam|ic}/secrets_master_main_latest.json`
-
-  ```bash
-  openssl genrsa -out private.pem 2048
-  openssl rsa -in private.pem -RSAPublicKey_out > public.pem
-  cat private.pem
-  cat public.pem
-  ```
-
-### Start servers
-
-```
-gcloud app deploy gcp/ic/app.yaml
-gcloud app deploy gcp/dam/app.yaml
-```
-
-### Test with test client
-
-In browser, open `https://ic-dot-${ic-hosting-project}.appspot.com/identity/v1alpha/master/test`
+For information about API endpoints available in Federated Access components,
+please refer to [API documentation](apis.md).

@@ -13,6 +13,7 @@
     "gcs": {
       "variables": {
         "project": {
+          "type": "const",
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
           "ui": {
             "label": "GCP Project ID",
@@ -20,6 +21,7 @@
           }
         },
         "bucket": {
+          "type": "const",
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
           "ui": {
             "label": "GCS Bucket name",
@@ -27,11 +29,21 @@
           }
         },
         "type": {
+          "type": "const",
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
           "optional": true,
           "ui": {
             "label": "GCS Bucket type",
             "description": "Indicates the type of bucket, such as requester-pays buckets"
+          }
+        },
+        "paths": {
+          "type": "split_pattern",
+          "regexp": "^(/[-a-z0-9_\\.]+)+(/?\\*)?$",
+          "optional": true,
+          "ui": {
+            "label": "GCS directory and file paths",
+            "description": "A list of directories and files that may end in a '*' to indicate it is a prefix match"
           }
         }
       },
@@ -43,6 +55,7 @@
     "bigquery": {
       "variables": {
         "project": {
+          "type": "const",
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
           "ui": {
             "label": "GCP Project ID",
@@ -50,6 +63,7 @@
           }
         },
         "dataset": {
+          "type": "const",
           "regexp": "^[a-z]([-_a-z0-9]*[a-z0-9])?$",
           "optional": true,
           "ui": {
