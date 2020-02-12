@@ -21,11 +21,13 @@ import (
 	"flag"
 	"net/http"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 var (
@@ -33,10 +35,17 @@ var (
 	service  = osenv.VarWithDefault("DAM_SERVICE_NAME", "dam")
 	oidcAddr = osenv.MustVar("OIDC_URL")
 	port     = osenv.VarWithDefault("PERSONAS_PORT", "8090")
+	project  = osenv.MustVar("PROJECT")
+	srvName  = osenv.MustVar("TYPE")
 )
 
 func main() {
 	flag.Parse()
+
+	serviceinfo.Project = project
+	serviceinfo.ServiceType = "persona"
+	serviceinfo.ServiceName = srvName
+
 	broker, err := persona.NewBroker(oidcAddr, &testkeys.PersonaBrokerKey, service, cfgPath, true)
 	if err != nil {
 		glog.Exitf("persona.NewBroker() failed: %v", err)

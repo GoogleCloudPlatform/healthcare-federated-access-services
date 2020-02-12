@@ -20,15 +20,19 @@ import (
 	"net/http"
 	"strings"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 var (
 	hydraURL = osenv.MustVar("HYDRA_PUBLIC_URL")
 	damURL   = osenv.MustVar("DAM_URL")
+	project  = osenv.MustVar("PROJECT")
+	srvName  = osenv.MustVar("TYPE")
 
 	port = osenv.VarWithDefault("DAMDEMO_PORT", "8092")
 )
@@ -40,6 +44,11 @@ const (
 
 func main() {
 	flag.Parse()
+
+	serviceinfo.Project = project
+	serviceinfo.ServiceType = "damdemo"
+	serviceinfo.ServiceName = srvName
+
 	b, err := srcutil.Read(htmlFile)
 	if err != nil {
 		glog.Exitf("srcutil.Read(%v) failed: %v", htmlFile, err)

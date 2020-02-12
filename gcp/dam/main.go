@@ -23,12 +23,14 @@ import (
 	"net/http"
 	"os"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 var (
@@ -57,6 +59,10 @@ var (
 func main() {
 	flag.Parse()
 	ctx := context.Background()
+
+	serviceinfo.Project = project
+	serviceinfo.ServiceType = "dam"
+	serviceinfo.ServiceName = srvName
 
 	var store storage.Store
 	switch storageType {

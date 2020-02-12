@@ -23,13 +23,15 @@ import (
 	"net/http"
 	"os"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 var (
@@ -60,6 +62,10 @@ var (
 func main() {
 	flag.Parse()
 	ctx := context.Background()
+
+	serviceinfo.Project = project
+	serviceinfo.ServiceType = "ic"
+	serviceinfo.ServiceName = srvName
 
 	var store storage.Store
 	switch storageType {
