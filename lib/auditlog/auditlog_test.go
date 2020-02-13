@@ -99,7 +99,8 @@ func TestWriteAccessLog(t *testing.T) {
 
 	got := server.Server.Logs
 
-	if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(&lepb.LogEntry{}, "timestamp")); diff != "" {
+	got[0].Entries[0].Timestamp = nil
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
 	}
 }
