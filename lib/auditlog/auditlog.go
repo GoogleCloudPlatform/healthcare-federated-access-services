@@ -18,6 +18,7 @@ package auditlog
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
@@ -33,6 +34,8 @@ type AccessLog struct {
 	TokenID string
 	// TokenSubject is the "sub" of the token.
 	TokenSubject string
+	// TokenIssuer is the iss of the token.
+	TokenIssuer string
 	// RequestMethod is the http method of the request.
 	RequestMethod string
 	// RequestEndpoint is the absolute path of the request.
@@ -45,6 +48,8 @@ type AccessLog struct {
 	ResponseCode int
 	// Request stores the http.Request.
 	Request *http.Request
+	// PassAuthCheck if the request pass the auth checker.
+	PassAuthCheck bool
 	// Payload of the log.
 	Payload interface{}
 }
@@ -52,11 +57,13 @@ type AccessLog struct {
 // WriteAccessLog puts the access log to StackDriver.
 func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog) {
 	labels := map[string]string{
-		"type":          "access_log",
-		"token_id":      log.TokenID,
-		"token_subject": log.TokenSubject,
-		"request_path":  log.RequestEndpoint,
-		"error_type":    log.ErrorType,
+		"type":            "access_log",
+		"token_id":        log.TokenID,
+		"token_subject":   log.TokenSubject,
+		"token_issuer":    log.TokenIssuer,
+		"request_path":    log.RequestEndpoint,
+		"error_type":      log.ErrorType,
+		"pass_auth_check": strconv.FormatBool(log.PassAuthCheck),
 	}
 
 	req := &logging.HTTPRequest{
