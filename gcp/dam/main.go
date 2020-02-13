@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 
+	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
@@ -76,6 +77,11 @@ func main() {
 
 	wh := saw.MustBuildAccountWarehouse(ctx, store)
 
+	logger, err := logging.NewClient(ctx, project)
+	if err != nil {
+		glog.Fatalf("logging.NewClient() failed: %v", err)
+	}
+
 	if useHydra {
 		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
@@ -86,6 +92,7 @@ func main() {
 		DefaultBroker:  defaultBroker,
 		Store:          store,
 		Warehouse:      wh,
+		Logger:         logger,
 		UseHydra:       true,
 		HydraAdminURL:  hydraAdminAddr,
 		HydraPublicURL: hydraPublicAddr,

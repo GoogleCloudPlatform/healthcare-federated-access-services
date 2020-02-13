@@ -25,12 +25,14 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
@@ -51,7 +53,8 @@ var (
 )
 
 func Test_LargeBody(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 	// Build a big http body
 	sb := strings.Builder{}
 	for i := 0; i < maxHTTPBody+10; i++ {
@@ -65,7 +68,9 @@ func Test_LargeBody(t *testing.T) {
 }
 
 func Test_ErrorAtClientSecret(t *testing.T) {
-	router, oidc, service, _ := setup(t)
+	router, oidc, service, _, _, close := setup(t)
+	defer close()
+
 	service.FetchClientSecrets = func() (map[string]string, error) {
 		return nil, status.Error(codes.Unavailable, "Unavailable")
 	}
@@ -87,7 +92,8 @@ func Test_ErrorAtClientSecret(t *testing.T) {
 }
 
 func Test_RequiresClientID(t *testing.T) {
-	router, oidc, _, stub := setup(t)
+	router, oidc, _, stub, _, close := setup(t)
+	defer close()
 
 	resp := sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", router, oidc)
 	want := "GET /clientidonly"
@@ -101,7 +107,8 @@ func Test_RequiresClientID(t *testing.T) {
 }
 
 func Test_RequiresClientID_Error(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 
 	tests := []struct {
 		name     string
@@ -127,7 +134,8 @@ func Test_RequiresClientID_Error(t *testing.T) {
 }
 
 func Test_RequiresClientSecret(t *testing.T) {
-	router, oidc, _, stub := setup(t)
+	router, oidc, _, stub, _, close := setup(t)
+	defer close()
 
 	resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", router, oidc)
 	want := "GET /clientsecret"
@@ -141,7 +149,8 @@ func Test_RequiresClientSecret(t *testing.T) {
 }
 
 func Test_RequiresClientSecret_Error(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 
 	tests := []struct {
 		name         string
@@ -167,7 +176,8 @@ func Test_RequiresClientSecret_Error(t *testing.T) {
 }
 
 func Test_RequiresToken_Error(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 
 	tests := []struct {
 		name string
@@ -197,7 +207,8 @@ func Test_RequiresToken_Error(t *testing.T) {
 }
 
 func Test_RequiresToken_JWT_Invalid_Signature(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 
 	now := time.Now().Unix()
 	claims := &ga4gh.Identity{
@@ -228,7 +239,8 @@ func Test_RequiresToken_JWT_Invalid_Signature(t *testing.T) {
 }
 
 func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 
 	now := time.Now().Unix()
 	tests := []struct {
@@ -306,7 +318,8 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 }
 
 func Test_RequiresUserToken(t *testing.T) {
-	router, oidc, _, stub := setup(t)
+	router, oidc, _, stub, _, close := setup(t)
+	defer close()
 
 	now := time.Now().Unix()
 	claims := &ga4gh.Identity{
@@ -340,7 +353,8 @@ func Test_RequiresUserToken(t *testing.T) {
 }
 
 func Test_RequiresUserToken_UserNotMatch(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 
 	now := time.Now().Unix()
 	claims := &ga4gh.Identity{
@@ -369,7 +383,8 @@ func Test_RequiresUserToken_UserNotMatch(t *testing.T) {
 }
 
 func Test_RequiresAdminToken(t *testing.T) {
-	router, oidc, _, stub := setup(t)
+	router, oidc, _, stub, _, close := setup(t)
+	defer close()
 
 	now := time.Now().Unix()
 	claims := &ga4gh.Identity{
@@ -403,7 +418,8 @@ func Test_RequiresAdminToken(t *testing.T) {
 }
 
 func Test_RequiresAdminToken_Error(t *testing.T) {
-	router, oidc, _, _ := setup(t)
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
 
 	now := time.Now().Unix()
 	claims := &ga4gh.Identity{
@@ -454,7 +470,7 @@ func Test_normalize(t *testing.T) {
 	}
 }
 
-func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub) {
+func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub, *logging.Client, func()) {
 	t.Helper()
 
 	oidc, err := fakeoidcissuer.New(issuerURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
@@ -462,7 +478,10 @@ func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handle
 		t.Fatalf("fakeoidcissuer.New(%q, _, _, _, _) failed: %v", issuerURL, err)
 	}
 
+	logs, close := fakesdl.New()
+
 	c := &Checker{
+		Logger:             logs.Client,
 		Issuer:             issuerURL,
 		FetchClientSecrets: clientSecrets,
 		TransformIdentity:  transformIdentity,
@@ -481,7 +500,7 @@ func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handle
 		r.HandleFunc(k, h)
 	}
 
-	return r, oidc, c, stub
+	return r, oidc, c, stub, logs.Client, close
 }
 
 func sendRequest(method, path, clientID, clientSecret, token, body string, handler http.Handler, oidc *fakeoidcissuer.Server) *http.Response {

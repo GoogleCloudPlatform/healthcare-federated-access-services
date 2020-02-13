@@ -19,8 +19,10 @@ import (
 	"net/http"
 	"testing"
 
+	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 
@@ -31,7 +33,7 @@ import (
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
 )
 
-func TestLoggingAccessLog(t *testing.T) {
+func TestWriteAccessLog(t *testing.T) {
 	server, close := fakesdl.New()
 	defer close()
 
@@ -99,5 +101,25 @@ func TestLoggingAccessLog(t *testing.T) {
 
 	if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(&lepb.LogEntry{}, "timestamp")); diff != "" {
 		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteAccessLog_Disable_nil(t *testing.T) {
+	writeLog(nil, logging.Entry{Payload: "this is a log"})
+
+	// Do not crash.
+}
+
+func TestDisable_flag(t *testing.T) {
+	globalflags.DisableAuditLog = true
+	defer func() { globalflags.DisableAuditLog = false }()
+
+	server, close := fakesdl.New()
+	defer close()
+
+	writeLog(server.Client, logging.Entry{Payload: "this is a log"})
+
+	if len(server.Server.Logs) != 0 {
+		t.Errorf("logs should not push to server")
 	}
 }

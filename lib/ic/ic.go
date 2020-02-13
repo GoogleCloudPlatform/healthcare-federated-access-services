@@ -35,6 +35,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
@@ -217,6 +218,7 @@ type Service struct {
 	hydraPublicURL        string
 	translators           sync.Map
 	encryption            Encryption
+	logger                *logging.Client
 	useHydra              bool
 }
 
@@ -245,6 +247,8 @@ type Options struct {
 	Store storage.Store
 	// Encryption: the encryption use for storing tokens safely in database.
 	Encryption Encryption
+	// Logger: audit log logger
+	Logger *logging.Client
 	// UseHydra: service use hydra integrated OIDC.
 	UseHydra bool
 	// HydraAdminURL: hydra admin endpoints url.
@@ -293,6 +297,7 @@ func NewService(params *Options) *Service {
 		hydraAdminURL:         params.HydraAdminURL,
 		hydraPublicURL:        params.HydraPublicURL,
 		encryption:            params.Encryption,
+		logger:                params.Logger,
 		useHydra:              params.UseHydra,
 	}
 
@@ -1897,6 +1902,7 @@ func (s *Service) ImportFiles(importType string) error {
 func registerHandlers(r *mux.Router, s *Service) {
 	a := &authChecker{s: s}
 	checker := &auth.Checker{
+		Logger:             s.logger,
 		Issuer:             s.getIssuerString(),
 		FetchClientSecrets: a.fetchClientSecrets,
 		IsAdmin:            a.isAdmin,

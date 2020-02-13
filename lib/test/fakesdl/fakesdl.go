@@ -57,8 +57,8 @@ func New() (*Fake, func()) {
 			Server: s,
 			Client: c,
 		}, func() {
-			stop()
 			cleanup()
+			stop()
 		}
 }
 

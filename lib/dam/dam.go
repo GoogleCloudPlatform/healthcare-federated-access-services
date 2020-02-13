@@ -32,6 +32,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -88,6 +89,7 @@ type Service struct {
 	hydraPublicURL string
 	store          storage.Store
 	warehouse      clouds.ResourceTokenCreator
+	logger         *logging.Client
 	permissions    *permissions.Permissions
 	Handler        *ServiceHandler
 	httpClient     *http.Client
@@ -115,6 +117,8 @@ type Options struct {
 	Store storage.Store
 	// Warehouse: resource token creator service
 	Warehouse clouds.ResourceTokenCreator
+	// Logger: audit log logger
+	Logger *logging.Client
 	// UseHydra: service use hydra integrated OIDC.
 	UseHydra bool
 	// HydraAdminURL: hydra admin endpoints url
@@ -143,6 +147,7 @@ func NewService(params *Options) *Service {
 		serviceName:    params.ServiceName,
 		store:          params.Store,
 		warehouse:      params.Warehouse,
+		logger:         params.Logger,
 		permissions:    perms,
 		Handler:        sh,
 		httpClient:     params.HTTPClient,
@@ -1131,6 +1136,7 @@ func getFileStore(store storage.Store, service string) storage.Store {
 func registerHandlers(r *mux.Router, s *Service) {
 	a := &authChecker{s: s}
 	checker := &auth.Checker{
+		Logger:             s.logger,
 		Issuer:             s.getIssuerString(),
 		FetchClientSecrets: a.fetchClientSecrets,
 		IsAdmin:            a.isAdmin,

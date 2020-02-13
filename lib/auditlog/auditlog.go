@@ -20,8 +20,10 @@ import (
 	"net/http"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	mrpb "google.golang.org/genproto/googleapis/api/monitoredres" /* copybara-comment */
 )
 
@@ -49,8 +51,6 @@ type AccessLog struct {
 
 // WriteAccessLog puts the access log to StackDriver.
 func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog) {
-	l := client.Logger("federated-access-audit")
-
 	labels := map[string]string{
 		"type":          "access_log",
 		"token_id":      log.TokenID,
@@ -72,7 +72,7 @@ func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog)
 		Resource:    buildResource(),
 	}
 
-	l.Log(entry)
+	writeLog(client, entry)
 }
 
 func buildResource() *mrpb.MonitoredResource {
@@ -84,4 +84,17 @@ func buildResource() *mrpb.MonitoredResource {
 			"service_name": serviceinfo.Name,
 		},
 	}
+}
+
+func writeLog(client *logging.Client, e logging.Entry) {
+	if globalflags.DisableAuditLog {
+		return
+	}
+
+	if client == nil {
+		glog.Info("no logging client is provided for audit logging")
+		return
+	}
+
+	client.Logger("federated-access-audit").Log(e)
 }

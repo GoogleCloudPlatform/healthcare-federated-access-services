@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"strings"
 
-	glog "github.com/golang/glog" /* copybara-comment */
+	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -33,6 +33,8 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 const (
@@ -65,6 +67,8 @@ type Role string
 
 // Checker stores information and functions for authorization check.
 type Checker struct {
+	// Audit log logger.
+	Logger *logging.Client
 	// Accepted oidc Issuer url.
 	Issuer string
 	// FetchClientSecrets fetchs client id and client secret.
