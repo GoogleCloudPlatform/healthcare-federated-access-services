@@ -415,7 +415,20 @@ func (m *Process_Status) GetState() Process_Status_State {
 type Process_Project struct {
 	// Time when the project settings were last modified.
 	Modified *timestamp.Timestamp `protobuf:"bytes,1,opt,name=modified,proto3" json:"modified,omitempty"`
-	// Input parameters of the project.
+	// Input parameters of the project. These will vary depending on the needs
+	// of process workers that may need input parameters to complete their work.
+	// Example: if there were a rename process that occationally updates the
+	// names of objects in the storage layer, then it may have params of:
+	//   {
+	//     "stringParams": {
+	//       "find": "old_name",
+	//       "replace": "new_name"
+	//     }
+	//     "intParams": {
+	//       "maxReplacements": 1
+	//     }
+	//   }
+	// Note: this structure allows input parameters to vary between projects.
 	Params *Process_Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params,omitempty"`
 	// Project status. Changes here do not cause "modified" settings timestamp
 	// to change.

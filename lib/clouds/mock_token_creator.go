@@ -53,7 +53,12 @@ func NewMockTokenCreator(includeParams bool) *MockTokenCreator {
 }
 
 // RegisterAccountProject registers account hosting project in key garbage collector.
-func (m *MockTokenCreator) RegisterAccountProject(realm, project string, maxRequestedTTL int, keysPerAccount int) error {
+func (m *MockTokenCreator) RegisterAccountProject(project string) error {
+	return nil
+}
+
+// UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
+func (m *MockTokenCreator) UnregisterAccountProject(project string) error {
 	return nil
 }
 

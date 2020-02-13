@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"google.golang.org/api/iam/v1" /* copybara-comment: iam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 )
@@ -79,7 +79,7 @@ func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, 
 	)
 	maxErrors := 20
 	aborted := ""
-	err := wh.GetServiceAccounts(ctx, project, func(sa *iam.ServiceAccount) bool {
+	err := wh.GetServiceAccounts(ctx, project, func(sa *clouds.Account) bool {
 		// DAM adds service account DisplayName of the form: subject|service_full_path
 		// so pull out the service_full_path and match on the accountPrefix provided.
 		parts := strings.SplitN(sa.DisplayName, "|", 2)
@@ -87,7 +87,7 @@ func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, 
 			skipped++
 			return true
 		}
-		emails = append(emails, sa.Email)
+		emails = append(emails, sa.ID)
 		return true
 	})
 	if err != nil {

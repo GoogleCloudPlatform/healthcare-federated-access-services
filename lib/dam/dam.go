@@ -1018,12 +1018,18 @@ func (s *Service) realmReadTx(datatype, realm, user, id string, rev int64, item 
 	return http.StatusServiceUnavailable, fmt.Errorf("service storage unavailable: %v, retry later", err)
 }
 
-func (s *Service) registerProject(cfg *pb.DamConfig, realm string) error {
+func (s *Service) registerProject(project string) error {
 	if s.warehouse == nil {
 		return nil
 	}
-	ttl, _ := common.ParseDuration(cfg.Options.GcpManagedKeysMaxRequestedTtl, maxTTL)
-	return s.warehouse.RegisterAccountProject(realm, cfg.Options.GcpServiceAccountProject, int(ttl.Seconds()), int(cfg.Options.GcpManagedKeysPerAccount))
+	return s.warehouse.RegisterAccountProject(project)
+}
+
+func (s *Service) unregisterProject(project string) error {
+	if s.warehouse == nil {
+		return nil
+	}
+	return s.warehouse.UnregisterAccountProject(project)
 }
 
 // ImportFiles ingests bootstrap configuration files to the DAM's storage sytem.
@@ -1087,7 +1093,7 @@ func (s *Service) ImportFiles(importType string) error {
 	if err = s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
 		return err
 	}
-	return s.registerProject(cfg, storage.DefaultRealm)
+	return s.registerProject(cfg.Options.GcpServiceAccountProject)
 }
 
 func isAutoReset() bool {

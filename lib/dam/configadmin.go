@@ -133,7 +133,7 @@ func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string,
 		}
 	}
 	if !proto.Equal(h.cfg.Options, h.save.Options) {
-		return h.s.registerProject(h.save, getRealm(h.r))
+		return h.s.registerProject(h.save.Options.GcpServiceAccountProject)
 	}
 	return nil
 }
@@ -226,7 +226,7 @@ func (h *configOptionsHandler) Save(tx storage.Tx, name string, vars map[string]
 		return err
 	}
 	if h.orig != nil && !proto.Equal(h.orig, h.save) {
-		return h.s.registerProject(h.cfg, getRealm(h.r))
+		return h.s.registerProject(h.save.GcpServiceAccountProject)
 	}
 	return nil
 }

@@ -43,7 +43,10 @@ type ResourceTokenResult struct {
 type ResourceTokenCreator interface {
 
 	// RegisterAccountProject registers account hosting project in key garbage collector.
-	RegisterAccountProject(realm, project string, maxRequestedTTL int, keysPerAccount int) error
+	RegisterAccountProject(project string) error
+
+	// UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
+	UnregisterAccountProject(project string) error
 
 	// MintTokenWithTTL returns an account and a newly minted resource token for resource accessing.
 	MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (*ResourceTokenResult, error)

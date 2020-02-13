@@ -110,14 +110,14 @@ func (h *realmHandler) Remove(name string) error {
 	if name == storage.DefaultRealm {
 		return h.s.ImportFiles(importDefault)
 	}
-	return h.s.unregisterRealm(h.cfg, name)
-}
-
-func (s *Service) unregisterRealm(cfg *pb.DamConfig, realm string) error {
-	if s.warehouse == nil {
-		return nil
+	cfg, err := h.s.loadConfig(h.tx, storage.DefaultRealm)
+	if err != nil {
+		return err
 	}
-	return s.warehouse.RegisterAccountProject(realm, "", 0, 0)
+	if cfg.Options.GcpServiceAccountProject != h.cfg.Options.GcpServiceAccountProject {
+		return h.s.unregisterProject(h.cfg.Options.GcpServiceAccountProject)
+	}
+	return nil
 }
 
 func (h *realmHandler) CheckIntegrity() *status.Status {

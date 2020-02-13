@@ -182,49 +182,6 @@ message PassportTranslator {
 
 ///////////////////////////////////////////////////
 
-message BackgroundProcess {
-  message Error {
-    int64 timestamp = 1;
-    string text = 2;
-  }
-  message Params {
-    map<string, int64> int_params = 1;
-  }
-  message Status {
-    int64 start_time = 1;
-    int64 finish_time = 2;
-    int64 last_error_timestamp = 3;
-    map<string, int64> stats = 4;
-    repeated Error errors = 5;
-    Params params = 6;
-  }
-  message Project {
-    int64 timestamp = 1;
-    Params params = 2;
-  }
-  message Realm {
-    int64 timestamp = 1;
-    string project = 2;
-    Params params = 3;
-  }
-  string process_name = 1;
-  string instance = 2;
-  int64 start_time = 3;
-  int64 progress_time = 4;
-  int64 finish_time = 5;
-  int64 success_start_time = 6;
-  int64 success_finish_time = 7;
-  int64 settings_change_time = 8;
-  map<string, Project> active_projects = 9;
-  map<string, Realm> active_realms = 10;
-  map<string, int64> cleanup_projects = 11;
-  map<string, int64> dropped_projects = 12;
-  map<string, Status> project_status = 13;
-  Status success_status = 14;
-}
-
-///////////////////////////////////////////////////
-
 message GetInfoRequest {}
 
 message GetInfoResponse {

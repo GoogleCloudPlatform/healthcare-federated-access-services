@@ -33,6 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/process" /* copybara-comment: process */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	// Using a deprecated library because the new version doesn't support setting IAM roles in
@@ -82,7 +83,7 @@ type AccountWarehouse struct {
 	crm   *cloudresourcemanager.Service
 	cs    *cloudstorage.Service
 	bqDs  *bigquery.DatasetsService
-	keyGC *KeyGarbageCollector
+	keyGC *process.KeyGC
 }
 
 // MustBuildAccountWarehouse builds a *AccountWarehouse. It panics on failure.
@@ -138,19 +139,25 @@ func NewAccountWarehouse(client *http.Client, store storage.Store) (*AccountWare
 		bqDs:  bqDs,
 	}
 
-	gc, err := NewKeyGarbageCollector(store, wh)
-	if err != nil {
-		return nil, fmt.Errorf("creating key garbage collector: %v", err)
-	}
-	wh.keyGC = gc
+	// TODO: fix input parameters based on config file.
+	wh.keyGC = process.NewKeyGC("gcp_key_gc", wh, store, 14*24*3600, defaultKeysPerAccount)
 	return wh, nil
 }
 
-func (wh *AccountWarehouse) RegisterAccountProject(realm, project string, maxRequestedTTL int, keysPerAccount int) error {
-	if keysPerAccount == 0 {
-		keysPerAccount = defaultKeysPerAccount
-	}
-	return wh.keyGC.RegisterProject(realm, project, time.Second*time.Duration(maxRequestedTTL), keysPerAccount)
+// RegisterAccountProject adds a project to the state for workers to process.
+func (wh *AccountWarehouse) RegisterAccountProject(project string) error {
+	_, err := wh.keyGC.RegisterProject(project, nil)
+	return err
+}
+
+// UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
+func (wh *AccountWarehouse) UnregisterAccountProject(project string) error {
+	return wh.keyGC.UnregisterProject(project)
+}
+
+// UpdateSettings alters resource management settings.
+func (wh *AccountWarehouse) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error {
+	return wh.keyGC.UpdateSettings(maxRequestedTTL, keysPerAccount)
 }
 
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
@@ -241,7 +248,7 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 	}
 	makeRoom := numKeys - 1
 	keyTTL := common.KeyTTL(maxTTL, numKeys)
-	_, _, _, err = wh.ManageAccountKeys(ctx, params.AccountProject, account, ttl, keyTTL, makeRoom)
+	_, _, err = wh.ManageAccountKeys(ctx, params.AccountProject, account, ttl, keyTTL, makeRoom)
 	if err != nil {
 		return nil, fmt.Errorf("garbage collecting keys: %v", err)
 	}
@@ -271,12 +278,12 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 	}, nil
 }
 
-func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, account string, ttl, maxKeyTTL time.Duration, keysPerAccount int) (*iam.ServiceAccountKey, int, int, error) {
+func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, account string, ttl, maxKeyTTL time.Duration, keysPerAccount int) (int, int, error) {
 	active := 0
 	removed := 0
 	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(accountID(inheritProject, account)).KeyTypes("USER_MANAGED").Context(ctx).Do()
 	if err != nil {
-		return nil, active, removed, fmt.Errorf("getting key list: %v", err)
+		return active, removed, fmt.Errorf("getting key list: %v", err)
 	}
 	active = len(k.Keys)
 	rmTime := common.PastTimestamp(maxKeyTTL)
@@ -285,7 +292,7 @@ func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, acco
 	for i := 0; i < len(k.Keys); i++ {
 		if k.Keys[i].ValidAfterTime < rmTime {
 			if _, err = wh.iam.Projects.ServiceAccounts.Keys.Delete(k.Keys[i].Name).Context(ctx).Do(); err != nil {
-				return nil, active, removed, fmt.Errorf("deleting key: %v", err)
+				return active, removed, fmt.Errorf("deleting key: %v", err)
 			}
 			k.Keys = append(k.Keys[:i], k.Keys[i+1:]...)
 			i--
@@ -309,13 +316,13 @@ func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, acco
 			}
 		}
 		if _, err = wh.iam.Projects.ServiceAccounts.Keys.Delete(k.Keys[oldIdx].Name).Context(ctx).Do(); err != nil {
-			return nil, active, removed, fmt.Errorf("deleting key: %v", err)
+			return active, removed, fmt.Errorf("deleting key: %v", err)
 		}
 		k.Keys = append(k.Keys[:oldIdx], k.Keys[oldIdx+1:]...)
 		active--
 		removed++
 	}
-	return nil, active, removed, nil
+	return active, removed, nil
 }
 
 // GetAccessToken returns an access token for the service account uniquely
@@ -340,11 +347,16 @@ func (wh *AccountWarehouse) GetAccessToken(ctx context.Context, id string, param
 	}, nil
 }
 
-func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, project string, callback func(sa *iam.ServiceAccount) bool) error {
+func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, project string, callback func(sa *clouds.Account) bool) error {
 	req := wh.iam.Projects.ServiceAccounts.List("projects/" + project)
 	if err := req.Pages(ctx, func(page *iam.ListServiceAccountsResponse) error {
 		for _, serviceAccount := range page.Accounts {
-			if callback(serviceAccount) == false {
+			account := &clouds.Account{
+				ID:          serviceAccount.Email,
+				DisplayName: serviceAccount.DisplayName,
+				Description: serviceAccount.Description,
+			}
+			if callback(account) == false {
 				break
 			}
 		}
