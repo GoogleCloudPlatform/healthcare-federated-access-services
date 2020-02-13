@@ -21,6 +21,8 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
@@ -181,7 +183,7 @@ func (m *mockMergeWorker) Wait(ctx context.Context, duration time.Duration) bool
 	return true
 }
 
-func TestProcessMerge(t *testing.T) {
+func TestProcess_Merge(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	mock := &mockMergeWorker{store: store}
 	process := NewProcess(testProcessName, mock, store, 0, nil)
@@ -258,5 +260,60 @@ func TestProcessMerge(t *testing.T) {
 	sort.Strings(dropped)
 	if diff := cmp.Diff([]string{"cleanup_only", "sunset"}, dropped); diff != "" {
 		t.Errorf("process dropped projects match failed (-want +got):\n%s", diff)
+	}
+}
+
+func TestProcess_Conflict(t *testing.T) {
+	store := storage.NewMemoryStorage("dam", "testdata/config")
+	mock := &mockWorker{}
+	process := NewProcess(testProcessName, mock, store, 0, nil)
+
+	state := &pb.Process{}
+	if err := store.Read(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, testProcessName, storage.LatestRev, state); err != nil {
+		t.Fatalf(`Read(_, _, _, %q, _, _) failed: %v`, testProcessName, err)
+	}
+
+	state.Instance = "foo"
+	progress, err := process.update(state)
+	if progress != Conflict {
+		t.Errorf("update(state) returned unexpected progress: want %q, got %q", Conflict, progress)
+	}
+	if err == nil {
+		t.Errorf("update(state) returned unexpected success: conflict expected with an error")
+	}
+}
+
+func TestProcess_UpdateSettings(t *testing.T) {
+	store := storage.NewMemoryStorage("dam", "testdata/config")
+	mock := &mockWorker{}
+	initFreq := 3 * time.Hour
+	updateFreq := 5 * time.Hour
+	initSettings := &pb.Process_Params{
+		IntParams:    map[string]int64{"a": 1},
+		StringParams: map[string]string{"foo": "bar"},
+	}
+	updateSettings := &pb.Process_Params{
+		IntParams:    map[string]int64{"a": 1, "b": 2},
+		StringParams: map[string]string{"hello": "world"},
+	}
+	process := NewProcess(testProcessName, mock, store, initFreq, initSettings)
+	process.RegisterProject("foo", nil)
+	process.UpdateSettings(updateFreq, updateSettings)
+	process.RegisterProject("bar", nil)
+
+	input := &pb.Process{}
+	if err := store.Read(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, testProcessName, storage.LatestRev, input); err != nil {
+		t.Fatalf(`Read(_, _, _, %q, _, _) failed: %v`, testProcessName, err)
+	}
+
+	inputFreq, err := ptypes.Duration(input.ScheduleFrequency)
+	if err != nil {
+		t.Errorf("ptypes.Duration(%v) failed: %v", input.ScheduleFrequency, err)
+	}
+	if updateFreq != inputFreq {
+		t.Errorf("scheduleFrequency mismatch: want %v, got %v", updateFreq, inputFreq)
+	}
+	if !proto.Equal(updateSettings, input.Settings) {
+		t.Errorf("process settings mismatch: want %+v, got %+v", updateSettings, input.Settings)
 	}
 }

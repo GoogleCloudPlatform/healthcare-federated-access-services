@@ -48,6 +48,9 @@ type ResourceTokenCreator interface {
 	// UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
 	UnregisterAccountProject(project string) error
 
+	// UpdateSettings alters resource management settings.
+	UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error
+
 	// MintTokenWithTTL returns an account and a newly minted resource token for resource accessing.
 	MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (*ResourceTokenResult, error)
 

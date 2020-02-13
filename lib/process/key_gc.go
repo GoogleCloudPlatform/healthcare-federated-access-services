@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	keyScheduleFrequency = time.Hour
+	keyScheduleFrequency    = time.Hour
+	maxKeyScheduleFrequency = 12 * time.Hour
 )
 
 // KeyGC is a service account key garbage collector background process.
@@ -66,14 +67,19 @@ func (k *KeyGC) UnregisterProject(projectName string) error {
 
 // UpdateSettings alters resource management settings.
 func (k *KeyGC) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error {
-	params := &pb.Process_Params{
+	keyTTL := common.KeyTTL(maxRequestedTTL, keysPerAccount)
+	settings := &pb.Process_Params{
 		IntParams: map[string]int64{
 			"maxRequestedTtl": int64(maxRequestedTTL.Seconds()),
 			"keysPerAccount":  int64(keysPerAccount),
-			"keyTtl":          int64(common.KeyTTL(maxRequestedTTL, keysPerAccount).Seconds()),
+			"keyTtl":          int64(keyTTL.Seconds()),
 		},
 	}
-	return k.process.UpdateSettings(params)
+	scheduleFrequency := keyTTL / 10
+	if scheduleFrequency > maxKeyScheduleFrequency {
+		scheduleFrequency = maxKeyScheduleFrequency
+	}
+	return k.process.UpdateSettings(scheduleFrequency, settings)
 }
 
 // WaitCondition registers a callback that is called and checks conditions before every wait cycle.

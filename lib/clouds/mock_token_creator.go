@@ -62,6 +62,11 @@ func (m *MockTokenCreator) UnregisterAccountProject(project string) error {
 	return nil
 }
 
+// UpdateSettings alters resource management settings.
+func (m *MockTokenCreator) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error {
+	return nil
+}
+
 // MintTokenWithTTL returns an account and a resource token for resource accessing.
 func (m *MockTokenCreator) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (*ResourceTokenResult, error) {
 	m.tokID++

@@ -54,6 +54,7 @@ const (
 	datasetVariable       = "dataset"
 	inheritProject        = "-"
 	gcMaxTTL              = 180 * 24 * 60 * 60 /* 180 days */
+	defaultGcFrequency    = 14 * 24 * 60 * 60  /* 14 days */
 	defaultKeysPerAccount = 10
 
 	backoffInitialInterval     = 1 * time.Second
@@ -140,7 +141,9 @@ func NewAccountWarehouse(client *http.Client, store storage.Store) (*AccountWare
 	}
 
 	// TODO: fix input parameters based on config file.
-	wh.keyGC = process.NewKeyGC("gcp_key_gc", wh, store, 14*24*3600, defaultKeysPerAccount)
+	wh.keyGC = process.NewKeyGC("gcp_key_gc", wh, store, defaultGcFrequency, defaultKeysPerAccount)
+	go wh.keyGC.Run(context.Background())
+
 	return wh, nil
 }
 

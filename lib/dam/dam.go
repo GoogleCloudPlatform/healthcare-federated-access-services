@@ -68,9 +68,10 @@ const (
 var (
 	ttlRE = regexp.MustCompile(`^[0-9]+[smhdw]$`)
 
-	defaultTTL = 1 * time.Hour
-	maxTTL     = 90 * 24 * time.Hour // keep in sync with maxTTLStr
-	maxTTLStr  = "90 days"           // keep in sync with maxTTL
+	defaultTTL             = 1 * time.Hour
+	defaultMaxRequestedTTL = 14 * 24 * time.Hour
+	maxTTL                 = 90 * 24 * time.Hour // keep in sync with maxTTLStr
+	maxTTLStr              = "90 days"           // keep in sync with maxTTL
 
 	translators = translator.PassportTranslators()
 
@@ -181,6 +182,8 @@ func NewService(params *Options) *Service {
 	if stat := s.CheckIntegrity(cfg); stat != nil {
 		glog.Fatalf("config integrity error: %+v", stat.Proto())
 	}
+
+	s.updateWarehouse(cfg.Options)
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
 	if tests := s.runTests(ctx, cfg, nil); hasTestError(tests) {
@@ -888,19 +891,21 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 			Regexp:      "^[\\w\\-\\.]+$",
 		},
 		"gcpManagedKeysMaxRequestedTtl": {
-			Label:       "GCP Managed Keys Maximum Requested TTL",
-			Description: "The maximum TTL of a requested access token on GCP and this setting is used in conjunction with managedKeysPerAccount to set up managed access key rotation policies within DAM (disabled by default)",
-			Type:        "string:duration",
-			Regexp:      common.DurationRegexpString,
-			Min:         "2h",
-			Max:         "180d",
+			Label:        "GCP Managed Keys Maximum Requested TTL",
+			Description:  "The maximum TTL of a requested access token on GCP and this setting is used in conjunction with managedKeysPerAccount to set up managed access key rotation policies within DAM (disabled by default)",
+			Type:         "string:duration",
+			Regexp:       common.DurationRegexpString,
+			Min:          "2h",
+			Max:          "180d",
+			DefaultValue: common.TtlString(defaultMaxRequestedTTL),
 		},
 		"gcpManagedKeysPerAccount": {
-			Label:       "GCP Managed Keys Per Account",
-			Description: "GCP allows up to 10 access keys of more than 1h to be active per account and this option allows DAM to manage a subset of these keys",
-			Type:        "int",
-			Min:         "0",
-			Max:         "10",
+			Label:        "GCP Managed Keys Per Account",
+			Description:  "GCP allows up to 10 access keys of more than 1h to be active per account and this option allows DAM to manage a subset of these keys",
+			Type:         "int",
+			Min:          "0",
+			Max:          "10",
+			DefaultValue: "10",
 		},
 		"gcpServiceAccountProject": {
 			Label:       "GCP Service Account Project",
@@ -1030,6 +1035,18 @@ func (s *Service) unregisterProject(project string) error {
 		return nil
 	}
 	return s.warehouse.UnregisterAccountProject(project)
+}
+
+func (s *Service) updateWarehouse(opts *pb.ConfigOptions) {
+	if s.warehouse == nil {
+		return
+	}
+	ttl, _ := common.ParseDuration(opts.GcpManagedKeysMaxRequestedTtl, defaultMaxRequestedTTL)
+	keys := int(opts.GcpManagedKeysPerAccount)
+	s.warehouse.UpdateSettings(ttl, keys)
+	if len(opts.GcpServiceAccountProject) > 0 {
+		s.registerProject(opts.GcpServiceAccountProject)
+	}
 }
 
 // ImportFiles ingests bootstrap configuration files to the DAM's storage sytem.

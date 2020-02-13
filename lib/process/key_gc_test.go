@@ -20,6 +20,7 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -91,5 +92,30 @@ func TestKeyGC(t *testing.T) {
 	wantState := pb.Process_Status_COMPLETED
 	if gotStatus.State != wantState {
 		t.Errorf("process status state failed: got %q, want %q", gotStatus.State, wantState)
+	}
+}
+
+func TestKeyGC_UpdateSettings(t *testing.T) {
+	store := storage.NewMemoryStorage("dam", "testdata/config")
+	wh := clouds.NewMockAccountManager([]*clouds.Account{})
+	processName := "gcp_keys"
+	gc := NewKeyGC(processName, wh, store, 10*time.Hour, 10)
+
+	initFreq := time.Hour
+	if initFreq != gc.process.scheduleFrequency {
+		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", initFreq, gc.process.scheduleFrequency)
+	}
+
+	gc.UpdateSettings(100*time.Hour, 6)
+
+	want := &pb.Process_Params{
+		IntParams: map[string]int64{"keyTtl": 420001, "keysPerAccount": 6, "maxRequestedTtl": 360000},
+	}
+	if !proto.Equal(want, gc.process.defaultSettings) {
+		t.Errorf("process settings mismatch: want %+v, got %+v", want, gc.process.defaultSettings)
+	}
+	wantFreq, _ := time.ParseDuration("11h40m0.1s")
+	if wantFreq != gc.process.scheduleFrequency {
+		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", wantFreq, gc.process.scheduleFrequency)
 	}
 }

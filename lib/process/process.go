@@ -54,10 +54,18 @@ const (
 	// Abort indicates this error exceeds max error tolerance.
 	Abort ErrorAction = "Abort"
 
+	// Completed indicates that execution has terminated normally due to completion of work.
+	Completed Progress = "Completed"
 	// Updated indicates that the state was updated in storage.
 	Updated Progress = "Updated"
 	// Merged indicates that the state was merged, then updated in storage.
 	Merged Progress = "Merged"
+	// Aborted indicates that errors caused execution to prematurely stop (incomplete).
+	Aborted Progress = "Aborted"
+	// Conflict indicates that the state ownership was taken over by another instance.
+	// Unlike Aborted, the Conflict level indicates that any further writes of state
+	// to storage should not be attempted.
+	Conflict Progress = "Conflict"
 	// None indicates that there was no storage update at this time.
 	None Progress = "None"
 )
@@ -89,19 +97,7 @@ type Worker interface {
 //   - scheduleFrequency may be adjusted to meet schedule frequency constraints.
 func NewProcess(name string, worker Worker, store storage.Store, scheduleFrequency time.Duration, defaultSettings *pb.Process_Params) *Process {
 	rand.Seed(time.Now().UTC().UnixNano())
-	// Adjust processFrequency and progressFrequency such that:
-	// 1. Workers do not fire too often, causing timing errors.
-	// 2. Progress occurs frequently enough that lock ownership remains in place with occasional update() errors.
-	minScheduleFrequency := 15 * time.Minute
-	if scheduleFrequency < minScheduleFrequency {
-		scheduleFrequency = minScheduleFrequency
-	}
-	maxProgressFrequency := minScheduleFrequency / 3
-	progressFrequency := scheduleFrequency / 10
-	if progressFrequency > maxProgressFrequency {
-		progressFrequency = maxProgressFrequency
-	}
-
+	scheduleFrequency, progressFrequency := frequency(scheduleFrequency)
 	return &Process{
 		name:              name,
 		worker:            worker,
@@ -130,7 +126,6 @@ func (p *Process) RegisterProject(projectName string, projectParams *pb.Process_
 	}
 
 	now := ptypes.TimestampNow()
-	save := false
 	if projectParams == nil {
 		projectParams = &pb.Process_Params{}
 	}
@@ -140,20 +135,19 @@ func (p *Process) RegisterProject(projectName string, projectParams *pb.Process_
 		Status:   newStatus(pb.Process_Status_NEW),
 	}
 	old, ok := state.ActiveProjects[projectName]
-	if !ok || !proto.Equal(old.Params, proj.Params) {
-		save = true
+	if ok && proto.Equal(old.Params, proj.Params) {
+		glog.Infof("process %q instance %q verified project %q was already registered with the same parameters", p.name, instanceID, projectName)
+		return proj, nil
 	}
 	state.ActiveProjects[projectName] = proj
 	delete(state.CleanupProjects, projectName)
 	delete(state.DroppedProjects, projectName)
 
-	if save {
-		state.SettingsTime = ptypes.TimestampNow()
-		if err := p.store.WriteTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, p.name, storage.LatestRev, state, nil, tx); err != nil {
-			return nil, fmt.Errorf("process %q unable to write state in data storage layer: %v", p.name, err)
-		}
+	state.SettingsTime = ptypes.TimestampNow()
+	if err := p.writeState(state, tx); err != nil {
+		return nil, err
 	}
-	glog.Infof("process %q registered project %q settings: %+v", p.name, projectName, proj.Params)
+	glog.Infof("process %q instance %q registered project %q settings: %+v", p.name, instanceID, projectName, proj.Params)
 	return proj, nil
 }
 
@@ -179,15 +173,15 @@ func (p *Process) UnregisterProject(projectName string) error {
 	delete(state.ActiveProjects, projectName)
 	state.CleanupProjects[projectName] = ptypes.TimestampNow()
 	state.SettingsTime = ptypes.TimestampNow()
-	if err := p.store.WriteTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, p.name, storage.LatestRev, state, nil, tx); err != nil {
-		return fmt.Errorf("process %q unable to write state in data storage layer: %v", p.name, err)
+	if err := p.writeState(state, tx); err != nil {
+		return err
 	}
-	glog.Infof("process %s scheduling: project %q scheduled for clean up", p.name, projectName)
+	glog.Infof("process %s instance %q scheduling: project %q scheduled for clean up", p.name, instanceID, projectName)
 	return nil
 }
 
 // UpdateSettings alters resource management settings.
-func (p *Process) UpdateSettings(settings *pb.Process_Params) error {
+func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.Process_Params) error {
 	p.defaultSettings = settings
 
 	tx := p.store.LockTx(p.name, 0, nil)
@@ -203,9 +197,18 @@ func (p *Process) UpdateSettings(settings *pb.Process_Params) error {
 
 	state.Settings = settings
 	state.SettingsTime = ptypes.TimestampNow()
+	if scheduleFrequency > 0 {
+		scheduleFrequency, progressFrequency := frequency(scheduleFrequency)
+		state.ScheduleFrequency = ptypes.DurationProto(scheduleFrequency)
 
-	if err := p.store.WriteTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, p.name, storage.LatestRev, state, nil, tx); err != nil {
-		return fmt.Errorf("process %q unable to write state in data storage layer: %v", p.name, err)
+		p.mutex.Lock()
+		p.scheduleFrequency = scheduleFrequency
+		p.progressFrequency = progressFrequency
+		p.mutex.Unlock()
+	}
+
+	if err := p.writeState(state, tx); err != nil {
+		return err
 	}
 	return nil
 }
@@ -213,26 +216,32 @@ func (p *Process) UpdateSettings(settings *pb.Process_Params) error {
 // Run schedules a background process. Typically this will be on its own go routine.
 func (p *Process) Run(ctx context.Context) {
 	freq := time.Minute
-	for sleep := p.sleepTime(0); true; sleep = p.sleepTime(freq) {
-		if !p.worker.Wait(ctx, sleep) {
+	for {
+		if !p.worker.Wait(ctx, p.sleepTime(freq)) {
 			break
 		}
-		state, err := p.start()
+		state, newfreq, err := p.start()
+		if newfreq > 0 && freq != newfreq {
+			freq = newfreq
+			glog.Infof("process %q instance %q schedule frequency set to %q", p.name, instanceID, freq)
+		}
 		if state == nil || err != nil {
 			continue
 		}
-		d, err := ptypes.Duration(state.ScheduleFrequency)
-		if err == nil {
-			freq = d
-		}
 		completion := pb.Process_Status_COMPLETED
-		if err := p.work(ctx, state); err != nil && len(state.ProcessStatus.Errors) > 0 {
-			glog.Infof("process %s errors during execution: %d total errors, exit error: %v, first error: %v", p.name, state.ProcessStatus.TotalErrors, err, state.ProcessStatus.Errors[0])
+		result, err := p.work(ctx, state)
+		if err != nil && len(state.ProcessStatus.Errors) > 0 {
+			glog.Infof("process %q instance %q errors during execution: %d total errors, exit error: %v, first processing error: %v", p.name, instanceID, state.ProcessStatus.TotalErrors, err, state.ProcessStatus.Errors[0])
 			completion = pb.Process_Status_INCOMPLETE
 		}
-		p.finish(state, completion)
+		// finish() will do final state bookkeeping before writing it to storage.
+		// If we are in the Conflict state, we should not attempt to write at all.
+		if result != Conflict {
+			p.finish(state, completion)
+		}
+		glog.Infof("process %q instance %q completion: status=%q, %v", p.name, instanceID, result, statsToString(state.ProcessStatus.Stats))
 	}
-	glog.Infof("process %q instructed to exit", p.name)
+	glog.Infof("process %q instance %q instructed to exit", p.name, instanceID)
 }
 
 // Progress is called by workers every 1 or more units of work and may update the underlying state.
@@ -245,7 +254,9 @@ func (p *Process) Progress(state *pb.Process) (Progress, error) {
 		state.ProcessStatus.ProgressTime = state.ProcessStatus.StartTime
 		progressTime = time.Unix(0, 0)
 	}
+	p.mutex.Lock()
 	cutoff := progressTime.Add(p.progressFrequency)
+	p.mutex.Unlock()
 	if now.Sub(cutoff) > 0 {
 		return p.update(state)
 	}
@@ -303,7 +314,7 @@ func (p *Process) AddProjectStats(count float64, name, project string, state *pb
 	p.AddStats(count, "project."+name, state)
 }
 
-func (p *Process) work(ctx context.Context, state *pb.Process) error {
+func (p *Process) work(ctx context.Context, state *pb.Process) (Progress, error) {
 	// Create stable lists that will be followed even if a merge occurs during
 	// any Progress() updates.
 	var projects []string
@@ -333,11 +344,14 @@ func (p *Process) work(ctx context.Context, state *pb.Process) error {
 			p.setProjectState(pb.Process_Status_COMPLETED, projectName, state)
 		} else if p.AddProjectError(err, projectName, state) == Abort {
 			p.setProjectState(pb.Process_Status_ABORTED, projectName, state)
-			return err
+			return Aborted, err
 		} else {
 			p.setProjectState(pb.Process_Status_INCOMPLETE, projectName, state)
 		}
-		p.Progress(state)
+		progress, err := p.Progress(state)
+		if progress == Conflict || progress == Aborted {
+			return progress, err
+		}
 	}
 
 	// Process cleanup projects.
@@ -357,7 +371,7 @@ func (p *Process) work(ctx context.Context, state *pb.Process) error {
 		if run == Abort {
 			p.AddStats(1, "projectsDirty", state)
 			p.AddStats(1, "projectsAborted", state)
-			return err
+			return Aborted, err
 		}
 		if errors == 0 {
 			p.AddStats(1, "projectsCleaned", state)
@@ -368,7 +382,10 @@ func (p *Process) work(ctx context.Context, state *pb.Process) error {
 		} else {
 			p.AddStats(1, "projectsDirty", state)
 		}
-		p.Progress(state)
+		progress, err := p.Progress(state)
+		if progress == Conflict || progress == Aborted {
+			return progress, err
+		}
 	}
 
 	// Move cleanup projects to dropped projects if no errors encountered during cleaning (i.e. it is on the drop list).
@@ -381,7 +398,7 @@ func (p *Process) work(ctx context.Context, state *pb.Process) error {
 		}
 		state.DroppedProjects[projectName] = now
 	}
-	return nil
+	return Completed, nil
 }
 
 func (p *Process) setProjectState(statusState pb.Process_Status_State, projectName string, state *pb.Process) {
@@ -390,6 +407,9 @@ func (p *Process) setProjectState(statusState pb.Process_Status_State, projectNa
 		return
 	}
 	project.Status.State = statusState
+	if statusState == pb.Process_Status_COMPLETED {
+		project.Status.FinishTime = ptypes.TimestampNow()
+	}
 }
 
 func (p *Process) readState(tx storage.Tx) (*pb.Process, error) {
@@ -402,20 +422,33 @@ func (p *Process) readState(tx storage.Tx) (*pb.Process, error) {
 	return state, nil
 }
 
-func (p *Process) start() (*pb.Process, error) {
+func (p *Process) writeState(state *pb.Process, tx storage.Tx) error {
+	if err := p.store.WriteTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, p.name, storage.LatestRev, state, nil, tx); err != nil {
+		err = fmt.Errorf("process %q instance %q write state failed: %v", p.name, instanceID, err)
+		glog.Errorf(err.Error())
+		return err
+	}
+	return nil
+}
+
+func (p *Process) start() (*pb.Process, time.Duration, error) {
 	tx := p.store.LockTx(p.name, 0, nil)
 	if tx == nil {
-		return nil, nil
+		return nil, 0, nil
 	}
 	defer tx.Finish()
 
 	state, err := p.readState(tx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Always call setup() to add any structures that may not already be defined within the object.
 	p.setup(state)
+	freq, err := ptypes.Duration(state.ScheduleFrequency)
+	if err != nil {
+		freq = 0
+	}
 
 	// Determine if a run is needed given the cutoff time (i.e. time of next scheduled run)
 	// and other timestamps that determine the current run state.
@@ -425,7 +458,7 @@ func (p *Process) start() (*pb.Process, error) {
 			// Do not process for one of the following reasons:
 			// 1. Another working already has been active recently and is likely still active.
 			// 2. The previous worker had started more recently than when the settings has changed.
-			return nil, nil
+			return nil, freq, nil
 		}
 	}
 
@@ -435,13 +468,12 @@ func (p *Process) start() (*pb.Process, error) {
 	// Set up a new process status object to track this worker run.
 	state.ProcessStatus = newStatus(pb.Process_Status_ACTIVE)
 	// Save the current state to inform other workers that this worker owns processing for this scheduled run.
-	if err := p.store.WriteTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, p.name, storage.LatestRev, state, nil, tx); err != nil {
-		glog.Infof("write process state %q failed: %v", p.name, err)
-		return nil, err
+	if err := p.writeState(state, tx); err != nil {
+		return nil, freq, err
 	}
-	glog.Infof("background process %q active...", p.name)
+	glog.Infof("background process %q instance %q active...", p.name, instanceID)
 	// Returning will release the lock, and allow other workers to check the current state.
-	return state, nil
+	return state, freq, nil
 }
 
 func (p *Process) update(state *pb.Process) (Progress, error) {
@@ -452,7 +484,7 @@ func (p *Process) update(state *pb.Process) (Progress, error) {
 
 	tx := p.store.LockTx(p.name, 0, nil)
 	if tx == nil {
-		err := fmt.Errorf("lock process %q: lock unavailable", p.name)
+		err := fmt.Errorf("process %q instance %q lock unavailable", p.name, instanceID)
 		glog.Infof(err.Error())
 		p.AddError(err, nil, state)
 		return None, err
@@ -467,14 +499,20 @@ func (p *Process) update(state *pb.Process) (Progress, error) {
 		return None, err
 	}
 
+	// Check to see if this process instance still owns the state.
+	if storeState.Instance != instanceID {
+		// Another process has taken over. Abandon this run.
+		err := fmt.Errorf("process %q instance %q lost state ownership: state now owned by instance %q", p.name, instanceID, storeState.Instance)
+		p.AddError(err, nil, state)
+		return Conflict, err
+	}
+
 	progress := Updated
 	if timeCompare(storeState.SettingsTime, state.ProcessStatus.StartTime) > 0 {
 		progress = p.mergeProcessState(state, storeState)
 	}
 
-	if err := p.store.WriteTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, p.name, storage.LatestRev, state, nil, tx); err != nil {
-		err = fmt.Errorf("writing process state %q: %v", p.name, err)
-		glog.Infof(err.Error())
+	if err := p.writeState(state, tx); err != nil {
 		p.AddError(err, nil, state)
 		return progress, err
 	}
@@ -485,6 +523,9 @@ func (p *Process) update(state *pb.Process) (Progress, error) {
 func (p *Process) finish(state *pb.Process, completion pb.Process_Status_State) {
 	state.ProcessStatus.FinishTime = ptypes.TimestampNow()
 	state.ProcessStatus.State = completion
+	if _, ok := state.ProcessStatus.Stats["projects"]; !ok {
+		p.AddStats(0, "projects", state)
+	}
 	aggregateStats(state)
 	p.update(state)
 }
@@ -624,7 +665,9 @@ func (p *Process) setup(state *pb.Process) {
 	state.ProcessName = p.name
 	freq, err := ptypes.Duration(state.ScheduleFrequency)
 	if err != nil || freq == 0 {
+		p.mutex.Lock()
 		state.ScheduleFrequency = ptypes.DurationProto(p.scheduleFrequency)
+		p.mutex.Unlock()
 	}
 	if state.Settings == nil {
 		state.Settings = p.defaultSettings
@@ -667,6 +710,36 @@ func aggregateStats(state *pb.Process) {
 		}
 		dest[k] = prev + v
 	}
+}
+
+func frequency(scheduleFrequency time.Duration) (time.Duration, time.Duration) {
+	// Adjust processFrequency and progressFrequency such that:
+	// 1. Workers do not fire too often, causing timing errors.
+	// 2. Progress occurs frequently enough that lock ownership remains in place with occasional update() errors.
+	minScheduleFrequency := 15 * time.Minute
+	if scheduleFrequency < minScheduleFrequency {
+		scheduleFrequency = minScheduleFrequency
+	}
+	maxProgressFrequency := minScheduleFrequency / 3
+	progressFrequency := scheduleFrequency / 10
+	if progressFrequency > maxProgressFrequency {
+		progressFrequency = maxProgressFrequency
+	}
+	return scheduleFrequency, progressFrequency
+}
+
+func statsToString(stats map[string]float64) string {
+	out := ""
+	for k, v := range stats {
+		if len(out) > 0 {
+			out += ", "
+		}
+		out += fmt.Sprintf("%s=%g", k, v)
+		if k == "duration" {
+			out += "s" // tag the units as seconds
+		}
+	}
+	return out
 }
 
 // TODO: use new status errors and detect this better
