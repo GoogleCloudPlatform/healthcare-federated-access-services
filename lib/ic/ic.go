@@ -62,12 +62,9 @@ const (
 	linkedIdentitiesMaxLifepan = time.Hour
 
 	loginPageFile              = "pages/login.html"
-	loginPageInfoFile          = "pages/login-info.html"
-	clientLoginPageFile        = "pages/client_login.html"
-	informationReleasePageFile = "pages/information_release.html"
-	testPageFile               = "pages/test.html"
-	tokenFlowTestPageFile      = "pages/new-flow-test.html"
-	hydraICTestPageFile        = "pages/hydra-ic-test.html"
+	loginPageInfoFile          = "pages/ic/login_info.html"
+	clientLoginPageFile        = "pages/ic/client_login.html"
+	informationReleasePageFile = "pages/ic/inforelease.html"
 	staticDirectory            = "assets/serve/"
 
 	serviceTitle            = "Identity Concentrator"

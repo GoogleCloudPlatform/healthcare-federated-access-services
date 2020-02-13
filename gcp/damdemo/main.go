@@ -38,7 +38,7 @@ var (
 )
 
 const (
-	htmlFile        = "pages/hydra-dam-test.html"
+	htmlFile        = "pages/damdemo/test.html"
 	staticDirectory = "assets/serve/"
 )
 

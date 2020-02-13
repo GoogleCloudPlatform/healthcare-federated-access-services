@@ -38,7 +38,7 @@ var (
 )
 
 const (
-	htmlFile        = "pages/hydra-ic-test.html"
+	htmlFile        = "pages/icdemo/test.html"
 	staticDirectory = "assets/serve/"
 )
 
@@ -60,6 +60,7 @@ func main() {
 
 	http.HandleFunc("/test", httputil.NewPageHandler(page))
 	http.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
+
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(
 		http.Dir(srcutil.Path(staticDirectory)))))
 

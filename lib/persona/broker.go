@@ -40,10 +40,10 @@ import (
 
 const (
 	loginPageFile     = "pages/login.html"
-	loginPageInfoFile = "pages/login-info-persona.html"
+	loginPageInfoFile = "pages/personas/login_info.html"
+	staticDirectory   = "assets/serve/"
 	serviceTitle      = "Persona Playground"
 	loginInfoTitle    = "Persona Playground"
-	staticDirectory   = "assets/serve/"
 )
 
 // Server is a fake OIDC passport broker service for a playground
