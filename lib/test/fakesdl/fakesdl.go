@@ -45,7 +45,7 @@ func New() (*Fake, func()) {
 	s := &Server{}
 	lgrpcpb.RegisterLoggingServiceV2Server(rpc.Server, s)
 
-	stop := rpc.Start()
+	rpc.Start()
 
 	c, err := logging.NewClient(ctx, "projects/fake-project-id", option.WithGRPCConn(rpc.Client), option.WithoutAuthentication(), option.WithGRPCDialOption(grpc.WithInsecure()))
 	if err != nil {
@@ -58,7 +58,6 @@ func New() (*Fake, func()) {
 			Client: c,
 		}, func() {
 			cleanup()
-			stop()
 		}
 }
 
