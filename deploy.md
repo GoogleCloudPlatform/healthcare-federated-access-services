@@ -235,3 +235,47 @@ variable.
        components. Once you have familiarized yourself with these options,
        edit your production deploy script so these unwanted components are
        removed permanently.
+
+### Security
+
+#### Malicious Token
+
+Checks are performed in `lib/auth` component to detect if the token is
+potentially malicious. Currently, Federated Access components will reject such
+tokens and then report their occurrence in the [audit logs](#audit-logs). No
+further action is taken by the services themselves.
+
+The admin may want to:
+
+*  monitor the audit logs for these occurrences
+*  contact the token owner or upstream admin to take action
+*  revoke these tokens and related tokens
+*  consider disabling the user's account
+
+#### Audit Logs
+
+Access audit logs are available via
+[Stackdriver](https://cloud.google.com/stackdriver) and are available for
+administrators in the
+[logs viewer](https://console.cloud.google.com/logs/viewer) component of
+[GCP developer console](https://console.cloud.google.com/) by
+selecting the appropriate GAE Application for the given Federated Access
+environment. See
+[Stackdriver Logging documentation](https://cloud.google.com/logging/docs)
+for more details about Stackdriver logs in general.
+
+Access audit logs are provided in the following format:
+
+```
+TODO
+```
+
+If you want to turn off these additional audit logs, set the following
+environment variable before the Federated Access services start:
+
+```
+export FEDERATED_ACCESS_DISABLE_AUDIT_LOG=true
+```
+
+After deploying with this environment variable, make some Federated Access API
+requests and verify that the logs are not being written to Stackdriver.
