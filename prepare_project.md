@@ -7,7 +7,7 @@ service configurations or code that Federated Access components depend on.
 
 ## Overview
 
-For example, the `project_init.bash` script initializes or enables the
+For example, the `prepare_project.bash` script initializes or updates the
 following:
 
 *  enabling gcloud services on the project
@@ -23,20 +23,20 @@ following:
 
 ## How to prepare a GCP project for deployment
 
-If you are executing initialization for the first time, there are some steps
-to perform first. See the [deployment](deploy.md) documentation.
+If you are executing project preparation for the first time, there are some
+steps to perform first. See the [deployment](deploy.md) documentation.
 
 To re-execute after [changing service dependencies](#changes-to-service-dependencies),
 do the following:
 
 ```
-./project_init.bash -p <gcp-project-id>
+./prepare_project.bash -p <gcp-project-id>
 ```
 
 ## Changes to Service Dependencies
 
 If any dependencies change with these underlying services, then project
-initialization will need to be performed again. In this way, a rebuild of the
+preparation will need to be performed again. In this way, a rebuild of the
 underlying services can attempt to deploy these changes. Examples include:
 
 *  changes to usernames and passwords of databases
@@ -46,8 +46,8 @@ underlying services can attempt to deploy these changes. Examples include:
 *  etc.
 
 **Tip:** if over time your deployment environment does not match your
-expectations and it was deployed using `project_init.bash`, then you may wish
-run `project_init.bash` again to see if a rebuild of your environment fixes the
+expectations and it was deployed using `prepare_project.bash`, then you may wish
+run `prepare_project.bash` again to see if a rebuild of your environment fixes the
 problem.
 
 

@@ -59,9 +59,9 @@ The following projects are used for the cross project and environment scenarios:
 1.  When running the `deploy.bash` script, make sure you rebuild your images
     and do not install the "personas" playground component.
 
-    *  The `project_init.bash` and `deploy.bash` are not designed for production
-       use. You will need to develop your own version of these scripts that
-       meets your deployment needs.
+    *  The `prepare_project.bash` and `deploy.bash` are not designed for
+       production use. You will need to develop your own version of these
+       scripts that meets your deployment needs.
     *  Make sure your run or re-run `project_init.bash` or a similar script
        whenever important service-dependency changes may have occurred. This
        must be run before redeploying federated access components like DAM and

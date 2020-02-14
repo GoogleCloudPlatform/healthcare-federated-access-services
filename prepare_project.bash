@@ -21,7 +21,7 @@ RESET="\e[0m"
 PROJECT=${PROJECT}
 
 print_usage() {
-  echo -e ${RED?}'Usage: project_init [-h] [-p project_id]'${RESET?}
+  echo -e ${RED?}'Usage: prepare_project [-h] [-p project_id]'${RESET?}
   echo -e ${RED?}'  -h \t show this help usage'${RESET?}
   echo -e ${RED?}'  -p \t GCP project_id to deploy to'${RESET?}
 }
@@ -126,4 +126,4 @@ rm -rf $tempdir
 echo -e ${GREEN?}'Building Base Hydra Docker Image.'${RESET?}
 gcloud builds submit --config deploy/build/hydra/cloudbuild.yaml .
 
-echo -e ${GREEN?}'Project initialization complete.'${RESET?}
+echo -e ${GREEN?}'Project preparation complete.'${RESET?}

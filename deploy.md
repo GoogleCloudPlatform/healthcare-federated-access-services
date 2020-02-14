@@ -75,10 +75,10 @@ To create a Google Cloud project, do the following:
     Access components need, execute the following:
 
     ```
-    ./project_init.bash -p <gcp-project-id>
+    ./prepare_project.bash -p <gcp-project-id>
     ```
 
-    **Note:** Learn about Project Initialization [here](#project-initialization).
+    **Note:** Learn about Project Preparation [here](prepare_project.md).
 
 1.  Run the following setup script to deploy components with default settings
     that can be tested:
