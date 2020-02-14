@@ -66,12 +66,6 @@ func TestWriteAccessLog(t *testing.T) {
 
 	want := []*lpb.WriteLogEntriesRequest{{
 		LogName: "projects/fake-project-id/logs/federated-access-audit",
-		Resource: &mrpb.MonitoredResource{
-			Type: "project",
-			Labels: map[string]string{
-				"project_id": "fake-project-id",
-			},
-		},
 		Entries: []*lepb.LogEntry{{
 			Payload:  &lepb.LogEntry_TextPayload{TextPayload: al.Payload.(string)},
 			Severity: lspb.LogSeverity_DEFAULT,
@@ -104,6 +98,7 @@ func TestWriteAccessLog(t *testing.T) {
 	got := server.Server.Logs
 
 	got[0].Entries[0].Timestamp = nil
+	got[0].Resource = nil
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
 	}

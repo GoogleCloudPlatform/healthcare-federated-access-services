@@ -19,13 +19,12 @@ import (
 	"testing"
 	"time"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 
-	mrpb "google.golang.org/genproto/googleapis/api/monitoredres" /* copybara-comment */
+	glog "github.com/golang/glog" /* copybara-comment */
 	lspb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: log_severity_go_proto */
 	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
@@ -49,10 +48,6 @@ func TestLogger_Write(t *testing.T) {
 	got := f.Server.Logs
 	want := []*lpb.WriteLogEntriesRequest{{
 		LogName: "projects/fake-project-id/logs/fake-log-id",
-		Resource: &mrpb.MonitoredResource{
-			Type:   "project",
-			Labels: map[string]string{"project_id": "fake-project-id"},
-		},
 		Entries: []*lepb.LogEntry{{
 			Payload:   &lepb.LogEntry_TextPayload{TextPayload: msg},
 			Timestamp: MustTimestampProto(e.Timestamp),
@@ -60,6 +55,8 @@ func TestLogger_Write(t *testing.T) {
 			Labels:    e.Labels,
 		}},
 	}}
+
+	got[0].Resource = nil
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
 	}
