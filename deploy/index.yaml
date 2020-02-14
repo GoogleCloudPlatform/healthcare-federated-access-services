@@ -14,6 +14,7 @@
 
 indexes:
 
+# List history items for a given ID.
 - kind: history
   properties:
   - name: service
@@ -23,6 +24,7 @@ indexes:
   - name: id
   - name: rev
 
+# Return multiple IDs for a given user.
 - kind: entity
   properties:
   - name: service
@@ -30,4 +32,12 @@ indexes:
   - name: type
   - name: user_id
   - name: rev
+  - name: id
+
+# Search across realms for multiple config files.
+- kind: entity
+  properties:
+  - name: rev
+  - name: service
+  - name: type
   - name: id

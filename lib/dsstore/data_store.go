@@ -183,7 +183,10 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][
 		pageSize = storage.MaxPageSize
 	}
 
-	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm)
+	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype)
+	if realm != storage.AllRealms {
+		q = q.Filter("realm =", realm)
+	}
 	if user != storage.DefaultUser {
 		q = q.Filter("user_id = ", user)
 	}
@@ -222,7 +225,7 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][
 			offset--
 			continue
 		}
-		if pageSize > count {
+		if pageSize == 0 || pageSize > count {
 			userContent, ok := content[e.User]
 			if !ok {
 				content[e.User] = make(map[string]proto.Message)
@@ -366,7 +369,7 @@ func (s *DatastoreStorage) Wipe(realm string) error {
 	results := make(map[string]int)
 	for _, kind := range wipeKinds {
 		q := datastore.NewQuery(kind).Filter("service =", s.service)
-		if realm != storage.WipeAllRealms {
+		if realm != storage.AllRealms {
 			q = q.Filter("realm =", realm)
 		}
 		total, err := s.multiDelete(q)

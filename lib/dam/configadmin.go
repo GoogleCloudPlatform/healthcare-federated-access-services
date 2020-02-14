@@ -133,7 +133,7 @@ func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string,
 		}
 	}
 	if !proto.Equal(h.cfg.Options, h.save.Options) {
-		h.s.updateWarehouse(h.save.Options)
+		h.s.updateWarehouseOptions(h.save.Options, getRealm(h.r))
 		return h.s.registerProject(h.save.Options.GcpServiceAccountProject)
 	}
 	return nil
@@ -227,7 +227,7 @@ func (h *configOptionsHandler) Save(tx storage.Tx, name string, vars map[string]
 		return err
 	}
 	if h.orig != nil && !proto.Equal(h.orig, h.save) {
-		h.s.updateWarehouse(h.save)
+		h.s.updateWarehouseOptions(h.save, getRealm(h.r))
 		return h.s.registerProject(h.save.GcpServiceAccountProject)
 	}
 	return nil
@@ -1075,7 +1075,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		httputil.HandleError(status, err, w)
 		return
 	}
-	if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
+	if err = s.store.Wipe(storage.AllRealms); err != nil {
 		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}

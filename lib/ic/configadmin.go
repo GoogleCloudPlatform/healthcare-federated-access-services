@@ -409,7 +409,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		httputil.HandleError(status, err, w)
 		return
 	}
-	if err = s.store.Wipe(storage.WipeAllRealms); err != nil {
+	if err = s.store.Wipe(storage.AllRealms); err != nil {
 		httputil.HandleError(http.StatusInternalServerError, err, w)
 		return
 	}

@@ -1845,7 +1845,7 @@ func (s *Service) ImportFiles(importType string) error {
 	}
 	if wipe {
 		glog.Infof("prepare for IC config import: wipe data store for all realms")
-		if err := s.store.Wipe(storage.WipeAllRealms); err != nil {
+		if err := s.store.Wipe(storage.AllRealms); err != nil {
 			return err
 		}
 	}

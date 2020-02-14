@@ -165,7 +165,11 @@ func (m *MemoryStorage) findPath(datatype, realm, user string, fn func(string, s
 	} else {
 		searchUser = "(" + user + ")"
 	}
-	extractID := m.fs.fname(datatype, realm, searchUser, "(.*)", LatestRev)
+	searchRealm := realm
+	if realm == AllRealms {
+		searchRealm = "(.*)"
+	}
+	extractID := m.fs.fname(datatype, searchRealm, searchUser, "(.*)", LatestRev)
 	re, err := regexp.Compile(extractID)
 	if err != nil {
 		return fmt.Errorf("file extract ID %q regexp error: %v", extractID, err)

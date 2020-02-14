@@ -85,6 +85,9 @@ gcloud projects add-iam-policy-binding -q ${PROJECT?} \
 
 # TODO: make region configurable.
 
+# Create a datastore index to power related queries.
+gcloud datastore indexes create deploy/index.yaml --quiet
+
 # Setup Cloud SQL
 # Create a CloudSQL db-f1-micro (memory=128M, disk=250G) postgres 11 instance in us-central-1.
 echo -e ${GREEN?}'Creating Cloud SQL database for Hydra.'${RESET?}

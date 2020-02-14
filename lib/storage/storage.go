@@ -31,7 +31,7 @@ const (
 	DefaultRealm   = "master"
 	DefaultUser    = ""
 	DefaultID      = "main"
-	WipeAllRealms  = ""
+	AllRealms      = ""
 
 	AccountDatatype        = "account"
 	AccountLookupDatatype  = "acct_lookup"
