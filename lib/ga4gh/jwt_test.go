@@ -23,12 +23,22 @@ import (
 )
 
 const (
-	fakeJWT     = `eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.JlX3gXGyClTBFciHhknWrjo7SKqyJ5iBO0n-3S2_I7cIgfaZAeRDJ3SQEbaPxVC7X8aqGCOM-pQOjZPKUJN8DMFrlHTOdqMs0TwQ2PRBmVAxXTSOZOoEhD4ZNCHohYoyfoDhJDP4Qye_FCqu6POJzg0Jcun4d3KW04QTiGxv2PkYqmB7nHxYuJdnqE3704hIS56pc_8q6AW0WIT0W-nIvwzaSbtBU9RgaC7ZpBD2LiNE265UBIFraMDF8IAFw9itZSUCTKg1Q-q27NwwBZNGYStMdIBDor2Bsq5ge51EkWajzZ7ALisVp-bskzUsqUf77ejqX_CBAqkNdH1Zebn93A`
-	fakeJWTJSON = `{
+	fakeJWT1     = `eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.JlX3gXGyClTBFciHhknWrjo7SKqyJ5iBO0n-3S2_I7cIgfaZAeRDJ3SQEbaPxVC7X8aqGCOM-pQOjZPKUJN8DMFrlHTOdqMs0TwQ2PRBmVAxXTSOZOoEhD4ZNCHohYoyfoDhJDP4Qye_FCqu6POJzg0Jcun4d3KW04QTiGxv2PkYqmB7nHxYuJdnqE3704hIS56pc_8q6AW0WIT0W-nIvwzaSbtBU9RgaC7ZpBD2LiNE265UBIFraMDF8IAFw9itZSUCTKg1Q-q27NwwBZNGYStMdIBDor2Bsq5ge51EkWajzZ7ALisVp-bskzUsqUf77ejqX_CBAqkNdH1Zebn93A`
+	fakeJWTJSON1 = `{
   "sub": "1234567890",
   "name": "John Doe",
   "admin": true,
   "iat": 1516239022
+}`
+	fakeJWT2     = `eyJhbGciOiJSUzI1NiIsImtpZCI6Imh0dHA6Ly9bOjoxXTo0Njg2NS9pc3N1ZXIwIiwidHlwIjoiSldUIn0.eyJhdWQiOlsiZmFrZS1jbGllbnQiXSwiZXhwIjoxNTgxNzAzMjcwLCJpc3MiOiJodHRwOi8vWzo6MV06NDY4NjUvaXNzdWVyMCIsInN1YiI6ImZha2Utc3ViamVjdCIsImdhNGdoX3Zpc2FfdjEiOnt9fQ.NYpSCw4uvsca5014hvjEmRRB-d-v5JfUYHdRxUCnp-SSDAa2NVNptpkCdF0ExgFxRJcw3FRVkphc3dP9y0JHVeDbT4pfPs0lmPfK-OZ95Il24pF1XHQro8szNX2OybTMtbCGgtZ-6SRy7wObVXgfAnka1dOOugADx2myThttDHY`
+	fakeJWTJSON2 = `{
+  "aud": [
+    "fake-client"
+  ],
+  "exp": 1581703270,
+  "iss": "http://[::1]:46865/issuer0",
+  "sub": "fake-subject",
+  "ga4gh_visa_v1": {}
 }`
 )
 
@@ -53,7 +63,7 @@ func TestStdClaims_Valid_Invalid(t *testing.T) {
 }
 
 func TestNewStdClaimsFromJWT(t *testing.T) {
-	j := fakeJWT
+	j := fakeJWT1
 
 	got, err := NewStdClaimsFromJWT(j)
 	if err != nil {
@@ -70,6 +80,26 @@ func TestNewStdClaimsFromJWT(t *testing.T) {
 	}
 }
 
+func TestNewStdClaimsFromJWT_AudienceList(t *testing.T) {
+	j := fakeJWT2
+
+	got, err := NewStdClaimsFromJWT(j)
+	if err != nil {
+		t.Fatalf("NewStdClaimsFromJWT() failed: %v", err)
+	}
+
+	want := &StdClaims{
+		Audience:  NewAudience("fake-client"),
+		ExpiresAt: 1581703270,
+		Issuer:    "http://[::1]:46865/issuer0",
+		Subject:   "fake-subject",
+	}
+
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Fatalf("NewStdClaimsFromJWT returned diff (-want +got):\n%s", diff)
+	}
+}
+
 func TestNewStdClaimsFromJWT_BadJWTFails(t *testing.T) {
 	j := ``
 	if _, err := NewStdClaimsFromJWT(j); err == nil {
@@ -78,13 +108,13 @@ func TestNewStdClaimsFromJWT_BadJWTFails(t *testing.T) {
 }
 
 func Test_payloadFromJWT(t *testing.T) {
-	j := fakeJWT
+	j := fakeJWT1
 	got, err := payloadFromJWT(j)
 	if err != nil {
 		t.Fatalf("payloadFromJWT() failed: %v", err)
 	}
 
-	want := fakeJWTJSON
+	want := fakeJWTJSON1
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("payloadFromJWT() returned diff (-want +got):\n%s", diff)
 	}
@@ -97,7 +127,7 @@ func Test_payloadFromJWT_Fail(t *testing.T) {
 }
 
 func Test_jsontxtCanonicalize(t *testing.T) {
-	got, err := jsontxtCanonicalize(jsontxt(fakeJWTJSON))
+	got, err := jsontxtCanonicalize(jsontxt(fakeJWTJSON1))
 	if err != nil {
 		t.Fatalf("jsontxtCanonicalize() failed: %v", err)
 	}

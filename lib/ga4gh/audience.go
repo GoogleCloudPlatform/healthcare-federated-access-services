@@ -38,10 +38,16 @@ func (a *Audiences) UnmarshalJSON(bytes []byte) error {
 		*a = []string{s}
 		return nil
 	}
+
 	var ss []string
-	if err := json.Unmarshal(bytes, &ss); err != nil {
-		*a = ss
-		return err
+	err := json.Unmarshal(bytes, &ss)
+	if err == nil {
+		if len(ss) != 0 {
+			*a = ss
+		} else {
+			*a = nil
+		}
+		return nil
 	}
-	return nil
+	return err
 }
