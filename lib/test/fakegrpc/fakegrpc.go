@@ -58,16 +58,11 @@ func New() (*Fake, func() error) {
 
 // Start starts the server.
 // Must be called after registering the services on the server.
-func (f *Fake) Start() func() error {
+func (f *Fake) Start() {
 	// gRPC server serves on the port.
 	go func() {
 		if err := f.Server.Serve(f.Listener); err != nil {
 			glog.Fatalf("server.Serve(_) failed: %v", err)
 		}
 	}()
-
-	return func() error {
-		f.Server.Stop()
-		return nil
-	}
 }

@@ -26,8 +26,7 @@ func TestNew(t *testing.T) {
 	// s := &Server{}
 	// fgrpcpb.RegisterFooServiceServer(rpc.Server, s)
 
-	stop := rpc.Start()
-	defer stop()
+	rpc.Start()
 
 	// Create a client using rpc.Client.
 	// c := foo.NewClient(ctx,
