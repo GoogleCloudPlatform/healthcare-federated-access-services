@@ -22,6 +22,7 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -73,14 +74,22 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	extract := httputil.GetParam(r, "client_extract") // makes sure we only grab state from client once
+	// Experimental allows non OIDC auth code flow which may need state extracted from html anchor.
+	if globalflags.Experimental {
+		extract := httputil.GetParam(r, "client_extract") // makes sure we only grab state from client once
 
-	// Some IdPs need state extracted from html anchor.
-	if len(stateParam) == 0 && len(extract) == 0 {
-		page := s.clientLoginPage
-		page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
-		page = pageVariableRE.ReplaceAllString(page, `""`)
-		httputil.SendHTML(page, w)
+		// Some IdPs need state extracted from html anchor.
+		if len(stateParam) == 0 && len(extract) == 0 {
+			page := s.clientLoginPage
+			page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
+			page = pageVariableRE.ReplaceAllString(page, `""`)
+			httputil.SendHTML(page, w)
+			return
+		}
+	}
+
+	if len(stateParam) == 0 {
+		httputil.HandleError(http.StatusUnauthorized, fmt.Errorf("query params state missing"), w)
 		return
 	}
 
@@ -119,12 +128,6 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
-	code := httputil.GetParam(r, "code")
-	idToken := httputil.GetParam(r, "id_token")
-	accessToken := httputil.GetParam(r, "access_token")
-	stateParam := httputil.GetParam(r, "state")
-	extract := httputil.GetParam(r, "client_extract") // makes sure we only grab state from client once
-
 	tx, err := s.store.Tx(true)
 	if err != nil {
 		httputil.HandleError(http.StatusServiceUnavailable, err, w)
@@ -144,18 +147,36 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(extract) == 0 && len(code) == 0 && len(idToken) == 0 && len(accessToken) == 0 {
-		instructions := ""
-		if len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
-			// Allow the client login page to follow instructions encoded in the TokenUrl.
-			// This enables support for some non-OIDC clients.
-			instructions = `"` + idp.TokenUrl + `"`
+	code := httputil.GetParam(r, "code")
+	stateParam := httputil.GetParam(r, "state")
+	idToken := ""
+	accessToken := ""
+	extract := ""
+	// Experimental allows reading tokens from non-OIDC.
+	if globalflags.Experimental {
+		idToken = httputil.GetParam(r, "id_token")
+		accessToken = httputil.GetParam(r, "access_token")
+		extract = httputil.GetParam(r, "client_extract") // makes sure we only grab state from client once
+
+		if len(extract) == 0 && len(code) == 0 && len(idToken) == 0 && len(accessToken) == 0 {
+			instructions := ""
+			if len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
+				// Allow the client login page to follow instructions encoded in the TokenUrl.
+				// This enables support for some non-OIDC clients.
+				instructions = `"` + idp.TokenUrl + `"`
+			}
+			page := s.clientLoginPage
+			page = strings.Replace(page, "${INSTRUCTIONS}", instructions, -1)
+			page = pageVariableRE.ReplaceAllString(page, `""`)
+			httputil.SendHTML(page, w)
+			return
 		}
-		page := s.clientLoginPage
-		page = strings.Replace(page, "${INSTRUCTIONS}", instructions, -1)
-		page = pageVariableRE.ReplaceAllString(page, `""`)
-		httputil.SendHTML(page, w)
-		return
+	} else {
+		// Experimental allows non OIDC auth code flow which code or stateParam can be empty.
+		if len(code) == 0 || len(stateParam) == 0 {
+			httputil.HandleError(http.StatusUnauthorized, fmt.Errorf("query params code or state missing"), w)
+			return
+		}
 	}
 
 	var loginState cpb.LoginState
