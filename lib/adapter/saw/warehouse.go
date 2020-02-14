@@ -51,6 +51,7 @@ import (
 const (
 	projectVariable       = "project"
 	bucketVariable        = "bucket"
+	jobProjectVariable    = "job-project"
 	datasetVariable       = "dataset"
 	inheritProject        = "-"
 	gcMaxTTL              = 180 * 24 * 60 * 60 /* 180 days */
@@ -471,6 +472,10 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 				}
 				dr[ds] = append(dr[ds], resolvedRole)
 				resolvedRole = "roles/bigquery.user"
+				jobProj, ok := item[jobProjectVariable]
+				if ok {
+					proj = jobProj
+				}
 			}
 			// Otherwise, store project-level configuration.
 			prMap[proj] = append(prMap[proj], resolvedRole)
