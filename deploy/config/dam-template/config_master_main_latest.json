@@ -17,6 +17,13 @@
       "authUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/auth",
       "tokenUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/token"
     },
+    "persona_broker": {
+      "issuer": "https://persona${YOUR_ENVIRONMENT}-${YOUR_PROJECT_ID}.appspot.com/oidc",
+      "ui": {
+        "label": "Persona Broker",
+        "description": "Persona Broker"
+      }
+    },
     "nih": {
       "issuer": "https://login.nih.gov/oidc",
       "translateUsing": "dbgap_translator",

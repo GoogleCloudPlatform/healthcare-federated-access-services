@@ -49,6 +49,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/verifier" /* copybara-comment: verifier */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -96,6 +97,7 @@ type Service struct {
 	startTime      int64
 	translators    sync.Map
 	useHydra       bool
+	visaVerifier   *verifier.Verifier
 }
 
 type ServiceHandler struct {
@@ -155,6 +157,7 @@ func NewService(params *Options) *Service {
 		useHydra:       params.UseHydra,
 		hydraAdminURL:  params.HydraAdminURL,
 		hydraPublicURL: params.HydraPublicURL,
+		visaVerifier:   verifier.New(""),
 	}
 
 	if s.httpClient == nil {
@@ -368,13 +371,40 @@ func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.D
 		return nil, err
 	}
 
+	return s.populateIdentityVisas(ctx, id, cfg)
+}
+
+func (s *Service) populateIdentityVisas(ctx context.Context, id *ga4gh.Identity, cfg *pb.DamConfig) (*ga4gh.Identity, error) {
 	vs := []ga4gh.VisaJWT{}
 	for _, v := range id.VisaJWTs {
 		vs = append(vs, ga4gh.VisaJWT(v))
 	}
-	id.GA4GH = ga4gh.VisasToOldClaims(vs)
+	claims, _, err := ga4gh.VisasToOldClaims(ctx, vs, s.visaVerifier.Verify)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter claims by trusted issuers.
+	trusted := trustedIssuers(cfg.TrustedPassportIssuers)
+	id.GA4GH = make(map[string][]ga4gh.OldClaim)
+	for c, list := range claims {
+		for _, old := range list {
+			if _, ok := trusted[old.Issuer]; !ok {
+				continue
+			}
+			id.GA4GH[c] = append(id.GA4GH[c], old)
+		}
+	}
 
 	return id, nil
+}
+
+func trustedIssuers(trustedIssuers map[string]*pb.TrustedPassportIssuer) map[string]bool {
+	trusted := make(map[string]bool)
+	for _, tpi := range trustedIssuers {
+		trusted[tpi.Issuer] = true
+	}
+	return trusted
 }
 
 func (s *Service) getBearerTokenIdentity(cfg *pb.DamConfig, r *http.Request) (*ga4gh.Identity, int, error) {

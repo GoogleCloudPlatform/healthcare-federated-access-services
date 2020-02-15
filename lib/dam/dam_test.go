@@ -922,7 +922,20 @@ func (contextMatcher) String() string {
 	return "context has requested_ttl"
 }
 
-func TestCheckAuthorization(t *testing.T) {
+type authTestContext struct {
+	dam      *Service
+	ctx      context.Context
+	id       *ga4gh.Identity
+	ttl      time.Duration
+	cfg      *pb.DamConfig
+	resource string
+	view     string
+	role     string
+}
+
+func setupAuthorizationTest(t *testing.T) *authTestContext {
+	t.Helper()
+
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	server, err := fakeoidcissuer.New(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
 	if err != nil {
@@ -930,6 +943,7 @@ func TestCheckAuthorization(t *testing.T) {
 	}
 	ctx := server.ContextWithClient(context.Background())
 	s := NewService(&Options{
+		HTTPClient:     server.Client(),
 		Domain:         "test.org",
 		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
@@ -953,22 +967,48 @@ func TestCheckAuthorization(t *testing.T) {
 		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraPublicURL, err)
 	}
 
-	resName := "ga4gh-apis"
-	viewName := "gcs_read"
-	role := "viewer"
-	ttl := time.Hour
-
 	id, err := s.upstreamTokenToPassportIdentity(ctx, cfg, nil, string(acTok), test.TestClientID)
 	if err != nil {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	status, err := s.checkAuthorization(ctx, id, ttl, resName, viewName, role, cfg, test.TestClientID)
+	return &authTestContext{
+		dam:      s,
+		ctx:      ctx,
+		id:       id,
+		ttl:      time.Hour,
+		cfg:      cfg,
+		resource: "ga4gh-apis",
+		view:     "gcs_read",
+		role:     "viewer",
+	}
+}
+
+func TestCheckAuthorization(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	status, err := auth.dam.checkAuthorization(auth.ctx, auth.id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID)
 	if status != http.StatusOK || err != nil {
-		t.Errorf("checkAuthorization(id, %v, %q, %q, %q, cfg, %q) failed, expected %q, got %q: %v", ttl, resName, viewName, role, test.TestClientID, http.StatusOK, status, err)
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got %d: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusOK, status, err)
 	}
 
 	// TODO: we need more tests for other condition in checkAuthorization()
+}
+
+func TestCheckAuthorization_Untrusted(t *testing.T) {
+	// Perform exactly the same call as TestCheckAuthorization() except remove trust of the visa issuer string
+	auth := setupAuthorizationTest(t)
+	delete(auth.cfg.TrustedPassportIssuers, "test")
+	delete(auth.cfg.TrustedPassportIssuers, "testBroker")
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	status, err := auth.dam.checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID)
+	if status != http.StatusForbidden || err == nil {
+		t.Errorf("using untrusted issuer: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got %d: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusForbidden, status, err)
+	}
 }
 
 func setupHydraTest() (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Server, *persona.Server, error) {

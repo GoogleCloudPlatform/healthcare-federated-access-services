@@ -39,12 +39,15 @@ func (v *Verifier) Verify(ctx context.Context, token string) error {
 	if err != nil {
 		return fmt.Errorf("ExtractIssuer(token) failed: %v", err)
 	}
+	if len(v.clientID) == 0 && len(d.Audience) > 0 {
+		return fmt.Errorf("verifier: token requires audience to match, but no audience was provided")
+	}
 	issuer := d.Issuer
 	op, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
 		return fmt.Errorf("oidc.NewProvider(_,%v) failed: %v", issuer, err)
 	}
-	ov := op.Verifier(&oidc.Config{ClientID: v.clientID})
+	ov := op.Verifier(&oidc.Config{ClientID: v.clientID, SkipClientIDCheck: len(v.clientID) == 0})
 
 	if _, err := ov.Verify(ctx, token); err != nil {
 		return err
