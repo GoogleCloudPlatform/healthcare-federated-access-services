@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -53,17 +54,17 @@ func NewMockTokenCreator(includeParams bool) *MockTokenCreator {
 }
 
 // RegisterAccountProject registers account hosting project in key garbage collector.
-func (m *MockTokenCreator) RegisterAccountProject(project string) error {
+func (m *MockTokenCreator) RegisterAccountProject(project string, tx storage.Tx) error {
 	return nil
 }
 
 // UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-func (m *MockTokenCreator) UnregisterAccountProject(project string) error {
+func (m *MockTokenCreator) UnregisterAccountProject(project string, tx storage.Tx) error {
 	return nil
 }
 
 // UpdateSettings alters resource management settings.
-func (m *MockTokenCreator) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error {
+func (m *MockTokenCreator) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int, tx storage.Tx) error {
 	return nil
 }
 

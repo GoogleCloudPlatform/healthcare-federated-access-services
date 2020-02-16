@@ -148,19 +148,19 @@ func NewAccountWarehouse(client *http.Client, store storage.Store) (*AccountWare
 }
 
 // RegisterAccountProject adds a project to the state for workers to process.
-func (wh *AccountWarehouse) RegisterAccountProject(project string) error {
-	_, err := wh.keyGC.RegisterProject(project, nil)
+func (wh *AccountWarehouse) RegisterAccountProject(project string, tx storage.Tx) error {
+	_, err := wh.keyGC.RegisterProject(project, nil, tx)
 	return err
 }
 
 // UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-func (wh *AccountWarehouse) UnregisterAccountProject(project string) error {
-	return wh.keyGC.UnregisterProject(project)
+func (wh *AccountWarehouse) UnregisterAccountProject(project string, tx storage.Tx) error {
+	return wh.keyGC.UnregisterProject(project, tx)
 }
 
 // UpdateSettings alters resource management settings.
-func (wh *AccountWarehouse) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error {
-	return wh.keyGC.UpdateSettings(maxRequestedTTL, keysPerAccount)
+func (wh *AccountWarehouse) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int, tx storage.Tx) error {
+	return wh.keyGC.UpdateSettings(maxRequestedTTL, keysPerAccount, tx)
 }
 
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.

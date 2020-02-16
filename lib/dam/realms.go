@@ -115,7 +115,7 @@ func (h *realmHandler) Remove(name string) error {
 		return err
 	}
 	if cfg.Options.GcpServiceAccountProject != h.cfg.Options.GcpServiceAccountProject {
-		return h.s.unregisterProject(h.cfg.Options.GcpServiceAccountProject)
+		return h.s.unregisterProject(h.cfg.Options.GcpServiceAccountProject, h.tx)
 	}
 	return nil
 }

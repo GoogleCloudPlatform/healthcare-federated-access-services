@@ -19,6 +19,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -43,13 +44,13 @@ type ResourceTokenResult struct {
 type ResourceTokenCreator interface {
 
 	// RegisterAccountProject registers account hosting project in key garbage collector.
-	RegisterAccountProject(project string) error
+	RegisterAccountProject(project string, tx storage.Tx) error
 
 	// UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-	UnregisterAccountProject(project string) error
+	UnregisterAccountProject(project string, tx storage.Tx) error
 
 	// UpdateSettings alters resource management settings.
-	UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error
+	UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int, tx storage.Tx) error
 
 	// MintTokenWithTTL returns an account and a newly minted resource token for resource accessing.
 	MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *ResourceTokenCreationParams) (*ResourceTokenResult, error)

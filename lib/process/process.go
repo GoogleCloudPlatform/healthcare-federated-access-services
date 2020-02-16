@@ -117,11 +117,11 @@ func NewProcess(name string, worker Worker, store storage.Store, scheduleFrequen
 }
 
 // RegisterProject adds a project to the state for workers to process.
-func (p *Process) RegisterProject(projectName string, projectParams *pb.Process_Params) (*pb.Process_Project, error) {
+func (p *Process) RegisterProject(projectName string, projectParams *pb.Process_Params, tx storage.Tx) (*pb.Process_Project, error) {
 	if len(projectName) == 0 {
 		return nil, fmt.Errorf("process project registration: cannot register an empty project")
 	}
-	tx := p.store.LockTx(p.name, 0, nil)
+	tx = p.store.LockTx(p.name, 0, tx)
 	if tx == nil {
 		return nil, fmt.Errorf("lock process registration failed: lock unavailable")
 	}
@@ -159,8 +159,8 @@ func (p *Process) RegisterProject(projectName string, projectParams *pb.Process_
 }
 
 // UnregisterProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-func (p *Process) UnregisterProject(projectName string) error {
-	tx := p.store.LockTx(p.name, 0, nil)
+func (p *Process) UnregisterProject(projectName string, tx storage.Tx) error {
+	tx = p.store.LockTx(p.name, 0, tx)
 	if tx == nil {
 		return fmt.Errorf("lock process registration failed: lock unavailable")
 	}
@@ -188,10 +188,10 @@ func (p *Process) UnregisterProject(projectName string) error {
 }
 
 // UpdateSettings alters resource management settings.
-func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.Process_Params) error {
+func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.Process_Params, tx storage.Tx) error {
 	p.defaultSettings = settings
 
-	tx := p.store.LockTx(p.name, 0, nil)
+	tx = p.store.LockTx(p.name, 0, tx)
 	if tx == nil {
 		return fmt.Errorf("lock process to update settings failed: lock unavailable")
 	}

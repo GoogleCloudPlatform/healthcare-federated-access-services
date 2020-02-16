@@ -190,10 +190,10 @@ func NewService(params *Options) *Service {
 	if stat := s.CheckIntegrity(cfg); stat != nil {
 		glog.Fatalf("config integrity error: %+v", stat.Proto())
 	}
-	if err = s.updateWarehouseOptions(cfg.Options, storage.DefaultRealm); err != nil {
+	if err = s.updateWarehouseOptions(cfg.Options, storage.DefaultRealm, nil); err != nil {
 		glog.Fatalf("setting service account config options failed (cannot enforce access management policies): %v", err)
 	}
-	if err = s.registerAllProjects(); err != nil {
+	if err = s.registerAllProjects(nil); err != nil {
 		glog.Fatalf("registation of one or more service account projects failed (cannot enforce access management policies): %v", err)
 	}
 
@@ -1062,7 +1062,7 @@ func (s *Service) realmReadTx(datatype, realm, user, id string, rev int64, item 
 	return http.StatusServiceUnavailable, fmt.Errorf("service storage unavailable: %v, retry later", err)
 }
 
-func (s *Service) registerAllProjects() error {
+func (s *Service) registerAllProjects(tx storage.Tx) error {
 	if s.warehouse == nil {
 		return nil
 	}
@@ -1071,7 +1071,7 @@ func (s *Service) registerAllProjects() error {
 	pageSize := 50
 	for {
 		content := make(map[string]map[string]proto.Message)
-		count, err := s.store.MultiReadTx(storage.ConfigDatatype, storage.AllRealms, storage.DefaultUser, nil, offset, pageSize, content, &pb.DamConfig{}, nil)
+		count, err := s.store.MultiReadTx(storage.ConfigDatatype, storage.AllRealms, storage.DefaultUser, nil, offset, pageSize, content, &pb.DamConfig{}, tx)
 		if err != nil {
 			return err
 		}
@@ -1091,34 +1091,34 @@ func (s *Service) registerAllProjects() error {
 		}
 	}
 	for p := range projects {
-		if err := s.registerProject(p); err != nil {
+		if err := s.registerProject(p, tx); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Service) registerProject(project string) error {
+func (s *Service) registerProject(project string, tx storage.Tx) error {
 	if s.warehouse == nil {
 		return nil
 	}
-	return s.warehouse.RegisterAccountProject(project)
+	return s.warehouse.RegisterAccountProject(project, tx)
 }
 
-func (s *Service) unregisterProject(project string) error {
+func (s *Service) unregisterProject(project string, tx storage.Tx) error {
 	if s.warehouse == nil {
 		return nil
 	}
-	return s.warehouse.UnregisterAccountProject(project)
+	return s.warehouse.UnregisterAccountProject(project, tx)
 }
 
-func (s *Service) updateWarehouseOptions(opts *pb.ConfigOptions, realm string) error {
+func (s *Service) updateWarehouseOptions(opts *pb.ConfigOptions, realm string, tx storage.Tx) error {
 	if s.warehouse == nil || realm != storage.DefaultRealm {
 		return nil
 	}
 	ttl, _ := common.ParseDuration(opts.GcpManagedKeysMaxRequestedTtl, defaultMaxRequestedTTL)
 	keys := int(opts.GcpManagedKeysPerAccount)
-	return s.warehouse.UpdateSettings(ttl, keys)
+	return s.warehouse.UpdateSettings(ttl, keys, tx)
 }
 
 // ImportFiles ingests bootstrap configuration files to the DAM's storage sytem.
@@ -1182,7 +1182,7 @@ func (s *Service) ImportFiles(importType string) error {
 	if err = s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
 		return err
 	}
-	return s.registerProject(cfg.Options.GcpServiceAccountProject)
+	return s.registerProject(cfg.Options.GcpServiceAccountProject, tx)
 }
 
 func isAutoReset() bool {

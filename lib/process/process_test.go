@@ -72,14 +72,14 @@ func TestProcess(t *testing.T) {
 			"bar": 2,
 		},
 	}
-	if _, err := process.RegisterProject("test_process", params); err != nil {
+	if _, err := process.RegisterProject("test_process", params, nil); err != nil {
 		t.Fatalf(`RegisterProject("test_process", %+v) failed: %v`, params, err)
 	}
-	if _, err := process.RegisterProject("sunset", nil); err != nil {
-		t.Fatalf(`RegisterProject("sunset", nil) failed: %v`, err)
+	if _, err := process.RegisterProject("sunset", nil, nil); err != nil {
+		t.Fatalf(`RegisterProject("sunset", nil, nil) failed: %v`, err)
 	}
-	if err := process.UnregisterProject("sunset"); err != nil {
-		t.Fatalf(`UnregisterProject("sunset") failed: %v`, err)
+	if err := process.UnregisterProject("sunset", nil); err != nil {
+		t.Fatalf(`UnregisterProject("sunset", nil) failed: %v`, err)
 	}
 
 	process.Run(context.Background())
@@ -164,16 +164,16 @@ type mockMergeWorker struct {
 func (m *mockMergeWorker) ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *Process) error {
 	glog.Infof("mockWorker processing active project %q", projectName)
 	m.activeProjects = append(m.activeProjects, projectName)
-	process.RegisterProject("new_project", nil)
-	process.UnregisterProject("test-project")
+	process.RegisterProject("new_project", nil, nil)
+	process.UnregisterProject("test-project", nil)
 	return nil
 }
 
 func (m *mockMergeWorker) CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *Process) error {
 	glog.Infof("mockWorker cleanup project %q", projectName)
 	m.cleanupProjects = append(m.cleanupProjects, projectName)
-	process.RegisterProject("promote", nil)
-	process.UnregisterProject("test_process")
+	process.RegisterProject("promote", nil, nil)
+	process.UnregisterProject("test_process", nil)
 	return nil
 }
 
@@ -205,13 +205,13 @@ func TestProcess_Merge(t *testing.T) {
 	unregister := []string{"cleanup_only", "promote", "sunset"}
 
 	for _, project := range register {
-		if _, err := process.RegisterProject(project, params); err != nil {
+		if _, err := process.RegisterProject(project, params, nil); err != nil {
 			t.Fatalf(`RegisterProject(%q, %+v) failed: %v`, project, params, err)
 		}
 	}
 	for _, project := range unregister {
-		if err := process.UnregisterProject(project); err != nil {
-			t.Fatalf(`UnregisterProject(%q, %+v) failed: %v`, project, params, err)
+		if err := process.UnregisterProject(project, nil); err != nil {
+			t.Fatalf(`UnregisterProject(%q, nil) failed: %v`, project, err)
 		}
 	}
 
@@ -309,9 +309,9 @@ func TestProcess_UpdateSettings(t *testing.T) {
 	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
-	process.RegisterProject("foo", nil)
-	process.UpdateSettings(updateFreq, updateSettings)
-	process.RegisterProject("bar", nil)
+	process.RegisterProject("foo", nil, nil)
+	process.UpdateSettings(updateFreq, updateSettings, nil)
+	process.RegisterProject("bar", nil, nil)
 
 	input := &pb.Process{}
 	if err := store.Read(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, testProcessName, storage.LatestRev, input); err != nil {

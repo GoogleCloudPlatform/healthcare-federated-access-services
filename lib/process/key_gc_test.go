@@ -54,13 +54,13 @@ func TestKeyGC(t *testing.T) {
 			"bar": 2,
 		},
 	}
-	if _, err := gc.RegisterProject("test_process", params); err != nil {
+	if _, err := gc.RegisterProject("test_process", params, nil); err != nil {
 		t.Fatalf(`RegisterProject("test_process", %+v) failed: %v`, params, err)
 	}
-	if _, err := gc.RegisterProject("bad", nil); err != nil {
+	if _, err := gc.RegisterProject("bad", nil, nil); err != nil {
 		t.Fatalf(`RegisterProject("bad", nil) failed: %v`, err)
 	}
-	if err := gc.UnregisterProject("bad"); err != nil {
+	if err := gc.UnregisterProject("bad", nil); err != nil {
 		t.Fatalf(`UnregisterProject("bad") failed: %v`, err)
 	}
 
@@ -112,7 +112,7 @@ func TestKeyGC_UpdateSettings(t *testing.T) {
 		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", initFreq, gc.process.scheduleFrequency)
 	}
 
-	gc.UpdateSettings(100*time.Hour, 6)
+	gc.UpdateSettings(100*time.Hour, 6, nil)
 
 	want := &pb.Process_Params{
 		IntParams: map[string]int64{"keyTtl": 420001, "keysPerAccount": 6, "maxRequestedTtl": 360000},

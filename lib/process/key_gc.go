@@ -56,17 +56,17 @@ func NewKeyGC(name string, warehouse clouds.AccountManager, store storage.Store,
 }
 
 // RegisterProject adds a project to the state for workers to process.
-func (k *KeyGC) RegisterProject(project string, params *pb.Process_Params) (*pb.Process_Project, error) {
-	return k.process.RegisterProject(project, params)
+func (k *KeyGC) RegisterProject(project string, params *pb.Process_Params, tx storage.Tx) (*pb.Process_Project, error) {
+	return k.process.RegisterProject(project, params, tx)
 }
 
 // UnregisterProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-func (k *KeyGC) UnregisterProject(projectName string) error {
-	return k.process.UnregisterProject(projectName)
+func (k *KeyGC) UnregisterProject(projectName string, tx storage.Tx) error {
+	return k.process.UnregisterProject(projectName, tx)
 }
 
 // UpdateSettings alters resource management settings.
-func (k *KeyGC) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int) error {
+func (k *KeyGC) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int, tx storage.Tx) error {
 	keyTTL := common.KeyTTL(maxRequestedTTL, keysPerAccount)
 	settings := &pb.Process_Params{
 		IntParams: map[string]int64{
@@ -79,7 +79,7 @@ func (k *KeyGC) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int
 	if scheduleFrequency > maxKeyScheduleFrequency {
 		scheduleFrequency = maxKeyScheduleFrequency
 	}
-	return k.process.UpdateSettings(scheduleFrequency, settings)
+	return k.process.UpdateSettings(scheduleFrequency, settings, tx)
 }
 
 // WaitCondition registers a callback that is called and checks conditions before every wait cycle.

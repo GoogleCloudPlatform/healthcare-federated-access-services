@@ -133,8 +133,8 @@ func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string,
 		}
 	}
 	if !proto.Equal(h.cfg.Options, h.save.Options) {
-		h.s.updateWarehouseOptions(h.save.Options, getRealm(h.r))
-		return h.s.registerProject(h.save.Options.GcpServiceAccountProject)
+		h.s.updateWarehouseOptions(h.save.Options, getRealm(h.r), h.tx)
+		return h.s.registerProject(h.save.Options.GcpServiceAccountProject, h.tx)
 	}
 	return nil
 }
@@ -227,8 +227,8 @@ func (h *configOptionsHandler) Save(tx storage.Tx, name string, vars map[string]
 		return err
 	}
 	if h.orig != nil && !proto.Equal(h.orig, h.save) {
-		h.s.updateWarehouseOptions(h.save, getRealm(h.r))
-		return h.s.registerProject(h.save.GcpServiceAccountProject)
+		h.s.updateWarehouseOptions(h.save, getRealm(h.r), h.tx)
+		return h.s.registerProject(h.save.GcpServiceAccountProject, h.tx)
 	}
 	return nil
 }
