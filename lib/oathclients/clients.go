@@ -83,20 +83,20 @@ func CheckClientIntegrity(name string, c *pb.Client) error {
 
 // ExtractClientID from request.
 func ExtractClientID(r *http.Request) string {
-	cid := httputil.GetParam(r, "client_id")
+	cid := httputil.QueryParam(r, "client_id")
 	if len(cid) > 0 {
 		return cid
 	}
-	return httputil.GetParam(r, "clientId")
+	return httputil.QueryParam(r, "clientId")
 }
 
 // ExtractClientSecret from request.
 func ExtractClientSecret(r *http.Request) string {
-	cs := httputil.GetParam(r, "client_secret")
+	cs := httputil.QueryParam(r, "client_secret")
 	if len(cs) > 0 {
 		return cs
 	}
-	return httputil.GetParam(r, "clientSecret")
+	return httputil.QueryParam(r, "clientSecret")
 }
 
 // ResetClients resets clients in hydra with given clients and secrets.

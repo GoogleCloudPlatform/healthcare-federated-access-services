@@ -42,6 +42,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
@@ -341,23 +342,23 @@ func NewService(params *Options) *Service {
 }
 
 func getClientID(r *http.Request) string {
-	cid := httputil.GetParam(r, "client_id")
+	cid := httputil.QueryParam(r, "client_id")
 	if len(cid) > 0 {
 		return cid
 	}
-	return httputil.GetParam(r, "clientId")
+	return httputil.QueryParam(r, "clientId")
 }
 
 func getClientSecret(r *http.Request) string {
-	cs := httputil.GetParam(r, "client_secret")
+	cs := httputil.QueryParam(r, "client_secret")
 	if len(cs) > 0 {
 		return cs
 	}
-	return httputil.GetParam(r, "clientSecret")
+	return httputil.QueryParam(r, "clientSecret")
 }
 
 func getNonce(r *http.Request) (string, error) {
-	n := httputil.GetParam(r, "nonce")
+	n := httputil.QueryParam(r, "nonce")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -367,7 +368,7 @@ func getNonce(r *http.Request) (string, error) {
 }
 
 func extractState(r *http.Request) (string, error) {
-	n := httputil.GetParam(r, "state")
+	n := httputil.QueryParam(r, "state")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -378,7 +379,7 @@ func extractState(r *http.Request) (string, error) {
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
-		httputil.AddCorsHeaders(w)
+		httputil.WriteCorsHeaders(w)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -510,13 +511,13 @@ func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg 
 
 	idp, ok := cfg.IdentityProviders[in.idpName]
 	if !ok {
-		httputil.HandleError(http.StatusNotFound, fmt.Errorf("login service %q not found", in.idpName), w)
+		httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("login service %q not found", in.idpName))
 		return
 	}
 
 	idpc, state, err := s.idpAuthorize(in, idp, cfg, nil)
 	if err != nil {
-		httputil.HandleError(http.StatusBadRequest, err, w)
+		httputil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 	resType := idp.ResponseType
@@ -534,16 +535,16 @@ func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg 
 	url := idpc.AuthCodeURL(state, options...)
 	url = strings.Replace(url, "${CLIENT_ID}", idp.ClientId, -1)
 	url = strings.Replace(url, "${REDIRECT_URI}", buildRedirectNonOIDC(idp, idpc, state), -1)
-	httputil.SendRedirect(url, r, w)
+	httputil.WriteRedirect(w, r, url)
 }
 
 func getStateRedirect(r *http.Request) (string, error) {
-	redirect, err := url.Parse(httputil.GetParam(r, "redirect_uri"))
+	redirect, err := url.Parse(httputil.QueryParam(r, "redirect_uri"))
 	if err != nil {
 		return "", fmt.Errorf("redirect_uri missing or invalid: %v", err)
 	}
 	q := redirect.Query()
-	if clientState := httputil.GetParam(r, "state"); len(clientState) > 0 {
+	if clientState := httputil.QueryParam(r, "state"); len(clientState) > 0 {
 		q.Set("state", clientState)
 	}
 	redirect.RawQuery = q.Encode()
@@ -569,7 +570,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	realm := getRealm(r)
 	lookup, err := s.accountLookup(realm, id.Subject, tx)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 	var subject string
@@ -577,23 +578,23 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		subject = lookup.Subject
 		acct, _, err := s.loadAccount(subject, realm, tx)
 		if err != nil {
-			httputil.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}
 		claims, err := s.accountLinkToClaims(r.Context(), acct, id.Subject, cfg, secrets)
 		if err != nil {
-			httputil.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}
 		if !claimsAreEqual(claims, id.GA4GH) {
 			// Refresh the claims in the storage layer.
 			if err := s.populateAccountClaims(r.Context(), acct, id, provider); err != nil {
-				httputil.HandleError(http.StatusServiceUnavailable, err, w)
+				httputil.WriteError(w, http.StatusServiceUnavailable, err)
 				return
 			}
 			err := s.saveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
 			if err != nil {
-				httputil.HandleError(http.StatusServiceUnavailable, err, w)
+				httputil.WriteError(w, http.StatusServiceUnavailable, err)
 				return
 			}
 		}
@@ -601,12 +602,12 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		// Create an account for the identity automatically.
 		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
 		if err != nil {
-			httputil.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}
 
 		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
-			httputil.HandleError(http.StatusServiceUnavailable, err, w)
+			httputil.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}
 		subject = acct.Properties.Subject
@@ -630,7 +631,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 
 	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
 	if err != nil {
-		httputil.HandleError(http.StatusInternalServerError, err, w)
+		httputil.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -704,7 +705,7 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 	page = strings.ReplaceAll(page, "${STATE}", stateID)
 	page = strings.ReplaceAll(page, "${PATH}", strings.ReplaceAll(acceptInformationReleasePath, "{realm}", realm))
 
-	httputil.SendHTML(page, w)
+	httputil.WriteHTMLResp(w, page)
 }
 
 //////////////////////////////////////////////////////////////////
@@ -1094,7 +1095,7 @@ func getBearerToken(r *http.Request) string {
 }
 
 func getScope(r *http.Request) (string, error) {
-	s := httputil.GetParam(r, "scope")
+	s := httputil.QueryParam(r, "scope")
 	if !hasScopes(scopeOpenID, s, matchFullScope) {
 		return "", fmt.Errorf("scope must include 'openid'")
 	}
@@ -1931,12 +1932,12 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// administration endpoints
-	r.HandleFunc(realmPath, auth.MustWithAuth(httputil.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configIdentityProvidersPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configIdpFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClientsPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClientsSyncPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClientsSyncFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configOptionsPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(realmPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configIdentityProvidersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configIdpFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientsSyncPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configClientsSyncFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configOptionsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
@@ -1944,12 +1945,12 @@ func registerHandlers(r *mux.Router, s *Service) {
 	// readonly config endpoints
 	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
-	r.HandleFunc(clientPath, auth.MustWithAuth(httputil.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(clientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 
 	// scim service endpoints
-	r.HandleFunc(scimMePath, auth.MustWithAuth(httputil.MakeHandler(s, s.scimMeFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(scimUserPath, auth.MustWithAuth(httputil.MakeHandler(s, s.scimUserFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(scimUsersPath, auth.MustWithAuth(httputil.MakeHandler(s, s.scimUsersFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.scimMeFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.scimUserFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.scimUsersFactory()), checker, auth.RequireAdminToken))
 
 	// token service endpoints
 	tokens := &stubTokens{token: fakeToken}
@@ -1963,8 +1964,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(consentPath, auth.MustWithAuth(NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// legacy endpoints
-	r.HandleFunc(accountPath, auth.MustWithAuth(httputil.MakeHandler(s, s.accountFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(accountSubjectPath, auth.MustWithAuth(httputil.MakeHandler(s, s.accountSubjectFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(httputil.MakeHandler(s, s.adminClaimsFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(httputil.MakeHandler(s, s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(accountPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.accountFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(accountSubjectPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.accountSubjectFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.adminClaimsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
 }

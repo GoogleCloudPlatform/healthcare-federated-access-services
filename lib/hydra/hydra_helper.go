@@ -31,7 +31,7 @@ const (
 
 // ExtractLoginChallenge extracts login_challenge from request.
 func ExtractLoginChallenge(r *http.Request) (string, *status.Status) {
-	n := httputil.GetParam(r, "login_challenge")
+	n := httputil.QueryParam(r, "login_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -40,7 +40,7 @@ func ExtractLoginChallenge(r *http.Request) (string, *status.Status) {
 
 // ExtractConsentChallenge extracts consent_challenge from request.
 func ExtractConsentChallenge(r *http.Request) (string, *status.Status) {
-	n := httputil.GetParam(r, "consent_challenge")
+	n := httputil.QueryParam(r, "consent_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -101,11 +101,11 @@ func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, logi
 	// Now it's time to grant the login request. You could also deny the request if something went terribly wrong
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return true
 	}
 
-	httputil.SendRedirect(resp.RedirectTo, r, w)
+	httputil.WriteRedirect(w, r, resp.RedirectTo)
 	return true
 }
 
@@ -127,11 +127,11 @@ func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, co
 	}
 	resp, err := AcceptConsent(client, hydraAdminURL, challenge, consentReq)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return true
 	}
 
-	httputil.SendRedirect(resp.RedirectTo, r, w)
+	httputil.WriteRedirect(w, r, resp.RedirectTo)
 	return true
 }
 
@@ -152,9 +152,9 @@ func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Clien
 
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, req)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 
-	httputil.SendRedirect(resp.RedirectTo, r, w)
+	httputil.WriteRedirect(w, r, resp.RedirectTo)
 }

@@ -29,9 +29,9 @@ func (s *Service) GetInfo(w http.ResponseWriter, r *http.Request) {
 		Versions:  []string{"v1alpha"},
 		StartTime: s.startTime,
 	}
-	realm := httputil.GetParamOrDefault(r, "realm", storage.DefaultRealm)
+	realm := httputil.QueryParamWithDefault(r, "realm", storage.DefaultRealm)
 	if cfg, err := s.loadConfig(nil, realm); err == nil {
 		out.Ui = cfg.Ui
 	}
-	httputil.SendResponse(out, w)
+	httputil.WriteProtoResp(w, out)
 }

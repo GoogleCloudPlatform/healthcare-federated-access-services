@@ -65,7 +65,7 @@ func (h *tokensHandler) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (h *tokensHandler) NormalizeInput(name string, vars map[string]string) error {
-	return httputil.GetRequest(h.input, h.r)
+	return httputil.DecodeProtoReq(h.input, h.r)
 }
 func (h *tokensHandler) Get(name string) error {
 	item := h.item
@@ -73,9 +73,7 @@ func (h *tokensHandler) Get(name string) error {
 		item = nil
 	}
 	if h.item != nil {
-		httputil.SendResponse(&pb.TokensResponse{
-			Tokens: item,
-		}, h.w)
+		httputil.WriteProtoResp(h.w, &pb.TokensResponse{Tokens: item})
 	}
 	return nil
 }
@@ -139,12 +137,10 @@ func (h *tokenHandler) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (h *tokenHandler) NormalizeInput(name string, vars map[string]string) error {
-	return httputil.GetRequest(h.input, h.r)
+	return httputil.DecodeProtoReq(h.input, h.r)
 }
 func (h *tokenHandler) Get(name string) error {
-	httputil.SendResponse(&pb.TokenResponse{
-		Token: h.item,
-	}, h.w)
+	httputil.WriteProtoResp(h.w, &pb.TokenResponse{Token: h.item})
 	return nil
 }
 func (h *tokenHandler) Post(name string) error {

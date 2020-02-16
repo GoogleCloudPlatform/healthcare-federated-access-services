@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -128,12 +129,12 @@ func linkProto(p proto.Message) *cpb.ConnectedAccount {
 	return link
 }
 
-func (s *Service) scimMeFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) scimMeFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "user",
 		PathPrefix:          scimMePath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return &scimMe{
 				s: s,
 				w: w,
@@ -209,12 +210,12 @@ func (h *scimMe) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) scimUserFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) scimUserFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "user",
 		PathPrefix:          scimUserPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return &scimUser{
 				s:     s,
 				w:     w,
@@ -283,7 +284,8 @@ func (h *scimUser) NormalizeInput(name string, vars map[string]string) error {
 
 // Get sends a GET method response
 func (h *scimUser) Get(name string) error {
-	return httputil.SendResponse(h.s.newScimUser(h.item, getRealm(h.r)), h.w)
+	httputil.WriteProtoResp(h.w, h.s.newScimUser(h.item, getRealm(h.r)))
+	return nil
 }
 
 // Post receives a POST method request
@@ -436,7 +438,8 @@ func (h *scimUser) Patch(name string) error {
 			return fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
 		}
 	}
-	return httputil.SendResponse(h.s.newScimUser(h.save, getRealm(h.r)), h.w)
+	httputil.WriteProtoResp(h.w, h.s.newScimUser(h.save, getRealm(h.r)))
+	return nil
 }
 
 // Remove receives a DELETE method request
@@ -534,12 +537,12 @@ func linkToken(r *http.Request) (string, error) {
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) scimUsersFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) scimUsersFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "users",
 		PathPrefix:          scimUsersPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return &scimUsers{
 				s: s,
 				w: w,
@@ -577,19 +580,19 @@ func (h *scimUsers) NormalizeInput(name string, vars map[string]string) error {
 
 // Get sends a GET method response
 func (h *scimUsers) Get(name string) error {
-	filters, err := storage.BuildFilters(httputil.GetParam(h.r, "filter"), scimUserFilterMap)
+	filters, err := storage.BuildFilters(httputil.QueryParam(h.r, "filter"), scimUserFilterMap)
 	if err != nil {
 		return err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := httputil.ExtractIntParam(h.r, "startIndex")
+	start := httputil.QueryParamInt(h.r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := httputil.ExtractIntParam(h.r, "count")
-	if len(httputil.GetParam(h.r, "count")) == 0 {
+	max := httputil.QueryParamInt(h.r, "count")
+	if len(httputil.QueryParam(h.r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 

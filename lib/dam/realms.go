@@ -19,19 +19,20 @@ import (
 
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
-func (s *Service) realmFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) realmFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "realm",
 		NameField:           "realm",
 		PathPrefix:          realmPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return newRealmHandler(s, w, r)
 		},
 	}
@@ -72,7 +73,7 @@ func (h *realmHandler) LookupItem(name string, vars map[string]string) bool {
 }
 
 func (h *realmHandler) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.GetRequest(h.input, h.r); err != nil {
+	if err := httputil.DecodeProtoReq(h.input, h.r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -83,7 +84,7 @@ func (h *realmHandler) NormalizeInput(name string, vars map[string]string) error
 
 func (h *realmHandler) Get(name string) error {
 	if h.item != nil {
-		httputil.SendResponse(h.item, h.w)
+		httputil.WriteProtoResp(h.w, h.item)
 	}
 	return nil
 }

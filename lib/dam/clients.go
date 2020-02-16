@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -98,14 +99,14 @@ func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModificatio
 //   Return self client information
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) clientFactory() *httputil.HandlerFactory {
+func (s *Service) clientFactory() *handlerfactory.HandlerFactory {
 	c := &clientService{s: s}
 
-	return &httputil.HandlerFactory{
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return oathclients.NewClientHandler(w, r, c)
 		},
 	}
@@ -132,14 +133,14 @@ func (s *Service) clientFactory() *httputil.HandlerFactory {
 //   Return nothing
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) configClientFactory() *httputil.HandlerFactory {
+func (s *Service) configClientFactory() *handlerfactory.HandlerFactory {
 	c := &clientService{s: s}
 
-	return &httputil.HandlerFactory{
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "configClient",
 		PathPrefix:          configClientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return oathclients.NewAdminClientHandler(w, r, c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL)
 		},
 	}

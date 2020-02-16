@@ -23,6 +23,7 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -32,16 +33,21 @@ import (
 
 // This file contains a number of legacy endpoints that will be removed.
 
+var (
+	placeholderOrNameRE = regexp.MustCompile(`^(-|[A-Za-z][-_A-Za-z0-9\.]{1,30}[A-Za-z0-9])$`)
+	placeholderName     = "-"
+)
+
 // HTTP handler for "/identity/v1alpha/{realm}/accounts/{name}"
-func (s *Service) accountFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) accountFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "account",
 		PathPrefix:          accountPath,
 		HasNamedIdentifiers: true,
 		NameChecker: map[string]*regexp.Regexp{
-			"name": httputil.PlaceholderOrNameRE,
+			"name": placeholderOrNameRE,
 		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return &account{
 				s:     s,
 				w:     w,
@@ -74,7 +80,7 @@ func (c *account) Setup(tx storage.Tx) (int, error) {
 	return status, err
 }
 func (c *account) LookupItem(name string, vars map[string]string) bool {
-	if name == httputil.PlaceholderName {
+	if name == placeholderName {
 		name = c.id.Subject
 	} else if strings.Contains(name, "@") {
 		lookup, err := c.s.accountLookup(getRealm(c.r), name, c.tx)
@@ -94,7 +100,7 @@ func (c *account) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (c *account) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -132,9 +138,9 @@ func (c *account) Get(name string) error {
 		// Do not expose internal errors related to secrets to users, return generic error instead.
 		return fmt.Errorf("internal system information unavailable")
 	}
-	httputil.SendResponse(&pb.AccountResponse{
+	httputil.WriteProtoResp(c.w, &pb.AccountResponse{
 		Account: c.s.makeAccount(c.r.Context(), c.item, c.cfg, secrets),
-	}, c.w)
+	})
 	return nil
 }
 func (c *account) Post(name string) error {
@@ -146,7 +152,7 @@ func (c *account) Put(name string) error {
 func (c *account) Patch(name string) error {
 	c.save = &cpb.Account{}
 	proto.Merge(c.save, c.item)
-	link := httputil.GetParam(c.r, "link_token")
+	link := httputil.QueryParam(c.r, "link_token")
 	if len(link) > 0 {
 		if !hasScopes("link", c.id.Scope, matchFullScope) {
 			return fmt.Errorf("bearer token unauthorized for scope %q", "link")
@@ -236,8 +242,8 @@ func (c *account) Save(tx storage.Tx, name string, vars map[string]string, desc,
 }
 
 // HTTP handler for "/identity/v1alpha/{realm}/accounts/{name}/subjects/{subject}"
-func (s *Service) accountSubjectFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) accountSubjectFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "accountLink",
 		PathPrefix:          accountSubjectPath,
 		HasNamedIdentifiers: true,
@@ -245,7 +251,7 @@ func (s *Service) accountSubjectFactory() *httputil.HandlerFactory {
 			// Some upstream IdPs may use a wider selection of characters, including email-looking format.
 			"subject": regexp.MustCompile(`^[\w][^/\\@]*@?[\w][^/\\@]*$`),
 		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return &accountLink{
 				s:     s,
 				w:     w,
@@ -291,7 +297,7 @@ func (c *accountLink) LookupItem(name string, vars map[string]string) bool {
 	return false
 }
 func (c *accountLink) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -312,9 +318,9 @@ func (c *accountLink) Get(name string) error {
 		// Do not expose internal errors related to secrets to users, return generic error instead.
 		return fmt.Errorf("internal system information unavailable")
 	}
-	httputil.SendResponse(&pb.AccountSubjectResponse{
+	httputil.WriteProtoResp(c.w, &pb.AccountSubjectResponse{
 		Item: c.s.makeConnectedAccount(c.r.Context(), c.item, c.cfg, secrets),
-	}, c.w)
+	})
 	return nil
 }
 func (c *accountLink) Post(name string) error {
@@ -356,15 +362,15 @@ func (c *accountLink) Save(tx storage.Tx, name string, vars map[string]string, d
 }
 
 // HTTP handler for  "/identity/v1alpha/{realm}/admin/subjects/{name}/account/claims"
-func (s *Service) adminClaimsFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) adminClaimsFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "adminClaims",
 		PathPrefix:          adminClaimsPath,
 		HasNamedIdentifiers: false,
 		NameChecker: map[string]*regexp.Regexp{
 			"name": regexp.MustCompile(`^[\w][^/\\]*@[\w][^/\\]*$`),
 		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return &adminClaims{
 				s:     s,
 				w:     w,
@@ -403,7 +409,7 @@ func (c *adminClaims) LookupItem(name string, vars map[string]string) bool {
 	return true
 }
 func (c *adminClaims) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
 		return err
 	}
 	return nil
@@ -420,9 +426,7 @@ func (c *adminClaims) Get(name string) error {
 		}
 	}
 
-	httputil.SendResponse(&pb.SubjectClaimsResponse{
-		Assertions: out,
-	}, c.w)
+	httputil.WriteProtoResp(c.w, &pb.SubjectClaimsResponse{Assertions: out})
 	return nil
 }
 func (c *adminClaims) Post(name string) error {
@@ -459,12 +463,12 @@ func (c *adminClaims) Save(tx storage.Tx, name string, vars map[string]string, d
 }
 
 // HTTP handler for  "/identity/v1alpha/{realm}/admin/tokens"
-func (s *Service) adminTokenMetadataFactory() *httputil.HandlerFactory {
-	return &httputil.HandlerFactory{
+func (s *Service) adminTokenMetadataFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "tokens",
 		PathPrefix:          adminTokenMetadataPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return &adminTokenMetadataHandler{
 				s:     s,
 				w:     w,
@@ -508,7 +512,7 @@ func (h *adminTokenMetadataHandler) LookupItem(name string, vars map[string]stri
 }
 
 func (h *adminTokenMetadataHandler) NormalizeInput(name string, vars map[string]string) error {
-	return httputil.GetRequest(h.input, h.r)
+	return httputil.DecodeProtoReq(h.input, h.r)
 }
 
 func (h *adminTokenMetadataHandler) Get(name string) error {
@@ -516,9 +520,7 @@ func (h *adminTokenMetadataHandler) Get(name string) error {
 	if len(item) == 0 {
 		item = nil
 	}
-	httputil.SendResponse(&pb.TokensMetadataResponse{
-		TokensMetadata: item,
-	}, h.w)
+	httputil.WriteProtoResp(h.w, &pb.TokensMetadataResponse{TokensMetadata: item})
 	return nil
 }
 

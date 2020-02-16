@@ -24,6 +24,7 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -64,7 +65,7 @@ type clientHandler struct {
 }
 
 // NewClientHandler returns clientHandler.
-func NewClientHandler(w http.ResponseWriter, r *http.Request, s ClientService) httputil.HandlerInterface {
+func NewClientHandler(w http.ResponseWriter, r *http.Request, s ClientService) handlerfactory.HandlerInterface {
 	return &clientHandler{w: w, r: r, s: s}
 }
 
@@ -96,9 +97,8 @@ func (c *clientHandler) NormalizeInput(name string, vars map[string]string) erro
 }
 
 func (c *clientHandler) Get(name string) error {
-	return httputil.SendResponse(&pb.ClientResponse{
-		Client: c.item,
-	}, c.w)
+	httputil.WriteProtoResp(c.w, &pb.ClientResponse{Client: c.item})
+	return nil
 }
 
 func (c *clientHandler) Post(name string) error {
@@ -165,7 +165,7 @@ type adminClientHandler struct {
 }
 
 // NewAdminClientHandler returns adminClientHandler
-func NewAdminClientHandler(w http.ResponseWriter, r *http.Request, s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) httputil.HandlerInterface {
+func NewAdminClientHandler(w http.ResponseWriter, r *http.Request, s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) handlerfactory.HandlerInterface {
 	return &adminClientHandler{w: w, r: r, s: s, useHydra: useHydra, httpClient: httpClient, hydraAdminURL: hydraAdminURL}
 }
 
@@ -183,7 +183,7 @@ func (c *adminClientHandler) LookupItem(name string, vars map[string]string) boo
 
 func (c *adminClientHandler) NormalizeInput(name string, vars map[string]string) error {
 	c.input = &pb.ConfigClientRequest{}
-	if err := httputil.GetRequest(c.input, c.r); err != nil {
+	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -200,7 +200,8 @@ func (c *adminClientHandler) NormalizeInput(name string, vars map[string]string)
 }
 
 func (c *adminClientHandler) Get(name string) error {
-	return httputil.SendResponse(&pb.ConfigClientResponse{Client: c.item}, c.w)
+	httputil.WriteProtoResp(c.w, &pb.ConfigClientResponse{Client: c.item})
+	return nil
 }
 
 func (c *adminClientHandler) Post(name string) error {
@@ -240,9 +241,11 @@ func (c *adminClientHandler) Post(name string) error {
 	c.s.SaveClient(name, sec, out)
 
 	// Return the created client.
-	return httputil.SendResponse(&pb.ConfigClientResponse{
+	httputil.WriteProtoResp(c.w, &pb.ConfigClientResponse{
 		Client:       out,
-		ClientSecret: sec}, c.w)
+		ClientSecret: sec,
+	})
+	return nil
 }
 
 func (c *adminClientHandler) Put(name string) error {
@@ -295,9 +298,11 @@ func (c *adminClientHandler) Patch(name string) error {
 	c.s.SaveClient(name, sec, out)
 
 	// Return the updated client.
-	return httputil.SendResponse(&pb.ConfigClientResponse{
+	httputil.WriteProtoResp(c.w, &pb.ConfigClientResponse{
 		Client:       out,
-		ClientSecret: sec}, c.w)
+		ClientSecret: sec,
+	})
+	return nil
 }
 
 func (c *adminClientHandler) Remove(name string) error {

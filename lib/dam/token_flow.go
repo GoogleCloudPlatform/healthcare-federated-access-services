@@ -63,7 +63,7 @@ func extractBearerToken(r *http.Request) (string, error) {
 }
 
 func extractAuthCode(r *http.Request) (string, error) {
-	code := httputil.GetParam(r, "code")
+	code := httputil.QueryParam(r, "code")
 	if len(code) != 0 {
 		return code, nil
 	}
@@ -102,7 +102,7 @@ func extractTTL(maxAgeStr, ttlStr string) (time.Duration, error) {
 }
 
 func responseKeyFile(r *http.Request) bool {
-	return httputil.GetParam(r, "response_type") == "key-file-type"
+	return httputil.QueryParam(r, "response_type") == "key-file-type"
 }
 
 func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceName, viewName, role string, ttl time.Duration, useKeyFile bool, id *ga4gh.Identity, cfg *pb.DamConfig, res *pb.Resource, view *pb.View) (*pb.ResourceTokens_ResourceToken, int, error) {
@@ -166,11 +166,6 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 		return &pb.ResourceTokens_ResourceToken{KeyFile: result.Token}, http.StatusOK, nil
 	}
 	return nil, http.StatusBadRequest, fmt.Errorf("adapter cannot create key file format")
-}
-
-func sendRedirect(url string, r *http.Request, w http.ResponseWriter) {
-	httputil.AddCorsHeaders(w)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func (s *Service) oauthConf(brokerName string, broker *pb.TrustedPassportIssuer, clientSecret string, scopes []string) *oauth2.Config {
@@ -488,14 +483,14 @@ func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.Resourc
 func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 	tx, err := s.store.Tx(false)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 	defer tx.Finish()
 
 	auth, err := extractBearerToken(r)
 	if err != nil {
-		httputil.HandleError(http.StatusBadRequest, err, w)
+		httputil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -510,16 +505,16 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 
 	state, id, err := s.resourceTokenState(cart, tx)
 	if err != nil {
-		httputil.HandleError(http.StatusBadRequest, err, w)
+		httputil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 	if len(state.Resources) == 0 {
-		httputil.HandleError(http.StatusBadRequest, fmt.Errorf("empty resource list"), w)
+		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("empty resource list"))
 		return
 	}
 	cfg, err := s.loadConfig(tx, state.Resources[0].Realm)
 	if err != nil {
-		httputil.HandleError(http.StatusBadRequest, err, w)
+		httputil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -533,19 +528,19 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 	for i, r := range state.Resources {
 		res, ok := cfg.Resources[r.Resource]
 		if !ok {
-			httputil.HandleError(http.StatusNotFound, fmt.Errorf("resource not found: %q", r.Resource), w)
+			httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("resource not found: %q", r.Resource))
 			return
 		}
 
 		view, ok := res.Views[r.View]
 		if !ok {
-			httputil.HandleError(http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", r.View, r.Resource), w)
+			httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", r.View, r.Resource))
 			return
 		}
 
 		tok, status, err := s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, time.Duration(state.Ttl), keyFile, id, cfg, res, view)
 		if err != nil {
-			httputil.HandleError(status, err, w)
+			httputil.WriteError(w, status, err)
 			return
 		}
 		access := strconv.Itoa(i)
@@ -561,7 +556,7 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 		tok.Ttl = ""
 		out.Access[access] = tok
 	}
-	httputil.SendResponse(out, w)
+	httputil.WriteProtoResp(w, out)
 }
 
 func (s *Service) resourceTokenState(stateID string, tx storage.Tx) (*pb.ResourceTokenRequestState, *ga4gh.Identity, error) {
@@ -591,18 +586,18 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	code, err := extractAuthCode(r)
 	if err != nil {
-		httputil.HandleError(http.StatusBadRequest, err, w)
+		httputil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	stateID := httputil.GetParam(r, "state")
+	stateID := httputil.QueryParam(r, "state")
 	if len(stateID) == 0 {
-		httputil.HandleError(http.StatusBadRequest, fmt.Errorf("request must include state"), w)
+		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("request must include state"))
 	}
 
 	out, st, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
 	if err != nil {
-		httputil.HandleError(st, err, w)
+		httputil.WriteError(w, st, err)
 		return
 	}
 

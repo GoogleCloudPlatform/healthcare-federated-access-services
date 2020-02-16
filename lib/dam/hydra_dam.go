@@ -46,7 +46,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 
@@ -56,7 +56,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 
@@ -75,14 +75,14 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		in.tokenType = pb.ResourceTokenRequestState_DATASET
 		in.ttl, err = extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
 		if err != nil {
-			httputil.HandleError(http.StatusBadRequest, err, w)
+			httputil.WriteError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		list := u.Query()["resource"]
 		in.resources, err = s.resourceViewRoleFromRequest(list)
 		if err != nil {
-			httputil.HandleError(http.StatusBadRequest, err, w)
+			httputil.WriteError(w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -91,7 +91,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	out, st, err := s.auth(r.Context(), in)
 	if err != nil {
-		httputil.HandleError(st, err, w)
+		httputil.WriteError(w, st, err)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	auth := out.oauth.AuthCodeURL(out.stateID, opts...)
 
-	sendRedirect(auth, r, w)
+	httputil.WriteRedirect(w, r, auth)
 }
 
 // HydraConsent handles consent request from hydra.
@@ -119,7 +119,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 
@@ -154,11 +154,11 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 
-	httputil.SendRedirect(resp.RedirectTo, r, w)
+	httputil.WriteRedirect(w, r, resp.RedirectTo)
 }
 
 func (s *Service) extractCartFromAccessToken(token string) (string, error) {

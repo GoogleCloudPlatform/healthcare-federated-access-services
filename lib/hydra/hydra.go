@@ -135,6 +135,7 @@ func Introspect(client *http.Client, hydraAdminURL, token string) (*hydraapi.Int
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if err := httpResponse(resp, response); err != nil {
 		return nil, err
@@ -186,14 +187,14 @@ func putURL(hydraAdminURL, flow, action, challenge string) string {
 func httpResponse(resp *http.Response, response interface{}) error {
 	if httputil.IsHTTPError(resp.StatusCode) {
 		gErr := &hydraapi.GenericError{}
-		if err := httputil.DecodeJSONFromBody(resp.Body, gErr); err != nil {
+		if err := httputil.DecodeJSON(resp.Body, gErr); err != nil {
 			return err
 		}
 		// TODO: figure out what error from hydra should handle.
 		return gErr
 	}
 
-	return httputil.DecodeJSONFromBody(resp.Body, response)
+	return httputil.DecodeJSON(resp.Body, response)
 }
 
 func httpPut(client *http.Client, url string, request interface{}, response interface{}) error {
@@ -214,6 +215,7 @@ func httpPut(client *http.Client, url string, request interface{}, response inte
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	return httpResponse(resp, response)
 }
@@ -236,6 +238,7 @@ func httpPost(client *http.Client, url string, request interface{}, response int
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	return httpResponse(resp, response)
 }
@@ -253,6 +256,7 @@ func httpDelete(client *http.Client, url string) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
@@ -273,6 +277,7 @@ func httpGet(client *http.Client, url string, response interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	return httpResponse(resp, response)
 }

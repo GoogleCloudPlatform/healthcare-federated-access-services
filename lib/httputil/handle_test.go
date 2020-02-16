@@ -20,7 +20,184 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
+
+	dpb "google.golang.org/genproto/googleapis/protobuf" /* copybara-comment: duration_go_proto */
 )
+
+type Response struct {
+	Content string `json:"content,omitempty"`
+}
+
+func TestWriteRPCResp(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteRPCResp(w, Response{Content: "something"}, nil)
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+			"Content-Type":                 {"application/json"},
+		},
+		Body: `{"content":"something"}` + "\n",
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteRPCResp(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteRPCResp_Proto(t *testing.T) {
+	w := NewFakeWriter()
+	resp := &dpb.Duration{Seconds: 60}
+
+	WriteRPCResp(w, resp, nil)
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+			"Content-Type":                 {"application/json"},
+		},
+		Body: `{"seconds":60}` + "\n",
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteRPCResp(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteRPCResp_Error(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteRPCResp(w, Response{Content: "something"}, status.Error(codes.NotFound, "resource not found"))
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Content-Type":           {"text/plain; charset=utf-8"},
+			"X-Content-Type-Options": {"nosniff"},
+		},
+		Body: `rpc error: code = NotFound desc = resource not found` + "\n",
+		Code: http.StatusNotFound,
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteRPCResp(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteProtoResp(t *testing.T) {
+	w := NewFakeWriter()
+
+	resp := &dpb.Duration{Seconds: 60}
+	WriteProtoResp(w, resp)
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+			"Content-Type":                 {"application/json"},
+		},
+		Body: `"60s"`,
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteProtoResp(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteStatus(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteStatus(w, status.New(codes.NotFound, "resource not found"))
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+			"Content-Type":                 {"application/json"},
+		},
+		Body: `{"code":5,"message":"resource not found"}`,
+		Code: http.StatusNotFound,
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteStatus(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteStatus_NilStatus(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteStatus(w, nil)
+
+	want := &FakeWriter{
+		Headers: http.Header{},
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteStatus(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteError(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteError(w, http.StatusNotFound, status.Errorf(codes.NotFound, "resource not found"))
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+		},
+		Body: "404 request error: rpc error: code = NotFound desc = resource not found\n",
+		Code: http.StatusNotFound,
+	}
+	if diff := cmp.Diff(want, w); diff != "" {
+		t.Errorf("WriteError(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteHTMLResp(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteHTMLResp(w, "some html code")
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+			"Content-Type":                 {"text/html"},
+		},
+		Body: "some html code",
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteHTMLResp(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteJSONResp(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteJSONResp(w, []byte(`{"field":"value"}`))
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+			"Cache-Control":                {"no-store"},
+			"Content-Type":                 {"application/json"},
+			"Pragma":                       {"no-cache"},
+		},
+		Body: `{"field":"value"}`,
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteJSONResp(); Writer diff (-want +got):\n%s", diff)
+	}
+}
 
 func TestWriteRedirect(t *testing.T) {
 	w := NewFakeWriter()
@@ -183,5 +360,22 @@ func TestWriteRedirect_FullyEncodedRedirectURLParameter(t *testing.T) {
 	}
 	if diff := cmp.Diff(w, want); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestWriteCorsHeaders(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteCorsHeaders(w)
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+		},
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteCorsHeaders(); Writer diff (-want +got):\n%s", diff)
 	}
 }

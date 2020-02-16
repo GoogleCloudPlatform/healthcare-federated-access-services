@@ -17,6 +17,7 @@ package ic
 import (
 	"net/http"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
@@ -29,7 +30,7 @@ import (
 func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
-		httputil.HandleError(http.StatusServiceUnavailable, err, w)
+		httputil.WriteError(w, http.StatusServiceUnavailable, err)
 		return
 	}
 	resp := &pb.GetIdentityProvidersResponse{
@@ -38,25 +39,25 @@ func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 	for name, idp := range cfg.IdentityProviders {
 		resp.IdentityProviders[name] = makeIdentityProvider(idp)
 	}
-	httputil.SendResponse(resp, w)
+	httputil.WriteProtoResp(w, resp)
 }
 
 // PassportTranslators returns part of config: Passport Translators
 func (s *Service) PassportTranslators(w http.ResponseWriter, r *http.Request) {
 	out := translator.GetPassportTranslators()
-	httputil.SendResponse(out, w)
+	httputil.WriteProtoResp(w, out)
 }
 
 // HTTP handler for ".../clients/{name}"
 // Return self client information.
-func (s *Service) clientFactory() *httputil.HandlerFactory {
+func (s *Service) clientFactory() *handlerfactory.HandlerFactory {
 	c := &clientService{s: s}
 
-	return &httputil.HandlerFactory{
+	return &handlerfactory.HandlerFactory{
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return oathclients.NewClientHandler(w, r, c)
 		},
 	}
