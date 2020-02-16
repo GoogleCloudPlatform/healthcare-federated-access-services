@@ -128,7 +128,7 @@ func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string,
 	}
 	// Assumes that secrets don't change within this handler.
 	if h.s.useHydra && !check.ClientsEqual(h.cfg.Clients, h.save.Clients) {
-		if err = h.s.syncToHydra(h.save.Clients, secrets.ClientSecrets, 0); err != nil {
+		if err = h.s.syncToHydra(h.save.Clients, secrets.ClientSecrets, 0, tx); err != nil {
 			return err
 		}
 	}
@@ -1007,6 +1007,79 @@ func (h *configPersonaHandler) Save(tx storage.Tx, name string, vars map[string]
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
 }
 
+//////////////////////////////////////////////////////////////////
+// GET /dam/v1alpha/{realm}/config/clients:sync:
+//   Return empty response on success
+//////////////////////////////////////////////////////////////////
+
+func (s *Service) configClientsSyncFactory() *httputil.HandlerFactory {
+	return &httputil.HandlerFactory{
+		TypeName:            "configClientsSync",
+		PathPrefix:          configClientsSyncPath,
+		HasNamedIdentifiers: false,
+		NewHandler: func(w http.ResponseWriter, r *http.Request) httputil.HandlerInterface {
+			return NewConfigClientsSyncHandler(s, w, r)
+		},
+	}
+}
+
+type configClientsSyncHandler struct {
+	s   *Service
+	w   http.ResponseWriter
+	r   *http.Request
+	cfg *pb.DamConfig
+	id  *ga4gh.Identity
+	tx  storage.Tx
+}
+
+// NewConfigClientsSyncHandler implements the config clients sync RPC method.
+func NewConfigClientsSyncHandler(s *Service, w http.ResponseWriter, r *http.Request) *configClientsSyncHandler {
+	return &configClientsSyncHandler{
+		s: s,
+		w: w,
+		r: r,
+	}
+}
+func (h *configClientsSyncHandler) Setup(tx storage.Tx) (int, error) {
+	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, nil)
+	h.cfg = cfg
+	h.id = id
+	h.tx = tx
+	return status, err
+}
+func (h *configClientsSyncHandler) LookupItem(name string, vars map[string]string) bool {
+	return true
+}
+func (h *configClientsSyncHandler) NormalizeInput(name string, vars map[string]string) error {
+	return nil
+}
+func (h *configClientsSyncHandler) Get(name string) error {
+	secrets, err := h.s.loadSecrets(h.tx)
+	if err != nil {
+		return err
+	}
+
+	return h.s.syncToHydra(h.cfg.Clients, secrets.ClientSecrets, 0, h.tx)
+}
+func (h *configClientsSyncHandler) Post(name string) error {
+	return fmt.Errorf("POST not allowed")
+}
+func (h *configClientsSyncHandler) Put(name string) error {
+	return fmt.Errorf("PUT not allowed")
+}
+func (h *configClientsSyncHandler) Patch(name string) error {
+	return fmt.Errorf("PATCH not allowed")
+}
+func (h *configClientsSyncHandler) Remove(name string) error {
+	return fmt.Errorf("DELETE not allowed")
+}
+func (h *configClientsSyncHandler) CheckIntegrity() *status.Status {
+	return nil
+}
+func (h *configClientsSyncHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return nil
+}
+
 // ConfigHistory implements the HistoryConfig RPC method.
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.loadConfig(nil, getRealm(r))
@@ -1098,7 +1171,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0); err != nil {
+		if err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0, nil); err != nil {
 			httputil.HandleError(http.StatusServiceUnavailable, err, w)
 			return
 		}

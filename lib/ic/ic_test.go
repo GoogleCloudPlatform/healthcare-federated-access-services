@@ -1531,7 +1531,7 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 	}
 }
 
-func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
+func sendClientsGet(t *testing.T, path, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1544,7 +1544,7 @@ func sendClientsGet(t *testing.T, pname, clientName, clientID, clientSecret stri
 		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
-	path := strings.ReplaceAll(clientPath, "{realm}", "test")
+	path = strings.ReplaceAll(path, "{realm}", "test")
 	path = strings.ReplaceAll(path, "{name}", clientName)
 	q := url.Values{
 		"client_id":     []string{clientID},
@@ -1564,7 +1564,7 @@ func TestClients_Get(t *testing.T) {
 	pname := "non-admin"
 	cli := cfg.Clients[clientName]
 
-	resp := sendClientsGet(t, pname, clientName, cli.ClientId, sec.ClientSecrets[cli.ClientId], s, iss)
+	resp := sendClientsGet(t, clientPath, pname, clientName, cli.ClientId, sec.ClientSecrets[cli.ClientId], s, iss)
 
 	got := &cpb.ClientResponse{}
 	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
@@ -1608,12 +1608,30 @@ func TestClients_Get_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pname := "non-admin"
 
-			resp := sendClientsGet(t, pname, tc.clientName, tc.clientID, sec.ClientSecrets[tc.clientID], s, iss)
+			resp := sendClientsGet(t, clientPath, pname, tc.clientName, tc.clientID, sec.ClientSecrets[tc.clientID], s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
 			}
 		})
+	}
+}
+
+func TestClientsSync(t *testing.T) {
+	s, cfg, sec, _, iss, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	clientName := "test_client"
+	pname := "admin"
+	cli := cfg.Clients[clientName]
+
+	resp := sendClientsGet(t, configClientsSyncPath, pname, clientName, cli.ClientId, sec.ClientSecrets[cli.ClientId], s, iss)
+
+	wantStatus := http.StatusOK
+	if resp.StatusCode != wantStatus {
+		t.Errorf("clientsSync resp.StatusCode = %d, want %d", resp.StatusCode, wantStatus)
 	}
 }
 

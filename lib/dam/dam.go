@@ -454,17 +454,21 @@ func (s *Service) testPersona(ctx context.Context, personaName string, resources
 // the last one (if it doesn't time out), or non-zero to indicate that a recent sync
 // is good enough. Note there are some race conditions with several client changes
 // overlapping in flight that could still have the two services be out of sync.
-func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string]string, minFrequency time.Duration) error {
+func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string]string, minFrequency time.Duration, tx storage.Tx) error {
 	if !s.useHydra {
 		return nil
 	}
-	tx := s.store.LockTx("hydra_"+s.serviceName, minFrequency, nil)
-	if tx != nil {
-		defer tx.Finish()
-		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, clients, secrets); err != nil {
-			glog.Errorf("failed to reset hydra clients: %v", err)
-			return err
-		}
+	ltx := s.store.LockTx("hydra_"+s.serviceName, minFrequency, tx)
+	if ltx == nil {
+		return nil
+	}
+	if tx == nil {
+		// Is a new tx (i.e. ltx didn't override tx)
+		defer ltx.Finish()
+	}
+	if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, clients, secrets); err != nil {
+		glog.Errorf("failed to reset hydra clients: %v", err)
+		return err
 	}
 	return nil
 }
@@ -1244,6 +1248,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(httputil.MakeHandler(s, s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configPersonaFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configClientPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientsSyncPath, auth.MustWithAuth(httputil.MakeHandler(s, s.configClientsSyncFactory()), checker, auth.RequireAdminToken))
 
 	r.HandleFunc(processesPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processesFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(processPath, auth.MustWithAuth(httputil.MakeHandler(s, s.processFactory()), checker, auth.RequireAdminToken))

@@ -64,6 +64,7 @@ const (
 	configClientPath                = "/dam/v1alpha/{realm}/config/clients/{name}"
 	configTestPersonasPath          = "/dam/v1alpha/{realm}/config/testPersonas"
 	configTestPersonaPath           = "/dam/v1alpha/{realm}/config/testPersonas/{name}"
+	configClientsSyncPath           = "/dam/v1alpha/{realm}/config/clients:sync"
 
 	// ConfigReset: resets the config to its initial state read from configuration file.
 	// Required permission: admin

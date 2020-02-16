@@ -60,6 +60,10 @@ The following are used for managing IC's configuration.
 They require "admin" permission.
 
 *  "/identity/v1alpha/{realm}/config" and sub-resources: managing configuration.
+*  "/identity/v1alpha/{realm}/config/clients:sync": syncs client information
+   between the IC and Hydra where the IC's configuration is considered the
+   source of truth. Syncing generally happens as configurations change, but this
+   endpoint allows an administrator or tool to invoke it explicitly.
 *  "/identity/v1alpha/{realm}/config/reset": resets the configuration to its initial version read from configuration file.
 *  "/identity/v1alpha/{realm}/config/history": history of configuration changes.
 
@@ -234,6 +238,10 @@ They require "admin" permission.
 
 *  "/dam/v1alpha/{realm}": supports GET and DELETE of a realm.
 *  "/dam/v1alpha/{realm}/config" and sub-resources: managing configuration.
+*  "/dam/v1alpha/{realm}/config/clients:sync": syncs client information
+   between the DAM and Hydra where the DAM's configuration is considered the
+   source of truth. Syncing generally happens as configurations change, but this
+   endpoint allows an administrator or tool to invoke it explicitly.
 *  "/dam/v1alpha/{realm}/config/reset": resets the config to its initial version read from configuration file.
 *  "/dam/v1alpha/{realm}/config/history": history of configuration changes.
 *  /dam/v1alpha/{realm}/tests": performs a set of tests for validity of the current configuration.

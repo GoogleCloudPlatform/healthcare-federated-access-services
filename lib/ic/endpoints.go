@@ -51,6 +51,7 @@ const (
 	configPath                  = "/identity/v1alpha/{realm}/config"
 	configIdentityProvidersPath = "/identity/v1alpha/{realm}/config/identityProviders/{name}"
 	configClientsPath           = "/identity/v1alpha/{realm}/config/clients/{name}"
+	configClientsSyncPath       = "/identity/v1alpha/{realm}/config/clients:sync"
 	configOptionsPath           = "/identity/v1alpha/{realm}/config/options"
 
 	// ConfigReset: resets the config to its initial state read from configuration file.

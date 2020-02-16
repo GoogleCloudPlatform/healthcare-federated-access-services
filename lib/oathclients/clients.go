@@ -104,6 +104,7 @@ func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[str
 	var added, updated, removed, skipped int
 	cs, err := hydra.ListClients(httpClient, hydraAdminURL)
 	if err != nil {
+		glog.Infof("FIXME failed to list hydra clients (%q): %v", hydraAdminURL, err)
 		return err
 	}
 
