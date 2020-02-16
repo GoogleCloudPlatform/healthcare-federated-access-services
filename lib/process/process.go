@@ -72,13 +72,16 @@ const (
 
 // Process is a background process that performs work at a scheduled frequency.
 type Process struct {
-	name              string
-	worker            Worker
-	store             storage.Store
-	mutex             sync.Mutex
-	scheduleFrequency time.Duration
-	progressFrequency time.Duration
-	defaultSettings   *pb.Process_Params
+	name                 string
+	worker               Worker
+	store                storage.Store
+	mutex                sync.Mutex
+	initialWaitDuration  time.Duration
+	minScheduleFrequency time.Duration
+	scheduleFrequency    time.Duration
+	progressFrequency    time.Duration
+	defaultSettings      *pb.Process_Params
+	running              bool
 }
 
 // Worker represents a process that perform work on the project state provided.
@@ -97,16 +100,20 @@ type Worker interface {
 //   - scheduleFrequency may be adjusted to meet schedule frequency constraints.
 func NewProcess(name string, worker Worker, store storage.Store, scheduleFrequency time.Duration, defaultSettings *pb.Process_Params) *Process {
 	rand.Seed(time.Now().UTC().UnixNano())
-	scheduleFrequency, progressFrequency := frequency(scheduleFrequency)
-	return &Process{
-		name:              name,
-		worker:            worker,
-		store:             store,
-		mutex:             sync.Mutex{},
-		scheduleFrequency: scheduleFrequency,
-		progressFrequency: progressFrequency,
-		defaultSettings:   defaultSettings,
+	p := &Process{
+		name:                 name,
+		worker:               worker,
+		store:                store,
+		mutex:                sync.Mutex{},
+		initialWaitDuration:  time.Minute,
+		minScheduleFrequency: 15 * time.Minute,
+		defaultSettings:      defaultSettings,
+		running:              false,
 	}
+	sf, pf := p.frequency(scheduleFrequency)
+	p.scheduleFrequency = sf
+	p.progressFrequency = pf
+	return p
 }
 
 // RegisterProject adds a project to the state for workers to process.
@@ -198,7 +205,7 @@ func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.P
 	state.Settings = settings
 	state.SettingsTime = ptypes.TimestampNow()
 	if scheduleFrequency > 0 {
-		scheduleFrequency, progressFrequency := frequency(scheduleFrequency)
+		scheduleFrequency, progressFrequency := p.frequency(scheduleFrequency)
 		state.ScheduleFrequency = ptypes.DurationProto(scheduleFrequency)
 
 		p.mutex.Lock()
@@ -213,9 +220,24 @@ func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.P
 	return nil
 }
 
+// UpdateFlowControl alters settings for how flow of processing is managed. These are
+// advanced settings and should be carefully managed when used outside of tests. These
+// should be based on the size of the processing work between updates and the expected
+// total time for each run with sufficient tolerance for errors and retries to minimize
+// collisions with 2+ workers grabbing control of the state.
+func (p *Process) UpdateFlowControl(initialWaitDuration time.Duration, minScheduleFrequency time.Duration) error {
+	if p.running {
+		return fmt.Errorf("UpdateFlowControl failed: background process is already running")
+	}
+	p.initialWaitDuration = initialWaitDuration
+	p.minScheduleFrequency = minScheduleFrequency
+	return nil
+}
+
 // Run schedules a background process. Typically this will be on its own go routine.
 func (p *Process) Run(ctx context.Context) {
-	freq := time.Minute
+	p.running = true
+	freq := p.initialWaitDuration
 	for {
 		if !p.worker.Wait(ctx, p.sleepTime(freq)) {
 			break
@@ -677,7 +699,7 @@ func (p *Process) setup(state *pb.Process) {
 
 func (p *Process) sleepTime(freq time.Duration) time.Duration {
 	secs := freq.Seconds()
-	if secs == 0 {
+	if secs < 1 {
 		return freq
 	}
 
@@ -712,15 +734,14 @@ func aggregateStats(state *pb.Process) {
 	}
 }
 
-func frequency(scheduleFrequency time.Duration) (time.Duration, time.Duration) {
+func (p *Process) frequency(scheduleFrequency time.Duration) (time.Duration, time.Duration) {
 	// Adjust processFrequency and progressFrequency such that:
 	// 1. Workers do not fire too often, causing timing errors.
 	// 2. Progress occurs frequently enough that lock ownership remains in place with occasional update() errors.
-	minScheduleFrequency := 15 * time.Minute
-	if scheduleFrequency < minScheduleFrequency {
-		scheduleFrequency = minScheduleFrequency
+	if scheduleFrequency < p.minScheduleFrequency {
+		scheduleFrequency = p.minScheduleFrequency
 	}
-	maxProgressFrequency := minScheduleFrequency / 3
+	maxProgressFrequency := p.minScheduleFrequency / 3
 	progressFrequency := scheduleFrequency / 10
 	if progressFrequency > maxProgressFrequency {
 		progressFrequency = maxProgressFrequency

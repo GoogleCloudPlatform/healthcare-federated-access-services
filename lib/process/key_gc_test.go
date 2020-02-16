@@ -37,6 +37,9 @@ func TestKeyGC(t *testing.T) {
 	wh := clouds.NewMockAccountManager(accounts)
 	processName := "gcp_keys"
 	gc := NewKeyGC(processName, wh, store, 10*time.Second, 10)
+	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
+	}
 	waits := 0
 	gc.WaitCondition(func(ctx context.Context, duration time.Duration) bool {
 		waits++
@@ -100,6 +103,9 @@ func TestKeyGC_UpdateSettings(t *testing.T) {
 	wh := clouds.NewMockAccountManager([]*clouds.Account{})
 	processName := "gcp_keys"
 	gc := NewKeyGC(processName, wh, store, 10*time.Hour, 10)
+	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
+	}
 
 	initFreq := time.Hour
 	if initFreq != gc.process.scheduleFrequency {
