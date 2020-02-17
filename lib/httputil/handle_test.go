@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 
-	dpb "google.golang.org/genproto/googleapis/protobuf" /* copybara-comment: duration_go_proto */
+	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 )
 
 type Response struct {

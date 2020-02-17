@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"testing"
 
-	dpb "google.golang.org/genproto/googleapis/protobuf" /* copybara-comment: duration_go_proto */
+	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 )

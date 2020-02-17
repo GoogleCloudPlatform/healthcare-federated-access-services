@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"testing"
 
-	dpb "google.golang.org/genproto/googleapis/protobuf" /* copybara-comment: duration_go_proto */
+	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 )
 
