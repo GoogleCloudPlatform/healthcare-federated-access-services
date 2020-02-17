@@ -17,10 +17,13 @@ package httputil
 import (
 	"bytes"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/gorilla/mux" /* copybara-comment */
+
+	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 )
 
 func Test_DecodeProtoReq(t *testing.T) {
@@ -121,5 +124,58 @@ func Test_QueryParamInt_Invalid(t *testing.T) {
 	want := 0
 	if got != want {
 		t.Fatalf("QueryParamWithDefault(%v, %v) = %v, want %v", uri, "ts", got, want)
+	}
+}
+
+func TestRequesterIP_FromHeader(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "https://example.com", nil)
+	r.Header.Add("X-Forwarded-For", "192.168.1.2, 192.168.2.2")
+
+	got := RequesterIP(r)
+	want := "192.168.1.2"
+
+	if got != want {
+		t.Errorf("RequesterIP(r) = %s, %s", got, want)
+	}
+}
+
+func TestRequesterIP_FromRemoteAddress(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "https://example.com", nil)
+	r.RemoteAddr = "192.168.1.2:12345"
+
+	got := RequesterIP(r)
+	want := "192.168.1.2"
+
+	if got != want {
+		t.Errorf("RequesterIP(r) = %s, %s", got, want)
+	}
+}
+
+func TestTracingID(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "https://example.com", nil)
+	r.Header.Add("X-Cloud-Trace-Context", "1")
+
+	got := TracingID(r)
+	want := "1"
+
+	if got != want {
+		t.Errorf("TracingID(r) = %s, %s", got, want)
+	}
+}
+
+func TestAbsolutePath(t *testing.T) {
+	router := mux.NewRouter()
+	absPath := ""
+	want := "/path/{var}"
+	router.HandleFunc(want, func(w http.ResponseWriter, r *http.Request) {
+		absPath = AbsolutePath(r)
+	})
+
+	r := httptest.NewRequest(http.MethodGet, "https://example.com/path/a", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+
+	if absPath != want {
+		t.Errorf("absPath = %s wants %s", absPath, want)
 	}
 }

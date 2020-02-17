@@ -16,11 +16,16 @@ package httputil
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/gorilla/mux" /* copybara-comment */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // This file contains the utilities for working with http.Request.
@@ -55,4 +60,49 @@ func QueryParamInt(r *http.Request, name string) int {
 		return 0
 	}
 	return v
+}
+
+// RequesterIP find the requester ip from http request.
+func RequesterIP(r *http.Request) string {
+	if ip := fromXForwardForHeader(r); len(ip) != 0 {
+		return ip
+	}
+
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		glog.Warningf("r.RemoteAddr: %q is not IP:port", r.RemoteAddr)
+		return ""
+	}
+	return ip
+}
+
+// fromXForwardForHeader find the ip from X-Forwarded-For header
+// See https://cloud.google.com/appengine/docs/flexible/python/reference/request-headers#app_engine-specific_headers
+// This method also works for any proxy use X-Forwarded-For to pass the client ip.
+func fromXForwardForHeader(r *http.Request) string {
+	h := r.Header.Get("X-Forwarded-For")
+	s := strings.Split(h, ",")
+	if len(s) == 0 {
+		return ""
+	}
+
+	return strings.TrimSpace(s[0])
+}
+
+// TracingID find the tracing id in the request
+// See https://cloud.google.com/appengine/docs/flexible/python/reference/request-headers#app_engine-specific_headers
+func TracingID(r *http.Request) string {
+	return r.Header.Get("X-Cloud-Trace-Context")
+}
+
+// AbsolutePath find the registered path in the mux router.
+// eg. register "/path/{var}" in router, request to "/path/a"
+// AbsolutePath(r) will return "/path/{var}".
+func AbsolutePath(r *http.Request) string {
+	s, err := mux.CurrentRoute(r).GetPathTemplate()
+	if err != nil {
+		return r.URL.Path
+	}
+
+	return s
 }

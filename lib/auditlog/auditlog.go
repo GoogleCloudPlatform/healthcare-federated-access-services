@@ -36,6 +36,8 @@ type AccessLog struct {
 	TokenSubject string
 	// TokenIssuer is the iss of the token.
 	TokenIssuer string
+	// TracingID is the id of request from proxies.
+	TracingID string
 	// RequestMethod is the http method of the request.
 	RequestMethod string
 	// RequestEndpoint is the absolute path of the request.
@@ -61,6 +63,7 @@ func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog)
 		"token_id":        log.TokenID,
 		"token_subject":   log.TokenSubject,
 		"token_issuer":    log.TokenIssuer,
+		"tracing_id":      log.TracingID,
 		"request_path":    log.RequestEndpoint,
 		"error_type":      log.ErrorType,
 		"pass_auth_check": strconv.FormatBool(log.PassAuthCheck),

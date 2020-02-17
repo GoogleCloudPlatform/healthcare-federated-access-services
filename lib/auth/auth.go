@@ -29,6 +29,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -36,6 +37,8 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 )
+
+type errType string
 
 const (
 	// maxHTTPBody = 2M
@@ -47,6 +50,23 @@ const (
 	User Role = "user"
 	// Admin -> requires bearer token with admin permission
 	Admin Role = "admin"
+
+	noErr                  errType = ""
+	errBodyTooLarge        errType = "req:body_too_large"
+	errClientUnavailable   errType = "client:unavailable"
+	errClientMissing       errType = "client:missing"
+	errClientInvalid       errType = "client:invalid"
+	errSecretMismatch      errType = "client:secret_mismatch"
+	errTokenInvalid        errType = "token:invalid"
+	errIssMismatch         errType = "id:iss_mismatch"
+	errSubMissing          errType = "id:sub_missing"
+	errAudMismatch         errType = "id:aud_mismatch"
+	errIDInvalid           errType = "id:invalid"
+	errVerifierUnavailable errType = "oidc:verifier_unavailable"
+	errIDVerifyFailed      errType = "id:verify_failed"
+	errNotAdmin            errType = "role:user_not_admin"
+	errUserMismatch        errType = "role:user_mismatch"
+	errUnknownRole         errType = "role:unknown_role"
 )
 
 var (
@@ -112,7 +132,9 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := checker.check(r, require); err != nil {
+		log, err := checker.check(r, require)
+		writeAccessLog(checker.Logger, log, err, r)
+		if err != nil {
 			httputil.WriteRPCResp(w, nil, err)
 			return
 		}
@@ -122,23 +144,26 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 }
 
 // checkRequest need to validate the request before actually read data from it.
-func checkRequest(r *http.Request) error {
+func checkRequest(r *http.Request) (errType, error) {
 	// TODO: maybe should also cover content-length = -1
 	if r.ContentLength > maxHTTPBody {
-		return status.Error(codes.FailedPrecondition, "body too large")
+		return errBodyTooLarge, status.Error(codes.FailedPrecondition, "body too large")
 	}
 
-	return nil
+	return noErr, nil
 }
 
 // Check checks request meet all authorization requirements.
-func (s *Checker) check(r *http.Request, require Require) error {
-	if err := checkRequest(r); err != nil {
-		return err
+func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, error) {
+	log := &auditlog.AccessLog{}
+
+	if et, err := checkRequest(r); err != nil {
+		log.ErrorType = string(et)
+		return log, err
 	}
 
 	if !require.ClientID {
-		return nil
+		return log, nil
 	}
 
 	r.ParseForm()
@@ -146,28 +171,36 @@ func (s *Checker) check(r *http.Request, require Require) error {
 	cID := oathclients.ExtractClientID(r)
 	cSec := oathclients.ExtractClientSecret(r)
 
-	if err := s.verifyClientCredentials(cID, cSec, require); err != nil {
-		return err
+	if et, err := s.verifyClientCredentials(cID, cSec, require); err != nil {
+		log.ErrorType = string(et)
+		return log, err
 	}
 
 	// Not require bearer token.
 	if require.Role == None {
-		return nil
+		return log, nil
 	}
 
 	tok := extractBearerToken(r)
 
-	if err := verifyToken(r.Context(), tok, s.Issuer, cID); err != nil {
-		return err
+	if et, err := verifyToken(r.Context(), tok, s.Issuer, cID); err != nil {
+		log.ErrorType = string(et)
+		return log, err
 	}
 
-	id, err := s.tokenToIdentityWithoutVerification(tok)
+	id, et, err := s.tokenToIdentityWithoutVerification(tok)
 	if err != nil {
-		return err
+		log.ErrorType = string(et)
+		return log, err
 	}
 
-	if err := verifyIdentity(id, s.Issuer, cID); err != nil {
-		return err
+	log.TokenID = id.ID
+	log.TokenSubject = id.Subject
+	log.TokenIssuer = id.Issuer
+
+	if et, err := verifyIdentity(id, s.Issuer, cID); err != nil {
+		log.ErrorType = string(et)
+		return log, err
 	}
 
 	err = s.IsAdmin(id)
@@ -176,55 +209,58 @@ func (s *Checker) check(r *http.Request, require Require) error {
 	case Admin:
 		if err != nil {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return status.Errorf(codes.Unauthenticated, "requires admin permission %v", err)
+			log.ErrorType = string(errNotAdmin)
+			return log, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err)
 		}
-		return nil
+		return log, nil
 
 	case User:
 		// Token is for an administrator, who is able to act on behalf of any user, so short-circuit remaining checks.
 		if err == nil {
-			return nil
+			return log, nil
 		}
 		if user := mux.Vars(r)["user"]; len(user) != 0 && user != id.Subject {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return status.Errorf(codes.Unauthenticated, "user in path does not match token")
+			log.ErrorType = string(errUserMismatch)
+			return log, status.Errorf(codes.Unauthenticated, "user in path does not match token")
 		}
-		return nil
+		return log, nil
 
 	default:
-		return status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role)
+		log.ErrorType = string(errUnknownRole)
+		return log, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role)
 	}
 }
 
 // verifyClientCredentials based on the provided requirement, the function
 // checks if the client is known and the provided secret matches the secret
 // for that client.
-func (s *Checker) verifyClientCredentials(client, secret string, require Require) error {
+func (s *Checker) verifyClientCredentials(client, secret string, require Require) (errType, error) {
 	secrets, err := s.FetchClientSecrets()
 	if err != nil {
-		return err
+		return errClientUnavailable, err
 	}
 
 	// Check that the client ID exists and it is a known.
 	if len(client) == 0 {
-		return status.Error(codes.Unauthenticated, "requires a valid client ID")
+		return errClientMissing, status.Error(codes.Unauthenticated, "requires a valid client ID")
 	}
 
 	want, ok := secrets[client]
 	if !ok {
-		return status.Errorf(codes.Unauthenticated, "client ID %q is unrecognized", client)
+		return errClientInvalid, status.Errorf(codes.Unauthenticated, "client ID %q is unrecognized", client)
 	}
 
 	if !require.ClientSecret {
-		return nil
+		return noErr, nil
 	}
 
 	// Check that the client secret match the client ID.
 	if want != secret {
-		return status.Error(codes.Unauthenticated, "requires a valid client secret")
+		return errSecretMismatch, status.Error(codes.Unauthenticated, "requires a valid client secret")
 	}
 
-	return nil
+	return noErr, nil
 }
 
 // extractBearerToken from Authorization Header.
@@ -238,17 +274,17 @@ func extractBearerToken(r *http.Request) string {
 
 // tokenToIdentityWithoutVerification parse the token to Identity struct.
 // Also normalize the issuer string inside Identity and apply the transform needed in Checker.
-func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identity, error) {
+func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identity, errType, error) {
 	id, err := common.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err)
+		return nil, errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err)
 	}
 
 	id.Issuer = normalize(id.Issuer)
 
 	id = s.TransformIdentity(id)
 
-	return id, nil
+	return id, noErr, nil
 }
 
 // verifyIdentity verifies:
@@ -256,44 +292,63 @@ func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identit
 // - subject is not empty
 // - aud and azp allow given clientID
 // - id.Valid(): expire, notBefore, issueAt
-func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) error {
+func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) (errType, error) {
 	iss := normalize(issuer)
 	if id.Issuer != iss {
 		// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-		return status.Errorf(codes.Unauthenticated, "token unauthorized: for issuer %s", id.Issuer)
+		return errIssMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: for issuer %s", id.Issuer)
 	}
 
 	if len(id.Subject) == 0 {
-		return status.Error(codes.Unauthenticated, "token unauthorized: no subject")
+		return errSubMissing, status.Error(codes.Unauthenticated, "token unauthorized: no subject")
 	}
 
 	if !common.IsAudience(id, clientID, iss) {
 		// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-		return status.Errorf(codes.Unauthenticated, "token unauthorized: unauthorized party")
+		return errAudMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: unauthorized party")
 	}
 
 	if err := id.Valid(); err != nil {
-		return status.Errorf(codes.Unauthenticated, "token unauthorized: %v", err)
+		return errIDInvalid, status.Errorf(codes.Unauthenticated, "token unauthorized: %v", err)
 	}
 
-	return nil
+	return noErr, nil
 }
 
 // verifyToken oidc spec verfiy token.
-func verifyToken(ctx context.Context, tok, iss, clientID string) error {
+func verifyToken(ctx context.Context, tok, iss, clientID string) (errType, error) {
 	v, err := common.GetOIDCTokenVerifier(ctx, clientID, iss)
 	if err != nil {
-		return status.Errorf(codes.Unauthenticated, "GetOIDCTokenVerifier failed: %v", err)
+		return errVerifierUnavailable, status.Errorf(codes.Unauthenticated, "GetOIDCTokenVerifier failed: %v", err)
 	}
 
 	if _, err = v.Verify(ctx, tok); err != nil {
-		return status.Errorf(codes.Unauthenticated, "token verify failed: %v", err)
+		return errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err)
 	}
 
-	return nil
+	return noErr, nil
 }
 
 // normalize ensure the issuer string and tailling slash.
 func normalize(issuer string) string {
 	return strings.TrimSuffix(issuer, "/")
+}
+
+func writeAccessLog(client *logging.Client, entry *auditlog.AccessLog, err error, r *http.Request) {
+	entry.RequestMethod = r.Method
+	entry.RequestEndpoint = httputil.AbsolutePath(r)
+	entry.RequestIP = httputil.RequesterIP(r)
+	entry.TracingID = httputil.TracingID(r)
+	entry.PassAuthCheck = true
+
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			entry.ResponseCode = httputil.HTTPStatus(st.Code())
+		}
+		entry.Payload = err.Error()
+		entry.PassAuthCheck = false
+	}
+	entry.Request = r
+
+	auditlog.WriteAccessLog(r.Context(), client, entry)
 }
