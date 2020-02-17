@@ -41,3 +41,11 @@ indexes:
   - name: service
   - name: type
   - name: id
+
+# List SCIM users.
+- kind: entity
+  properties:
+  - name: service
+  - name: realm
+  - name: type
+  - name: id
