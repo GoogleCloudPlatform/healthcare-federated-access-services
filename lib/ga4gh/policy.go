@@ -134,6 +134,7 @@ func NewPolicy(i TrustedIssuers, s TrustedSources, allow Conditions, deny Condit
 func (p *Policy) Test(ctx context.Context, r *Passport) error {
 	glog.V(1).Info("Policy.Test")
 
+	// TODO: add to a passport visa tracker for all AccessTokenVisaFormat visas that were used to confirm access to check validity every hour (https://bit.ly/ga4gh-aai-profile#at-polling).
 	// Filter assertions in the passport by issuer and source.
 	vs := r.Visas
 	glog.V(1).Infof("Number of Visas in the passport: %v", len(vs))
