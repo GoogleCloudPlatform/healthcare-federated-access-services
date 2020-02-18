@@ -22,6 +22,8 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -104,16 +106,15 @@ func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[str
 	var added, updated, removed, skipped int
 	cs, err := hydra.ListClients(httpClient, hydraAdminURL)
 	if err != nil {
-		glog.Infof("FIXME failed to list hydra clients (%q): %v", hydraAdminURL, err)
 		return err
 	}
 
 	// Populate existing Hydra clients by ClientID. As the logic handles
 	// these clients, remove them from this map. Remaining items no longer
 	// exist in the Federated Access component, so delete the from Hydra.
-	existing := make(map[string]*hydraapi.Client)
+	removable := make(map[string]*hydraapi.Client)
 	for _, c := range cs {
-		existing[c.ClientID] = c
+		removable[c.ClientID] = c
 	}
 
 	// Add clients to hydra.
@@ -124,12 +125,12 @@ func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[str
 
 		sec, ok := secrets[c.ClientId]
 		if !ok {
-			glog.Errorf("Client %s has no secret, and will not be included in Hydra client list.", n)
+			glog.Errorf("sync hydra clients: client %q has no secret, and will not be included in Hydra client list.", n)
 			skipped++
 			continue
 		}
 
-		hc, ok := existing[c.ClientId]
+		hc, ok := removable[c.ClientId]
 		if !ok {
 			// Does not exist, so create.
 			thc := toHydraClient(c, n, sec, strfmt.NewDateTime())
@@ -140,23 +141,26 @@ func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[str
 			continue
 		}
 
-		// Update an existing client.
+		// Update an existing client if it has changed.
 		thc := toHydraClient(c, n, sec, hc.CreatedAt)
-		if _, err := hydra.UpdateClient(httpClient, hydraAdminURL, thc.ClientID, thc); err != nil {
-			return err
+		if diff := cmp.Diff(hc, thc, cmpopts.IgnoreUnexported(strfmt.DateTime{})); diff != "" {
+			if _, err := hydra.UpdateClient(httpClient, hydraAdminURL, thc.ClientID, thc); err != nil {
+				return err
+			}
 		}
-		delete(existing, thc.ClientID)
+		// Whether updated or unchanged above, remove it from the `removable` list to avoid removing the hydra client below.
+		delete(removable, thc.ClientID)
 		updated++
 	}
 
-	// Remove remaining existing hydra clients.
-	for _, hc := range existing {
+	// Remove remaining existing hydra clients on the `removable` list.
+	for _, hc := range removable {
 		if err := hydra.DeleteClient(httpClient, hydraAdminURL, hc.ClientID); err != nil {
 			return err
 		}
 		removed++
 	}
 
-	glog.Infof("reset hydra clients: added %d, updated %d, removed %d, skipped %d, total %d", added, updated, removed, skipped, len(clients))
+	glog.Infof("sync hydra clients: added %d, updated %d, removed %d, skipped %d, total %d", added, updated, removed, skipped, len(clients))
 	return nil
 }

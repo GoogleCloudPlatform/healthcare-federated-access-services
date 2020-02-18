@@ -478,7 +478,7 @@ func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string
 		defer ltx.Finish()
 	}
 	if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, clients, secrets); err != nil {
-		glog.Errorf("failed to reset hydra clients: %v", err)
+		glog.Errorf("failed to sync hydra clients: %v", err)
 		return err
 	}
 	return nil
