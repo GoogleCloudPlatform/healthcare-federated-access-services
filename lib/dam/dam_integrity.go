@@ -386,7 +386,10 @@ func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName
 			return httputil.StatusPath(rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
 		}
 		if len(role.ComputedPolicyBasis) > 0 {
-			return httputil.StatusPath(rname, "policyBasis"), fmt.Errorf("role %q interfaces should be determined at runtime and cannot be stored as part of the config", rname)
+			return httputil.StatusPath(rname, "roleCategories"), fmt.Errorf("role %q roleCategories should be determined at runtime and cannot be stored as part of the config", rname)
+		}
+		if len(role.ComputedPolicyBasis) > 0 {
+			return httputil.StatusPath(rname, "policyBasis"), fmt.Errorf("role %q policyBasis should be determined at runtime and cannot be stored as part of the config", rname)
 		}
 		if role.Policies != nil {
 			for i, p := range role.Policies {

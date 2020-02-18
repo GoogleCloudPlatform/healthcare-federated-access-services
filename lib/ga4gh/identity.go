@@ -23,15 +23,27 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 )
 
+const (
+	// AccessTokenVisaFormat represents an "Embedded Access Token" visa format.
+	// See https://bit.ly/ga4gh-aai-profile#term-embedded-access-token.
+	AccessTokenVisaFormat = "access_token"
+
+	// DocumentVisaFormat represents an "Embedded Document Token" visa format.
+	// See https://bit.ly/ga4gh-aai-profile#term-embedded-document-token.
+	DocumentVisaFormat = "document"
+)
+
 // OldClaim represents a claim object as defined by GA4GH.
 type OldClaim struct {
-	Value     string                       `json:"value"`
-	Source    string                       `json:"source"`
-	Asserted  float64                      `json:"asserted,omitempty"`
-	Expires   float64                      `json:"expires,omitempty"`
-	Condition map[string]OldClaimCondition `json:"condition,omitempty"`
-	By        string                       `json:"by,omitempty"`
-	Issuer    string                       `json:"issuer,omitempty"`
+	Value       string                       `json:"value"`
+	Source      string                       `json:"source"`
+	Asserted    float64                      `json:"asserted,omitempty"`
+	Expires     float64                      `json:"expires,omitempty"`
+	Condition   map[string]OldClaimCondition `json:"condition,omitempty"`
+	By          string                       `json:"by,omitempty"`
+	Issuer      string                       `json:"issuer,omitempty"`
+	VisaData    *VisaData                    `json:"-"`
+	TokenFormat string                       `json:"-"`
 }
 
 // OldClaimCondition represents a condition object as defined by GA4GH.
@@ -39,6 +51,24 @@ type OldClaimCondition struct {
 	Value  []string `json:"value,omitempty"`
 	Source []string `json:"source,omitempty"`
 	By     []string `json:"by,omitempty"`
+}
+
+// VisaRejection is filled in by a policy engine to understand why a visa was rejected.
+// Visas unrelated to the policy are not considered rejected unless they are not trusted.
+type VisaRejection struct {
+	Reason      string `json:"reason,omitempty"`
+	Field       string `json:"field,omitempty"`
+	Description string `json:"msg,omitempty"`
+}
+
+// RejectedVisa provides insight into why a policy engine is not making use of visas that
+// are present within the passport.
+type RejectedVisa struct {
+	TokenFormat string        `json:"tokenFormat,omitempty"`
+	Issuer      string        `json:"iss,omitempty"`
+	Subject     string        `json:"sub,omitempty"`
+	Assertion   Assertion     `json:"assertion,omitempty"`
+	Rejection   VisaRejection `json:"rejection,omitempty"`
 }
 
 // Identity is a GA4GH identity as described by the Data Use and Researcher
@@ -55,7 +85,8 @@ type Identity struct {
 	AuthorizedParty  string                 `json:"azp,omitempty"`
 	ID               string                 `json:"jti,omitempty"`
 	Nonce            string                 `json:"nonce,omitempty"`
-	GA4GH            map[string][]OldClaim  `json:"ga4gh,omitempty"`
+	GA4GH            map[string][]OldClaim  `json:"-"` // do not emit
+	RejectedVisas    []*RejectedVisa        `json:"-"` // do not emit
 	IdentityProvider string                 `json:"idp,omitempty"`
 	Identities       map[string][]string    `json:"identities,omitempty"`
 	Username         string                 `json:"preferred_username,omitempty"`
@@ -125,54 +156,88 @@ func CheckIdentityAllVisasLinked(ctx context.Context, i *Identity, f JWTVerifier
 	return CheckLinkedIDs(visas)
 }
 
+// RejectVisa adds a new RejectedVisa report to the identity (up to a maximum number of reports).
+func (t *Identity) RejectVisa(visa *VisaData, reason, field, message string) {
+	if len(t.RejectedVisas) > 20 {
+		return
+	}
+	t.RejectedVisas = append(t.RejectedVisas, NewRejectedVisa(visa, reason, field, message))
+}
+
+// NewRejectedVisa creates a rejected visa information struct.
+func NewRejectedVisa(visa *VisaData, reason, field, message string) *RejectedVisa {
+	if visa == nil {
+		visa = &VisaData{}
+	}
+	detail := VisaRejection{
+		Reason:      reason,
+		Field:       field,
+		Description: message,
+	}
+	// TODO: add support for TokenFormat when visa.JKU() is available.
+	fmt := DocumentVisaFormat
+	return &RejectedVisa{
+		TokenFormat: fmt,
+		Issuer:      visa.Issuer,
+		Subject:     visa.Subject,
+		Assertion:   visa.Assertion,
+		Rejection:   detail,
+	}
+}
+
 // VisasToOldClaims populates the GA4GH claim based on visas.
 // Returns a map of visa types, each having a list of OldClaims for that type.
 // TODO: use new policy engine instead when it becomes available.
-func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[string][]OldClaim, int, error) {
+func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[string][]OldClaim, []*RejectedVisa, error) {
 	out := make(map[string][]OldClaim)
-	skipped := 0
+	var rejected []*RejectedVisa
 	for i, j := range visas {
 		// Skip this visa on validation errors such that a bad visa doesn't spoil the bunch.
 		// But do return errors if the visas are not compatible with the old claim format.
 		v, err := NewVisaFromJWT(VisaJWT(j))
 		if err != nil {
-			skipped++
+			rejected = append(rejected, NewRejectedVisa(nil, "invalid_visa", "", fmt.Sprintf("cannot unpack visa %d", i)))
 			continue
 		}
+		d := v.Data()
 		if f != nil {
 			if err := f(ctx, string(j)); err != nil {
-				skipped++
+				rejected = append(rejected, NewRejectedVisa(d, "verify_failed", "", err.Error()))
 				continue
 			}
 		}
-		d := v.Data()
 		if len(d.Issuer) == 0 {
-			skipped++
+			rejected = append(rejected, NewRejectedVisa(d, "iss_missing", "iss", "empty 'iss' field"))
 			continue
 		}
 		typ := string(d.Assertion.Type)
+		// TODO: add support for TokenFormat when visa.JKU() is available.
+		fmt := DocumentVisaFormat
 		c := OldClaim{
-			Value:    string(d.Assertion.Value),
-			Source:   string(d.Assertion.Source),
-			Asserted: float64(d.Assertion.Asserted),
-			Expires:  float64(d.ExpiresAt),
-			By:       string(d.Assertion.By),
-			Issuer:   d.Issuer,
+			Value:       string(d.Assertion.Value),
+			Source:      string(d.Assertion.Source),
+			Asserted:    float64(d.Assertion.Asserted),
+			Expires:     float64(d.ExpiresAt),
+			By:          string(d.Assertion.By),
+			Issuer:      d.Issuer,
+			VisaData:    d,
+			TokenFormat: fmt,
 		}
 		if len(d.Assertion.Conditions) > 0 {
 			// Conditions on visas are not supported in non-experimental mode.
 			if !globalflags.Experimental {
-				skipped++
+				rejected = append(rejected, NewRejectedVisa(d, "condition_not_supported", "visa.condition", "visa conditions not supported"))
 				continue
 			}
 			c.Condition, err = toOldClaimConditions(d.Assertion.Conditions)
 			if err != nil {
-				return nil, skipped, fmt.Errorf("visa %d: %v", i, err)
+				rejected = append(rejected, NewRejectedVisa(d, "condition_not_supported", "visa.condition", err.Error()))
+				continue
 			}
 		}
 		out[typ] = append(out[typ], c)
 	}
-	return out, skipped, nil
+	return out, rejected, nil
 }
 
 func toOldClaimConditions(conditions Conditions) (map[string]OldClaimCondition, error) {

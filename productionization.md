@@ -129,6 +129,42 @@ The following projects are used for the cross project and environment scenarios:
        this option is not set, the project DAM is deployed in will be billed for
        such usage.
 
+1.  DAM has the ability to share a resource's Policy Basis as well as provide
+    Visa Rejection Details to aid non-administrator users with collecting
+    visas that meet the requirements and troubleshooting rejected requests for
+    resources.
+
+    *  A **Policy Basis** gives a list of
+       [visa types](https://bit.ly/ga4gh-passport-v1#ga4gh-standard-passport-visa-type-definitions)
+       that the policy is looking for and may share a subset of the specific
+       policy details. This is available as part of dataset discovery as well
+       as when requests for access fail due to policy requirements not being
+       met. The level of detail that a Policy Basis exposes may vary over time
+       based on integration needs as federated systems develop.
+    *  **Visa Rejection Details** provide insight into which visas were
+       considered by the DAM as part of visa processing, but were ignored or
+       "rejected" due to not meeting requirements. These details include which
+       part of the policy was not met. For example, it may indicate that a
+       specific visa is not issued by a trusted visa issuer, and hence it was
+       rejected.
+
+    Both Policy Basis as well as Visa Rejection Details are shared with
+    non-administrator users by default. If sharing this information with users
+    does not meet the sharing restrictions for the deployment, then set one or
+    both of the following settings for DAM as needed:
+
+       ```
+       export HIDE_POLICY_BASIS=true
+       export HIDE_REJECTION_DETAILS=true
+       ```
+
+    To verify both these settings are in affect, request a resource in a staged
+    instance for a user that does not meet the visa policy requirements and
+    view the response from DAM to the authorization request. Policy Basis can
+    be verified alone by requests to
+    `/dam/v1alpha/{realm}/resources/{name}/views/{view}/roles/{role}` as well
+    as various other dataset discovery endpoint.
+
 ## Security
 
 ### DAM Background Processes

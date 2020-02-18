@@ -17,6 +17,7 @@ package dam
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -82,23 +83,25 @@ var (
 )
 
 type Service struct {
-	adapters       *adapter.TargetAdapters
-	roleCategories map[string]*pb.RoleCategory
-	domainURL      string
-	defaultBroker  string
-	serviceName    string
-	hydraAdminURL  string
-	hydraPublicURL string
-	store          storage.Store
-	warehouse      clouds.ResourceTokenCreator
-	logger         *logging.Client
-	permissions    *permissions.Permissions
-	Handler        *ServiceHandler
-	httpClient     *http.Client
-	startTime      int64
-	translators    sync.Map
-	useHydra       bool
-	visaVerifier   *verifier.Verifier
+	adapters         *adapter.TargetAdapters
+	roleCategories   map[string]*pb.RoleCategory
+	domainURL        string
+	defaultBroker    string
+	serviceName      string
+	hydraAdminURL    string
+	hydraPublicURL   string
+	store            storage.Store
+	warehouse        clouds.ResourceTokenCreator
+	logger           *logging.Client
+	permissions      *permissions.Permissions
+	Handler          *ServiceHandler
+	hidePolicyBasis  bool
+	hideRejectDetail bool
+	httpClient       *http.Client
+	startTime        int64
+	translators      sync.Map
+	useHydra         bool
+	visaVerifier     *verifier.Verifier
 }
 
 type ServiceHandler struct {
@@ -128,6 +131,10 @@ type Options struct {
 	HydraAdminURL string
 	// HydraPublicURL: hydra public endpoints url
 	HydraPublicURL string
+	// HidePolicyBasis: do not send policy basis to client
+	HidePolicyBasis bool
+	// HideRejectDetail: do not send rejected visas details
+	HideRejectDetail bool
 }
 
 // NewService create DAM service
@@ -144,21 +151,23 @@ func NewService(params *Options) *Service {
 
 	sh := &ServiceHandler{}
 	s := &Service{
-		roleCategories: roleCat.DamRoleCategories,
-		domainURL:      params.Domain,
-		defaultBroker:  params.DefaultBroker,
-		serviceName:    params.ServiceName,
-		store:          params.Store,
-		warehouse:      params.Warehouse,
-		logger:         params.Logger,
-		permissions:    perms,
-		Handler:        sh,
-		httpClient:     params.HTTPClient,
-		startTime:      time.Now().Unix(),
-		useHydra:       params.UseHydra,
-		hydraAdminURL:  params.HydraAdminURL,
-		hydraPublicURL: params.HydraPublicURL,
-		visaVerifier:   verifier.New(""),
+		roleCategories:   roleCat.DamRoleCategories,
+		domainURL:        params.Domain,
+		defaultBroker:    params.DefaultBroker,
+		serviceName:      params.ServiceName,
+		store:            params.Store,
+		warehouse:        params.Warehouse,
+		logger:           params.Logger,
+		permissions:      perms,
+		Handler:          sh,
+		hidePolicyBasis:  params.HidePolicyBasis,
+		hideRejectDetail: params.HideRejectDetail,
+		httpClient:       params.HTTPClient,
+		startTime:        time.Now().Unix(),
+		useHydra:         params.UseHydra,
+		hydraAdminURL:    params.HydraAdminURL,
+		hydraPublicURL:   params.HydraPublicURL,
+		visaVerifier:     verifier.New(""),
 	}
 
 	if s.httpClient == nil {
@@ -376,26 +385,27 @@ func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.D
 }
 
 func (s *Service) populateIdentityVisas(ctx context.Context, id *ga4gh.Identity, cfg *pb.DamConfig) (*ga4gh.Identity, error) {
+	// Filter visas by trusted issuers.
+	trusted := trustedIssuers(cfg.TrustedPassportIssuers)
 	vs := []ga4gh.VisaJWT{}
-	for _, v := range id.VisaJWTs {
-		vs = append(vs, ga4gh.VisaJWT(v))
+	for i, v := range id.VisaJWTs {
+		jwt := ga4gh.VisaJWT(v)
+		v, err := ga4gh.NewVisaFromJWT(jwt)
+		if err != nil {
+			id.RejectVisa(nil, "invalid_visa", "", fmt.Sprintf("cannot unpack visa %d", i))
+		}
+		d := v.Data()
+		if _, ok := trusted[d.Issuer]; !ok {
+			id.RejectVisa(d, "untrusted_issuer", "iss", fmt.Sprintf("issuer %q is not a trusted author of visas by the DAM", d.Issuer))
+			continue
+		}
+		vs = append(vs, jwt)
 	}
 	claims, _, err := ga4gh.VisasToOldClaims(ctx, vs, s.visaVerifier.Verify)
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter claims by trusted issuers.
-	trusted := trustedIssuers(cfg.TrustedPassportIssuers)
-	id.GA4GH = make(map[string][]ga4gh.OldClaim)
-	for c, list := range claims {
-		for _, old := range list {
-			if _, ok := trusted[old.Issuer]; !ok {
-				continue
-			}
-			id.GA4GH[c] = append(id.GA4GH[c], old)
-		}
-	}
+	id.GA4GH = claims
 
 	return id, nil
 }
@@ -564,7 +574,8 @@ func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, tt
 				return http.StatusInternalServerError, fmt.Errorf("cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer)
 			}
 			if !ok {
-				return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (policy requirements failed)", resourceName, viewName, roleName)
+				rejected := s.rejectedPolicyString(id.RejectedVisas, s.makePolicyBasis(roleName, view, res, cfg))
+				return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, rejected)
 			}
 			active = true
 		}
@@ -810,7 +821,40 @@ func isItemVariable(str string) bool {
 	return strings.HasPrefix(str, "${") && strings.HasSuffix(str, "}")
 }
 
+type rejectedPolicy struct {
+	Rejections    int                   `json:"rejections"`
+	RejectedVisas []*ga4gh.RejectedVisa `json:"rejectedVisas,omitempty"`
+	PolicyBasis   []string              `json:"policyBasis,omitempty"`
+}
+
+func (s *Service) rejectedPolicyString(rejected []*ga4gh.RejectedVisa, policyBasis map[string]bool) string {
+	rejections := len(rejected)
+	if s.hideRejectDetail {
+		rejected = nil
+	}
+	var basis []string
+	if !s.hidePolicyBasis {
+		for k := range policyBasis {
+			basis = append(basis, k)
+		}
+	}
+	detail := &rejectedPolicy{
+		Rejections:    rejections,
+		RejectedVisas: rejected,
+		PolicyBasis:   basis,
+	}
+	b, err := json.Marshal(detail)
+	if err != nil {
+		// Already in the error state and this is optional detail, just return something.
+		return fmt.Sprintf(`{"rejections":%d}`, rejections)
+	}
+	return string(b)
+}
+
 func (s *Service) makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig) map[string]bool {
+	if s.hidePolicyBasis {
+		return nil
+	}
 	policies := make(map[string]bool)
 	entries, err := s.resolveAggregates(srcRes, srcView, cfg)
 	if err != nil {
@@ -848,7 +892,8 @@ func (s *Service) makeViewRoles(view *pb.View, res *pb.Resource, cfg *pb.DamConf
 	out := make(map[string]*pb.AccessRole)
 	for rname := range view.AccessRoles {
 		out[rname] = &pb.AccessRole{
-			ComputedPolicyBasis: s.makePolicyBasis(rname, view, res, cfg),
+			ComputedRoleCategories: s.makeRoleCategories(view, rname, cfg),
+			ComputedPolicyBasis:    s.makePolicyBasis(rname, view, res, cfg),
 		}
 	}
 	return out

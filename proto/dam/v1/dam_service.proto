@@ -115,6 +115,7 @@ message AccessRole {
     map<string, string> vars = 2;
   }
   repeated AccessPolicy policies = 1;
+  repeated string computed_role_categories = 2 [json_name = "roleCategories"];
   map<string, bool> computed_policy_basis = 3 [json_name = "policyBasis"];
 }
 

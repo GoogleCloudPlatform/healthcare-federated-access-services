@@ -17,7 +17,6 @@ package ga4gh
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
@@ -80,12 +79,12 @@ func TestVisasToOldClaims(t *testing.T) {
 	validator := func(context.Context, string) error {
 		return nil
 	}
-	got, skipped, err := VisasToOldClaims(ctx, visas, validator)
+	got, rejected, err := VisasToOldClaims(ctx, visas, validator)
 	if err != nil {
 		t.Fatalf("VisasToOldClaims(vs) returned error: %v", err)
 	}
-	if skipped != 0 {
-		t.Fatalf("VisasToOldClaims(vs) = (%v, %d, %v), wanted not to skip over visas", got, skipped, err)
+	if len(rejected) != 0 {
+		t.Fatalf("VisasToOldClaims(vs) = (%v, %+v, %v), wanted not to skip over visas", got, rejected, err)
 	}
 	want := map[string][]OldClaim{
 		string(AffiliationAndRole): []OldClaim{
@@ -95,12 +94,33 @@ func TestVisasToOldClaims(t *testing.T) {
 				By:       "so",
 				Asserted: 10000,
 				Issuer:   string(testkeys.VisaIssuer0),
+				VisaData: &VisaData{
+					StdClaims: StdClaims{Issuer: "testkeys-visa-issuer-0", Subject: "subject1"},
+					Assertion: Assertion{
+						Type:     "AffiliationAndRole",
+						Value:    "faculty@issuer0.org",
+						Source:   "http://testkeys-visa-issuer-0.org",
+						By:       "so",
+						Asserted: 10000,
+					},
+				},
+				TokenFormat: "document",
 			},
 			{
 				Value:    "faculty@issuer1.org",
 				Source:   "http://testkeys-visa-issuer-1.org",
 				Asserted: 10100,
 				Issuer:   string(testkeys.VisaIssuer1),
+				VisaData: &VisaData{
+					StdClaims: StdClaims{Issuer: "testkeys-visa-issuer-1", Subject: "subject2"},
+					Assertion: Assertion{
+						Type:     "AffiliationAndRole",
+						Value:    "faculty@issuer1.org",
+						Source:   "http://testkeys-visa-issuer-1.org",
+						Asserted: 10100,
+					},
+				},
+				TokenFormat: "document",
 			},
 		},
 		string(ControlledAccessGrants): []OldClaim{
@@ -120,6 +140,31 @@ func TestVisasToOldClaims(t *testing.T) {
 					},
 				},
 				Issuer: string(testkeys.VisaIssuer1),
+				VisaData: &VisaData{
+					StdClaims: StdClaims{Issuer: "testkeys-visa-issuer-1", Subject: "subject1"},
+					Assertion: Assertion{
+						Type:     "ControlledAccessGrants",
+						Value:    "https://dataset.example.org/123",
+						Source:   "http://testkeys-visa-issuer-1.org",
+						By:       "dac",
+						Asserted: 10200,
+						Conditions: Conditions{
+							{
+								{
+									Type:   "AffiliationAndRole",
+									Value:  "const:faculty@issuer0.org",
+									Source: "const:http://testkeys-visa-issuer-0.org",
+									By:     "const:so",
+								},
+								{
+									Type:  "AcceptedTermsAndPolicies",
+									Value: "const:https://agreements.example.org/agreement123",
+								},
+							},
+						},
+					},
+				},
+				TokenFormat: "document",
 			},
 		},
 	}
@@ -137,8 +182,8 @@ func TestVisasToOldClaims_Invalid(t *testing.T) {
 	invalidator := func(context.Context, string) error {
 		return fmt.Errorf("invalid token visa")
 	}
-	if got, skipped, err := VisasToOldClaims(ctx, visas, invalidator); skipped != len(visas) || err != nil {
-		t.Errorf("experimental settings with invalid visas: VisasToOldClaims(ctx, vs, invalidator) = (%+v, %d, %v), want to skip %d visas without error", got, skipped, err, len(visas))
+	if got, rejected, err := VisasToOldClaims(ctx, visas, invalidator); len(rejected) != len(visas) || err != nil {
+		t.Errorf("experimental settings with invalid visas: VisasToOldClaims(ctx, vs, invalidator) = (%+v, %+v, %v), want to skip %d visas without error", got, rejected, err, len(visas))
 	}
 }
 
@@ -150,19 +195,19 @@ func TestVisasToOldClaims_NonExperimental(t *testing.T) {
 		return nil
 	}
 	visasWithConditions := 1
-	if got, skipped, err := VisasToOldClaims(ctx, visas, validator); skipped != visasWithConditions || err != nil {
-		t.Errorf("production settings: VisasToOldClaims(ctx, vs, invalidator) = (%+v, %d, %v), want to skip %d visas without error", got, skipped, err, visasWithConditions)
+	if got, rejected, err := VisasToOldClaims(ctx, visas, validator); len(rejected) != visasWithConditions || err != nil {
+		t.Errorf("production settings: VisasToOldClaims(ctx, vs, invalidator) = (%+v, %+v, %v), want to skip %d visas without error", got, rejected, err, visasWithConditions)
 	}
 }
 
-func TestVisasToOldClaims_Errors(t *testing.T) {
+func TestVisasToOldClaims_Rejections(t *testing.T) {
 	globalflags.Experimental = true
 	defer func() { globalflags.Experimental = false }()
 
 	tests := []struct {
 		name       string
 		conditions [][]Condition
-		err        string
+		reason     string // rejection reason
 		verifier   JWTVerifier
 	}{
 		{
@@ -183,7 +228,7 @@ func TestVisasToOldClaims_Errors(t *testing.T) {
 					},
 				},
 			},
-			err: "multiple conditions on the same visa type",
+			reason: "condition_not_supported",
 		},
 		{
 			name: "OR conditions",
@@ -203,7 +248,7 @@ func TestVisasToOldClaims_Errors(t *testing.T) {
 					},
 				},
 			},
-			err: "OR conditions are not supported",
+			reason: "condition_not_supported",
 		},
 		{
 			name: "non-const value condition",
@@ -215,7 +260,7 @@ func TestVisasToOldClaims_Errors(t *testing.T) {
 					},
 				},
 			},
-			err: "non-const condition",
+			reason: "condition_not_supported",
 		},
 		{
 			name: "non-const source condition",
@@ -227,7 +272,7 @@ func TestVisasToOldClaims_Errors(t *testing.T) {
 					},
 				},
 			},
-			err: "non-const condition",
+			reason: "condition_not_supported",
 		},
 		{
 			name: "non-const by condition",
@@ -239,7 +284,7 @@ func TestVisasToOldClaims_Errors(t *testing.T) {
 					},
 				},
 			},
-			err: "non-const condition",
+			reason: "condition_not_supported",
 		},
 	}
 
@@ -266,15 +311,22 @@ func TestVisasToOldClaims_Errors(t *testing.T) {
 		}
 		v2 := newVisa(t, iss1, ID{Issuer: string(testkeys.VisaIssuer1), Subject: "subject2"}, a2)
 		vs := []VisaJWT{v1.JWT(), v2.JWT()}
-		got, skipped, err := VisasToOldClaims(ctx, vs, tc.verifier)
-		if err == nil {
-			t.Fatalf("test case %q: VisasToOldClaims(vs) = (%v, %d, %v) returned unexpected success", tc.name, got, skipped, err)
+		got, rejected, err := VisasToOldClaims(ctx, vs, tc.verifier)
+		if err != nil {
+			t.Fatalf("test case %q: VisasToOldClaims(vs) = (%v, %+v, %v) failed", tc.name, got, rejected, err)
 		}
-		if !strings.Contains(err.Error(), tc.err) {
-			t.Errorf("test case %q: VisasToOldClaims(vs) = (%v, %d, %v), error want fragment %q", tc.name, got, skipped, err, tc.err)
+		if len(rejected) == 0 {
+			t.Fatalf("test case %q: VisasToOldClaims(vs) = (%v, %+v, %v) wanted at least one visa rejected", tc.name, got, rejected, err)
 		}
-		if skipped != 0 {
-			t.Errorf("test case %q: VisasToOldClaims(vs) = (%v, %d, %v), unexpectedly skipped some visas", tc.name, got, skipped, err)
+		found := false
+		for _, reject := range rejected {
+			if reject.Rejection.Reason == tc.reason {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("test case %q: VisasToOldClaims(vs) = (%v, %+v, %v), wanted reason %q not found", tc.name, got, rejected, err, tc.reason)
 		}
 	}
 }

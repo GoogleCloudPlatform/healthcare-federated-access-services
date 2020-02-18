@@ -48,6 +48,10 @@ var (
 	storageType = osenv.MustVar("STORAGE")
 	// defaultBroker is the default Identity Broker.
 	defaultBroker = osenv.MustVar("DEFAULT_BROKER")
+	// hidePolicyBasis when set to true will not send policy basis via non-admin endpoints.
+	hidePolicyBasis = os.Getenv("HIDE_POLICY_BASIS") != ""
+	// hideRejectDetail when set to true will not send visa rejection detail to clients.
+	hideRejectDetail = os.Getenv("HIDE_REJECTION_DETAILS") != ""
 
 	useHydra = os.Getenv("USE_HYDRA") != ""
 	// hydraAdminAddr is the address for the Hydra admin endpoints.
@@ -87,15 +91,17 @@ func main() {
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
 	}
 	s := dam.NewService(&dam.Options{
-		Domain:         srvAddr,
-		ServiceName:    srvName,
-		DefaultBroker:  defaultBroker,
-		Store:          store,
-		Warehouse:      wh,
-		Logger:         logger,
-		UseHydra:       true,
-		HydraAdminURL:  hydraAdminAddr,
-		HydraPublicURL: hydraPublicAddr,
+		Domain:           srvAddr,
+		ServiceName:      srvName,
+		DefaultBroker:    defaultBroker,
+		Store:            store,
+		Warehouse:        wh,
+		Logger:           logger,
+		HidePolicyBasis:  hidePolicyBasis,
+		HideRejectDetail: hideRejectDetail,
+		UseHydra:         true,
+		HydraAdminURL:    hydraAdminAddr,
+		HydraPublicURL:   hydraPublicAddr,
 	})
 
 	glog.Infof("DAM listening on port %v", port)

@@ -887,15 +887,17 @@ func TestMinConfig(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	opts := &Options{
-		HTTPClient:     server.Client(),
-		Domain:         "test.org",
-		ServiceName:    "dam",
-		DefaultBroker:  "no-broker",
-		Store:          store,
-		Warehouse:      nil,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraPublicURL,
+		HTTPClient:       server.Client(),
+		Domain:           "test.org",
+		ServiceName:      "dam",
+		DefaultBroker:    "no-broker",
+		Store:            store,
+		Warehouse:        nil,
+		UseHydra:         useHydra,
+		HydraAdminURL:    hydraAdminURL,
+		HydraPublicURL:   hydraPublicURL,
+		HidePolicyBasis:  true,
+		HideRejectDetail: true,
 	}
 	s := NewService(opts)
 	verifyService(t, s.domainURL, opts.Domain, "domainURL")
@@ -904,6 +906,8 @@ func TestMinConfig(t *testing.T) {
 	verifyService(t, strconv.FormatBool(s.useHydra), strconv.FormatBool(opts.UseHydra), "useHydra")
 	verifyService(t, s.hydraAdminURL, opts.HydraAdminURL, "hydraAdminURL")
 	verifyService(t, s.hydraPublicURL, opts.HydraPublicURL, "hydraPublicURL")
+	verifyServiceBool(t, s.hidePolicyBasis, opts.HidePolicyBasis, "hidePolicyBasis")
+	verifyServiceBool(t, s.hideRejectDetail, opts.HideRejectDetail, "hideRejectDetail")
 
 	tests := []test.HandlerTest{
 		{
@@ -927,8 +931,16 @@ func TestMinConfig(t *testing.T) {
 }
 
 func verifyService(t *testing.T, got, want, field string) {
+	t.Helper()
 	if got != want {
 		t.Errorf("service %q mismatch: got %q, want %q", field, got, want)
+	}
+}
+
+func verifyServiceBool(t *testing.T, got, want bool, field string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("service %q mismatch: got %v, want %v", field, got, want)
 	}
 }
 
