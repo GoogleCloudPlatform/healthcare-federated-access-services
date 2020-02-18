@@ -51,7 +51,7 @@ func (i *VisaIssuer) FetchVisa(t Token) (ga4gh.VisaJWT, error) {
 		Assertion: c,
 	}
 
-	v, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, i.Key.Private, "kid")
+	v, err := ga4gh.NewVisaFromData(d, "JKU", ga4gh.RS256, i.Key.Private, "kid")
 	if err != nil {
 		return "", fmt.Errorf("NewVisaFromData(%v,%v,%v) failed:\n%v", d, ga4gh.RS256, i.Key.Private, err)
 	}

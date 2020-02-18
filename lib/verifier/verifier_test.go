@@ -80,7 +80,7 @@ func TestVerifier_Verify(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
+	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestVerifier_Verify_EmptyClientID(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
+	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestVerifier_Verify_SecondIssuer(t *testing.T) {
 		},
 	}
 
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
+	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestVerifier_Verify_Fail_WrongIssuerURL(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
+	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestVerifier_Verify_Fail_WrongKey(t *testing.T) {
 	}
 
 	wrongKey := testkeys.Keys[testkeys.VisaIssuer1]
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, wrongKey.Private, key.ID)
+	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, wrongKey.Private, key.ID)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestVerifier_Verify_Fail_WrongClient(t *testing.T) {
 		},
 	}
 
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
+	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestVerifier_Verify_Fail_TokenExpired(t *testing.T) {
 		},
 	}
 
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, key.Private, key.ID)
+	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}

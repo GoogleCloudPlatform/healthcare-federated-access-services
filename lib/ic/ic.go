@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"reflect"
 	"regexp"
 	"sort"
@@ -1053,7 +1054,7 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAcc
 		},
 	}
 
-	v, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, privateKey, keyID)
+	v, err := ga4gh.NewVisaFromData(d, s.visaIssuerJKU(), ga4gh.RS256, privateKey, keyID)
 	if err != nil {
 		return fmt.Errorf("ga4gh.NewVisaFromData(_) failed: %v", err)
 	}
@@ -1171,6 +1172,10 @@ func (auth *authToken) Valid() error {
 		return fmt.Errorf("token is expired")
 	}
 	return nil
+}
+
+func (s *Service) visaIssuerJKU() string {
+	return path.Join(s.getVisaIssuerString(), "/.well-known/jwks.json")
 }
 
 func (s *Service) getVisaIssuerString() string {

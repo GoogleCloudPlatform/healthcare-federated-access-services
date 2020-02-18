@@ -30,10 +30,13 @@ var (
 	// RS256 is RSA. Used for signing/validation with private/public keys.
 	// Expects *rsa.PrivateKey for signing and *rsa.PublicKey for validation.
 	RS256 = jwt.SigningMethodRS256
+	// JWTEmptyJKU is for visa issuers who do not wish to set a "jku" header.
+	// See https://tools.ietf.org/html/rfc7515#section-4.1.2 for details.
+	JWTEmptyJKU = ""
 )
 
 // StdClaims contains the standard claims.
-// We dupliacte this instead of just using jwt.StandardClaims because
+// We duplicate this instead of just using jwt.StandardClaims because
 // Audience can be a string array.
 type StdClaims struct {
 	Audience  Audiences `json:"aud,omitempty"`

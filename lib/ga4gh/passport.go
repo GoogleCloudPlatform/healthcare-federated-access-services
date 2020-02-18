@@ -24,6 +24,7 @@ import (
 
 const (
 	jwtHeaderKeyID = "kid"
+	jwtHeaderJKU   = "jku"
 )
 
 // Passport represents a GA4GH Passport.

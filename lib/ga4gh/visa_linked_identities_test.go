@@ -194,9 +194,9 @@ func newVisa(t *testing.T, key testkeys.Key, id ID, a Assertion) *Visa {
 		},
 		Assertion: a,
 	}
-	v, err := NewVisaFromData(d, RS256, key.Private, key.ID)
+	v, err := NewVisaFromData(d, JWTEmptyJKU, RS256, key.Private, key.ID)
 	if err != nil {
-		t.Fatalf("NewVisaFromData(%+v,%v,%v,%v) failed: %v", d, RS256, key.Private, key.ID, err)
+		t.Fatalf("NewVisaFromData(%+v,%q,%v,%v,%v) failed: %v", d, JWTEmptyJKU, RS256, key.Private, key.ID, err)
 	}
 	return v
 }

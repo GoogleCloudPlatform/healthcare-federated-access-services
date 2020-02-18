@@ -16,6 +16,7 @@ package persona
 
 import (
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -215,6 +216,7 @@ func getStandardClaim(persona *cpb.TestPersona, claim string) string {
 
 func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
+	jku := path.Join(id.Issuer, "/oidc/.well-known/jwks")
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	id.VisaJWTs = make([]string, len(assertions))
 	now := float64(time.Now().Unix())
@@ -282,7 +284,7 @@ func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion,
 			}
 		}
 
-		v, err := ga4gh.NewVisaFromData(&visa, ga4gh.RS256, personaKey.Private, personaKey.ID)
+		v, err := ga4gh.NewVisaFromData(&visa, jku, ga4gh.RS256, personaKey.Private, personaKey.ID)
 		if err != nil {
 			return nil, fmt.Errorf("signing persona %q visa %d failed: %s", pname, i+1, err)
 		}

@@ -106,7 +106,7 @@ func TestAdmin(t *testing.T) {
 				Value: ga4gh.Value(test.linkedIdentities),
 			},
 		}
-		v, err := ga4gh.NewVisaFromData(d, ga4gh.RS256, testkeys.Keys[testkeys.VisaIssuer0].Private, string(testkeys.VisaIssuer0))
+		v, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, testkeys.Keys[testkeys.VisaIssuer0].Private, string(testkeys.VisaIssuer0))
 		if err != nil {
 			t.Errorf("ga4gh.NewVisaFromData failed: %v", err)
 		}

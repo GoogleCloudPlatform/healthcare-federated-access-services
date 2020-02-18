@@ -16,6 +16,7 @@ package ga4gh
 
 import (
 	"crypto/rsa"
+	"fmt"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
@@ -27,6 +28,11 @@ import (
 type Visa struct {
 	// jwt for the visa.
 	jwt VisaJWT
+
+	// "jku" visa header (see https://tools.ietf.org/html/rfc7515#section-4.1.2).
+	// This header changes the visa type as per the GA4GH AAI Profile
+	// (https://github.com/ga4gh/data-security/blob/master/AAI/AAIConnectProfile.md#term-embedded-document-token).
+	jku string
 
 	// data is unmarhsalled data contained in visa jwt.
 	data *VisaData
@@ -53,12 +59,13 @@ type VisaData struct {
 // Does not verify the signature on the JWT.
 func NewVisaFromJWT(j VisaJWT) (*Visa, error) {
 	glog.V(1).Infof("NewVisaFromJWT(%+v)", j)
-	d, err := visaDataFromJWT(j)
+	d, jku, err := visaDataFromJWT(j)
 	if err != nil {
 		return nil, err
 	}
 	return &Visa{
 		jwt:  j,
+		jku:  jku,
 		data: d,
 	}, nil
 }
@@ -72,9 +79,9 @@ func NewVisaFromJWT(j VisaJWT) (*Visa, error) {
 //   Else if "jku" exists in JWT header, use the "jku" value.
 //   Otherwise, the Visa cannot be verified.
 // See https://bit.ly/ga4gh-aai-profile#embedded-token-issued-by-embedded-token-issuer
-func NewVisaFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Visa, error) {
+func NewVisaFromData(d *VisaData, jku string, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Visa, error) {
 	glog.V(1).Infof("NewVisaFromData(%+v,%T,%v)", d, method, key)
-	j, err := visaJWTFromData(d, method, key, keyID)
+	j, err := visaJWTFromData(d, jku, method, key, keyID)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +96,11 @@ func (v *Visa) Verify(key *rsa.PublicKey) error {
 	f := func(token *jwt.Token) (interface{}, error) { return key, nil }
 	_, err := jwt.Parse(string(v.jwt), f)
 	return err
+}
+
+// JKU returns the JKU header of a Visa.
+func (v *Visa) JKU() string {
+	return v.jku
 }
 
 // JWT returns the JWT of a Visa.
@@ -108,9 +120,12 @@ func (v *Visa) AssertionProto() *cpb.Assertion {
 	return a
 }
 
-func visaJWTFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey, keyID string) (VisaJWT, error) {
+func visaJWTFromData(d *VisaData, jku string, method SigningMethod, key *rsa.PrivateKey, keyID string) (VisaJWT, error) {
 	t := jwt.NewWithClaims(method, d)
 	t.Header[jwtHeaderKeyID] = keyID
+	if jku != JWTEmptyJKU {
+		t.Header[jwtHeaderJKU] = jku
+	}
 	signed, err := t.SignedString(key)
 	if err != nil {
 		return "", err
@@ -118,12 +133,23 @@ func visaJWTFromData(d *VisaData, method SigningMethod, key *rsa.PrivateKey, key
 	return VisaJWT(signed), nil
 }
 
-func visaDataFromJWT(j VisaJWT) (*VisaData, error) {
+// visaDataFromJWT converts a JWT token to data elements.
+// Returns: visa payload data, the "jku" header string (if any), and error.
+func visaDataFromJWT(j VisaJWT) (*VisaData, string, error) {
 	d := &VisaData{}
-	if _, _, err := (&jwt.Parser{}).ParseUnverified(string(j), d); err != nil {
-		return nil, err
+	tok, _, err := (&jwt.Parser{}).ParseUnverified(string(j), d)
+	if err != nil {
+		return nil, "", err
 	}
-	return d, nil
+	jku, ok := tok.Header["jku"]
+	if !ok {
+		return d, JWTEmptyJKU, nil
+	}
+	str, ok := jku.(string)
+	if !ok {
+		return nil, JWTEmptyJKU, fmt.Errorf("casting jku to string failed")
+	}
+	return d, str, nil
 }
 
 // MustVisaDataFromJWT converts a VisaJWT to VisaData.
@@ -132,7 +158,7 @@ func visaDataFromJWT(j VisaJWT) (*VisaData, error) {
 // DO NOT use in non-test code.
 // TODO: move to a testutil package.
 func MustVisaDataFromJWT(j VisaJWT) *VisaData {
-	d, err := visaDataFromJWT(j)
+	d, _, err := visaDataFromJWT(j)
 	if err != nil {
 		glog.Fatalf("visaDataFromJWT(%v) failed: %v", j, err)
 	}
