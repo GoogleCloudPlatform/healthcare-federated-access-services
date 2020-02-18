@@ -392,11 +392,11 @@ func (s *Service) populateIdentityVisas(ctx context.Context, id *ga4gh.Identity,
 		jwt := ga4gh.VisaJWT(v)
 		v, err := ga4gh.NewVisaFromJWT(jwt)
 		if err != nil {
-			id.RejectVisa(nil, "invalid_visa", "", fmt.Sprintf("cannot unpack visa %d", i))
+			id.RejectVisa(nil, ga4gh.UnspecifiedVisaFormat, "invalid_visa", "", fmt.Sprintf("cannot unpack visa %d", i))
 		}
 		d := v.Data()
 		if _, ok := trusted[d.Issuer]; !ok {
-			id.RejectVisa(d, "untrusted_issuer", "iss", fmt.Sprintf("issuer %q is not a trusted author of visas by the DAM", d.Issuer))
+			id.RejectVisa(d, v.Format(), "untrusted_issuer", "iss", fmt.Sprintf("issuer %q is not a trusted author of visas by the DAM", d.Issuer))
 			continue
 		}
 		vs = append(vs, jwt)

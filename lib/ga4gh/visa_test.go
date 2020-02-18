@@ -40,6 +40,22 @@ func TestNewVisaFromData(t *testing.T) {
 	}
 }
 
+func TestNewVisaFromData_NoJKUFormat(t *testing.T) {
+	d, _ := fakeVisaDataAndJWT(t)
+
+	v, err := NewVisaFromData(d, JWTEmptyJKU, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	if err != nil {
+		t.Fatalf("NewVisaFromData(%v) failed: %v", d, err)
+	}
+
+	if v.JKU() != JWTEmptyJKU {
+		t.Errorf("visa jku mismatch: got %q, want %q", v.JKU(), JWTEmptyJKU)
+	}
+	if v.Format() != AccessTokenVisaFormat {
+		t.Errorf("visa format mismatch: got %v, want %v", v.Format(), AccessTokenVisaFormat)
+	}
+}
+
 func TestNewVisaFromJWT(t *testing.T) {
 	d, j := fakeVisaDataAndJWT(t)
 
@@ -94,6 +110,23 @@ func TestNewVisaFromData_JKU(t *testing.T) {
 	}
 	if v.JKU() != jku {
 		t.Errorf("visa jku mismatch: got %q, want %q", v.JKU(), jku)
+	}
+}
+
+func TestNewVisaFromData_JKUFormat(t *testing.T) {
+	d, _ := fakeVisaDataAndJWT(t)
+
+	jku := "https://oidc.example.org/.well-known/jwks"
+	p, err := NewVisaFromData(d, jku, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	if err != nil {
+		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
+	}
+	v, err := NewVisaFromJWT(p.JWT())
+	if err != nil {
+		t.Fatalf("NewVisaFromJWT(%v) failed: %v", p.JWT(), err)
+	}
+	if v.Format() != DocumentVisaFormat {
+		t.Errorf("visa format mismatch: got %v, want %v", v.Format(), DocumentVisaFormat)
 	}
 }
 

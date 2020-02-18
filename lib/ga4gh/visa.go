@@ -87,6 +87,7 @@ func NewVisaFromData(d *VisaData, jku string, method SigningMethod, key *rsa.Pri
 	}
 	return &Visa{
 		jwt:  j,
+		jku:  jku,
 		data: d,
 	}, nil
 }
@@ -118,6 +119,14 @@ func (v *Visa) AssertionProto() *cpb.Assertion {
 	a := toAssertionProto(v.data.Assertion)
 	a.Exp = v.Data().ExpiresAt
 	return a
+}
+
+// Format returns the VisaFormat (i.e. embedded token format) for the visa.
+func (v *Visa) Format() VisaFormat {
+	if len(v.jku) == 0 {
+		return AccessTokenVisaFormat
+	}
+	return DocumentVisaFormat
 }
 
 func visaJWTFromData(d *VisaData, jku string, method SigningMethod, key *rsa.PrivateKey, keyID string) (VisaJWT, error) {

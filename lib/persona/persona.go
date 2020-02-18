@@ -216,7 +216,7 @@ func getStandardClaim(persona *cpb.TestPersona, claim string) string {
 
 func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
-	jku := path.Join(id.Issuer, "/oidc/.well-known/jwks")
+	jku := path.Join(id.Issuer, "/.well-known/jwks")
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	id.VisaJWTs = make([]string, len(assertions))
 	now := float64(time.Now().Unix())

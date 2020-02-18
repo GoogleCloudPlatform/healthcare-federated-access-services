@@ -26,12 +26,19 @@ import (
 const (
 	// AccessTokenVisaFormat represents an "Embedded Access Token" visa format.
 	// See https://bit.ly/ga4gh-aai-profile#term-embedded-access-token.
-	AccessTokenVisaFormat = "access_token"
+	AccessTokenVisaFormat VisaFormat = "access_token"
 
 	// DocumentVisaFormat represents an "Embedded Document Token" visa format.
 	// See https://bit.ly/ga4gh-aai-profile#term-embedded-document-token.
-	DocumentVisaFormat = "document"
+	DocumentVisaFormat VisaFormat = "document"
+
+	// UnspecifiedVisaFormat is used when the token cannot be read or is not available.
+	UnspecifiedVisaFormat VisaFormat = ""
 )
+
+// VisaFormat indicates what GA4GH embedded token format is used for a visa.
+// See  https://bit.ly/ga4gh-aai-profile#embedded-token-issued-by-embedded-token-issuer.
+type VisaFormat string
 
 // OldClaim represents a claim object as defined by GA4GH.
 type OldClaim struct {
@@ -43,7 +50,7 @@ type OldClaim struct {
 	By          string                       `json:"by,omitempty"`
 	Issuer      string                       `json:"issuer,omitempty"`
 	VisaData    *VisaData                    `json:"-"`
-	TokenFormat string                       `json:"-"`
+	TokenFormat VisaFormat                   `json:"-"`
 }
 
 // OldClaimCondition represents a condition object as defined by GA4GH.
@@ -157,15 +164,15 @@ func CheckIdentityAllVisasLinked(ctx context.Context, i *Identity, f JWTVerifier
 }
 
 // RejectVisa adds a new RejectedVisa report to the identity (up to a maximum number of reports).
-func (t *Identity) RejectVisa(visa *VisaData, reason, field, message string) {
+func (t *Identity) RejectVisa(visa *VisaData, format VisaFormat, reason, field, message string) {
 	if len(t.RejectedVisas) > 20 {
 		return
 	}
-	t.RejectedVisas = append(t.RejectedVisas, NewRejectedVisa(visa, reason, field, message))
+	t.RejectedVisas = append(t.RejectedVisas, NewRejectedVisa(visa, format, reason, field, message))
 }
 
 // NewRejectedVisa creates a rejected visa information struct.
-func NewRejectedVisa(visa *VisaData, reason, field, message string) *RejectedVisa {
+func NewRejectedVisa(visa *VisaData, format VisaFormat, reason, field, message string) *RejectedVisa {
 	if visa == nil {
 		visa = &VisaData{}
 	}
@@ -174,10 +181,8 @@ func NewRejectedVisa(visa *VisaData, reason, field, message string) *RejectedVis
 		Field:       field,
 		Description: message,
 	}
-	// TODO: add support for TokenFormat when visa.JKU() is available.
-	fmt := DocumentVisaFormat
 	return &RejectedVisa{
-		TokenFormat: fmt,
+		TokenFormat: string(format),
 		Issuer:      visa.Issuer,
 		Subject:     visa.Subject,
 		Assertion:   visa.Assertion,
@@ -196,23 +201,21 @@ func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[
 		// But do return errors if the visas are not compatible with the old claim format.
 		v, err := NewVisaFromJWT(VisaJWT(j))
 		if err != nil {
-			rejected = append(rejected, NewRejectedVisa(nil, "invalid_visa", "", fmt.Sprintf("cannot unpack visa %d", i)))
+			rejected = append(rejected, NewRejectedVisa(nil, UnspecifiedVisaFormat, "invalid_visa", "", fmt.Sprintf("cannot unpack visa %d", i)))
 			continue
 		}
 		d := v.Data()
 		if f != nil {
 			if err := f(ctx, string(j)); err != nil {
-				rejected = append(rejected, NewRejectedVisa(d, "verify_failed", "", err.Error()))
+				rejected = append(rejected, NewRejectedVisa(d, v.Format(), "verify_failed", "", err.Error()))
 				continue
 			}
 		}
 		if len(d.Issuer) == 0 {
-			rejected = append(rejected, NewRejectedVisa(d, "iss_missing", "iss", "empty 'iss' field"))
+			rejected = append(rejected, NewRejectedVisa(d, v.Format(), "iss_missing", "iss", "empty 'iss' field"))
 			continue
 		}
 		typ := string(d.Assertion.Type)
-		// TODO: add support for TokenFormat when visa.JKU() is available.
-		fmt := DocumentVisaFormat
 		c := OldClaim{
 			Value:       string(d.Assertion.Value),
 			Source:      string(d.Assertion.Source),
@@ -221,17 +224,17 @@ func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[
 			By:          string(d.Assertion.By),
 			Issuer:      d.Issuer,
 			VisaData:    d,
-			TokenFormat: fmt,
+			TokenFormat: v.Format(),
 		}
 		if len(d.Assertion.Conditions) > 0 {
 			// Conditions on visas are not supported in non-experimental mode.
 			if !globalflags.Experimental {
-				rejected = append(rejected, NewRejectedVisa(d, "condition_not_supported", "visa.condition", "visa conditions not supported"))
+				rejected = append(rejected, NewRejectedVisa(d, v.Format(), "condition_not_supported", "visa.condition", "visa conditions not supported"))
 				continue
 			}
 			c.Condition, err = toOldClaimConditions(d.Assertion.Conditions)
 			if err != nil {
-				rejected = append(rejected, NewRejectedVisa(d, "condition_not_supported", "visa.condition", err.Error()))
+				rejected = append(rejected, NewRejectedVisa(d, v.Format(), "condition_not_supported", "visa.condition", err.Error()))
 				continue
 			}
 		}

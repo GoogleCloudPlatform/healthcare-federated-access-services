@@ -104,7 +104,7 @@ func TestVisasToOldClaims(t *testing.T) {
 						Asserted: 10000,
 					},
 				},
-				TokenFormat: "document",
+				TokenFormat: DocumentVisaFormat,
 			},
 			{
 				Value:    "faculty@issuer1.org",
@@ -120,7 +120,7 @@ func TestVisasToOldClaims(t *testing.T) {
 						Asserted: 10100,
 					},
 				},
-				TokenFormat: "document",
+				TokenFormat: DocumentVisaFormat,
 			},
 		},
 		string(ControlledAccessGrants): []OldClaim{
@@ -164,7 +164,7 @@ func TestVisasToOldClaims(t *testing.T) {
 						},
 					},
 				},
-				TokenFormat: "document",
+				TokenFormat: DocumentVisaFormat,
 			},
 		},
 	}

@@ -104,11 +104,11 @@ func (c *ClaimValidator) validate(ttl float64, id *ga4gh.Identity) bool {
 	}
 	for _, v := range vs {
 		if v.Asserted > now {
-			id.RejectVisa(v.VisaData, "visa_before_active", "visa.asserted", "visa is not yet active (visa.asserted is in the future)")
+			id.RejectVisa(v.VisaData, v.TokenFormat, "visa_before_active", "visa.asserted", "visa is not yet active (visa.asserted is in the future)")
 			continue
 		}
 		if v.Expires < now+ttl {
-			id.RejectVisa(v.VisaData, "visa_expired", "exp", "visa expired")
+			id.RejectVisa(v.VisaData, v.TokenFormat, "visa_expired", "exp", "visa expired")
 			continue
 		}
 		// GA4GH AAI requires that visas in AccessTokenVisaFormat need to verify their validity
@@ -118,7 +118,7 @@ func (c *ClaimValidator) validate(ttl float64, id *ga4gh.Identity) bool {
 			requestedExpiry := tnow.Add(time.Duration(ttl * 1e9)) // ttl seconds to nano
 			iat := time.Unix(v.VisaData.IssuedAt, 0)
 			if requestedExpiry.Sub(iat) > time.Hour {
-				id.RejectVisa(v.VisaData, "access_token_visa_expiry", "jku", "access token visa format not supported for access more than 1 hour, use document visa format via jku instead")
+				id.RejectVisa(v.VisaData, v.TokenFormat, "access_token_visa_expiry", "jku", "access token visa format not supported for access more than 1 hour, use document visa format via jku instead")
 				continue
 			}
 		}
@@ -135,22 +135,22 @@ func (c *ClaimValidator) validate(ttl float64, id *ga4gh.Identity) bool {
 			}
 		}
 		if !match {
-			id.RejectVisa(v.VisaData, "visa_value_rejected", "visa.value", fmt.Sprintf("visa value %q not accepted by the policy", v.Value))
+			id.RejectVisa(v.VisaData, v.TokenFormat, "visa_value_rejected", "visa.value", fmt.Sprintf("visa value %q not accepted by the policy", v.Value))
 			continue
 		}
 		if len(v.Source) == 0 {
-			id.RejectVisa(v.VisaData, "visa_source_missing", "visa.source", "visa source is empty")
+			id.RejectVisa(v.VisaData, v.TokenFormat, "visa_source_missing", "visa.source", "visa source is empty")
 			continue
 		}
 		if len(c.Sources) > 0 {
 			if _, ok := c.Sources[v.Source]; !ok {
-				id.RejectVisa(v.VisaData, "visa_source_rejected", "visa.source", fmt.Sprintf("visa source %q not accepted by the policy", v.Source))
+				id.RejectVisa(v.VisaData, v.TokenFormat, "visa_source_rejected", "visa.source", fmt.Sprintf("visa source %q not accepted by the policy", v.Source))
 				continue
 			}
 		}
 		if len(c.By) > 0 {
 			if _, ok := c.By[v.By]; !ok {
-				id.RejectVisa(v.VisaData, "visa_by_rejected", "visa.by", fmt.Sprintf("visa by %q not accepted by the policy", v.By))
+				id.RejectVisa(v.VisaData, v.TokenFormat, "visa_by_rejected", "visa.by", fmt.Sprintf("visa by %q not accepted by the policy", v.By))
 				continue
 			}
 		}
@@ -163,7 +163,7 @@ func (c *ClaimValidator) validate(ttl float64, id *ga4gh.Identity) bool {
 			match = false
 			idcList, ok := id.GA4GH[ck]
 			if !ok {
-				id.RejectVisa(v.VisaData, "visa_by_rejected", "visa.by", fmt.Sprintf("visa by %q not accepted by the policy", v.By))
+				id.RejectVisa(v.VisaData, v.TokenFormat, "visa_by_rejected", "visa.by", fmt.Sprintf("visa by %q not accepted by the policy", v.By))
 				continue
 			}
 			for _, idc := range idcList {
