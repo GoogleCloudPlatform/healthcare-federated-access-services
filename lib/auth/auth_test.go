@@ -37,7 +37,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 
-	mrpb "google.golang.org/genproto/googleapis/api/monitoredres" /* copybara-comment */
 	hrpb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: http_request_go_proto */
 	lspb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: log_severity_go_proto */
 	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
@@ -884,19 +883,14 @@ func Test_writeAccessLog_auth_pass(t *testing.T) {
 			"token_issuer":    normalize(issuerURL),
 			"type":            "access_log",
 			"pass_auth_check": "true",
+			"project_id":      "unknown",
+			"service_type":    "unknown",
+			"service_name":    "unknown",
 		},
 		HttpRequest: &hrpb.HttpRequest{
 			RequestUrl:    "/auditlog/a?client_id=" + test.TestClientID + "&client_secret=" + test.TestClientSecret,
 			RequestMethod: http.MethodGet,
 			RemoteIp:      "192.168.1.2",
-		},
-		Resource: &mrpb.MonitoredResource{
-			Type: "github.com/GoogleCloudPlatform/healthcare-federated-access-services",
-			Labels: map[string]string{
-				"project_id":   "unknown",
-				"service_type": "unknown",
-				"service_name": "unknown",
-			},
 		},
 	}
 
@@ -928,20 +922,15 @@ func Test_writeAccessLog_auth_failed(t *testing.T) {
 			"token_issuer":    "",
 			"type":            "access_log",
 			"pass_auth_check": "false",
+			"project_id":      "unknown",
+			"service_type":    "unknown",
+			"service_name":    "unknown",
 		},
 		HttpRequest: &hrpb.HttpRequest{
 			RequestUrl:    "/auditlog/a",
 			RequestMethod: http.MethodGet,
 			RemoteIp:      "192.168.1.2",
 			Status:        http.StatusUnauthorized,
-		},
-		Resource: &mrpb.MonitoredResource{
-			Type: "github.com/GoogleCloudPlatform/healthcare-federated-access-services",
-			Labels: map[string]string{
-				"project_id":   "unknown",
-				"service_type": "unknown",
-				"service_name": "unknown",
-			},
 		},
 	}
 

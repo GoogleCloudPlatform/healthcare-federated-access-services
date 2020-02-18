@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	mrpb "google.golang.org/genproto/googleapis/api/monitoredres" /* copybara-comment */
 	lspb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: log_severity_go_proto */
 	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
@@ -68,4 +69,9 @@ func MustTimestampProto(t time.Time) *tspb.Timestamp {
 		glog.Fatalf("ptypes.TimestampProto(%v) failed: %v", t, err)
 	}
 	return ts
+}
+
+var _ = mrpb.MonitoredResource{
+	Type:   "project",
+	Labels: map[string]string{"project_id": "fake-project-id"},
 }

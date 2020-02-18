@@ -26,7 +26,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 
-	mrpb "google.golang.org/genproto/googleapis/api/monitoredres" /* copybara-comment */
 	hrpb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: http_request_go_proto */
 	lspb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: log_severity_go_proto */
 	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
@@ -79,20 +78,15 @@ func TestWriteAccessLog(t *testing.T) {
 				"tracing_id":      "1",
 				"type":            "access_log",
 				"pass_auth_check": "false",
+				"project_id":      "p1",
+				"service_type":    "t1",
+				"service_name":    "n1",
 			},
 			HttpRequest: &hrpb.HttpRequest{
 				RequestUrl:    url,
 				RequestMethod: req.Method,
 				RemoteIp:      al.RequestIP,
 				Status:        int32(al.ResponseCode),
-			},
-			Resource: &mrpb.MonitoredResource{
-				Type: "github.com/GoogleCloudPlatform/healthcare-federated-access-services",
-				Labels: map[string]string{
-					"project_id":   "p1",
-					"service_type": "t1",
-					"service_name": "n1",
-				},
 			},
 		}},
 	}}

@@ -25,7 +25,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	mrpb "google.golang.org/genproto/googleapis/api/monitoredres" /* copybara-comment */
 )
 
 // AccessLog logs the http endpoint accessing.
@@ -67,6 +66,9 @@ func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog)
 		"request_path":    log.RequestEndpoint,
 		"error_type":      log.ErrorType,
 		"pass_auth_check": strconv.FormatBool(log.PassAuthCheck),
+		"project_id":      serviceinfo.Project,
+		"service_type":    serviceinfo.Type,
+		"service_name":    serviceinfo.Name,
 	}
 
 	req := &logging.HTTPRequest{
@@ -79,21 +81,9 @@ func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog)
 		Labels:      labels,
 		Payload:     log.Payload,
 		HTTPRequest: req,
-		Resource:    buildResource(),
 	}
 
 	writeLog(client, entry)
-}
-
-func buildResource() *mrpb.MonitoredResource {
-	return &mrpb.MonitoredResource{
-		Type: "github.com/GoogleCloudPlatform/healthcare-federated-access-services",
-		Labels: map[string]string{
-			"project_id":   serviceinfo.Project,
-			"service_type": serviceinfo.Type,
-			"service_name": serviceinfo.Name,
-		},
-	}
 }
 
 func writeLog(client *logging.Client, e logging.Entry) {
