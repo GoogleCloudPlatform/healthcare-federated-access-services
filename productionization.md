@@ -165,6 +165,18 @@ The following projects are used for the cross project and environment scenarios:
     `/dam/v1alpha/{realm}/resources/{name}/views/{view}/roles/{role}` as well
     as various other dataset discovery endpoint.
 
+1.  Docker container entrypoint scripts includes a weak secret: SECRETS_SYSTEM
+
+    See files:
+
+    *  deploy/build/dam/entrypoint.bash
+    *  deploy/build/ic/entrypoint.bash
+
+    SECRETS_SYSTEM is the secret that hydra used to encrypt the sensitive
+    information in SQL database. This variable should not store as plain text
+    in file. Consider using [secrets-management](https://cloud.google.com/solutions/secrets-management)
+    in production.
+
 ## Security
 
 ### DAM Background Processes
