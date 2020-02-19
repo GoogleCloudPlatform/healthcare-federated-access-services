@@ -158,7 +158,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 			// TODO: remove these older fields
 			Name: resourceName,
 			View: s.makeView(viewName, view, res, cfg),
-			Ttl:  common.TtlString(ttl),
+			Ttl:  common.TTLString(ttl),
 		}, http.StatusOK, nil
 	}
 

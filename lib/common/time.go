@@ -31,6 +31,9 @@ var (
 	hourRE = regexp.MustCompile(`^(.*[dhms])?([\d\.]+)h(.*)$`)
 )
 
+// ParseDuration parses the given string to time.Duration. Return the given
+// default arg if given string is empty or any error.
+// This function supports "d" as days.
 func ParseDuration(d string, def time.Duration) (time.Duration, error) {
 	if len(d) == 0 {
 		return def, nil
@@ -92,7 +95,8 @@ func ParseSeconds(d string) (time.Duration, error) {
 	return time.Duration(n) * time.Second, nil
 }
 
-func TtlString(ttl time.Duration) string {
+// TTLString removes tailing 0s, 0m, 0h for human readable.
+func TTLString(ttl time.Duration) string {
 	str := ttl.String()
 	if strings.HasSuffix(str, "m0s") {
 		str = strings.TrimSuffix(str, "0s")
@@ -117,6 +121,7 @@ func PastTimestamp(ttl time.Duration) string {
 	return time.Now().UTC().Add(-1 * ttl).Format(time.RFC3339)
 }
 
+// FutureTimestamp returns a timestamp string a given duration in the futhur.
 func FutureTimestamp(ttl time.Duration) string {
 	return time.Now().UTC().Add(ttl).Format(time.RFC3339)
 }

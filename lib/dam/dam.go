@@ -986,7 +986,7 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 			Regexp:       common.DurationRegexpString,
 			Min:          "2h",
 			Max:          "180d",
-			DefaultValue: common.TtlString(defaultMaxRequestedTTL),
+			DefaultValue: common.TTLString(defaultMaxRequestedTTL),
 		},
 		"gcpManagedKeysPerAccount": {
 			Label:        "GCP Managed Keys Per Account",

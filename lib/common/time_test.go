@@ -16,6 +16,7 @@ package common
 
 import (
 	"testing"
+	"time"
 )
 
 func TestTimestampString(t *testing.T) {
@@ -24,5 +25,209 @@ func TestTimestampString(t *testing.T) {
 	got := TimestampString(epoch)
 	if got != epochstr {
 		t.Errorf("TimestampString(%d) = %q, want %q", epoch, got, epochstr)
+	}
+}
+
+func TestParseDuration(t *testing.T) {
+	defaultDuration := 17 * time.Hour
+
+	tests := []struct {
+		name    string
+		input   string
+		want    time.Duration
+		wantErr bool
+	}{
+		{
+			name:    "empty",
+			input:   "",
+			want:    defaultDuration,
+			wantErr: false,
+		},
+		{
+			name:    "day hour minute second",
+			input:   "1d1h1m1s",
+			want:    25*time.Hour + time.Minute + time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "1 day 100 hour",
+			input:   "1d100h",
+			want:    124 * time.Hour,
+			wantErr: false,
+		},
+		{
+			name:    "miss order",
+			input:   "1s1h1d1m",
+			want:    25*time.Hour + time.Minute + time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "float",
+			input:   "1.5d1.5h1m1s",
+			want:    37*time.Hour + 31*time.Minute + time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "error",
+			input:   "1.1.1d",
+			want:    defaultDuration,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			d, err := ParseDuration(tc.input, defaultDuration)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("got error %v, want error exists %v", err, tc.wantErr)
+			}
+
+			if d != tc.want {
+				t.Errorf("result = %s want %s", d.String(), tc.want.String())
+			}
+		})
+	}
+}
+
+func TestParseNegDuration(t *testing.T) {
+	defaultDuration := 17 * time.Hour
+
+	tests := []struct {
+		name    string
+		input   string
+		want    time.Duration
+		wantErr bool
+	}{
+		{
+			name:    "empty",
+			input:   "",
+			want:    defaultDuration,
+			wantErr: false,
+		},
+		{
+			name:    "day hour minute second",
+			input:   "1d1h1m1s",
+			want:    25*time.Hour + time.Minute + time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "1 day 100 hour",
+			input:   "1d100h",
+			want:    124 * time.Hour,
+			wantErr: false,
+		},
+		{
+			name:    "- 1 day 100 hour",
+			input:   "-1d100h",
+			want:    -124 * time.Hour,
+			wantErr: false,
+		},
+		{
+			name:    "- 1 minute",
+			input:   "-1m",
+			want:    -1 * time.Minute,
+			wantErr: false,
+		},
+		{
+			name:    "miss order",
+			input:   "1s1h1d1m",
+			want:    25*time.Hour + time.Minute + time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "float",
+			input:   "1.5d1.5h1m1s",
+			want:    37*time.Hour + 31*time.Minute + time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "error",
+			input:   "1.1.1d",
+			want:    defaultDuration,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			d, err := ParseNegDuration(tc.input, defaultDuration)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("got error %v, want error exists %v", err, tc.wantErr)
+			}
+
+			if d != tc.want {
+				t.Errorf("ParseNegDuration(%s, _) = %s want %s", tc.input, d.String(), tc.want.String())
+			}
+		})
+	}
+}
+
+func TestParseSeconds(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    time.Duration
+		wantErr bool
+	}{
+		{
+			name:    "positive int",
+			input:   "1234",
+			want:    1234 * time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "negative int",
+			input:   "-1234",
+			want:    -1234 * time.Second,
+			wantErr: false,
+		},
+		{
+			name:    "error",
+			input:   "12.34",
+			want:    0,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			d, err := ParseSeconds(tc.input)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("got error %v, want error exists %v", err, tc.wantErr)
+			}
+
+			if d != tc.want {
+				t.Errorf("ParseSeconds(%s) = %s want %s", tc.input, d.String(), tc.want.String())
+			}
+		})
+	}
+}
+
+func TestTTLString(t *testing.T) {
+	tests := []struct {
+		name  string
+		input time.Duration
+		want  string
+	}{
+		{
+			name:  "not change",
+			input: 1*time.Hour + 1*time.Minute + 1*time.Second,
+			want:  "1h1m1s",
+		},
+		{
+			name:  "remove minute second",
+			input: 1 * time.Hour,
+			want:  "1h",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res := TTLString(tc.input)
+			if res != tc.want {
+				t.Errorf("TTLString(%s) = %s want %s", tc.input, res, tc.want)
+			}
+		})
+
 	}
 }
