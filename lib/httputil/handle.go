@@ -20,10 +20,11 @@ import (
 	"net/http"
 	"strings"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // WriteRPCResp writes reponse and error.
@@ -88,7 +89,7 @@ func WriteStatus(w http.ResponseWriter, s *status.Status) {
 // TODO: update its callers to use WriteStatus.
 func WriteError(w http.ResponseWriter, code int, err error) {
 	msg := fmt.Sprintf("%d request error: %v\n", code, err)
-	glog.Infof(msg)
+	glog.InfoDepth(1, msg)
 
 	WriteCorsHeaders(w)
 	w.WriteHeader(code)
