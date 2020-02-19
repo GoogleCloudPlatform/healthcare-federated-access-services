@@ -17,8 +17,15 @@
       "authUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/auth",
       "tokenUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/token"
     },
+    "ic_visa": {
+      "issuer": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oidc",
+      "ui": {
+        "label": "IC visa",
+        "description": "IC visa issuer"
+      }
+    },
     "persona_broker": {
-      "issuer": "https://personas${YOUR_ENVIRONMENT}-${YOUR_PROJECT_ID}.appspot.com/oidc",
+      "issuer": "https://personas${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oidc",
       "ui": {
         "label": "Persona Broker",
         "description": "Persona Broker"
