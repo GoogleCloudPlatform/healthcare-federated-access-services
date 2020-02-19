@@ -103,7 +103,7 @@ func ExtractClientSecret(r *http.Request) string {
 
 // ResetClients resets clients in hydra with given clients and secrets.
 func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[string]*pb.Client, secrets map[string]string) error {
-	var added, updated, removed, skipped int
+	var added, updated, unchanged, removed, noSecret int
 	cs, err := hydra.ListClients(httpClient, hydraAdminURL)
 	if err != nil {
 		return err
@@ -126,7 +126,7 @@ func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[str
 		sec, ok := secrets[c.ClientId]
 		if !ok {
 			glog.Errorf("sync hydra clients: client %q has no secret, and will not be included in Hydra client list.", n)
-			skipped++
+			noSecret++
 			continue
 		}
 
@@ -143,14 +143,16 @@ func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[str
 
 		// Update an existing client if it has changed.
 		thc := toHydraClient(c, n, sec, hc.CreatedAt)
-		if diff := cmp.Diff(hc, thc, cmpopts.IgnoreUnexported(strfmt.DateTime{})); diff != "" {
+		if diff := cmp.Diff(hc, thc, cmpopts.IgnoreUnexported(strfmt.DateTime{})); diff == "" {
+			unchanged++
+		} else {
 			if _, err := hydra.UpdateClient(httpClient, hydraAdminURL, thc.ClientID, thc); err != nil {
 				return err
 			}
+			updated++
 		}
 		// Whether updated or unchanged above, remove it from the `removable` list to avoid removing the hydra client below.
 		delete(removable, thc.ClientID)
-		updated++
 	}
 
 	// Remove remaining existing hydra clients on the `removable` list.
@@ -161,6 +163,6 @@ func ResetClients(httpClient *http.Client, hydraAdminURL string, clients map[str
 		removed++
 	}
 
-	glog.Infof("sync hydra clients: added %d, updated %d, removed %d, skipped %d, total %d", added, updated, removed, skipped, len(clients))
+	glog.Infof("sync hydra clients: added %d, updated %d, unchanged %d, removed %d, no_secret %d, total %d", added, updated, unchanged, removed, noSecret, len(clients))
 	return nil
 }

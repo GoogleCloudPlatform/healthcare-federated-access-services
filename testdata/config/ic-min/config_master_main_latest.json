@@ -1,4 +1,6 @@
 {
+  "version": "0",
+  "revision": 1,
   "ui": {
     "label": "Min Test Identity Concentrator",
     "description": "Min Test Identity Concentrator"
