@@ -1083,20 +1083,6 @@ func (h *configClientsSyncHandler) Save(tx storage.Tx, name string, vars map[str
 
 // ConfigHistory implements the HistoryConfig RPC method.
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
-	}
-	id, status, err := s.getBearerTokenIdentity(cfg, r)
-	if err != nil {
-		httputil.WriteError(w, status, err)
-		return
-	}
-	if status, err := s.permissions.CheckAdmin(id); err != nil {
-		httputil.WriteError(w, status, err)
-		return
-	}
 	h, status, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
 		httputil.WriteError(w, status, err)
@@ -1112,21 +1098,7 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid history revision: %q (must be a positive integer)", name))
 		return
 	}
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
-	}
-	id, status, err := s.getBearerTokenIdentity(cfg, r)
-	if err != nil {
-		httputil.WriteError(w, status, err)
-		return
-	}
-	if status, err := s.permissions.CheckAdmin(id); err != nil {
-		httputil.WriteError(w, status, err)
-		return
-	}
-	cfg = &pb.DamConfig{}
+	cfg := &pb.DamConfig{}
 	if status, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
 		httputil.WriteError(w, status, err)
 		return
@@ -1136,24 +1108,11 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 
 // ConfigReset implements the corresponding method in the DAM API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.loadConfig(nil, getRealm(r))
-	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-	}
-	id, status, err := s.getBearerTokenIdentity(cfg, r)
-	if err != nil {
-		httputil.WriteError(w, status, err)
-		return
-	}
-	if status, err := s.permissions.CheckAdmin(id); err != nil {
-		httputil.WriteError(w, status, err)
-		return
-	}
-	if err = s.store.Wipe(storage.AllRealms); err != nil {
+	if err := s.store.Wipe(storage.AllRealms); err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err = s.ImportFiles(importDefault); err != nil {
+	if err := s.ImportFiles(importDefault); err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -1184,15 +1143,6 @@ func (s *Service) ConfigTestPersonas(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
 		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
-	}
-	id, status, err := s.getBearerTokenIdentity(cfg, r)
-	if err != nil {
-		httputil.WriteError(w, status, err)
-		return
-	}
-	if status, err := s.permissions.CheckAdmin(id); err != nil {
-		httputil.WriteError(w, status, err)
 		return
 	}
 	out := &pb.GetTestPersonasResponse{

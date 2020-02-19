@@ -29,7 +29,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -897,20 +896,6 @@ func (s *Service) makeViewRoles(view *pb.View, res *pb.Resource, cfg *pb.DamConf
 		}
 	}
 	return out
-}
-
-func toTitle(str string) string {
-	out := ""
-	for i, ch := range str {
-		if unicode.IsUpper(ch) && i > 0 && str[i-1] != ' ' {
-			out += " "
-		} else if ch == '_' {
-			out += " "
-			continue
-		}
-		out += string(ch)
-	}
-	return strings.Title(out)
 }
 
 func makeConfig(cfg *pb.DamConfig) *pb.DamConfig {
