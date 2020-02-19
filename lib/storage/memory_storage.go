@@ -357,12 +357,14 @@ type MemTx struct {
 	ms     *MemoryStorage
 }
 
-func (tx *MemTx) Finish() {
+// Finish attempts to commit a transaction.
+func (tx *MemTx) Finish() error {
 	select {
 	case <-tx.ms.lock:
 	default:
 		panic("MAYBE BUG: Releasing a released TX.")
 	}
+	return nil
 }
 
 func (tx *MemTx) Rollback() {

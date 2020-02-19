@@ -550,14 +550,18 @@ type DatastoreTx struct {
 	Tx     *datastore.Transaction
 }
 
-func (tx *DatastoreTx) Finish() {
-	if tx.Tx != nil {
-		_, err := tx.Tx.Commit()
-		if err != nil {
-			glog.Infof("datastore error committing transaction: %v", err)
-		}
-		tx.Tx = nil
+// Finish attempts to commit a transaction.
+func (tx *DatastoreTx) Finish() error {
+	if tx.Tx == nil {
+		return nil
 	}
+	_, err := tx.Tx.Commit()
+	if err != nil {
+		glog.Infof("datastore error committing transaction: %v", err)
+		return err
+	}
+	tx.Tx = nil
+	return nil
 }
 
 func (tx *DatastoreTx) IsUpdate() bool {

@@ -216,7 +216,9 @@ type FileTx struct {
 	writer bool
 }
 
-func (tx *FileTx) Finish() {
+// Finish attempts to commit a transaction.
+func (tx *FileTx) Finish() error {
+	return nil
 }
 
 func (tx *FileTx) Rollback() {
