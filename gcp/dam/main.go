@@ -85,7 +85,9 @@ func main() {
 	if err != nil {
 		glog.Fatalf("logging.NewClient() failed: %v", err)
 	}
-
+	logger.OnError = func(err error) {
+		glog.Warningf("StackdriverLogging.Client.OnError: %v", err)
+	}
 	if useHydra {
 		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
