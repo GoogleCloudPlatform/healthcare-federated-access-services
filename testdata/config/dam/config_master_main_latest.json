@@ -409,7 +409,7 @@
       "ui": {
         "applyUrl": "https://www.dataset-example.nih.gov/apply",
         "description": "Records from U.S. citizens",
-        "imageUrl": "https://kt.cern/sites/knowledgetransfer.web.cern.ch/files/styles/slideshow_image_style/public/images/success-stories/story-GeneROOT%3A%20From%20High-Energy%20Physics%20to%20Large%20Genomics%20Datasets.png?itok=yYl7Up3F",
+        "imageUrl": "https://dataset-example.nih.org/images/image.jpg",
         "infoUrl": "https://dataset-example.nih.gov",
         "label": "Dataset Example",
         "troubleshootUrl": "https://dataset-example.nih.gov/about/dataset-example-program-protocol"
@@ -484,7 +484,7 @@
       "ui": {
         "applyUrl": "http://apply.ga4gh-apis.org",
         "description": "Google demo of GA4GH APIs",
-        "imageUrl": "https://www.ebi.ac.uk/sites/ebi.ac.uk/files/groups/external_relations/images/wide-imagery/Global_Alliance_news_logo_780x400_0.jpg",
+        "imageUrl": "https://info.ga4gh-apis.org/images/image.jpg",
         "infoUrl": "http://info.ga4gh-apis.org",
         "label": "GA4GH APIs",
         "troubleshootUrl": "http://troubleshoot.ga4gh-apis.org"

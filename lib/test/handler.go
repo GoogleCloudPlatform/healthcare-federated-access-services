@@ -126,18 +126,32 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 			hasError = true
 			t.Errorf("test %q returned wrong status code: got %d want %d", name, w.Code, test.Status)
 		}
-		if strings.HasPrefix(test.Output, "^") {
+		switch {
+		case strings.HasPrefix(test.Output, "^"):
 			re, err := regexp.Compile(test.Output)
 			if err != nil {
 				t.Fatalf("test %q cannot compile regexp Output %q: %v", name, test.Output, err)
 			}
 			if !re.Match([]byte(Output)) {
 				hasError = true
-				t.Errorf("test %q returned unexpected body: got %q want regexp match of %q", name, Output, test.Output)
+				t.Errorf("test %q returned unexpected body, got:\n%s\n\nwant regexp match of:\n%s", name, Output, test.Output)
 			}
-		} else if diff := cmp.Diff(test.Output, Output, test.CmpOptions); diff != "" {
-			hasError = true
-			t.Errorf("test %q returned mismatching body (-want +got):\n%s", name, diff)
+		case strings.HasPrefix(test.Output, "*") && strings.HasSuffix(test.Output, "*"):
+			q := regexp.QuoteMeta(test.Output[1 : len(test.Output)-1])
+			q = strings.Replace(q, "\\*", ".*", -1)
+			re, err := regexp.Compile(q)
+			if err != nil {
+				t.Fatalf("test %q cannot compile regexp Output %q with regex %q: %v", name, test.Output, q, err)
+			}
+			if !re.Match([]byte(Output)) {
+				hasError = true
+				t.Errorf("test %q returned unexpected body, got:\n%s\n\nwant substring match of:\n%s\n\nregex:\n%s", name, Output, test.Output, q)
+			}
+		default:
+			if diff := cmp.Diff(test.Output, Output, test.CmpOptions); diff != "" {
+				hasError = true
+				t.Errorf("test %q returned mismatching body (-want +got):\n%s", name, diff)
+			}
 		}
 		if hasError && varInput {
 			t.Logf("test %q Input value was: %s", name, InputStr)

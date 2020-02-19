@@ -147,30 +147,6 @@ func TestHandlers(t *testing.T) {
 			Status: http.StatusOK,
 		},
 		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/master/targetAdapters",
-			Output: `^.+$`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/master/passportTranslators",
-			Output: `^.+$`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/master/damRoleCategories",
-			Output: `^.+$`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
-			Path:   "/dam/v1alpha/master/testPersonas",
-			Output: `^.*dr_joe.*standardClaims.*"iss":"Issuer of the Passport".*$`,
-			Status: http.StatusOK,
-		},
-		{
 			Method:  "GET",
 			Path:    "/dam/v1alpha/master/processes",
 			Persona: "admin",
