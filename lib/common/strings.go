@@ -17,6 +17,7 @@ package common
 import (
 	"fmt"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 	"unicode"
@@ -94,6 +95,19 @@ func IsImageURL(src string) bool {
 		strings.HasSuffix(lower, ".jpeg") ||
 		strings.HasSuffix(lower, ".png") ||
 		strings.HasSuffix(lower, ".gif")
+}
+
+// ToURL returns a fully qualified URL by using domain if it is a relative path.
+func ToURL(fragment, domain string) string {
+	if strings.HasPrefix(fragment, "http:") || strings.HasPrefix(fragment, "https:") {
+		return fragment
+	}
+	url, err := url.Parse(domain)
+	if err != nil || domain == "" {
+		return fragment
+	}
+	url.Path = path.Join(url.Path, fragment)
+	return url.String()
 }
 
 // ReplaceVariables replaces all substrings of the form "${var-name}"

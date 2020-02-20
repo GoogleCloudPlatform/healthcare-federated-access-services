@@ -97,7 +97,7 @@
         }
       },
       "ui": {
-        "label": "NIH Data Access Committee Approval",
+        "label": "Pretend NIH Data Access Committee Approval",
         "description": "Approval from a NIH DAC for the researcher to access specific datasets",
         "infoUrl": "https://osp.od.nih.gov/scientific-sharing/policy-oversight/"
       }
@@ -146,8 +146,8 @@
       "maxTokenTtl": "1h",
       "ui": {
         "applyUrl": "http://apply.ga4gh-apis.org",
-        "description": "Google demo of GA4GH APIs using a subset of 1000 Genomes data. See: https://www.nature.com/articles/nature15393.",
-        "imageUrl": "https://www.ebi.ac.uk/sites/ebi.ac.uk/files/groups/external_relations/images/wide-imagery/Global_Alliance_news_logo_780x400_0.jpg",
+        "description": "Demo of GA4GH APIs using a subset of 1000 Genomes data. See: https://www.nature.com/articles/nature15393.",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5b/DNA_replication_%2813080697695%29.jpg",
         "infoUrl": "http://info.ga4gh-apis.org",
         "label": "GA4GH APIs",
         "troubleshootUrl": "http://troubleshoot.ga4gh-apis.org",
@@ -213,28 +213,35 @@
       "ui": {
         "label": "Affiliation and Role",
         "description": "The Identity’s roles within affiliated institutions as specified by eduPerson with specific vocabulary extensions",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.vod2g2cjxjmp"
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#affiliationandrole"
       }
     },
     "AcceptedTermsAndPolicies": {
       "ui": {
         "label": "Accepted Terms and Policies",
         "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms and conditions indicated by the URL",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.pif6raoahha5"
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#acceptedtermsandpolicies"
       }
     },
     "ResearcherStatus": {
       "ui": {
         "label": "Bona Fide Researcher Status",
         "description": "Canonical URLs that indicate that the person has been acknowledged to be a bona fide researcher",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.jdh4ks6h3zzp"
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#researcherstatus"
       }
     },
     "ControlledAccessGrants": {
       "ui": {
         "label": "Controlled Access Grants",
         "description": "A list of datasets or other objects for which controlled access has been granted to this researcher",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.s459xswt1qt3"
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#controlledaccessgrants"
+      }
+    },
+    "LinkedIdentities": {
+      "ui": {
+        "label": "Linked Identities",
+        "description": "The value of this visa lists multiple identities that are the same person as Passport Visa Identity (i.e. identity as indicated by the visa's issuer and subject claims)",
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#linkedidentities"
       }
     }
   },
@@ -247,7 +254,7 @@
         "standardClaims": {
           "iss": "https://ic-${YOUR_PROJECT_ID}.appspot.com/oidc",
           "email": "admin@nci.nih.gov",
-          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+          "picture": "/identity/static/images/nih_identity.jpeg"
         }
       }
     },
@@ -259,7 +266,7 @@
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
           "email": "dr_joe@faculty.uni-heidelberg.de",
-          "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
+          "picture": "/identity/static/images/elixir_identity.png"
         },
         "ga4ghAssertions": [
           {
@@ -290,8 +297,8 @@
       "passport": {
         "standardClaims": {
           "iss": "me",
-          "email": "you@me.com",
-          "picture": "http://icons.iconarchive.com/icons/dapino/people/256/brown-man-icon.png"
+          "email": "john@me.example.com",
+          "picture": "/identity/static/images/google_identity.png"
         },
         "ga4ghAssertions": [
           {
@@ -313,7 +320,7 @@
         "standardClaims": {
           "iss": "https://login.nih.gov/oidc",
           "email": "dr_joe@era.nih.gov",
-          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+          "picture": "/identity/static/images/era_commons_identity.jpeg"
         },
         "ga4ghAssertions": [
           {
@@ -368,7 +375,7 @@
         "standardClaims": {
           "iss": "https://login.nih.gov/oidc",
           "email": "nci_researcher@nci.nih.gov",
-          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+          "picture": "/identity/static/images/nih_identity.jpeg"
         },
         "ga4ghAssertions": [
           {
@@ -409,7 +416,7 @@
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
           "email": "undergrad_candice@uni-heidelberg.de",
-          "picture": "https://www.cl.uni-heidelberg.de/images/siegel_uni_hd_gross.gif"
+          "picture": "/identity/static/images/elixir_identity.png"
         }
       }
     },
@@ -421,7 +428,7 @@
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
           "email": "undergrad_candice@uni-heidelberg.de",
-          "picture": "https://www.cl.uni-heidelberg.de/images/siegel_uni_hd_gross.gif"
+          "picture": "/identity/static/images/elixir_identity.png"
         },
         "ga4ghAssertions": [
           {
@@ -440,7 +447,7 @@
         "standardClaims": {
           "iss": "https://ic-${YOUR_PROJECT_ID}.appspot.com/oidc",
           "email": "test-user-with-access@dnastack.com",
-          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+          "picture": "/identity/static/images/google.png"
         },
         "ga4ghAssertions": [
           {
@@ -462,7 +469,7 @@
         "standardClaims": {
           "iss": "https://ddap.test.source.dnastack.com",
           "email": "test-user-no-access@dnastack.com",
-          "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
+          "picture": "/identity/static/images/google.png"
         },
         "ga4ghAssertions": []
       },

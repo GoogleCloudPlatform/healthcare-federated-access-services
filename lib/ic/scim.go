@@ -668,7 +668,7 @@ func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 	var photos []*spb.Attribute
 	primaryPic := acct.GetProfile().GetPicture()
 	if len(primaryPic) > 0 {
-		photos = append(photos, &spb.Attribute{Value: primaryPic, Primary: true})
+		photos = append(photos, &spb.Attribute{Value: common.ToURL(primaryPic, s.getDomainURL()), Primary: true})
 	}
 	for _, ca := range acct.ConnectedAccounts {
 		if len(ca.Properties.Email) > 0 {
@@ -683,7 +683,7 @@ func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 			continue
 		}
 		if pic := ca.GetProfile().GetPicture(); len(pic) > 0 && pic != primaryPic {
-			photos = append(photos, &spb.Attribute{Value: pic})
+			photos = append(photos, &spb.Attribute{Value: common.ToURL(pic, s.getDomainURL())})
 		}
 	}
 

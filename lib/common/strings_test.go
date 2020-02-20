@@ -286,6 +286,55 @@ func TestIsImageURL(t *testing.T) {
 	}
 }
 
+func TestToURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		fragment  string
+		domain string
+		want  string
+	}{
+		{
+			name:  "empty input",
+			fragment: "",
+			domain: "",
+			want:  "",
+		},
+		{
+			name:  "simple string",
+			fragment: "/hello",
+			domain: "",
+			want:  "/hello",
+		},
+		{
+			name:  "simple URL",
+			fragment: "/hello",
+			domain: "http://example.org",
+			want:  "http://example.org/hello",
+		},
+		{
+			name:  "domain with trailing slash",
+			fragment: "/hello",
+			domain: "http://example.org/",
+			want:  "http://example.org/hello",
+		},
+		{
+			name:  "domain and path with trailing slash",
+			fragment: "hello/",
+			domain: "http://example.org/",
+			want:  "http://example.org/hello",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ToURL(tc.fragment, tc.domain)
+			if got != tc.want {
+				t.Errorf("test case %q: ToURL(%q, %q) failed: got %q, want %q", tc.name, tc.fragment, tc.domain, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestReplaceVariables(t *testing.T) {
 	tests := []struct {
 		name  string
