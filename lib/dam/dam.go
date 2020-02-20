@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
@@ -492,14 +493,14 @@ func (s *Service) resolveAccessList(ctx context.Context, id *ga4gh.Identity, res
 			return "FAILED", got, fmt.Errorf("resource %q not found", rn)
 		}
 		for vn, v := range r.Views {
-			if len(views) > 0 && !common.ListContains(views, vn) {
+			if len(views) > 0 && !stringset.Contains(views, vn) {
 				continue
 			}
 			if len(v.AccessRoles) == 0 {
 				return "INVALID", nil, fmt.Errorf("resource %q view %q has no roles defined", rn, vn)
 			}
 			for rname := range v.AccessRoles {
-				if len(roles) > 0 && !common.ListContains(roles, rname) {
+				if len(roles) > 0 && !stringset.Contains(roles, rname) {
 					continue
 				}
 				if _, err := s.checkAuthorization(ctx, id, 0, rn, vn, rname, cfg, noClientID); err != nil {

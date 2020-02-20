@@ -16,7 +16,6 @@ package common
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -26,30 +25,8 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 )
 
-func ListContains(list []string, find string) bool {
-	for _, entry := range list {
-		if entry == find {
-			return true
-		}
-	}
-	return false
-}
-
-func RequestAbstractPath(r *http.Request) string {
-	parts := strings.Split(r.URL.Path, "/")
-	// Path starts with a "/", so first part is always empty.
-	if len(parts) > 3 {
-		parts[3] = "{realm}"
-	}
-	return strings.Join(parts, "/")
-}
-
 func GenerateGUID() string {
 	return uuid.New()
-}
-
-func ParseGUID(in string) (uuid.UUID, error) {
-	return uuid.Parse(in), nil
 }
 
 // JoinNonEmpty filters empty strings and joins remainder together.

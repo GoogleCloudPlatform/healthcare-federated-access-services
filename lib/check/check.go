@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -54,7 +55,7 @@ func CheckReadOnly(realm string, readOnlyMaster bool, whitelistedRealms []string
 		if readOnlyMaster {
 			return fmt.Errorf(`config option "readOnlyMasterRealm" setting prevents updating the config on realm %q`, realm)
 		}
-	} else if len(whitelistedRealms) > 0 && !common.ListContains(whitelistedRealms, realm) {
+	} else if len(whitelistedRealms) > 0 && !stringset.Contains(whitelistedRealms, realm) {
 		return fmt.Errorf(`config option "whitelistedRealms" setting prevents updating realm %q config`, realm)
 	}
 	return nil

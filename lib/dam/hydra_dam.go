@@ -21,8 +21,8 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -65,7 +65,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Request tokens for call DAM endpoints, if scope includes "identities".
-	if common.ListContains(login.RequestedScope, "identities") {
+	if stringset.Contains(login.RequestedScope, "identities") {
 		in.tokenType = pb.ResourceTokenRequestState_ENDPOINT
 		in.realm = u.Query().Get("realm")
 		if len(in.realm) == 0 {

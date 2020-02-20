@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 
 	jose "gopkg.in/square/go-jose.v2" /* copybara-comment */
@@ -38,11 +39,11 @@ func IsAudience(token *ga4gh.Identity, clientID, self string) bool {
 		return false
 	}
 	if len(self) > 0 {
-		if self == token.AuthorizedParty || ListContains(token.Audiences, self) {
+		if self == token.AuthorizedParty || stringset.Contains([]string(token.Audiences), self) {
 			return true
 		}
 	}
-	return clientID == token.AuthorizedParty || ListContains(token.Audiences, clientID)
+	return clientID == token.AuthorizedParty || stringset.Contains([]string(token.Audiences), clientID)
 }
 
 // UserID returns an user identifier that specifies a subject within an issuer.

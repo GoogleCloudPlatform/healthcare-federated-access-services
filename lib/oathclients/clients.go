@@ -20,18 +20,19 @@ import (
 	"net/http"
 	"strings"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -46,7 +47,7 @@ func CheckClientIntegrity(name string, c *pb.Client) error {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name), fmt.Sprintf("invalid clientHandler name %q: %v", name, err)).Err()
 	}
 
-	if _, err := common.ParseGUID(c.ClientId); err != nil || len(c.ClientId) != clientIDLen {
+	if uid := uuid.Parse(c.ClientId); uid == nil || len(c.ClientId) != clientIDLen {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "clientId"), fmt.Sprintf("missing clientHandler ID or invalid format: %q", c.ClientId)).Err()
 	}
 

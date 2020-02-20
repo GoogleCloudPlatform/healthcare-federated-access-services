@@ -21,8 +21,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
-
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
@@ -170,13 +169,13 @@ func (c *ClaimValidator) validate(ttl float64, id *ga4gh.Identity) bool {
 				if idc.Asserted > now || idc.Expires < now+ttl {
 					continue
 				}
-				if len(cv.Value) > 0 && !common.ListContains(cv.Value, idc.Value) {
+				if len(cv.Value) > 0 && !stringset.Contains(cv.Value, idc.Value) {
 					continue
 				}
-				if len(cv.Source) > 0 && !common.ListContains(cv.Source, idc.Source) {
+				if len(cv.Source) > 0 && !stringset.Contains(cv.Source, idc.Source) {
 					continue
 				}
-				if len(cv.By) > 0 && !common.ListContains(cv.By, idc.By) {
+				if len(cv.By) > 0 && !stringset.Contains(cv.By, idc.By) {
 					continue
 				}
 				match = true
