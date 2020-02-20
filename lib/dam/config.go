@@ -40,7 +40,7 @@ func (s *Service) GetResources(w http.ResponseWriter, r *http.Request) {
 	}
 	resMap := make(map[string]*pb.Resource, 0)
 	for k, v := range cfg.Resources {
-		resMap[k] = s.makeResource(k, v, cfg)
+		resMap[k] = makeResource(k, v, cfg, s.hidePolicyBasis, s.adapters)
 	}
 
 	resp := pb.GetResourcesResponse{
@@ -67,7 +67,7 @@ func (s *Service) GetResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := pb.GetResourceResponse{
-		Resource: s.makeResource(name, res, cfg),
+		Resource: makeResource(name, res, cfg, s.hidePolicyBasis, s.adapters),
 		Access:   s.makeAccessList(nil, []string{name}, nil, nil, cfg, r),
 	}
 	httputil.WriteProtoResp(w, proto.Message(&resp))
@@ -83,7 +83,7 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 	viewMap := make(map[string]*pb.GetFlatViewsResponse_FlatView, 0)
 	for resname, res := range cfg.Resources {
 		for vname, view := range res.Views {
-			v := s.makeView(vname, view, res, cfg)
+			v := makeView(vname, view, res, cfg, s.hidePolicyBasis, s.adapters)
 			st, ok := cfg.ServiceTemplates[v.ServiceTemplate]
 			if !ok {
 				httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("resource %q view %q service template %q is undefined", resname, vname, v.ServiceTemplate))
@@ -163,7 +163,7 @@ func (s *Service) GetViews(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make(map[string]*pb.View, 0)
 	for k, v := range res.Views {
-		out[k] = s.makeView(k, v, res, cfg)
+		out[k] = makeView(k, v, res, cfg, s.hidePolicyBasis, s.adapters)
 	}
 	resp := pb.GetViewsResponse{
 		Views:  out,
@@ -200,7 +200,7 @@ func (s *Service) GetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := pb.GetViewResponse{
-		View:   s.makeView(viewName, view, res, cfg),
+		View:   makeView(viewName, view, res, cfg, s.hidePolicyBasis, s.adapters),
 		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, nil, cfg, r),
 	}
 	httputil.WriteProtoResp(w, proto.Message(&resp))
@@ -233,7 +233,7 @@ func (s *Service) GetViewRoles(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("resource %q view %q not found", name, viewName))
 		return
 	}
-	out := s.makeViewRoles(view, res, cfg)
+	out := makeViewRoles(view, res, cfg, s.hidePolicyBasis, s.adapters)
 	resp := pb.GetViewRolesResponse{
 		Roles:  out,
 		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, nil, cfg, r),
@@ -274,7 +274,7 @@ func (s *Service) GetViewRole(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-	roles := s.makeViewRoles(view, res, cfg)
+	roles := makeViewRoles(view, res, cfg, s.hidePolicyBasis, s.adapters)
 	role, ok := roles[roleName]
 	if !ok {
 		httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("resource %q view %q role %q not found", name, viewName, roleName))

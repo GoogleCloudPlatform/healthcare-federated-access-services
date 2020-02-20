@@ -1004,7 +1004,7 @@ func setupAuthorizationTest(t *testing.T) *authTestContext {
 
 func TestCheckAuthorization(t *testing.T) {
 	auth := setupAuthorizationTest(t)
-	status, err := auth.dam.checkAuthorization(auth.ctx, auth.id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID)
+	status, err := checkAuthorization(auth.ctx, auth.id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
 	if status != http.StatusOK || err != nil {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got %d: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusOK, status, err)
 	}
@@ -1023,7 +1023,7 @@ func TestCheckAuthorization_Untrusted(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	status, err := auth.dam.checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID)
+	status, err := checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
 	if status != http.StatusForbidden || err == nil {
 		t.Errorf("using untrusted issuer: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got %d: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusForbidden, status, err)
 	}

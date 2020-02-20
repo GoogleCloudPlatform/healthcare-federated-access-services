@@ -57,19 +57,44 @@ var (
 
 // CheckIntegrity returns an error status if the config is invalid.
 func (s *Service) CheckIntegrity(cfg *pb.DamConfig) *status.Status {
-	if s.adapters == nil {
+	return ValidateDAMConfig(cfg, s.ValidateCfgOpts())
+}
+
+// ValidateCfgOpts returns the options for checking validity of configuration.
+func (s *Service) ValidateCfgOpts() ValidateCfgOpts {
+	return ValidateCfgOpts{
+		Adapters:         s.adapters,
+		DefaultBroker:    s.defaultBroker,
+		RoleCategories:   s.roleCategories,
+		HidePolicyBasis:  s.hidePolicyBasis,
+		HideRejectDetail: s.hideRejectDetail,
+	}
+}
+
+// ValidateCfgOpts contains options for ValidateDAMConfig.
+type ValidateCfgOpts struct {
+	Adapters         *adapter.TargetAdapters
+	DefaultBroker    string
+	RoleCategories   map[string]*pb.RoleCategory
+	HidePolicyBasis  bool
+	HideRejectDetail bool
+}
+
+// ValidateDAMConfig checks that the provided config is valid.
+func ValidateDAMConfig(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
+	if vopts.Adapters == nil {
 		return httputil.NewStatus(codes.Unavailable, "target adapters not loaded")
 	}
-	if stat := s.checkBasicIntegrity(cfg); stat != nil {
-		return stat
+	if st := checkBasicIntegrity(cfg, vopts); st != nil {
+		return st
 	}
-	if stat := s.checkExtraIntegrity(cfg); stat != nil {
-		return stat
+	if st := checkExtraIntegrity(cfg, vopts); st != nil {
+		return st
 	}
 	return nil
 }
 
-func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
+func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	for n, ti := range cfg.TrustedPassportIssuers {
 		if err := checkName(n); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n), err.Error())
@@ -83,7 +108,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		if path, err := check.CheckUI(ti.Ui, true); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n, path), fmt.Sprintf("trusted passport issuer UI settings: %v", err))
 		}
-		if stat := checkTrustedIssuerClientCredentials(n, s.defaultBroker, ti); stat != nil {
+		if stat := checkTrustedIssuerClientCredentials(n, vopts.DefaultBroker, ti, vopts); stat != nil {
 			return stat
 		}
 	}
@@ -142,7 +167,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 	}
 
 	for n, st := range cfg.ServiceTemplates {
-		if stat := s.checkServiceTemplate(n, st, cfg); stat != nil {
+		if stat := checkServiceTemplate(n, st, cfg, vopts); stat != nil {
 			return stat
 		}
 	}
@@ -160,7 +185,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, n, "maxTokenTtl"), "max token TTL invalid format")
 		}
 		for vn, view := range res.Views {
-			if stat := s.checkViewIntegrity(vn, view, n, res, cfg); stat != nil {
+			if stat := checkViewIntegrity(vn, view, n, res, cfg, vopts); stat != nil {
 				return stat
 			}
 		}
@@ -220,7 +245,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 		// response.
 	}
 
-	if stat := s.checkOptionsIntegrity(cfg.Options); stat != nil {
+	if stat := checkOptionsIntegrity(cfg.Options, vopts); stat != nil {
 		return stat
 	}
 
@@ -231,7 +256,7 @@ func (s *Service) checkBasicIntegrity(cfg *pb.DamConfig) *status.Status {
 	return nil
 }
 
-func (s *Service) checkExtraIntegrity(cfg *pb.DamConfig) *status.Status {
+func checkExtraIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	for n, tp := range cfg.TestPersonas {
 		for i, access := range tp.Access {
 			aparts := strings.Split(access, "/")
@@ -249,7 +274,7 @@ func (s *Service) checkExtraIntegrity(cfg *pb.DamConfig) *status.Status {
 			if !ok {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "view"), fmt.Sprintf("access entry view %q not found", vn))
 			}
-			roleView := s.makeView(vn, view, res, cfg)
+			roleView := makeView(vn, view, res, cfg, vopts.HidePolicyBasis, vopts.Adapters)
 			if roleView.AccessRoles == nil {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry no roles defined for view %q", vn))
 			}
@@ -261,7 +286,7 @@ func (s *Service) checkExtraIntegrity(cfg *pb.DamConfig) *status.Status {
 	return nil
 }
 
-func (s *Service) checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Resource, cfg *pb.DamConfig) *status.Status {
+func checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Resource, cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	if err := checkName(name); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name), err.Error())
 	}
@@ -275,7 +300,7 @@ func (s *Service) checkViewIntegrity(name string, view *pb.View, resName string,
 	if len(view.Version) == 0 {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "version"), "version is empty")
 	}
-	if path, err := s.checkAccessRequirements(view.ServiceTemplate, st, resName, name, view, cfg); err != nil {
+	if path, err := checkAccessRequirements(view.ServiceTemplate, st, resName, name, view, cfg, vopts); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, path), fmt.Sprintf("access requirements: %v", err))
 	}
 	if len(view.DefaultRole) == 0 {
@@ -294,18 +319,18 @@ func (s *Service) checkViewIntegrity(name string, view *pb.View, resName string,
 	return nil
 }
 
-func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.DamConfig) *status.Status {
+func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	if err := checkName(name); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name), err.Error())
 	}
 	if len(template.TargetAdapter) == 0 {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "targetAdapter"), "target adapter is not specified")
 	}
-	adapt, ok := s.adapters.ByName[template.TargetAdapter]
+	adapt, ok := vopts.Adapters.ByName[template.TargetAdapter]
 	if !ok {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "targetAdapter"), "target adapter is not a recognized adapter within this service")
 	}
-	if path, err := adapt.CheckConfig(name, template, "", "", nil, cfg, s.adapters); err != nil {
+	if path, err := adapt.CheckConfig(name, template, "", "", nil, cfg, vopts.Adapters); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	if len(template.ItemFormat) == 0 {
@@ -314,11 +339,11 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 	if _, ok = adapt.Descriptor().ItemFormats[template.ItemFormat]; !ok {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "itemFormat"), fmt.Sprintf("item format %q is invalid", template.ItemFormat))
 	}
-	if path, err := s.checkServiceRoles(template.ServiceRoles, name, template.TargetAdapter, template.ItemFormat, cfg); err != nil {
+	if path, err := checkServiceRoles(template.ServiceRoles, name, template.TargetAdapter, template.ItemFormat, cfg, vopts); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	varNames := make(map[string]bool)
-	desc := s.adapters.Descriptors[template.TargetAdapter]
+	desc := vopts.Adapters.Descriptors[template.TargetAdapter]
 	for _, v := range desc.ItemFormats {
 		for varName, v := range v.Variables {
 			varNames[varName] = true
@@ -343,15 +368,15 @@ func (s *Service) checkServiceTemplate(name string, template *pb.ServiceTemplate
 	return nil
 }
 
-func (s *Service) checkAccessRequirements(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig) (string, error) {
-	adapt, ok := s.adapters.ByName[template.TargetAdapter]
+func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
+	adapt, ok := vopts.Adapters.ByName[template.TargetAdapter]
 	if !ok {
 		return httputil.StatusPath("targetAdapter"), fmt.Errorf("service template %q adapter %q is not a recognized adapter within this service", templateName, template.TargetAdapter)
 	}
-	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, s.adapters); err != nil {
+	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, vopts.Adapters); err != nil {
 		return path, err
 	}
-	if path, err := s.checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, cfg); err != nil {
+	if path, err := checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, cfg, vopts); err != nil {
 		return httputil.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
 	desc := adapt.Descriptor()
@@ -365,7 +390,7 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q provides more than one item when only one was expected for adapter %q", viewName, template.TargetAdapter)
 	}
 	for idx, item := range view.Items {
-		vars, path, err := adapter.GetItemVariables(s.adapters, template.TargetAdapter, template.ItemFormat, item)
+		vars, path, err := adapter.GetItemVariables(vopts.Adapters, template.TargetAdapter, template.ItemFormat, item)
 		if err != nil {
 			return httputil.StatusPath("views", viewName, "items", strconv.Itoa(idx), path), err
 		}
@@ -376,11 +401,11 @@ func (s *Service) checkAccessRequirements(templateName string, template *pb.Serv
 	return "", nil
 }
 
-func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig) (string, error) {
+func checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
 		return "", fmt.Errorf("does not provide any roles")
 	}
-	desc := s.adapters.Descriptors[targetAdapter]
+	desc := vopts.Adapters.Descriptors[targetAdapter]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
 			return httputil.StatusPath(rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
@@ -412,11 +437,11 @@ func (s *Service) checkAccessRoles(roles map[string]*pb.AccessRole, templateName
 	return "", nil
 }
 
-func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig) (string, error) {
+func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
 		return httputil.StatusPath(cfgServiceTemplates, templateName, "roles"), fmt.Errorf("no roles provided")
 	}
-	desc := s.adapters.Descriptors[targetAdapter]
+	desc := vopts.Adapters.Descriptors[targetAdapter]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
 			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
@@ -425,8 +450,11 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateNa
 			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories"), fmt.Errorf("role %q does not provide a DAM role category", rname)
 		}
 		for i, pt := range role.DamRoleCategories {
-			if _, ok := s.roleCategories[pt]; !ok {
-				return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories", strconv.Itoa(i)), fmt.Errorf("role %q DAM role category %q is not defined (valid types are: %s)", rname, pt, strings.Join(roleCategorySet(s.roleCategories), ", "))
+			if _, ok := vopts.RoleCategories[pt]; !ok {
+				return httputil.StatusPath(
+						cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories", strconv.Itoa(i)),
+					fmt.Errorf("role %q DAM role category %q is not defined (valid types are: %s)", rname, pt,
+						strings.Join(roleCategorySet(vopts.RoleCategories), ", "))
 			}
 		}
 		if desc.Requirements.TargetRole && len(role.TargetRoles) == 0 {
@@ -447,7 +475,7 @@ func (s *Service) checkServiceRoles(roles map[string]*pb.ServiceRole, templateNa
 	return "", nil
 }
 
-func (s *Service) checkOptionsIntegrity(opts *pb.ConfigOptions) *status.Status {
+func checkOptionsIntegrity(opts *pb.ConfigOptions, vopts ValidateCfgOpts) *status.Status {
 	if opts == nil {
 		return nil
 	}
@@ -468,7 +496,7 @@ func (s *Service) checkOptionsIntegrity(opts *pb.ConfigOptions) *status.Status {
 	return nil
 }
 
-func (s *Service) configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http.Request) *status.Status {
+func configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http.Request, vopts ValidateCfgOpts) *status.Status {
 	bad := codes.InvalidArgument
 	if err := check.CheckReadOnly(getRealm(r), cfg.Options.ReadOnlyMasterRealm, cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
@@ -482,23 +510,23 @@ func (s *Service) configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModifica
 	if err := configRevision(mod, cfg); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
-	if stat := s.updateTests(cfg, mod); stat != nil {
+	if stat := updateTests(cfg, mod, vopts); stat != nil {
 		return stat
 	}
-	if stat := s.checkBasicIntegrity(cfg); stat != nil {
+	if stat := checkBasicIntegrity(cfg, vopts); stat != nil {
 		return stat
 	}
-	if tests := s.runTests(r.Context(), cfg, nil); hasTestError(tests) {
+	if tests := runTests(r.Context(), cfg, nil, vopts); hasTestError(tests) {
 		stat := httputil.NewStatus(codes.FailedPrecondition, tests.Error)
 		return httputil.AddStatusDetails(stat, tests.Modification)
 	}
-	if stat := s.checkExtraIntegrity(cfg); stat != nil {
+	if stat := checkExtraIntegrity(cfg, vopts); stat != nil {
 		return stat
 	}
 	return nil
 }
 
-func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.TrustedPassportIssuer) *status.Status {
+func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.TrustedPassportIssuer, vopts ValidateCfgOpts) *status.Status {
 	if name != defaultBroker {
 		return nil
 	}
@@ -511,7 +539,7 @@ func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.Tru
 	return nil
 }
 
-func (s *Service) checkTrustedIssuer(iss string, cfg *pb.DamConfig) *status.Status {
+func checkTrustedIssuer(iss string, cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	if len(iss) == 0 {
 		return httputil.NewStatus(codes.PermissionDenied, "unauthorized missing passport issuer")
 	}
@@ -542,7 +570,7 @@ func rmTestView(cfg *pb.DamConfig, resName, viewName string) {
 	}
 }
 
-func (s *Service) updateTests(cfg *pb.DamConfig, modification *pb.ConfigModification) *status.Status {
+func updateTests(cfg *pb.DamConfig, modification *pb.ConfigModification, vopts ValidateCfgOpts) *status.Status {
 	if modification == nil {
 		return nil
 	}
@@ -557,7 +585,7 @@ func (s *Service) updateTests(cfg *pb.DamConfig, modification *pb.ConfigModifica
 	return nil
 }
 
-func (s *Service) runTests(ctx context.Context, cfg *pb.DamConfig, resources []string) *pb.GetTestResultsResponse {
+func runTests(ctx context.Context, cfg *pb.DamConfig, resources []string, vopts ValidateCfgOpts) *pb.GetTestResultsResponse {
 	t := float64(time.Now().UnixNano()) / 1e9
 	personas := make(map[string]*cpb.TestPersona)
 	results := make([]*pb.GetTestResultsResponse_TestResult, 0)
@@ -578,7 +606,7 @@ func (s *Service) runTests(ctx context.Context, cfg *pb.DamConfig, resources []s
 			Passport: p.Passport,
 			Access:   p.Access,
 		}
-		status, got, err := s.testPersona(ctx, pname, resources, cfg)
+		status, got, err := testPersona(ctx, pname, resources, cfg, vopts)
 		e := ""
 		if err == nil {
 			passed++
@@ -591,7 +619,7 @@ func (s *Service) runTests(ctx context.Context, cfg *pb.DamConfig, resources []s
 			Access: got,
 			Error:  e,
 		})
-		s.calculateModification(pname, p.Access, got, modification)
+		calculateModification(pname, p.Access, got, modification, vopts)
 	}
 
 	e := ""
@@ -615,7 +643,7 @@ func hasTestError(tr *pb.GetTestResultsResponse) bool {
 	return len(tr.Error) > 0
 }
 
-func (s *Service) calculateModification(name string, want []string, got []string, modification *pb.ConfigModification) {
+func calculateModification(name string, want []string, got []string, modification *pb.ConfigModification, vopts ValidateCfgOpts) {
 	entry, ok := modification.TestPersonas[name]
 	if !ok {
 		entry = &pb.ConfigModification_PersonaModification{
@@ -625,13 +653,13 @@ func (s *Service) calculateModification(name string, want []string, got []string
 		}
 		modification.TestPersonas[name] = entry
 	}
-	s.deltaResourceModification(entry, want, got)
+	deltaResourceModification(entry, want, got, vopts)
 	if len(entry.AddAccess) == 0 && len(entry.RemoveAccess) == 0 {
 		delete(modification.TestPersonas, name)
 	}
 }
 
-func (s *Service) deltaResourceModification(entry *pb.ConfigModification_PersonaModification, want []string, got []string) bool {
+func deltaResourceModification(entry *pb.ConfigModification_PersonaModification, want []string, got []string, vopts ValidateCfgOpts) bool {
 	// Assumes view list entries are sorted on both |want| and |got|.
 	var add []string
 	var rm []string

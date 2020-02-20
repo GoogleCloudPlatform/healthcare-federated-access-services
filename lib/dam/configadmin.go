@@ -117,7 +117,7 @@ func (h *configHandler) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
 func (h *configHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.save, h.input.Modification, h.r)
+	return configCheckIntegrity(h.save, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if err := h.s.saveConfig(h.save, desc, typeName, h.r, h.id, h.cfg, h.save, h.input.Modification, tx); err != nil {
@@ -221,7 +221,7 @@ func (h *configOptionsHandler) Remove(name string) error {
 	return fmt.Errorf("DELETE not allowed")
 }
 func (h *configOptionsHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configOptionsHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if err := h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx); err != nil {
@@ -323,7 +323,7 @@ func (h *configResourceHandler) Remove(name string) error {
 	return nil
 }
 func (h *configResourceHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configResourceHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -428,7 +428,7 @@ func (h *configViewHandler) Remove(name string) error {
 	return nil
 }
 func (h *configViewHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configViewHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -520,7 +520,7 @@ func (h *configIssuerHandler) Remove(name string) error {
 	return nil
 }
 func (h *configIssuerHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configIssuerHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -614,7 +614,7 @@ func (h *configSourceHandler) Remove(name string) error {
 	return nil
 }
 func (h *configSourceHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configSourceHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -707,7 +707,7 @@ func (h *configPolicyHandler) Remove(name string) error {
 	return nil
 }
 func (h *configPolicyHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configPolicyHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -799,7 +799,7 @@ func (h *configClaimDefinitionHandler) Remove(name string) error {
 	return nil
 }
 func (h *configClaimDefinitionHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configClaimDefinitionHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -899,7 +899,7 @@ func (h *configServiceTemplateHandler) Remove(name string) error {
 	return nil
 }
 func (h *configServiceTemplateHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configServiceTemplateHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -1002,7 +1002,7 @@ func (h *configPersonaHandler) Remove(name string) error {
 	return nil
 }
 func (h *configPersonaHandler) CheckIntegrity() *status.Status {
-	return h.s.configCheckIntegrity(h.cfg, h.input.Modification, h.r)
+	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
 func (h *configPersonaHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)

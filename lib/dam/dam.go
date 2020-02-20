@@ -208,7 +208,7 @@ func NewService(params *Options) *Service {
 	}
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
-	if tests := s.runTests(ctx, cfg, nil); hasTestError(tests) {
+	if tests := runTests(ctx, cfg, nil, s.ValidateCfgOpts()); hasTestError(tests) {
 		glog.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
 	}
 
@@ -444,13 +444,13 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 	return id, http.StatusOK, nil
 }
 
-func (s *Service) testPersona(ctx context.Context, personaName string, resources []string, cfg *pb.DamConfig) (string, []string, error) {
+func testPersona(ctx context.Context, personaName string, resources []string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, []string, error) {
 	p := cfg.TestPersonas[personaName]
 	id, err := persona.ToIdentity(personaName, p, defaultPersonaScope, "")
 	if err != nil {
 		return "INVALID", nil, err
 	}
-	state, got, err := s.resolveAccessList(ctx, id, resources, nil, nil, cfg)
+	state, got, err := resolveAccessList(ctx, id, resources, nil, nil, cfg, vopts)
 	if err != nil {
 		return state, got, err
 	}
@@ -484,7 +484,7 @@ func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string
 	return nil
 }
 
-func (s *Service) resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig) (string, []string, error) {
+func resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, []string, error) {
 	var got []string
 	for _, rn := range resources {
 		r, ok := cfg.Resources[rn]
@@ -503,7 +503,7 @@ func (s *Service) resolveAccessList(ctx context.Context, id *ga4gh.Identity, res
 				if len(roles) > 0 && !stringset.Contains(roles, rname) {
 					continue
 				}
-				if _, err := s.checkAuthorization(ctx, id, 0, rn, vn, rname, cfg, noClientID); err != nil {
+				if _, err := checkAuthorization(ctx, id, 0, rn, vn, rname, cfg, noClientID, vopts); err != nil {
 					continue
 				}
 				got = append(got, rn+"/"+vn+"/"+rname)
@@ -524,15 +524,15 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 			return nil
 		}
 	}
-	_, got, err := s.resolveAccessList(r.Context(), id, resources, views, roles, cfg)
+	_, got, err := resolveAccessList(r.Context(), id, resources, views, roles, cfg, s.ValidateCfgOpts())
 	if err != nil {
 		return nil
 	}
 	return got
 }
 
-func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string) (int, error) {
-	if stat := s.checkTrustedIssuer(id.Issuer, cfg); stat != nil {
+func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vopts ValidateCfgOpts) (int, error) {
+	if stat := checkTrustedIssuer(id.Issuer, cfg, vopts); stat != nil {
 		return httputil.HTTPStatus(stat.Code()), stat.Err()
 	}
 	srcRes, ok := cfg.Resources[resourceName]
@@ -543,7 +543,7 @@ func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, tt
 	if !ok {
 		return http.StatusNotFound, fmt.Errorf("resource %q view %q not found", resourceName, viewName)
 	}
-	entries, err := s.resolveAggregates(srcRes, srcView, cfg)
+	entries, err := resolveAggregates(srcRes, srcView, cfg, vopts.Adapters)
 	if err != nil {
 		return http.StatusForbidden, err
 	}
@@ -564,7 +564,7 @@ func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, tt
 		}
 		ctxWithTTL := context.WithValue(ctx, validator.RequestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
 		for _, p := range vRole.Policies {
-			v, err := s.buildValidator(ctxWithTTL, p, vRole, cfg)
+			v, err := buildValidator(ctxWithTTL, p, vRole, cfg)
 			if err != nil {
 				return http.StatusInternalServerError, fmt.Errorf("cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err)
 			}
@@ -574,7 +574,7 @@ func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, tt
 				return http.StatusInternalServerError, fmt.Errorf("cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer)
 			}
 			if !ok {
-				rejected := s.rejectedPolicyString(id.RejectedVisas, s.makePolicyBasis(roleName, view, res, cfg))
+				rejected := rejectedPolicyString(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Adapters), vopts)
 				return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, rejected)
 			}
 			active = true
@@ -586,13 +586,13 @@ func (s *Service) checkAuthorization(ctx context.Context, id *ga4gh.Identity, tt
 	return http.StatusOK, nil
 }
 
-func (s *Service) resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig) ([]*adapter.AggregateView, error) {
+func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig, tas *adapter.TargetAdapters) ([]*adapter.AggregateView, error) {
 	out := []*adapter.AggregateView{}
 	st, ok := cfg.ServiceTemplates[srcView.ServiceTemplate]
 	if !ok {
 		return nil, fmt.Errorf("service template %q not found", srcView.ServiceTemplate)
 	}
-	if !s.isAggregate(st.TargetAdapter) {
+	if !isAggregate(st.TargetAdapter, tas) {
 		out = append(out, &adapter.AggregateView{
 			Index: 0,
 			Res:   srcRes,
@@ -602,7 +602,7 @@ func (s *Service) resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *
 	}
 	targetAdapter := ""
 	for index, item := range srcView.Items {
-		vars, _, err := adapter.GetItemVariables(s.adapters, st.TargetAdapter, st.ItemFormat, item)
+		vars, _, err := adapter.GetItemVariables(tas, st.TargetAdapter, st.ItemFormat, item)
 		if err != nil {
 			return nil, fmt.Errorf("item %d: %v", index+1, err)
 		}
@@ -620,7 +620,7 @@ func (s *Service) resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *
 		if !ok {
 			return nil, fmt.Errorf("item %d: service template %q on the view is undefined", index+1, view.ServiceTemplate)
 		}
-		if s.isAggregate(vst.TargetAdapter) {
+		if isAggregate(vst.TargetAdapter, tas) {
 			return nil, fmt.Errorf("item %d: view uses aggregate service template %q and nesting aggregates is not permitted", index+1, vst.TargetAdapter)
 		}
 		if targetAdapter == "" {
@@ -637,8 +637,8 @@ func (s *Service) resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *
 	return out, nil
 }
 
-func (s *Service) isAggregate(targetAdapter string) bool {
-	desc, ok := s.adapters.Descriptors[targetAdapter]
+func isAggregate(targetAdapter string, tas *adapter.TargetAdapters) bool {
+	desc, ok := tas.Descriptors[targetAdapter]
 	if !ok {
 		return false
 	}
@@ -731,15 +731,15 @@ func (s *Service) GetStore() storage.Store {
 
 /////////////////////////////////////////////////////////
 
-func (s *Service) makeViews(r *pb.Resource, cfg *pb.DamConfig) map[string]*pb.View {
+func makeViews(r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) map[string]*pb.View {
 	out := make(map[string]*pb.View)
 	for n, v := range r.Views {
-		out[n] = s.makeView(n, v, r, cfg)
+		out[n] = makeView(n, v, r, cfg, hidePolicyBasis, tas)
 	}
 	return out
 }
 
-func (s *Service) makeView(viewName string, v *pb.View, r *pb.Resource, cfg *pb.DamConfig) *pb.View {
+func makeView(viewName string, v *pb.View, r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) *pb.View {
 	return &pb.View{
 		ServiceTemplate:    v.ServiceTemplate,
 		Version:            v.Version,
@@ -748,15 +748,15 @@ func (s *Service) makeView(viewName string, v *pb.View, r *pb.Resource, cfg *pb.
 		Fidelity:           v.Fidelity,
 		GeoLocation:        v.GeoLocation,
 		ContentTypes:       v.ContentTypes,
-		ComputedInterfaces: s.makeViewInterfaces(v, r, cfg),
-		AccessRoles:        s.makeViewRoles(v, r, cfg),
+		ComputedInterfaces: makeViewInterfaces(v, r, cfg, tas),
+		AccessRoles:        makeViewRoles(v, r, cfg, hidePolicyBasis, tas),
 		Ui:                 v.Ui,
 	}
 }
 
-func (s *Service) makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig) map[string]*pb.Interface {
+func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, tas *adapter.TargetAdapters) map[string]*pb.Interface {
 	out := make(map[string]*pb.Interface)
-	entries, err := s.resolveAggregates(srcRes, srcView, cfg)
+	entries, err := resolveAggregates(srcRes, srcView, cfg, tas)
 	if err != nil {
 		return out
 	}
@@ -767,7 +767,7 @@ func (s *Service) makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg 
 			return out
 		}
 		for _, item := range entry.View.Items {
-			vars, _, err := adapter.GetItemVariables(s.adapters, st.TargetAdapter, st.ItemFormat, item)
+			vars, _, err := adapter.GetItemVariables(tas, st.TargetAdapter, st.ItemFormat, item)
 			if err != nil {
 				return out
 			}
@@ -800,7 +800,7 @@ func (s *Service) makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg 
 	return out
 }
 
-func (s *Service) makeRoleCategories(view *pb.View, role string, cfg *pb.DamConfig) []string {
+func makeRoleCategories(view *pb.View, role string, cfg *pb.DamConfig) []string {
 	st, ok := cfg.ServiceTemplates[view.ServiceTemplate]
 	if !ok {
 		return nil
@@ -827,13 +827,13 @@ type rejectedPolicy struct {
 	PolicyBasis   []string              `json:"policyBasis,omitempty"`
 }
 
-func (s *Service) rejectedPolicyString(rejected []*ga4gh.RejectedVisa, policyBasis map[string]bool) string {
+func rejectedPolicyString(rejected []*ga4gh.RejectedVisa, policyBasis map[string]bool, vopts ValidateCfgOpts) string {
 	rejections := len(rejected)
-	if s.hideRejectDetail {
+	if vopts.HideRejectDetail {
 		rejected = nil
 	}
 	var basis []string
-	if !s.hidePolicyBasis {
+	if !vopts.HidePolicyBasis {
 		for k := range policyBasis {
 			basis = append(basis, k)
 		}
@@ -851,12 +851,12 @@ func (s *Service) rejectedPolicyString(rejected []*ga4gh.RejectedVisa, policyBas
 	return string(b)
 }
 
-func (s *Service) makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig) map[string]bool {
-	if s.hidePolicyBasis {
+func makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) map[string]bool {
+	if hidePolicyBasis {
 		return nil
 	}
 	policies := make(map[string]bool)
-	entries, err := s.resolveAggregates(srcRes, srcView, cfg)
+	entries, err := resolveAggregates(srcRes, srcView, cfg, tas)
 	if err != nil {
 		return nil
 	}
@@ -888,12 +888,12 @@ func addPolicyBasis(p *pb.Policy, basis map[string]bool) {
 	}
 }
 
-func (s *Service) makeViewRoles(view *pb.View, res *pb.Resource, cfg *pb.DamConfig) map[string]*pb.AccessRole {
+func makeViewRoles(view *pb.View, res *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) map[string]*pb.AccessRole {
 	out := make(map[string]*pb.AccessRole)
 	for rname := range view.AccessRoles {
 		out[rname] = &pb.AccessRole{
-			ComputedRoleCategories: s.makeRoleCategories(view, rname, cfg),
-			ComputedPolicyBasis:    s.makePolicyBasis(rname, view, res, cfg),
+			ComputedRoleCategories: makeRoleCategories(view, rname, cfg),
+			ComputedPolicyBasis:    makePolicyBasis(rname, view, res, cfg, hidePolicyBasis, tas),
 		}
 	}
 	return out
@@ -914,10 +914,10 @@ func receiveConfig(cfg, origCfg *pb.DamConfig) *pb.DamConfig {
 	return cfg
 }
 
-func (s *Service) makeResource(name string, in *pb.Resource, cfg *pb.DamConfig) *pb.Resource {
+func makeResource(name string, in *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) *pb.Resource {
 	return &pb.Resource{
 		Umbrella:    in.Umbrella,
-		Views:       s.makeViews(in, cfg),
+		Views:       makeViews(in, cfg, hidePolicyBasis, tas),
 		Clients:     in.Clients,
 		MaxTokenTtl: in.MaxTokenTtl,
 		Ui:          in.Ui,
@@ -1037,7 +1037,7 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error)
 	return cfg, nil
 }
 
-func (s *Service) buildValidator(ctx context.Context, ap *pb.AccessRole_AccessPolicy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
+func buildValidator(ctx context.Context, ap *pb.AccessRole_AccessPolicy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
 	policy, ok := cfg.Policies[ap.Name]
 	if !ok {
 		return nil, fmt.Errorf("access policy name %q does not match any policy names", ap.Name)

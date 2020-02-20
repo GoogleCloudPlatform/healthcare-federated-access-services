@@ -17,7 +17,7 @@ package dam_test
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -31,9 +31,84 @@ const (
 	useHydra      = true
 )
 
-func TestCheckIntegrity(t *testing.T) {
+func TestCheckIntegrity_FileConfig(t *testing.T) {
+	s, cfg := setupFromFile(t)
+	t.Logf("DAMConfig: %v", cfg)
+	if err := s.CheckIntegrity(cfg).Err(); err != nil {
+		t.Errorf("CheckIntegrity(cfg) error: %v", err)
+	}
+}
+
+func TestCheckIntegrity_BadCfg(t *testing.T) {
+	tests := []struct {
+		desc     string
+		mutation func(*pb.DamConfig)
+		want     codes.Code
+	}{
+		{
+			desc: "invalid bucket name",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = "!@@@@"
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			desc: "empty bucket name",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = ""
+			},
+			want: codes.OK,
+		},
+		{
+			desc: "bad variable in interface",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.ServiceTemplates["gcs"].Interfaces["http:test"] = "https://example.com/${bad-variable}"
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			desc: "empty condition",
+			mutation: func(cfg *pb.DamConfig) {
+				assert := cfg.TestPersonas["dr_joe_era_commons"].Passport.Ga4GhAssertions[1].AnyOfConditions[0]
+				assert.AllOf = append(assert.AllOf, &cpb.Condition{})
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			desc: "resource with no policy",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Resources[""] = &pb.Resource{}
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			desc: "all fields of a condition are emptry",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Policies["bona_fide"].AnyOf[0].AllOf[0] = &cpb.Condition{}
+			},
+			want: codes.InvalidArgument,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			s, cfg := setupFromFile(t)
+			tc.mutation(cfg)
+			if got := s.CheckIntegrity(cfg).Code(); got != tc.want {
+				t.Errorf("CheckIntegrity(cfg).Code() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func setupFromFile(t *testing.T) (*dam.Service, *pb.DamConfig) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
-	s := dam.NewService(&dam.Options{
+	cfg := &pb.DamConfig{}
+	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
+		t.Fatalf("error reading config: %v", err)
+	}
+
+	opts := &dam.Options{
 		Domain:         "test.org",
 		ServiceName:    "dam",
 		DefaultBroker:  "no-broker",
@@ -42,33 +117,8 @@ func TestCheckIntegrity(t *testing.T) {
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraURL,
-	})
-	cfg := &pb.DamConfig{}
-	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
-		t.Fatalf("error reading config: %v", err)
 	}
-	if err := s.CheckIntegrity(cfg); err != nil {
-		t.Errorf("CheckIntegrity(cfg) error: %v", err)
-	}
-	cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = "!@@@@"
-	if err := s.CheckIntegrity(cfg); err == nil {
-		t.Errorf("CheckIntegrity(cfg) on invalid bucket name: expected error, got success")
-	}
-	cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = ""
-	if err := s.CheckIntegrity(cfg); err != nil {
-		t.Errorf("CheckIntegrity(cfg) on empty bucket name: expected success, got error: %v", err)
-	}
-	badcfg := &pb.DamConfig{}
-	proto.Merge(badcfg, cfg)
-	badcfg.ServiceTemplates["gcs"].Interfaces["http:test"] = "https://example.com/${bad-variable}"
-	if err := s.CheckIntegrity(badcfg); err == nil {
-		t.Errorf("CheckIntegrity(badcfg) on bad variable in interface: expected error, got success")
-	}
-	badcfg.Reset()
-	proto.Merge(badcfg, cfg)
-	assert := badcfg.TestPersonas["dr_joe_era_commons"].Passport.Ga4GhAssertions[1].AnyOfConditions[0]
-	assert.AllOf = append(assert.AllOf, &cpb.Condition{})
-	if err := s.CheckIntegrity(badcfg); err == nil {
-		t.Errorf("CheckIntegrity(badcfg) on empty condition: expected error, got success")
-	}
+	s := dam.NewService(opts)
+
+	return s, cfg
 }

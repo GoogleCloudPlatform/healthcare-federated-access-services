@@ -120,7 +120,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 	adapt := s.adapters.ByName[st.TargetAdapter]
 	var aggregates []*adapter.AggregateView
 	if adapt.IsAggregator() {
-		aggregates, err = s.resolveAggregates(res, view, cfg)
+		aggregates, err = resolveAggregates(res, view, cfg, s.adapters)
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
@@ -157,7 +157,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 			Platform:    adapt.Platform(),
 			// TODO: remove these older fields
 			Name: resourceName,
-			View: s.makeView(viewName, view, res, cfg),
+			View: makeView(viewName, view, res, cfg, s.hidePolicyBasis, s.adapters),
 			Ttl:  common.TTLString(ttl),
 		}, http.StatusOK, nil
 	}
@@ -441,7 +441,7 @@ func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identit
 		if r.Realm != realm {
 			return nil, http.StatusConflict, fmt.Errorf("cannot authorize resources using different realms")
 		}
-		status, err := s.checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId)
+		status, err := checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, s.ValidateCfgOpts())
 		if err != nil {
 			return nil, status, err
 		}
@@ -546,8 +546,8 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 		access := strconv.Itoa(i)
 
 		out.Resources[r.Url] = &pb.ResourceTokens_Descriptor{
-			Interfaces:  s.makeViewInterfaces(view, res, cfg),
-			Permissions: s.makeRoleCategories(view, r.Role, cfg),
+			Interfaces:  makeViewInterfaces(view, res, cfg, s.adapters),
+			Permissions: makeRoleCategories(view, r.Role, cfg),
 			Access:      access,
 		}
 		// TODO: remove these fields when no longer needed for the older interface
