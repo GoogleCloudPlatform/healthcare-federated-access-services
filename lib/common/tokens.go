@@ -46,8 +46,8 @@ func IsAudience(token *ga4gh.Identity, clientID, self string) bool {
 	return clientID == token.AuthorizedParty || stringset.Contains([]string(token.Audiences), clientID)
 }
 
-// UserID returns an user identifier that specifies a subject within an issuer.
-func UserID(subject, issuer string, maxLength int) string {
+// userID returns an user identifier that specifies a subject within an issuer.
+func userID(subject, issuer string, maxLength int) string {
 	domain := "unknown"
 	if u, err := url.Parse(issuer); err == nil {
 		domain = u.Hostname()
@@ -66,7 +66,7 @@ func UserID(subject, issuer string, maxLength int) string {
 
 // TokenUserID returns an user identifier for a given token.
 func TokenUserID(token *ga4gh.Identity, maxLength int) string {
-	return UserID(token.Subject, token.Issuer, maxLength)
+	return userID(token.Subject, token.Issuer, maxLength)
 }
 
 // GetOIDCTokenVerifier returns an OIDC token verifier for a particular client.

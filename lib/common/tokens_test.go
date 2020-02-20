@@ -66,3 +66,146 @@ func TestHasUserinfoClaims(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAudience(t *testing.T) {
+	clientID := "cid"
+	selfURL := "http://example.com"
+	tests := []struct {
+		name     string
+		id       *ga4gh.Identity
+		clientID string
+		selfURL  string
+		want     bool
+	}{
+		{
+			name: "public token",
+			id: &ga4gh.Identity{
+				Audiences:       []string{},
+				AuthorizedParty: "",
+			},
+			clientID: clientID,
+			selfURL:  selfURL,
+			want:     true,
+		},
+		{
+			name: "client id in aud",
+			id: &ga4gh.Identity{
+				Audiences:       []string{"something_else", clientID},
+				AuthorizedParty: "",
+			},
+			clientID: clientID,
+			selfURL:  selfURL,
+			want:     true,
+		},
+		{
+			name: "client id in azp",
+			id: &ga4gh.Identity{
+				Audiences:       []string{"something_else"},
+				AuthorizedParty: clientID,
+			},
+			clientID: clientID,
+			selfURL:  selfURL,
+			want:     true,
+		},
+		{
+			name: "no client id",
+			id: &ga4gh.Identity{
+				Audiences:       []string{"something_else", selfURL},
+				AuthorizedParty: selfURL,
+			},
+			clientID: "",
+			selfURL:  selfURL,
+			want:     false,
+		},
+		{
+			name: "self in aud",
+			id: &ga4gh.Identity{
+				Audiences:       []string{"something_else", selfURL},
+				AuthorizedParty: "",
+			},
+			clientID: clientID,
+			selfURL:  selfURL,
+			want:     true,
+		},
+		{
+			name: "self in azp",
+			id: &ga4gh.Identity{
+				Audiences:       []string{"something_else"},
+				AuthorizedParty: selfURL,
+			},
+			clientID: clientID,
+			selfURL:  selfURL,
+			want:     true,
+		},
+		{
+			name: "not match",
+			id: &ga4gh.Identity{
+				Audiences:       []string{"something_else"},
+				AuthorizedParty: "something_else2",
+			},
+			clientID: clientID,
+			selfURL:  selfURL,
+			want:     false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if IsAudience(tc.id, tc.clientID, tc.selfURL) != tc.want {
+				t.Errorf("IsAudience(%v, %s, %s) want %v", tc.id, tc.clientID, tc.selfURL, tc.want)
+			}
+		})
+	}
+}
+
+func TestTokenUserID(t *testing.T) {
+	issuer := "http://example.com"
+	maxLen := 25
+	tests := []struct {
+		name string
+		id   *ga4gh.Identity
+		want string
+	}{
+		{
+			name: "sub without @",
+			id: &ga4gh.Identity{
+			Subject:"a",
+			Issuer:issuer + "/oidc",
+			},
+			want: "a|example.com",
+		},
+		{
+			name: "sub with @",
+			id: &ga4gh.Identity{
+				Subject:"a@a.com",
+				Issuer:issuer + "/oidc",
+			},
+			want: "a@a.com|example.com",
+		},
+		{
+			name: "return sub",
+			id: &ga4gh.Identity{
+				Subject:"a@example.com",
+				Issuer:issuer + "/oidc",
+			},
+			want: "a@example.com",
+		},
+		{
+			name: "too long",
+			id: &ga4gh.Identity{
+				Subject:"12345678901234567890@example.com",
+				Issuer:issuer + "/oidc",
+			},
+			want: "12345678901234567890@exam",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := TokenUserID(tc.id, maxLen)
+			if got != tc.want {
+				t.Errorf("TokenUserID(%v, _) = %s, want %s", tc.id, got, tc.want)
+			}
+		})
+	}
+}
