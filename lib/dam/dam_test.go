@@ -1268,6 +1268,11 @@ func TestLogin_Hydra_Error(t *testing.T) {
 			authParams: "resource=" + ga4ghGCSViewer + "&resource=invalid",
 			respCode:   http.StatusBadRequest,
 		},
+		{
+			name:       "resource not at same realm",
+			authParams: "resource=" + ga4ghGCSViewer + "&resource=" + strings.ReplaceAll(ga4ghGCSViewer, "master", "test"),
+			respCode:   http.StatusConflict,
+		},
 	}
 
 	for _, tc := range tests {
