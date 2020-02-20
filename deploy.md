@@ -3,21 +3,22 @@
 This document is the quick-start guide to deploying Federated Access components
 in a test environment and getting comfortable with how the system works. This
 is referred to as a "playground" environment for trying out the use of
-passports and access policies with test personas.
+passports and access policies with [test personas](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/README.md#test-personas).
 
-Productionization considerations are documented separately for a later stage in
-the deployment process.
+**Note:** this environment is only for testing with synthetic and public
+datasets. [Productionization](productionization.md) considerations are
+documented separately for a later stage in the deployment process.
 
 ## Before you start
 
 To deploy federated access you must create a Google Cloud project. This project
 will include the following:
 
-*  dataset hosting for a sample file in a GCS bucket
-*  service account hosting
-*  IC and DAM hosting
-*  playground passport broker that issues test passports to predefined personas
-*  an IC login test page ("icdemo") and DAM resource request test page
+*  A sample dataset hosted as a file in a GCS bucket
+*  An instantiation of the IC and DAM services
+
+*  A playground passport broker that issues test passports to predefined personas
+*  An IC login test page ("icdemo") and DAM resource request test page
    ("damdemo")
 
 ## Install Google Cloud SDK
