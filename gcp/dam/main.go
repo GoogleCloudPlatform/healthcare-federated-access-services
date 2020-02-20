@@ -20,14 +20,15 @@ package main
 import (
 	"context"
 	"flag"
-	"net/http"
 	"os"
+	"os/signal"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/server" /* copybara-comment: server */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -106,6 +107,16 @@ func main() {
 		HydraPublicURL:   hydraPublicAddr,
 	})
 
-	glog.Infof("DAM listening on port %v", port)
-	glog.Fatal(http.ListenAndServe(":"+port, s.Handler))
+	srv := server.New("dam", port, s.Handler)
+	srv.ServeUnblock()
+
+	c := make(chan os.Signal, 1)
+	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
+	signal.Notify(c, os.Interrupt)
+
+	// Block until we receive our signal.
+	<-c
+
+	srv.Shutdown()
 }
