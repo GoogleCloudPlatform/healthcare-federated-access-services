@@ -548,7 +548,7 @@ func TestHandlers(t *testing.T) {
 			LinkPersona: "admin",
 			LinkScope:   persona.LinkScope,
 			Input:       `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"emails","value":"X-Link-Authorization"}]}`,
-			Output:      `^.*unauthorized for scope "link".*`,
+			Output:      `{"code":3,"message":"bearer token unauthorized for scope \"link\""}`,
 			Status:      http.StatusBadRequest,
 		},
 		{
@@ -560,8 +560,9 @@ func TestHandlers(t *testing.T) {
 			LinkPersona: "admin",
 			LinkScope:   persona.AccountScope,
 			Input:       `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"emails","value":"X-Link-Authorization"}]}`,
-			Output:      `^.*unauthorized for scope "link".*`,
-			Status:      http.StatusBadRequest,
+			Output:      `{"code":3,"message":"bearer token unauthorized for scope \"link\""}`,
+
+			Status: http.StatusBadRequest,
 		},
 		{
 			Name:        "Link SCIM account",

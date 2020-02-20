@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -239,9 +240,9 @@ type scimUser struct {
 
 // Setup initializes the handler
 func (h *scimUser) Setup(tx storage.Tx) (int, error) {
-	_, _, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
+	_, _, id, st, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	if err != nil {
-		return status, err
+		return st, err
 	}
 	h.id = id
 	h.tx = tx
@@ -250,7 +251,7 @@ func (h *scimUser) Setup(tx storage.Tx) (int, error) {
 		return http.StatusOK, nil
 	}
 	if !hasScopes("account_admin", id.Scope, false) {
-		return http.StatusUnauthorized, fmt.Errorf("unauthorized")
+		return http.StatusUnauthorized, status.Errorf(codes.Unauthenticated, "unauthorized")
 	}
 	return http.StatusOK, nil
 }

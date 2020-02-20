@@ -85,6 +85,12 @@ func WriteStatus(w http.ResponseWriter, s *status.Status) {
 	WriteProtoResp(w, s.Proto())
 }
 
+// WriteStatusError writes an error to the response.
+// Does nothing if status is nil.
+func WriteStatusError(w http.ResponseWriter, err error) {
+	WriteStatus(w, status.Convert(err))
+}
+
 // WriteError writes an HTTP status and error to w.
 // TODO: update its callers to use WriteStatus.
 func WriteError(w http.ResponseWriter, code int, err error) {

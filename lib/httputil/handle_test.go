@@ -140,6 +140,26 @@ func TestWriteStatus_NilStatus(t *testing.T) {
 	}
 }
 
+func TestWriteStatusError(t *testing.T) {
+	w := NewFakeWriter()
+
+	WriteStatusError(w, status.Error(codes.NotFound, "resource not found"))
+
+	want := &FakeWriter{
+		Headers: http.Header{
+			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
+			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
+			"Access-Control-Allow-Origin":  {"*"},
+			"Content-Type":                 {"application/json"},
+		},
+		Body: `{"code":5,"message":"resource not found"}`,
+		Code: http.StatusNotFound,
+	}
+	if diff := cmp.Diff(w, want); diff != "" {
+		t.Errorf("WriteStatusError(); Writer diff (-want +got):\n%s", diff)
+	}
+}
+
 func TestWriteError(t *testing.T) {
 	w := NewFakeWriter()
 

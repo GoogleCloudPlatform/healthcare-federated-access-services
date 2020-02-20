@@ -38,6 +38,8 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
@@ -738,23 +740,23 @@ func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, ite
 	r.ParseForm()
 	if item != nil {
 		if err := jsonpb.Unmarshal(r.Body, item); err != nil && err != io.EOF {
-			return nil, nil, nil, http.StatusBadRequest, err
+			return nil, nil, nil, http.StatusBadRequest, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
 	}
 	cfg, err := s.loadConfig(tx, getRealm(r))
 	if err != nil {
-		return nil, nil, nil, http.StatusServiceUnavailable, err
+		return nil, nil, nil, http.StatusServiceUnavailable, status.Errorf(codes.Unavailable, "%v", err)
 	}
 	secrets, err := s.loadSecrets(tx)
 	if err != nil {
-		return nil, nil, nil, http.StatusServiceUnavailable, err
+		return nil, nil, nil, http.StatusServiceUnavailable, status.Errorf(codes.Unavailable, "%v", err)
 	}
-	id, status, err := s.getIdentity(r, scope, getRealm(r), cfg, secrets, tx)
+	id, st, err := s.getIdentity(r, scope, getRealm(r), cfg, secrets, tx)
 	if err != nil {
-		return nil, nil, nil, status, err
+		return nil, nil, nil, st, status.Errorf(httputil.RPCCode(st), "%v", err)
 	}
 
-	return cfg, secrets, id, status, err
+	return cfg, secrets, id, st, status.Errorf(httputil.RPCCode(st), "%v", err)
 }
 
 func (s *Service) getIdentity(r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
@@ -1937,12 +1939,12 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// administration endpoints
-	r.HandleFunc(realmPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.realmFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configIdentityProvidersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configIdpFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClientsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configClientFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClientsSyncPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configClientsSyncFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configOptionsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.configOptionsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(realmPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.realmFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configIdentityProvidersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configIdpFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClientsSyncPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientsSyncFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configOptionsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configOptionsFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
 	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
@@ -1950,12 +1952,12 @@ func registerHandlers(r *mux.Router, s *Service) {
 	// readonly config endpoints
 	r.HandleFunc(identityProvidersPath, auth.MustWithAuth(s.IdentityProviders, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.PassportTranslators, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
-	r.HandleFunc(clientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.clientFactory()), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(clientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 
 	// scim service endpoints
-	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.scimMeFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.scimUserFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.scimUsersFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.scimMeFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.scimUserFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.scimUsersFactory()), checker, auth.RequireAdminToken))
 
 	// token service endpoints
 	tokens := &stubTokens{token: fakeToken}
@@ -1969,8 +1971,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(consentPath, auth.MustWithAuth(NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// legacy endpoints
-	r.HandleFunc(accountPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.accountFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(accountSubjectPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.accountSubjectFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.adminClaimsFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(handlerfactory.MakeHandler(s, s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(accountPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.accountFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(accountSubjectPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.accountSubjectFactory()), checker, auth.RequireUserToken))
+	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminClaimsFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
 }

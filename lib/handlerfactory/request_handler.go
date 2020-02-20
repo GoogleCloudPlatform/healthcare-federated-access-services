@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package handlerfactory allows creating HTTP handlers for services.
 package handlerfactory
 
 import (
@@ -20,15 +21,20 @@ import (
 	"regexp"
 
 	"github.com/gorilla/mux" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
-type ServiceInterface interface {
-	GetStore() storage.Store
-}
+// extractVars extracts variables from a request.
+// defined here to faciliated testing.
+// TODO: do not rely on registeration of routes at global mux for parsing names,
+// pass it explicitly.
+var extractVars = mux.Vars
 
+// HandlerFactory contains the information about a handler service.
+// Essentially the service interface + some options to the HTTP wrapper for it.
 type HandlerFactory struct {
 	TypeName            string
 	NameField           string
@@ -38,6 +44,7 @@ type HandlerFactory struct {
 	NewHandler          func(w http.ResponseWriter, r *http.Request) HandlerInterface
 }
 
+// HandlerInterface is the role interface for a service that will be wrapped.
 type HandlerInterface interface {
 	Setup(tx storage.Tx) (int, error)
 	// TODO: Have LookupItem() return an error instead, so different errors can be handled
@@ -53,135 +60,133 @@ type HandlerInterface interface {
 	Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error
 }
 
-func MakeHandler(s ServiceInterface, hri *HandlerFactory) http.HandlerFunc {
+// MakeHandler created a HTTP handler wrapper around a given service.
+func MakeHandler(s storage.Store, hri *HandlerFactory) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		nameVar := "name"
-		if len(hri.NameField) > 0 {
-			nameVar = hri.NameField
+		// TODO: get rid of NewHandler and directly depend on service.
+		// Pass w and r explicitly to the service methods.
+		hi := hri.NewHandler(w, r)
+		var op func(string) error
+		switch r.Method {
+		case http.MethodGet:
+			op = hi.Get
+		case http.MethodPost:
+			op = hi.Post
+		case http.MethodPut:
+			op = hi.Put
+		case http.MethodPatch:
+			op = hi.Patch
+		case http.MethodDelete:
+			op = hi.Remove
+		default:
+			httputil.WriteStatusError(w, status.Errorf(codes.InvalidArgument, "request method not supported: %q", r.Method))
+			return
 		}
-		name := vars[nameVar]
 
-		for k, v := range vars {
-			if err := httputil.CheckName(k, v, hri.NameChecker); err != nil {
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
+		// TODO: move inside each service and don't pass NameChecker here.
+		name, vars, err := ValidateResourceName(r, hri.NameField, hri.NameChecker)
+		if err != nil {
+			httputil.WriteError(w, http.StatusBadRequest, err)
 		}
-		tx, err := s.GetStore().Tx(r.Method != http.MethodGet)
+		typ := hri.TypeName
+		desc := r.Method + " " + typ
+
+		tx, err := s.Tx(r.Method != http.MethodGet)
 		if err != nil {
 			httputil.WriteError(w, http.StatusServiceUnavailable, fmt.Errorf("service dependencies not available; try again later"))
 			return
 		}
 		defer tx.Finish()
 
-		hi := hri.NewHandler(w, r)
-		status, err := hi.Setup(tx)
-		if err != nil {
-			httputil.WriteError(w, status, err)
-			return
-		}
-		itemOk := hi.LookupItem(name, vars)
-		typ := hri.TypeName
-		desc := r.Method + " " + typ
-
-		if !itemOk && r.Method != http.MethodPost {
-			var err error
-			if hri.HasNamedIdentifiers {
-				err = fmt.Errorf("%s not found: %q", typ, name)
-			} else {
-				err = fmt.Errorf("%s not found", typ)
-			}
-			httputil.WriteError(w, http.StatusNotFound, err)
+		// Get rid of Setup and move creation of transaction inside service methods.
+		//
+		if _, err = hi.Setup(tx); err != nil {
+			httputil.WriteStatusError(w, err)
 			return
 		}
 
+		// TODO: Replace NormalizeInput with a ParseReq that returns a request proto message.
+		// TODO: Explicitly pass the message to the service methods.
+		if err := hi.NormalizeInput(name, vars); err != nil {
+			httputil.WriteStatusError(w, status.Errorf(codes.InvalidArgument, "%v", err))
+			return
+		}
+
+		// TODO: get rid of LookupItem and move this inside the service methods.
+		exists := hi.LookupItem(name, vars)
 		switch r.Method {
-		case http.MethodGet:
-			if err := hi.NormalizeInput(name, vars); err != nil {
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
-			if err := hi.Get(name); err != nil {
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
 		case http.MethodPost:
-			if itemOk {
+			if exists {
 				httputil.WriteError(w, http.StatusConflict, fmt.Errorf("%s already exists: %q", typ, name))
 				return
 			}
-			if err := hi.NormalizeInput(name, vars); err != nil {
+		case http.MethodGet, http.MethodPatch, http.MethodPut, http.MethodDelete:
+			if !exists {
+				if hri.HasNamedIdentifiers {
+					httputil.WriteStatusError(w, status.Errorf(codes.NotFound, "%s not found: %q", typ, name))
+					return
+				}
+				httputil.WriteStatusError(w, status.Errorf(codes.NotFound, "%s not found", typ))
+				return
+			}
+		}
+
+		if r.Method == http.MethodGet {
+			if err := op(name); err != nil {
 				httputil.WriteError(w, http.StatusBadRequest, err)
 				return
 			}
-			if err = hi.Post(name); err != nil {
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
-			if stat := hi.CheckIntegrity(); stat != nil {
-				tx.Rollback()
-				handleIntegrityError(stat, w)
-				return
-			}
-			if err := hi.Save(tx, name, vars, desc, typ); err != nil {
-				tx.Rollback()
-				httputil.WriteError(w, http.StatusInternalServerError, err)
-				return
-			}
-		case http.MethodPut:
-			fallthrough
-		case http.MethodPatch:
-			if err := hi.NormalizeInput(name, vars); err != nil {
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
-			if r.Method == http.MethodPut {
-				err = hi.Put(name)
-			} else {
-				err = hi.Patch(name)
-			}
-			if err != nil {
-				tx.Rollback()
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
-			if stat := hi.CheckIntegrity(); stat != nil {
-				tx.Rollback()
-				handleIntegrityError(stat, w)
-				return
-			}
-			if err := hi.Save(tx, name, vars, desc, typ); err != nil {
-				tx.Rollback()
-				httputil.WriteError(w, http.StatusInternalServerError, err)
-				return
-			}
-		case http.MethodDelete:
-			if err := hi.Remove(name); err != nil {
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
-			if stat := hi.CheckIntegrity(); stat != nil {
-				tx.Rollback()
-				handleIntegrityError(stat, w)
-				return
-			}
-			if err := hi.Save(tx, name, vars, desc, typ); err != nil {
-				tx.Rollback()
-				httputil.WriteError(w, http.StatusInternalServerError, err)
-				return
-			}
-		default:
-			httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("request method not supported: %q", r.Method))
+			return
+		}
+		if err := RunRMWTx(tx, op, hi.CheckIntegrity, hi.Save, name, vars, typ, desc); err != nil {
+			httputil.WriteStatusError(w, err)
 			return
 		}
 	}
 }
 
-func handleIntegrityError(stat *status.Status, w http.ResponseWriter) {
-	if len(stat.Details()) > 0 {
-		httputil.WriteStatus(w, stat)
-		return
+// ValidateResourceName checks if the resource name is valid.
+// Returns the resource name and vars in it.
+func ValidateResourceName(r *http.Request, field string, nameRE map[string]*regexp.Regexp) (string, map[string]string, error) {
+	nameVar := "name"
+	if len(field) > 0 {
+		nameVar = field
 	}
-	httputil.WriteError(w, httputil.HTTPStatus(stat.Code()), fmt.Errorf("%s", stat.Message()))
+	vars := extractVars(r)
+	name := vars[nameVar]
+
+	for k, v := range vars {
+		if err := httputil.CheckName(k, v, nameRE); err != nil {
+			return "", nil, err
+		}
+	}
+	return name, vars, nil
+}
+
+// RunRMWTx performs a RMW operation.
+// Saves the transaction after performing integraty check.
+// Rolls back the transaction on any failure.
+// TODO: move outside this package. Service handlers should call it.
+func RunRMWTx(
+	tx storage.Tx,
+	op func(string) error,
+	check func() *status.Status,
+	save func(storage.Tx, string, map[string]string, string, string) error,
+	name string,
+	vars map[string]string,
+	typ string,
+	desc string,
+) error {
+	if err := op(name); err != nil {
+		return status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if st := check(); st != nil {
+		tx.Rollback()
+		return st.Err()
+	}
+	if err := save(tx, name, vars, desc, typ); err != nil {
+		tx.Rollback()
+		return status.Errorf(codes.Internal, "%v", err)
+	}
+	return nil
 }

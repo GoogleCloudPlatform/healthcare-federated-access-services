@@ -15,6 +15,7 @@
 package httputil
 
 import (
+	"bytes"
 	"io"
 	"net"
 	"net/http"
@@ -30,12 +31,26 @@ import (
 
 // This file contains the utilities for working with http.Request.
 
-// DecodeProtoReq decodes a request with protobuffer message body.
-func DecodeProtoReq(m proto.Message, req *http.Request) error {
-	if err := jsonpb.Unmarshal(req.Body, m); err != nil && err != io.EOF {
+// DecodeProto decodes a reader with JSON coded protobuffer message content.
+func DecodeProto(m proto.Message, b io.Reader) error {
+	if err := jsonpb.Unmarshal(b, m); err != nil && err != io.EOF {
 		return err
 	}
 	return nil
+}
+
+// DecodeProtoReq decodes a request with protobuffer message body.
+func DecodeProtoReq(m proto.Message, req *http.Request) error {
+	return DecodeProto(m, req.Body)
+}
+
+// EncodeProto decodes a reader with JSON coded protobuffer message content.
+func EncodeProto(m proto.Message) (io.Reader, error) {
+	b := bytes.NewBuffer(nil)
+	if err := (&jsonpb.Marshaler{}).Marshal(b, m); err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // QueryParamWithDefault returns a URL query parameter value.
