@@ -793,7 +793,60 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 	return s, cfg, sec, h, server, nil
 }
 
-func TestLogin_LoginHint_Hydra(t *testing.T) {
+func TestHydraLogin_LoginPage_Hydra(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.GetLoginRequestResp = &hydraapi.LoginRequest{
+		RequestURL:     hydraURL + "auth",
+		RequestedScope: []string{"openid"},
+	}
+
+	w := httptest.NewRecorder()
+	params := fmt.Sprintf("?login_challenge=%s", loginChallenge)
+	u := "https://ic.example.com" + hydraLoginPath + params
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+
+	s.Handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+
+	// return login page if not login hint included
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "text/html" {
+		t.Errorf("contentType = %s want text/html", contentType)
+	}
+}
+
+func TestHydraLogin_Hydra_Error(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.GetLoginRequestErr = &hydraapi.GenericError{Code: http.StatusServiceUnavailable}
+
+	w := httptest.NewRecorder()
+	params := fmt.Sprintf("?login_challenge=%s", loginChallenge)
+	u := "https://ic.example.com" + hydraLoginPath + params
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+
+	s.Handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusServiceUnavailable, resp.StatusCode)
+	}
+}
+
+func TestHydraLogin_LoginHint_Hydra(t *testing.T) {
 	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
@@ -1218,6 +1271,85 @@ func TestFinishLogin_Hydra_Invalid(t *testing.T) {
 				t.Errorf("AcceptLoginReq wants nil got %v", h.AcceptLoginReq)
 			}
 		})
+	}
+}
+
+func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, reqStateID string) *http.Response {
+	t.Helper()
+
+	h.GetConsentRequestResp = &hydraapi.ConsentRequest{
+		RequestedScope:    []string{"openid", "ga4gh"},
+		Client:            &hydraapi.Client{Name: "test-client", ClientID: testClientID},
+		Subject:           "admin",
+		Context:           map[string]interface{}{hydra.StateIDKey: reqStateID},
+		RequestedAudience: []string{"another_aud"},
+	}
+
+	state := &cpb.AuthTokenState{Realm: "test"}
+	err := s.store.Write(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, state, nil)
+	if err != nil {
+		t.Fatalf("write AuthTokenState failed: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	params := fmt.Sprintf("?consent_challenge=%s", consentChallenge)
+	u := "https://ic.example.com" + hydraConsentPath + params
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+
+	s.Handler.ServeHTTP(w, r)
+
+	return w.Result()
+}
+
+func TestConsent_Hydra(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendHydraConsent(t, s, h, loginStateID)
+
+	// return consent page
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "text/html" {
+		t.Errorf("contentType = %s want text/html", contentType)
+	}
+
+	state := &cpb.AuthTokenState{}
+	err = s.store.Read(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, state)
+	if err != nil {
+		t.Fatalf("read AuthTokenState failed: %v", err)
+	}
+
+	if state.ConsentChallenge != consentChallenge {
+		t.Errorf("state.ConsentChallenge = %s want %s", state.ConsentChallenge, consentChallenge)
+	}
+
+	wantScope := "openid ga4gh"
+	if state.Scope != wantScope {
+		t.Errorf("state.Scope = %q want %q", state.Scope, wantScope)
+	}
+
+	wantAud := []string{"another_aud", testClientID}
+	if diff := cmp.Diff(wantAud, state.Audience); len(diff) > 0 {
+		t.Errorf("state.Audience (-want +got) %s", diff)
+	}
+}
+
+func TestConsent_Hydra_StateInvalid(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendHydraConsent(t, s, h, "invalid")
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusInternalServerError, resp.StatusCode)
 	}
 }
 
