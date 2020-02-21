@@ -25,10 +25,6 @@ env_variables:
   # Project id
   PROJECT: "${YOUR_PROJECT_ID}"
 
-  # IMPORT = "AUTO_RESET" will wipe the data store and reset it when config errors are detected
-  # on startup. DO NOT USE IN PRODUCTION.
-  IMPORT: "AUTO_RESET"
-
 beta_settings:
   # Pass CloudSQL instance to GAE
   cloud_sql_instances: ${YOUR_PROJECT_ID}:us-central1:hydra=tcp:1234

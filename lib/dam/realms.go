@@ -109,7 +109,7 @@ func (h *realmHandler) Remove(name string) error {
 		return err
 	}
 	if name == storage.DefaultRealm {
-		return h.s.ImportFiles(importDefault)
+		return ImportConfig(h.s.store, h.s.serviceName, h.s.warehouse, nil)
 	}
 	cfg, err := h.s.loadConfig(h.tx, storage.DefaultRealm)
 	if err != nil {

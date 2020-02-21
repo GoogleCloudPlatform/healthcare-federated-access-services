@@ -18,52 +18,61 @@ package main
 import (
 	"context"
 	"flag"
-	"os"
 	"strings"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
 func main() {
-	args := make([]string, len(os.Args))
-	copy(args, os.Args)
+	pre := flag.String("account_prefix", "", "when a wipe is requested, accounts matching this prefix override will be removed")
+	path := flag.String("path", "deploy/config", "specifies the relative or absolute path to the config file root")
+	wipe := flag.String("wipe", "", "specify 'unsafe_wipe_in_non_production' to remove all data for the service from the storage layer first (DO NOT USE IN PRODUCTION)")
+
 	flag.Parse()
+	args := flag.Args()
 
-	if len(args) < 3 {
-		glog.Fatalf("Usage: dam_reset <project> <service> [path] [service_account_prefix]")
+	if len(args) != 2 {
+		glog.Exitf("Usage: dam_import -wipe=... -path=<config_root> -account_prefix=<service_account_prefix_to_delete> <project> <environment>")
 	}
-	project := args[1]
-	service := args[2]
-	path := "deploy/config"
-	accountPrefix := ""
-	if len(args) > 3 {
-		path = args[3]
+	project := args[0]
+	env := args[1]
+	envPrefix := ""
+	service := "dam"
+	if len(env) > 0 {
+		envPrefix = "-" + env
+		service += envPrefix
 	}
-	if len(args) > 4 {
-		accountPrefix = args[4]
+	accountPrefix := "ic" + envPrefix + "-dot-"
+	if *pre != "" {
+		accountPrefix = *pre
 	}
-
 	ctx := context.Background()
-	store := dsstore.NewDatastoreStorage(context.Background(), project, service, path)
-	dams := dam.NewService(&dam.Options{
-		Domain:         "reset.example.org",
-		ServiceName:    service,
-		DefaultBroker:  "no-broker",
-		Store:          store,
-		Warehouse:      nil,
-		UseHydra:       true,
-		HydraAdminURL:  "reset.example.org",
-		HydraPublicURL: "reset.example.org",
-	})
-
-	if err := dams.ImportFiles("FORCE_WIPE"); err != nil {
-		glog.Fatalf("error importing files: %v", err)
+	store := dsstore.NewDatastoreStorage(context.Background(), project, service, *path)
+	wh := saw.MustNew(ctx, store)
+	vars := map[string]string{
+		"${YOUR_PROJECT_ID}":  project,
+		"${YOUR_ENVIRONMENT}": envPrefix,
+	}
+	if *wipe != "" {
+		if *wipe != "unsafe_wipe_in_non_production" {
+			glog.Exitf("attempted wipe failed: only works if specific safety value set. See -h for help.")
+		}
+		glog.Infof("WIPE STORAGE FOR SERVICE %q...", service)
+		if err := store.Wipe(storage.AllRealms); err != nil {
+			glog.Exitf("error wiping storage for service %q: %v", service, err)
+		}
+		glog.Infof("Wipe complete")
 	}
 
-	if len(accountPrefix) != 0 {
+	if err := dam.ImportConfig(store, service, wh, vars); err != nil {
+		glog.Exitf("error importing files: %v", err)
+	}
+
+	if *wipe != "" {
 		cleanupServiceAccounts(ctx, accountPrefix, project, store)
 	}
 

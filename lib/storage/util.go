@@ -131,3 +131,25 @@ func GetHistory(store Store, datatype, realm, user, id string, r *http.Request) 
 	}
 	return history, http.StatusOK, nil
 }
+
+// ReplaceContentVariables does simple string replacement of variable names to values.
+// If varValues is nil, then it only checks that `content` is JSON.
+func ReplaceContentVariables(content proto.Message, varValues map[string]string) error {
+	m := jsonpb.Marshaler{}
+	js, err := m.MarshalToString(content)
+	if err != nil {
+		return err
+	}
+	replace := 0
+	for k, v := range varValues {
+		js = strings.Replace(js, k, v, -1)
+		replace++
+	}
+	if replace == 0 {
+		return nil
+	}
+	if err := jsonpb.Unmarshal(strings.NewReader(js), content); err != nil {
+		return err
+	}
+	return nil
+}

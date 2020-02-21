@@ -747,7 +747,7 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 	s := NewService(&Options{
 		HTTPClient:     httptestclient.New(server.Handler),
 		Domain:         domain,
-		ServiceName:    "ic",
+		ServiceName:    "ic-min",
 		AccountDomain:  domain,
 		Store:          store,
 		Encryption:     crypt,

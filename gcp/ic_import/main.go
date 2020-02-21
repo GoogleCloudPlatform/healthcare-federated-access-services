@@ -18,7 +18,6 @@ package main
 import (
 	"context"
 	"flag"
-	"os"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
@@ -27,35 +26,31 @@ import (
 )
 
 func main() {
-	args := make([]string, len(os.Args))
-	copy(args, os.Args)
+	path := flag.String("path", "deploy/config", "specifies the relative or absolute path to the config file root")
+
 	flag.Parse()
+	args := flag.Args()
 
-	if len(args) < 3 {
-		glog.Fatalf("Usage: ic_reset <project> <service> [path]")
+	if len(args) != 2 {
+		glog.Exitf("Usage: ic_import -path=<config_root> <project> <environment>")
 	}
-	project := args[1]
-	service := args[2]
-	path := "deploy/config"
-	if len(args) > 3 {
-		path = args[3]
+	project := args[0]
+	env := args[1]
+	envPrefix := ""
+	service := "ic"
+	if len(env) > 0 {
+		envPrefix = "-" + env
+		service += envPrefix
+	}
+	store := dsstore.NewDatastoreStorage(context.Background(), project, service, *path)
+
+	vars := map[string]string{
+		"${YOUR_PROJECT_ID}":  project,
+		"${YOUR_ENVIRONMENT}": envPrefix,
 	}
 
-	store := dsstore.NewDatastoreStorage(context.Background(), project, service, path)
-
-	ics := ic.NewService(&ic.Options{
-		Domain:         "reset.example.org",
-		ServiceName:    service,
-		AccountDomain:  "reset.example.org",
-		Store:          store,
-		Encryption:     nil,
-		UseHydra:       true,
-		HydraAdminURL:  "https://reset.example.org",
-		HydraPublicURL: "https://reset.example.org",
-	})
-
-	if err := ics.ImportFiles("FORCE_WIPE"); err != nil {
-		glog.Fatalf("error importing files: %v", err)
+	if err := ic.ImportConfig(store, service, vars); err != nil {
+		glog.Exitf("error importing files: %v", err)
 	}
 	glog.Infof("SUCCESS resetting IC service %q", service)
 }

@@ -202,8 +202,6 @@ var (
 
 	// skipURLValidationInTokenURL is for skipping URL validation for TokenUrl in format "FOO_BAR=https://...".
 	skipURLValidationInTokenURL = regexp.MustCompile("^[A-Z_]*=https://.*$")
-
-	importDefault = os.Getenv("IMPORT")
 )
 
 type Service struct {
@@ -315,8 +313,14 @@ func NewService(params *Options) *Service {
 	}); err != nil {
 		glog.Fatalf(err.Error())
 	}
-	if err = s.ImportFiles(importDefault); err != nil {
-		glog.Fatalf("cannot initialize storage: %v", err)
+	exists, err := configExists(params.Store)
+	if err != nil {
+		glog.Fatalf("cannot use storage layer: %v", err)
+	}
+	if !exists {
+		if err = ImportConfig(params.Store, params.ServiceName, nil); err != nil {
+			glog.Fatalf("cannot import configs to service %q: %v", params.ServiceName, err)
+		}
 	}
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -1839,42 +1843,13 @@ type damArgs struct {
 	persona      string
 }
 
-// ImportFiles ingests bootstrap configuration files to the IC's storage sytem.
-func (s *Service) ImportFiles(importType string) error {
-	wipe := false
-	switch importType {
-	case "AUTO_RESET":
-		cfg, err := s.loadConfig(nil, storage.DefaultRealm)
-		if err != nil {
-			if !storage.ErrNotFound(err) {
-				wipe = true
-			}
-		} else if err := s.checkConfigIntegrity(cfg); err != nil {
-			wipe = true
-		}
-	case "FORCE_WIPE":
-		wipe = true
-	}
-	if wipe {
-		glog.Infof("prepare for IC config import: wipe data store for all realms")
-		if err := s.store.Wipe(storage.AllRealms); err != nil {
-			return err
-		}
-	}
-
-	tx, err := s.store.Tx(true)
+// ImportConfig ingests bootstrap configuration files to the IC's storage sytem.
+func ImportConfig(store storage.Store, service string, cfgVars map[string]string) error {
+	tx, err := store.Tx(true)
 	if err != nil {
 		return err
 	}
 	defer tx.Finish()
-
-	ok, err := s.store.Exists(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev)
-	if err != nil {
-		return err
-	}
-	if ok {
-		return nil
-	}
 
 	glog.Infof("import IC config into data store")
 	history := &cpb.HistoryEntry{
@@ -1883,8 +1858,7 @@ func (s *Service) ImportFiles(importType string) error {
 		CommitTime: float64(time.Now().Unix()),
 		Desc:       "Inital config",
 	}
-	info := s.store.Info()
-	service := info["service"]
+	info := store.Info()
 	path := info["path"]
 	if service == "" || path == "" {
 		return nil
@@ -1896,7 +1870,10 @@ func (s *Service) ImportFiles(importType string) error {
 		return err
 	}
 	history.Revision = cfg.Revision
-	if err = s.store.WriteTx(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, history, tx); err != nil {
+	if err = storage.ReplaceContentVariables(cfg, cfgVars); err != nil {
+		return fmt.Errorf("replacing variables on config file: %v", err)
+	}
+	if err = store.WriteTx(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, history, tx); err != nil {
 		return err
 	}
 	secrets := &pb.IcSecrets{}
@@ -1904,10 +1881,17 @@ func (s *Service) ImportFiles(importType string) error {
 		return err
 	}
 	history.Revision = secrets.Revision
-	if err = s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
+	if err = storage.ReplaceContentVariables(secrets, cfgVars); err != nil {
+		return fmt.Errorf("replacing variables on secrets file: %v", err)
+	}
+	if err = store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
 		return err
 	}
 	return nil
+}
+
+func configExists(store storage.Store) (bool, error) {
+	return store.Exists(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev)
 }
 
 // TODO: move registeration of endpoints to main package.

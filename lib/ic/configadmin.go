@@ -488,7 +488,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err = s.ImportFiles(importDefault); err != nil {
+	if err = ImportConfig(s.store, s.serviceName, nil); err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}

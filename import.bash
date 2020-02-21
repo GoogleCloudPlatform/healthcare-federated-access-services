@@ -14,21 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Reset IC and DAM service data storage (i.e. wipe database)
+# Import IC and DAM service data storage (i.e. wipe existing config)
 # Usage:
-#   ./reset.bash [<flags>] [dam | ic]
+#   ./import.bash [<flags>] [dam | ic]
 
 GREEN="\e[32m"
 RED="\e[31m"
 RESET="\e[0m"
 
 PROJECT=${PROJECT}
-ENV_LABEL=""
+ENV=""
 
 print_usage() {
-  echo -e ${RED?}'Usage: reset [-e environment] [-h] [-p project_id] [-P config_path] [dam | ic] ...'${RESET?}
+  echo -e ${RED?}'Usage: import [-e environment] [-h] [-p project_id] [-P config_path] [dam | ic] ...'${RESET?}
   echo -e ${RED?}'  -e \t extra environment namespace to include in the deployed service name'${RESET?}
-  echo -e ${RED?}'     \t example: "reset -e staging dam ic" will reset services "dam-staging", "ic-staging"'${RESET?}
+  echo -e ${RED?}'     \t example: "import -e staging dam ic" will import services "dam-staging", "ic-staging"'${RESET?}
   echo -e ${RED?}'  -h \t show this help usage'${RESET?}
   echo -e ${RED?}'  -p \t GCP project_id to deploy to'${RESET?}
   echo
@@ -37,7 +37,7 @@ print_usage() {
 
 while getopts ':he:p:' flag; do
   case "${flag}" in
-    e) ENV_LABEL="${OPTARG}" ;;
+    e) ENV="${OPTARG}" ;;
     h) print_usage
        exit 1 ;;
     p) PROJECT="${OPTARG}" ;;
@@ -53,11 +53,9 @@ if [[ "${PROJECT}" == "" ]]; then
   exit 1
 fi
 
-ENV=""
-if [[ "${ENV_LABEL}" == "" ]]; then
+ENV_LABEL=${ENV?}
+if [[ "${ENV?}" == "" ]]; then
   ENV_LABEL="DEFAULT"
-else
-  ENV="-${ENV_LABEL}"
 fi
 
 MATCH=false
@@ -80,24 +78,24 @@ if [ "$MATCH" == false ] ; then
 fi
 
 if [ "$DAM" == true ] ; then
-  echo "RESET DAM (${ENV_LABEL?}) in project ${PROJECT?}"
-  $(go run "gcp/dam_reset/main.go" "${PROJECT?}" "dam${ENV?}" "deploy/config" "ic${ENV?}-" >/dev/null)
+  echo "IMPORT: DAM configs (${ENV_LABEL?}) in project ${PROJECT?}"
+  $(go run "gcp/dam_import/main.go" "${PROJECT?}" "${ENV?}" >/dev/null)
   STATUS=$?
   if [ "$STATUS" == 0 ]; then
-    echo -e "${GREEN?}Reset DAM succeeded${RESET?}"
+    echo -e "${GREEN?}Import DAM configs succeeded${RESET?}"
   else
-    echo -e "${RED?}Reset DAM failed${RESET?}"
+    echo -e "${RED?}Import DAM configs failed${RESET?}"
     exit $STATUS
   fi
 fi
 if [ "$IC" == true ] ; then
-  echo "RESET IC (${ENV_LABEL?}) in project ${PROJECT?}"
-  $(go run "gcp/ic_reset/main.go" "${PROJECT?}" "ic${ENV?}" >/dev/null)
+  echo "IMPORT: IC configs (${ENV_LABEL?}) in project ${PROJECT?}"
+  $(go run "gcp/ic_import/main.go" "${PROJECT?}" "${ENV?}" >/dev/null)
   STATUS=$?
   if [ "$STATUS" == 0 ]; then
-    echo -e "${GREEN?}Reset IC succeeded${RESET?}"
+    echo -e "${GREEN?}Import IC succeeded${RESET?}"
   else
-    echo -e "${RED?}Reset IC failed${RESET?}"
+    echo -e "${RED?}Import IC failed${RESET?}"
     exit $STATUS
   fi
 fi

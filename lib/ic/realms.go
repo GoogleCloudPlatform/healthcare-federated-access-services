@@ -106,7 +106,7 @@ func (c *realm) Remove(name string) error {
 		return err
 	}
 	if name == storage.DefaultRealm {
-		return c.s.ImportFiles(importDefault)
+		return ImportConfig(c.s.store, c.s.serviceName, nil)
 	}
 	return nil
 }
