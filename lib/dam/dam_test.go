@@ -525,7 +525,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "POST",
 			Path:    "/dam/v1alpha/test/config/policies/new-policy",
 			Persona: "admin",
-			Input:   `{"item":{"anyOf":[{"allOf":[{"type":"BonaFide","value":"const:https://test.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
+			Input:   `{"item":{"anyOf":[{"allOf":[{"type":"ResearcherStatus","value":"const:https://test.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
 			Output:  ``,
 			Status:  http.StatusOK,
 		},
@@ -533,14 +533,14 @@ func TestHandlers(t *testing.T) {
 			Method:  "PUT",
 			Path:    "/dam/v1alpha/test/config/policies/new-policy",
 			Persona: "admin",
-			Input:   `{"item":{"anyOf":[{"allOf":[{"type":"BonaFide","value":"const:https://test2.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
+			Input:   `{"item":{"anyOf":[{"allOf":[{"type":"ResearcherStatus","value":"const:https://test2.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
 			Status:  http.StatusOK,
 		},
 		{
 			Method:  "PATCH",
 			Path:    "/dam/v1alpha/test/config/policies/new-policy",
 			Persona: "admin",
-			Input:   `{"item":{"anyOf":[{"allOf":[{"type":"BonaFide","value":"const:https://test3.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
+			Input:   `{"item":{"anyOf":[{"allOf":[{"type":"ResearcherStatus","value":"const:https://test3.org"}]}],"ui":{"label":"foo","description":"bar"}}}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -552,7 +552,7 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "GET",
-			Path:    "/dam/v1alpha/test/config/claimDefinitions/BonaFide",
+			Path:    "/dam/v1alpha/test/config/claimDefinitions/ResearcherStatus",
 			Persona: "admin",
 			Output:  `^.*"ui"`,
 			Status:  http.StatusOK,
@@ -800,7 +800,7 @@ func TestHandlers(t *testing.T) {
 						},
 						"ga4ghAssertions": [
 							{
-								"type": "BonaFide",
+								"type": "ResearcherStatus",
 								"source": "https://example.edu",
 								"value": "https://www.nature.com/articles/s41431-018-0219-y",
 								"assertedDuration": "1d",

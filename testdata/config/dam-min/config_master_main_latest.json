@@ -40,7 +40,7 @@
         {
           "allOf": [
             {
-              "type": "BonaFide",
+              "type": "ResearcherStatus",
               "value": "const:https://doi.org/10.1038/s41431-018-0219-y"
             }
           ]
@@ -92,7 +92,7 @@
       "ui": {
         "applyUrl": "http://apply.ga4gh-apis.org",
         "description": "Google demo of GA4GH APIs",
-        "imageUrl": "https://www.ebi.ac.uk/sites/ebi.ac.uk/files/groups/external_relations/images/wide-imagery/Global_Alliance_news_logo_780x400_0.jpg",
+        "imageUrl": "https://info.ga4gh-apis.org/images/image.jpg",
         "infoUrl": "http://info.ga4gh-apis.org",
         "label": "GA4GH APIs",
         "troubleshootUrl": "http://troubleshoot.ga4gh-apis.org"
@@ -127,11 +127,11 @@
     }
   },
   "claimDefinitions": {
-    "BonaFide": {
+    "ResearcherStatus": {
       "ui": {
-        "label": "Bona Fide",
-        "description": "Unique identifiers in the form of URLs that indicate that the person has been acknowledged to be a researcher",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.jdh4ks6h3zzp"
+        "label": "Bona Fide Researcher Status",
+        "description": "Canonical URLs that indicate that the person has been acknowledged to be a bona fide researcher",
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#researcherstatus"
       }
     }
   },
@@ -171,7 +171,7 @@
         },
         "ga4ghAssertions": [
           {
-            "type": "BonaFide",
+            "type": "ResearcherStatus",
             "source": "https://ga4gh.broadinstitute.org",
             "value": "https://doi.org/10.1038/s41431-018-0219-y",
             "assertedDuration": "1d",

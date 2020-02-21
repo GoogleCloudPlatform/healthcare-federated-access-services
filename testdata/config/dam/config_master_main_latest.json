@@ -84,7 +84,7 @@
       ],
       "claims": [
         "^[A-Z].*$",
-        "^nih.*$"
+        "^Linked.*$"
       ],
       "ui": {
         "label": "nih institutes",
@@ -107,8 +107,8 @@
         "https://ga4gh.elixir-czech.org/claims"
       ],
       "claims": [
-        "BonaFide",
-        "^elixir.*$"
+        "ResearcherStatus",
+        "^Linked.*$"
       ],
       "ui": {
         "label": "elixir institutes",
@@ -123,7 +123,7 @@
       "claims": [
         "AcceptedTermsAndPolicies",
         "AffiliationAndRole",
-        "BonaFide"
+        "ResearcherStatus"
       ],
       "ui": {
         "label": "eu universities",
@@ -137,7 +137,7 @@
       ],
       "claims": [
         "AcceptedTermsAndPolicies",
-        "BonaFide"
+        "ResearcherStatus"
       ],
       "ui": {
         "label": "us universities",
@@ -152,7 +152,7 @@
       ],
       "claims": [
         "AcceptedTermsAndPolicies",
-        "BonaFide"
+        "ResearcherStatus"
       ],
       "ui": {
         "label": "research companies",
@@ -166,8 +166,8 @@
         {
           "allOf": [
             {
-              "type": "BonaFide",
-              "value": "split_pattern:https://doi.org/10.1038/s41431-018-0219-y;http://www.ga4gh.org/beacon/bonafide/ver1.0",
+              "type": "ResearcherStatus",
+              "value": "split_pattern:https://doi.org/10.1038/s41431-018-0219-y;http://www.ga4gh.org/beacon/ResearcherStatus/ver1.0",
               "source": "split_pattern:elixir_institutes;nih_institutes;eu_universities;us_universities;research_companies"
             }
           ]
@@ -632,52 +632,35 @@
       "ui": {
         "label": "Affiliation and Role",
         "description": "The Identity’s roles within affiliated institutions as specified by eduPerson with specific vocabulary extensions",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.vod2g2cjxjmp"
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#affiliationandrole"
       }
     },
     "AcceptedTermsAndPolicies": {
       "ui": {
         "label": "Accepted Terms and Policies",
-        "description": "The set of unique identifiers in the form of URLs that indicate that a researcher or either organization has acknowledged the specific terms and conditions indicated by the URL",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.pif6raoahha5"
+        "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms and conditions indicated by the URL",
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#acceptedtermsandpolicies"
       }
     },
-    "BonaFide": {
+    "ResearcherStatus": {
       "ui": {
-        "label": "Bona Fide",
-        "description": "Unique identifiers in the form of URLs that indicate that the person has been acknowledged to be a researcher",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.jdh4ks6h3zzp"
+        "label": "Bona Fide Researcher Status",
+        "description": "Canonical URLs that indicate that the person has been acknowledged to be a bona fide researcher",
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#researcherstatus"
       }
     },
     "ControlledAccessGrants": {
       "ui": {
         "label": "Controlled Access Grants",
         "description": "A list of datasets or other objects for which controlled access has been granted to this researcher",
-        "infoUrl": "https://docs.google.com/document/d/11Wg-uL75ypU5eNu2p_xh9gspmbGtmLzmdq5VfPHBirE/edit#heading=h.s459xswt1qt3"
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#controlledaccessgrants"
       }
     },
-    "elixir.AffiliatedCountry": {
+    "LinkedIdentities": {
       "ui": {
-        "label": "Elixir Affiliated Country",
-        "description": "A ISO 3166 country code that represents the researcher's legal country of origin affiliation"
-      }
-    },
-    "nih.DiscoveryAccess": {
-      "ui": {
-        "label": "Custom NIH access level for discovery",
-        "description": "A claim that the researcher has been granted special permission to access datasets for discovery purposes"
-      }
-    },
-    "nih.HasEraAccount": {
-      "ui": {
-        "label": "Has ERA Commons Account",
-        "description": "Set to 'true' if the researcher as an ERA Commons account"
-      }
-    },
-    "nih.Blacklisted": {
-      "ui": {
-        "label": "NIH Blacklisted from Access",
-        "description": "Ability to blacklist users that have been tagged with this claim"
+        "label": "Linked Identities",
+        "description": "The value of this visa lists multiple identities that are the same person as Passport Visa Identity (i.e. identity as indicated by the visa's issuer and subject claims)",
+        "infoUrl": "https://bit.ly/ga4gh-passport-v1#linkedidentities"
       }
     }
   },
@@ -714,11 +697,11 @@
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
           "email": "dr_joe@faculty.example.edu",
-          "picture": "https://pbs.twimg.com/profile_images/497015367391121408/_cWXo-vA_400x400.jpeg"
+          "picture": "/identity/static/images/elixir_identity.png"
         },
         "ga4ghAssertions": [
           {
-            "type": "BonaFide",
+            "type": "ResearcherStatus",
             "source": "https://example.edu",
             "value": "https://doi.org/10.1038/s41431-018-0219-y",
             "assertedDuration": "1d",
@@ -748,7 +731,7 @@
         "standardClaims": {
           "iss": "https://login.nih.gov/oidc/",
           "email": "dr_joe@era.nih.gov",
-          "picture": "https://pbs.twimg.com/profile_images/3443048571/ef5062acfce64a7aef1d75b4934fbee6_400x400.png"
+          "picture": "/identity/static/images/era_commons_identity.jpeg"
         },
         "ga4ghAssertions": [
           {
