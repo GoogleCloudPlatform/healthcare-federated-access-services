@@ -29,7 +29,8 @@ type Account struct {
 // AccountManager abstracts account management within a target cloud environment.
 type AccountManager interface {
 
-	// GetServiceAccounts calls "callback" once per service account for the given project.
+	// GetServiceAccounts returns a chan for per service account for the given project.
+	// Ends writing when all service accounts are sent or ctx is cancels.
 	GetServiceAccounts(ctx context.Context, project string) (<-chan *Account, error)
 
 	// RemoveServiceAccount removes a service account related to the given project.

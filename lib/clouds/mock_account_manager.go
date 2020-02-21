@@ -43,7 +43,8 @@ func NewMockAccountManager(accounts []*Account) *MockAccountManager {
 	}
 }
 
-// GetServiceAccounts calls "callback" once per service account for the given project.
+// GetServiceAccounts returns a chan for per service account for the given project.
+// Ends writing when all service accounts are sent or ctx is cancels.
 func (m *MockAccountManager) GetServiceAccounts(ctx context.Context, project string) (<-chan *Account, error) {
 	m.calls = append(m.calls, MockAccountManagerEntry{Call: "GetServiceAccounts", Project: project})
 	c := make(chan *Account)

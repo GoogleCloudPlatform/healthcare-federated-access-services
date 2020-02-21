@@ -78,6 +78,9 @@ func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, 
 	)
 	maxErrors := 20
 	aborted := ""
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	accounts, err := wh.GetServiceAccounts(ctx, project)
 	if err != nil {
 		glog.Errorf("fetching service accounts from project %q failed: %v", project, err)
@@ -90,6 +93,7 @@ func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, 
 		parts := strings.SplitN(a.DisplayName, "|", 2)
 		if len(parts) < 2 || !strings.HasPrefix(parts[1], accountPrefix) {
 			skipped++
+			continue
 		}
 		emails = append(emails, a.ID)
 	}

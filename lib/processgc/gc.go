@@ -97,6 +97,9 @@ func (k *KeyGC) Run(ctx context.Context) {
 
 // ProcessActiveProject has a worker perform the work needed to process an active project.
 func (k *KeyGC) ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *processlib.Process) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	accounts, err := k.am.GetServiceAccounts(ctx, projectName)
 	if err != nil {
 		return err
@@ -126,6 +129,9 @@ func (k *KeyGC) ProcessActiveProject(ctx context.Context, state *pb.Process, pro
 
 // CleanupProject has a worker perform the work needed to clean up a project that was active previously.
 func (k *KeyGC) CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *processlib.Process) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	accounts, err := k.am.GetServiceAccounts(ctx, projectName)
 	if err != nil {
 		return err
