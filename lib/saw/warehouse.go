@@ -21,29 +21,35 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/cenkalti/backoff" /* copybara-comment */
+	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
+	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
 	"golang.org/x/crypto/sha3" /* copybara-comment */
 	"google.golang.org/api/bigquery/v2" /* copybara-comment: bigquery */
 	"google.golang.org/api/cloudresourcemanager/v1" /* copybara-comment: cloudresourcemanager */
-	"google.golang.org/api/googleapi" /* copybara-comment: googleapi */
-	"google.golang.org/api/iam/v1" /* copybara-comment: iam */
-	"google.golang.org/api/iamcredentials/v1" /* copybara-comment: iamcredentials */
+	"google.golang.org/api/iterator" /* copybara-comment: iterator */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
 	grpcbackoff "google.golang.org/grpc/backoff" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/processgc" /* copybara-comment: processgc */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
+	iampb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_proto */
+	iamcredscpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: common_go_proto */
+	tspb "github.com/golang/protobuf/ptypes/timestamp" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -57,14 +63,34 @@ const (
 	defaultKeysPerAccount = 10
 )
 
+var userManaged = []iampb.ListServiceAccountKeysRequest_KeyType{iampb.ListServiceAccountKeysRequest_USER_MANAGED}
+
+// GCSPolicy is used to manage IAM policy on GCS buckets.
+type GCSPolicy interface {
+	Get(ctx context.Context, bkt string, billingProject string) (*gcs.Policy, error)
+	Set(ctx context.Context, bkt string, billingProject string, policy *gcs.Policy) error
+}
+
+// BQPolicy is used to manage IAM policy on BQ Datasets.
+type BQPolicy interface {
+	Get(ctx context.Context, project string, dataset string) (*bigquery.Dataset, error)
+	Set(ctx context.Context, project string, dataset string, ds *bigquery.Dataset) error
+}
+
+// CRMPolicy is used to manage IAM policy on CRM projects.
+type CRMPolicy interface {
+	Get(ctx context.Context, project string) (*cloudresourcemanager.Policy, error)
+	Set(ctx context.Context, project string, policy *cloudresourcemanager.Policy) error
+}
+
 // AccountWarehouse is used to create Google Cloud Platform Service Account
 // keys and access tokens associated with a specific identity.
 type AccountWarehouse struct {
-	iam   *iam.Service
-	creds *iamcredentials.Service
-	crm   *cloudresourcemanager.Service
-	cs    *gcs.Service
-	bqDs  *bigquery.DatasetsService
+	iam   *iamadmin.IamClient
+	creds *iamcreds.IamCredentialsClient
+	crm   CRMPolicy
+	gcs   GCSPolicy
+	bqds  BQPolicy
 	keyGC *processgc.KeyGC
 }
 
@@ -79,14 +105,14 @@ func MustNew(ctx context.Context, store storage.Store, opts ...option.ClientOpti
 	// Use exponential backoff for client calls.
 	opts = append(opts, option.WithGRPCDialOption(grpc.WithConnectParams(grpc.ConnectParams{Backoff: grpcbackoff.DefaultConfig})))
 
-	iamc, err := iam.NewService(ctx, opts...)
+	iamc, err := iamadmin.NewIamClient(ctx, opts...)
 	if err != nil {
-		glog.Fatalf("iam.New() failed: %v", err)
+		glog.Fatalf("iamadmin.NewIamClient() failed: %v", err)
 	}
 
-	credsc, err := iamcredentials.NewService(ctx, opts...)
+	credsc, err := iamcreds.NewIamCredentialsClient(ctx, opts...)
 	if err != nil {
-		glog.Fatalf("iamcredentials.New() failed: %v", err)
+		glog.Fatalf("iamcreds.NewIamCredentialsClient() failed: %v", err)
 	}
 
 	crmc, err := cloudresourcemanager.NewService(ctx, opts...)
@@ -105,7 +131,7 @@ func MustNew(ctx context.Context, store storage.Store, opts ...option.ClientOpti
 	}
 	bqdsc := bigquery.NewDatasetsService(bqc)
 
-	wh, err := New(store, iamc, credsc, crmc, gcsc, bqdsc, nil)
+	wh, err := New(store, iamc, credsc, &CRMPolicyClient{crmc}, &GCSPolicyClient{gcsc}, &BQPolicyClient{bqdsc}, nil)
 	if err != nil {
 		glog.Fatalf("ServiceAccountWarehouse.New() failed: %v", err)
 	}
@@ -123,38 +149,16 @@ func MustNew(ctx context.Context, store storage.Store, opts ...option.ClientOpti
 }
 
 // New creates a new AccountWarehouse using the provided client  and options.
-func New(store storage.Store, iamc *iam.Service, credsc *iamcredentials.Service, crmc *cloudresourcemanager.Service, gcsc *gcs.Service, bqdsc *bigquery.DatasetsService, kgcp *processgc.KeyGC) (*AccountWarehouse, error) {
+func New(store storage.Store, iamc *iamadmin.IamClient, credsc *iamcreds.IamCredentialsClient, crmc CRMPolicy, gcsc GCSPolicy, bqdsc BQPolicy, kgcp *processgc.KeyGC) (*AccountWarehouse, error) {
 	wh := &AccountWarehouse{
 		iam:   iamc,
 		creds: credsc,
 		crm:   crmc,
-		cs:    gcsc,
-		bqDs:  bqdsc,
+		gcs:   gcsc,
+		bqds:  bqdsc,
 		keyGC: kgcp,
 	}
 	return wh, nil
-}
-
-// Run starts background processes of AccountWarehouse.
-func (wh *AccountWarehouse) Run(ctx context.Context) {
-	// TODO: fix input parameters based on config file.
-	wh.keyGC.Run(ctx)
-}
-
-// RegisterAccountProject adds a project to the state for workers to process.
-func (wh *AccountWarehouse) RegisterAccountProject(project string, tx storage.Tx) error {
-	_, err := wh.keyGC.RegisterProject(project, nil, tx)
-	return err
-}
-
-// UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-func (wh *AccountWarehouse) UnregisterAccountProject(project string, tx storage.Tx) error {
-	return wh.keyGC.UnregisterProject(project, tx)
-}
-
-// UpdateSettings alters resource management settings.
-func (wh *AccountWarehouse) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int, tx storage.Tx) error {
-	return wh.keyGC.UpdateSettings(maxRequestedTTL, keysPerAccount, tx)
 }
 
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
@@ -167,20 +171,20 @@ func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl
 
 // GetTokenMetadata returns an access token based on its name.
 func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, name string) (*cpb.TokenMetadata, error) {
-	account := wh.GetAccountName(project, id)
+	account := accountResourceName(project, accountResourceID(project, id))
 	// A standard Keys.Get does not return ValidAfterTime or ValidBeforeTime
 	// so use List and pull the right key out of the list. These lists are small.
-	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
+	k, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: account, KeyTypes: userManaged})
 	if err != nil {
 		return nil, fmt.Errorf("getting token service key list: %v", err)
 	}
-	for _, key := range k.Keys {
+	for _, key := range k.GetKeys() {
 		parts := strings.Split(key.Name, "/")
 		if name == parts[len(parts)-1] {
 			return &cpb.TokenMetadata{
 				Name:     name,
-				IssuedAt: key.ValidAfterTime,
-				Expires:  key.ValidBeforeTime,
+				IssuedAt: RFC3339(key.ValidAfterTime),
+				Expires:  RFC3339(key.ValidBeforeTime),
 			}, nil
 		}
 	}
@@ -189,20 +193,20 @@ func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, n
 
 // ListTokenMetadata returns a list of outstanding access tokens.
 func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id string) ([]*cpb.TokenMetadata, error) {
-	account := wh.GetAccountName(project, id)
-	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
+	account := accountResourceName(project, accountResourceID(project, id))
+	k, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: account, KeyTypes: userManaged})
 	if err != nil {
 		return nil, fmt.Errorf("list tokens from service keys: %v", err)
 	}
 
 	mds := make([]*cpb.TokenMetadata, 0, len(k.Keys))
-	for _, key := range k.Keys {
+	for _, key := range k.GetKeys() {
 		// Use the last part of the key identifier as the GUID.
 		parts := strings.Split(key.Name, "/")
 		md := &cpb.TokenMetadata{
 			Name:     parts[len(parts)-1],
-			IssuedAt: key.ValidAfterTime,
-			Expires:  key.ValidBeforeTime,
+			IssuedAt: RFC3339(key.ValidAfterTime),
+			Expires:  RFC3339(key.ValidBeforeTime),
 		}
 		mds = append(mds, md)
 	}
@@ -212,7 +216,7 @@ func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id s
 // DeleteTokens removes tokens belonging to 'id' with given names.
 // If 'names' is empty, delete all tokens belonging to 'id'.
 func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string, names []string) error {
-	account := wh.GetAccountName(project, id)
+	account := accountResourceName(project, accountResourceID(project, id))
 	if len(names) == 0 {
 		var err error
 		names, err = wh.fetchAllNames(ctx, account)
@@ -222,7 +226,7 @@ func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string
 	}
 
 	for _, name := range names {
-		if _, err := wh.iam.Projects.ServiceAccounts.Keys.Delete(keyName(account, name)).Context(ctx).Do(); err != nil {
+		if err := wh.iam.DeleteServiceAccountKey(ctx, &iampb.DeleteServiceAccountKeyRequest{Name: keyResourceName(project, id, name)}); err != nil {
 			return fmt.Errorf("deleting token key %q: %v", name, err)
 		}
 	}
@@ -230,12 +234,12 @@ func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string
 }
 
 func (wh *AccountWarehouse) fetchAllNames(ctx context.Context, account string) ([]string, error) {
-	k, err := wh.iam.Projects.ServiceAccounts.Keys.List(account).KeyTypes("USER_MANAGED").Context(ctx).Do()
+	k, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: account, KeyTypes: userManaged})
 	if err != nil {
 		return nil, fmt.Errorf("listing tokens for service keys: %v", err)
 	}
 	names := make([]string, 0, len(k.Keys))
-	for _, key := range k.Keys {
+	for _, key := range k.GetKeys() {
 		parts := strings.Split(key.Name, "/")
 		name := parts[len(parts)-1]
 		names = append(names, name)
@@ -245,35 +249,36 @@ func (wh *AccountWarehouse) fetchAllNames(ctx context.Context, account string) (
 
 // GetAccountKey returns a service account key associated with id.
 func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
-	account, err := wh.getBackingAccount(ctx, id, params)
-	if err != nil {
-		return nil, fmt.Errorf("getting backing account: %v", err)
-	}
-
 	if numKeys == 0 {
 		numKeys = defaultKeysPerAccount
 	}
+
+	account, err := wh.configureBackingAccount(ctx, id, params)
+	if err != nil {
+		return nil, fmt.Errorf("configuring backing account: %v", err)
+	}
+
+	// Call Manage to make room for the new key if needed.
 	makeRoom := numKeys - 1
 	keyTTL := common.KeyTTL(maxTTL, numKeys)
-	_, _, err = wh.ManageAccountKeys(ctx, params.AccountProject, account, ttl, keyTTL, int64(makeRoom))
-	if err != nil {
+	if _, _, err := wh.ManageAccountKeys(ctx, params.AccountProject, account, ttl, keyTTL, time.Now(), int64(makeRoom)); err != nil {
 		return nil, fmt.Errorf("garbage collecting keys: %v", err)
 	}
-	key, err := wh.iam.Projects.ServiceAccounts.Keys.Create(accountID(inheritProject, account), &iam.CreateServiceAccountKeyRequest{PrivateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE"}).Context(ctx).Do()
-	if err != nil {
+
+	key, err := wh.iam.CreateServiceAccountKey(ctx, &iampb.CreateServiceAccountKeyRequest{Name: accountResourceName(inheritProject, account), PrivateKeyType: iampb.ServiceAccountPrivateKeyType_TYPE_GOOGLE_CREDENTIALS_FILE})
+	if err != nil && status.Code(err) != codes.AlreadyExists {
 		return nil, fmt.Errorf("creating key: %v", err)
 	}
 
 	if !httputil.IsJSON(params.TokenFormat) {
 		return &clouds.ResourceTokenResult{
 			Account: account,
-			Token:   key.PrivateKeyData,
+			Token:   string(key.PrivateKeyData),
 			Format:  "base64",
 		}, nil
-
 	}
 
-	bytes, err := base64.StdEncoding.DecodeString(key.PrivateKeyData)
+	bytes, err := base64.StdEncoding.DecodeString(string(key.PrivateKeyData))
 	if err != nil {
 		return nil, fmt.Errorf("decoding key: %v", err)
 	}
@@ -284,65 +289,63 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 	}, nil
 }
 
-// ManageAccountKeys maintains or removes keys on a clean-up cycle. Returns: remaining keys for account, removed keys for account, and error.
-func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, account string, ttl, maxKeyTTL time.Duration, keysPerAccount int64) (int, int, error) {
-	resp, err := wh.iam.Projects.ServiceAccounts.Keys.List(accountID(inheritProject, account)).KeyTypes("USER_MANAGED").Context(ctx).Do()
+// ManageAccountKeys maintains or removes keys on a clean-up cycle.
+//   maxTTL is the maximum TTL for keys. Keys which which have expired (key.ValidAfter+maxTTL < now) will be removed.
+//   ttl is the TTL provided by user. It is not used currently, will be used later for providing better control later.
+//   keysPerAccount is the maximum number of keys allowed per account. If too many keys exists, older keys will be removed.
+// Returns:
+//   the number of remaining active keys and removed keys for the account.
+func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, account string, ttl, maxTTL time.Duration, now time.Time, keysPerAccount int64) (int, int, error) {
+	// TODO: instead of turning duration to string and comparing strings, the string ValidAfterTime should be converted to time and compared using time comparison.
+	// A key has expired if key.ValidAfterTime + maxTTL < now, i.e. key.ValidAfterTime < now - maxTTL
+	expired := now.Add(-1 * maxTTL).Format(time.RFC3339)
+
+	resp, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: accountResourceName(inheritProject, account), KeyTypes: userManaged})
 	if err != nil {
 		return 0, 0, fmt.Errorf("getting key list: %v", err)
 	}
-	active := 0
-	removed := 0
-	active = len(resp.Keys)
-	rmTime := common.PastTimestamp(maxKeyTTL)
-	minTime := common.PastTimestamp(ttl)
-	var match *iam.ServiceAccountKey
-	for i := 0; i < len(resp.Keys); i++ {
-		if resp.Keys[i].ValidAfterTime < rmTime {
-			if _, err = wh.iam.Projects.ServiceAccounts.Keys.Delete(resp.Keys[i].Name).Context(ctx).Do(); err != nil {
-				return active, removed, fmt.Errorf("deleting key: %v", err)
+	all := resp.GetKeys()
+
+	// Removed expired keys.
+	var actives []*iampb.ServiceAccountKey
+	active := len(all)
+	for _, key := range all {
+		// Remove old keys.
+		if RFC3339(key.ValidAfterTime) < expired {
+			if err := wh.iam.DeleteServiceAccountKey(ctx, &iampb.DeleteServiceAccountKeyRequest{Name: key.Name}); err != nil {
+				return active, len(all) - active, fmt.Errorf("deleting key: %v", err)
 			}
-			resp.Keys = append(resp.Keys[:i], resp.Keys[i+1:]...)
-			i--
 			active--
-			removed++
 			continue
 		}
-		if ttl > 0 && resp.Keys[i].ValidAfterTime > minTime && (match == nil || match.ValidAfterTime < resp.Keys[i].ValidAfterTime) {
-			match = resp.Keys[i]
-		}
+		actives = append(actives, key)
 	}
-	if match != nil {
-		// TODO: remove this matching stuff if it doesn't work (need to make delete an extra key below if can't reuse a key)
-		//		return match, active, removed, nil
+	if int64(len(actives)) < keysPerAccount {
+		return active, len(all) - active, nil
 	}
-	for int64(len(resp.Keys)) > keysPerAccount {
-		oldIdx := 0
-		oldAge := resp.Keys[oldIdx].ValidAfterTime
-		for i, key := range resp.Keys {
-			if key.ValidAfterTime < oldAge {
-				oldIdx = i
-				oldAge = key.ValidAfterTime
-			}
+
+	// Remove earliest expiring extra keys if # of active keys exceeds the max.
+	// Sort the keys with decreasing expiry time.
+	sort.Slice(actives, func(i, j int) bool { return RFC3339(actives[i].ValidAfterTime) > RFC3339(actives[j].ValidAfterTime) })
+	for _, key := range actives[keysPerAccount:] {
+		if err = wh.iam.DeleteServiceAccountKey(ctx, &iampb.DeleteServiceAccountKeyRequest{Name: key.Name}); err != nil {
+			return active, len(all) - active, fmt.Errorf("deleting key: %v", err)
 		}
-		if _, err = wh.iam.Projects.ServiceAccounts.Keys.Delete(resp.Keys[oldIdx].Name).Context(ctx).Do(); err != nil {
-			return active, removed, fmt.Errorf("deleting key: %v", err)
-		}
-		resp.Keys = append(resp.Keys[:oldIdx], resp.Keys[oldIdx+1:]...)
 		active--
-		removed++
 	}
-	return active, removed, nil
+
+	return active, len(all) - active, nil
 }
 
 // GetAccessToken returns an access token for the service account uniquely
 // associated with id.
 func (wh *AccountWarehouse) GetAccessToken(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
-	account, err := wh.getBackingAccount(ctx, id, params)
+	account, err := wh.configureBackingAccount(ctx, id, params)
 	if err != nil {
 		return nil, fmt.Errorf("getting backing account: %v", err)
 	}
 
-	resp, err := wh.creds.Projects.ServiceAccounts.GenerateAccessToken(accountID(inheritProject, account), &iamcredentials.GenerateAccessTokenRequest{Scope: params.Scopes}).Context(ctx).Do()
+	resp, err := wh.creds.GenerateAccessToken(ctx, &iamcredscpb.GenerateAccessTokenRequest{Name: accountResourceName(inheritProject, account), Scope: params.Scopes})
 	if err != nil {
 		return nil, fmt.Errorf("generating access token: %v", err)
 	}
@@ -361,25 +364,34 @@ func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, project stri
 	go func() {
 		defer close(c)
 
-		f := func(page *iam.ListServiceAccountsResponse) error {
-			for _, acct := range page.Accounts {
-				a := &clouds.Account{
-					ID:          acct.Email,
-					DisplayName: acct.DisplayName,
-					Description: acct.Description,
-				}
-				select {
-				case c <- a:
-				case <-ctx.Done():
-					return ctx.Err()
-				}
+		f := func(acct *iampb.ServiceAccount) error {
+			a := &clouds.Account{
+				ID:          acct.Email,
+				DisplayName: acct.DisplayName,
+				Description: acct.Description,
+			}
+			select {
+			case c <- a:
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 			return nil
 		}
 
-		resp := wh.iam.Projects.ServiceAccounts.List("projects/" + project)
-		if err := resp.Pages(ctx, f); err != nil {
-			glog.Errorf("getting service account list: %v", err)
+		it := wh.iam.ListServiceAccounts(ctx, &iampb.ListServiceAccountsRequest{Name: "projects/" + project})
+		for {
+			accounts, err := it.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				glog.Errorf("getting service account list: %v", err)
+				return
+			}
+			if err := f(accounts); err != nil {
+				glog.Errorf("getting service account list: %v", err)
+				return
+			}
 		}
 	}()
 
@@ -388,203 +400,83 @@ func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, project stri
 
 // RemoveServiceAccount remvoes a service account.
 func (wh *AccountWarehouse) RemoveServiceAccount(ctx context.Context, project, email string) error {
-	name := accountID(inheritProject, email)
-	_, err := wh.iam.Projects.ServiceAccounts.Delete(name).Context(ctx).Do()
-	return err
+	name := accountResourceName(inheritProject, email)
+	return wh.iam.DeleteServiceAccount(ctx, &iampb.DeleteServiceAccountRequest{Name: name})
 }
 
-// GetAccountName produces a hashed ID and a fully qualified SA name from a 3rd party id.
-func (wh *AccountWarehouse) GetAccountName(project, id string) string {
-	return accountName(project, hashID(id))
+func (wh *AccountWarehouse) configureBackingAccount(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (string, error) {
+	email, err := wh.getOrCreateBackingAccount(ctx, id, params)
+	if err != nil {
+		return "", err
+	}
+	if err := wh.configureRoles(ctx, email, params); err != nil {
+		return "", fmt.Errorf("configuring role for existing account: %v", err)
+	}
+	return email, nil
 }
 
-func (wh *AccountWarehouse) getBackingAccount(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (string, error) {
-	service := wh.iam.Projects.ServiceAccounts
+func (wh *AccountWarehouse) getOrCreateBackingAccount(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (string, error) {
 	proj := params.AccountProject
-
 	hid := hashID(id)
-	name := accountName(proj, hid)
-	account, err := service.Get(name).Context(ctx).Do()
+	name := accountResourceName(proj, accountResourceID(proj, hid))
+
+	account, err := wh.iam.GetServiceAccount(ctx, &iampb.GetServiceAccountRequest{Name: name})
+	if err != nil && status.Code(err) != codes.NotFound {
+		return "", fmt.Errorf("getting account %q: %v", name, err)
+	}
 	if err == nil {
+		// Account already exists.
 		// The DisplayName is used as a managed field for auditing and collision detection.
 		if account.DisplayName != id {
 			return "", fmt.Errorf("user account unavailable for use by user %q", id)
 		}
-		if err := wh.configureRoles(ctx, account.Email, params); err != nil {
-			return "", fmt.Errorf("configuring role for existing account: %v", err)
-		}
 		return account.Email, nil
 	}
-	if gerr, ok := err.(*googleapi.Error); !ok || gerr.Code != http.StatusNotFound {
-		return "", fmt.Errorf("getting account %q: %v", name, err)
-	}
 
-	account, err = service.Create(projectID(proj), &iam.CreateServiceAccountRequest{
-		AccountId: hid,
-		ServiceAccount: &iam.ServiceAccount{
-			DisplayName: id,
-		},
-	}).Context(ctx).Do()
+	// Account does not exist.
+	account, err = wh.iam.CreateServiceAccount(ctx, &iampb.CreateServiceAccountRequest{Name: projectResourceName(proj), AccountId: hid, ServiceAccount: &iampb.ServiceAccount{DisplayName: id}})
 	if err != nil {
 		return "", fmt.Errorf("creating backing account: %v", err)
 	}
-	if err := wh.configureRoles(ctx, account.Email, params); err != nil {
-		return "", fmt.Errorf("configuring role for new account: %v", err)
-	}
+
 	return account.Email, nil
 }
 
-func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, params *clouds.ResourceTokenCreationParams) error {
-	// map[<projectID>][]<role> stores project-level IAM configurations.
-	prMap := make(map[string][]string)
-	// map[<bucketName>][]<role> stores GCS bucket-level IAM configurations.
-	bktMap := make(map[string][]string)
-	// map[<projectID>]map[<datasetID>][]<role> stores BigQuery dataset-level IAM configurations.
-	bqMap := make(map[string]map[string][]string)
+type backoffState struct {
+	failedEtag string
+	prevErr    error
+}
 
-	for _, role := range params.Roles {
-		// Roles should be in the format of either
-		// projects/{PROJECT-ID}/roles/{ROLE-ID} if it's a custom role defined for
-		// a project, or roles/{ROLE-ID} if it's a curated role.
-		rparts := strings.Split(role, "/")
-		isCustomRole := false
-		if len(rparts) == 4 && strings.HasPrefix(role, "projects/${project}/roles/") {
-			isCustomRole = true
-			role = fmt.Sprintf("roles/%s", rparts[3])
-		} else if len(rparts) != 2 || rparts[0] != "roles" {
-			return fmt.Errorf(`role %q format not supported: must be "projects/{PROJECT-ID}/roles/{ROLE-ID}" or "roles/{ROLE-ID}"`, role)
-		}
-		for index, item := range params.Items {
-			proj, ok := item[projectVariable]
-			if !ok || len(proj) == 0 {
-				return fmt.Errorf("item %d variable %q is undefined", index+1, projectVariable)
-			}
-			resolvedRole := role
-			if isCustomRole {
-				resolvedRole = fmt.Sprintf("projects/%s/%s", proj, role)
-			}
-			// If the bucket variable is available, store bucket-level configuration only.
-			bkt, ok := item[bucketVariable]
-			if ok && len(bkt) > 0 {
-				bktMap[bkt] = append(bktMap[bkt], resolvedRole)
-				continue
-			}
-			// If the dataset variable is available, store dataset-level configurations, and also add a
-			// project-level role roles/bigquery.user to give user the permission to run query jobs.
-			ds, ok := item[datasetVariable]
-			if ok && len(ds) > 0 {
-				dr, ok := bqMap[proj]
-				if !ok {
-					dr = make(map[string][]string)
-					bqMap[proj] = dr
-				}
-				dr[ds] = append(dr[ds], resolvedRole)
-				resolvedRole = "roles/bigquery.user"
-			}
-			// Otherwise, store project-level configuration.
-			prMap[proj] = append(prMap[proj], resolvedRole)
-		}
+// configureRoles applys the changes to policies on IAM, CRM, and GCS for a ResourceTokenCreationParams.
+func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, params *clouds.ResourceTokenCreationParams) error {
+	// prMap: map[<projectResourceName>][]<role> stores project-level IAM configurations.
+	// bktMap: map[<bucketName>][]<role> stores GCS bucket-level IAM configurations.
+	// bqMap: map[<projectResourceName>]map[<datasetID>][]<role> stores BigQuery dataset-level IAM configurations.
+	prMap, bktMap, bqMap, err := parseParams(params)
+	if err != nil {
+		return err
 	}
 
 	for project, roles := range prMap {
-		var failedEtag string
-		var prevErr error
-		if err := backoff.Retry(func() error {
-			policy, err := wh.crm.Projects.GetIamPolicy(project, &cloudresourcemanager.GetIamPolicyRequest{}).Context(ctx).Do()
-			if err != nil {
-				return convertToPermanentErrorIfApplicable(err, fmt.Errorf("getting IAM policy for project %q: %v", project, err))
-			}
-			// If the etag of the policy that previously failed to set still matches the etag of the
-			// the current state of the policy, then the previous error returned by SetIamPolicy is not
-			// related to etag and is hence a permanent error. Note that having matching etags doesn't
-			// necessarily mean that the previous error is an etag error since the policy might have
-			// changed between retry calls.
-			if len(failedEtag) > 0 && failedEtag == policy.Etag {
-				return convertToPermanentErrorIfApplicable(prevErr, fmt.Errorf("setting IAM policy for project %q on service account %q: %v", project, email, prevErr))
-			}
-			for _, role := range roles {
-				crmPolicyAdd(policy, role, "serviceAccount:"+email)
-			}
-			_, err = wh.crm.Projects.SetIamPolicy(project, &cloudresourcemanager.SetIamPolicyRequest{Policy: policy}).Context(ctx).Do()
-			if err != nil {
-				failedEtag = policy.Etag
-				prevErr = err
-			}
-			return err
-		}, exponentialBackoff); err != nil {
+		f := func() error { return applyCRMChange(ctx, wh.crm, email, project, roles, &backoffState{}) }
+		if err := backoff.Retry(f, exponentialBackoff); err != nil {
 			return err
 		}
 	}
 
 	for bkt, roles := range bktMap {
-		var failedEtag string
-		var prevErr error
-		if err := backoff.Retry(func() error {
-			policyCall := wh.cs.Buckets.GetIamPolicy(bkt)
-			if params.BillingProject != "" {
-				policyCall = policyCall.UserProject(params.BillingProject)
-			}
-			policy, err := policyCall.Context(ctx).Do()
-			if err != nil {
-				return convertToPermanentErrorIfApplicable(err, fmt.Errorf("getting IAM policy for bucket %q: %v", bkt, err))
-			}
-			if len(failedEtag) > 0 && failedEtag == policy.Etag {
-				return convertToPermanentErrorIfApplicable(prevErr, fmt.Errorf("setting IAM policy for bucket %q on service account %q: %v", bkt, email, prevErr))
-			}
-			for _, role := range roles {
-				gcsPolicyAdd(policy, role, "serviceAccount:"+email)
-			}
-			set := wh.cs.Buckets.SetIamPolicy(bkt, policy)
-			if params.BillingProject != "" {
-				set.UserProject(params.BillingProject)
-			}
-			_, err = set.Context(ctx).Do()
-			if err != nil {
-				failedEtag = policy.Etag
-				prevErr = err
-			}
-			return err
-		}, exponentialBackoff); err != nil {
+		f := func() error {
+			return applyGCSChange(ctx, wh.gcs, email, bkt, roles, params.BillingProject, &backoffState{})
+		}
+		if err := backoff.Retry(f, exponentialBackoff); err != nil {
 			return err
 		}
 	}
 
 	for project, drMap := range bqMap {
 		for dataset, roles := range drMap {
-			var failedEtag string
-			var prevErr error
-			if err := backoff.Retry(func() error {
-				ds, err := wh.bqDs.Get(project, dataset).Context(ctx).Do()
-				if err != nil {
-					return convertToPermanentErrorIfApplicable(err, fmt.Errorf("getting BigQuery dataset %q of project %q: %v", dataset, project, err))
-				}
-				if len(failedEtag) > 0 && failedEtag == ds.Etag {
-					return convertToPermanentErrorIfApplicable(prevErr, fmt.Errorf("updating BigQuery dataset %q of project %q: %v", dataset, project, prevErr))
-				}
-				for _, role := range roles {
-					da := &bigquery.DatasetAccess{
-						UserByEmail: email,
-						Role:        role,
-					}
-					found := false
-					for _, a := range ds.Access {
-						if a == da {
-							found = true
-							break
-						}
-					}
-					if !found {
-						ds.Access = append(ds.Access, da)
-					}
-				}
-				// Only patch the updated access list.
-				_, err = wh.bqDs.Patch(project, dataset, &bigquery.Dataset{Access: ds.Access}).Context(ctx).Do()
-				if err != nil {
-					failedEtag = ds.Etag
-					prevErr = err
-				}
-				return err
-			}, exponentialBackoff); err != nil {
+			f := func() error { return applyBQDSChange(ctx, wh.bqds, email, project, dataset, roles, &backoffState{}) }
+			if err := backoff.Retry(f, exponentialBackoff); err != nil {
 				return err
 			}
 		}
@@ -592,75 +484,124 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 	return nil
 }
 
-// crmPolicyAdd adds a member to a role in a CRM policy.
-func crmPolicyAdd(policy *cloudresourcemanager.Policy, role, member string) {
-	// Retrieve the existing binding for the given role if available, otherwise
-	// create one.
-	var binding *cloudresourcemanager.Binding
-	for _, b := range policy.Bindings {
-		if b.Role == role {
-			binding = b
-			break
+// parseParams returns the maps for projects, buckets, and BQ datasets.
+// map[<projectResourceName>][]<role> stores project-level IAM configurations.
+// map[<bucketName>][]<role> stores GCS bucket-level IAM configurations.
+// map[<projectResourceName>]map[<datasetID>][]<role> stores BigQuery dataset-level IAM configurations.
+func parseParams(params *clouds.ResourceTokenCreationParams) (projects map[string][]string, buckets map[string][]string, bqdatasets map[string]map[string][]string, err error) {
+	projects = make(map[string][]string)
+	buckets = make(map[string][]string)
+	bqdatasets = make(map[string]map[string][]string)
+
+	for _, role := range params.Roles {
+		// Roles should be in the format of either
+		// projects/{PROJECT-ID}/roles/{ROLE-ID} if it's a custom role defined for
+		// a project, or roles/{ROLE-ID} if it's a curated role.
+		rparts := strings.Split(role, "/")
+		isCustomRole := false
+		switch {
+		case len(rparts) == 2 || rparts[0] == "roles":
+			// non-custom role.
+		case len(rparts) == 4 && strings.HasPrefix(role, "projects/${project}/roles/"):
+			isCustomRole = true
+			role = fmt.Sprintf("roles/%s", rparts[3])
+		default:
+			return nil, nil, nil, fmt.Errorf(`role %q format not supported: must be "projects/{PROJECT-ID}/roles/{ROLE-ID}" or "roles/{ROLE-ID}"`, role)
+		}
+
+		for index, item := range params.Items {
+			proj, ok := item[projectVariable]
+			if !ok || len(proj) == 0 {
+				return nil, nil, nil, fmt.Errorf("item %d variable %q is undefined", index+1, projectVariable)
+			}
+
+			resolvedRole := role
+			if isCustomRole {
+				resolvedRole = fmt.Sprintf("projects/%s/%s", proj, role)
+			}
+
+			// If the bucket variable is available, store bucket-level configuration only.
+			bkt, ok := item[bucketVariable]
+			if ok && len(bkt) > 0 {
+				buckets[bkt] = append(buckets[bkt], resolvedRole)
+				continue
+			}
+
+			// If the dataset variable is available, store dataset-level configurations, and also add a
+			// project-level role roles/bigquery.user to give user the permission to run query jobs.
+			ds, ok := item[datasetVariable]
+			if ok && len(ds) > 0 {
+				dr, ok := bqdatasets[proj]
+				if !ok {
+					dr = make(map[string][]string)
+					bqdatasets[proj] = dr
+				}
+				dr[ds] = append(dr[ds], resolvedRole)
+				resolvedRole = "roles/bigquery.user"
+			}
+
+			// Otherwise, store project-level configuration.
+			projects[proj] = append(projects[proj], resolvedRole)
 		}
 	}
-	if binding == nil {
-		binding = &cloudresourcemanager.Binding{
-			Role:    role,
-			Members: []string{},
-		}
-		policy.Bindings = append(policy.Bindings, binding)
-	}
-	for _, m := range binding.Members {
-		if m == member {
-			return
-		}
-	}
-	binding.Members = append(binding.Members, member)
+	return
 }
 
-// gcsPolicyAdd adds a member to role in a GCS policy.
-func gcsPolicyAdd(policy *gcs.Policy, role, member string) {
-	var binding *gcs.PolicyBindings
-	for _, b := range policy.Bindings {
-		if b.Role == role {
-			binding = b
-			break
-		}
-	}
-	if binding == nil {
-		binding = &gcs.PolicyBindings{Role: role}
-		policy.Bindings = append(policy.Bindings, binding)
-	}
-
-	for _, m := range binding.Members {
-		if m == member {
-			return
-		}
-	}
-	binding.Members = append(binding.Members, member)
-}
-
-func accountName(project, hashID string) string {
-	return accountID(project, fmt.Sprintf("%s@%s.iam.gserviceaccount.com", hashID, project))
-}
-
-func accountID(project, account string) string {
-	return path.Join(projectID(project), "serviceAccounts", account)
-}
-
+// hashID hashes an ID.
 func hashID(id string) string {
 	hash := sha3.Sum224([]byte(id))
 	return "i" + hex.EncodeToString(hash[:])[:29]
 }
 
-func projectID(project string) string {
-	if len(project) == 0 {
-		project = "-"
-	}
-	return path.Join("projects", project)
+// accountResourceID returns the resource ID (email) of a given account ID.
+func accountResourceID(project, hashID string) string {
+	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", hashID, project)
 }
 
-// keyName returns the name of a key.
-func keyName(account, name string) string {
-	return account + "/keys/" + name
+// projectResourceName returns name of a project given its project ID.
+func projectResourceName(projectID string) string {
+	if projectID == "" {
+		projectID = "-"
+	}
+	return path.Join("projects", projectID)
+}
+
+// accountResourceName returns name of a service account given its project ID name and acount ID.
+func accountResourceName(projectID, accountID string) string {
+	return path.Join(projectResourceName(projectID), "serviceAccounts", accountID)
+}
+
+// keyResourceName returns name of a service account key given its project ID and service accounts ID and key ID.
+func keyResourceName(projectID, accountID, keyID string) string {
+	return path.Join(accountResourceName(projectID, accountID), "keys", keyID)
+}
+
+// RFC3339 convers a Timestamp to RFC3339 string.
+// Returns "" if the timestamp is invalid.
+func RFC3339(ts *tspb.Timestamp) string {
+	t, err := ptypes.Timestamp(ts)
+	if err != nil {
+		return ""
+	}
+	return t.Format(time.RFC3339)
+}
+
+// Timestamp returns the timestamp for a given time.
+// Returns empty if the time is invalid.
+func Timestamp(t time.Time) *tspb.Timestamp {
+	ts, err := ptypes.TimestampProto(t)
+	if err != nil {
+		return &tspb.Timestamp{}
+	}
+	return ts
+}
+
+// Time returns the time for a given timestamp.
+// Returns empty if the timestamp is invalid.
+func Time(ts *tspb.Timestamp) time.Time {
+	t, err := ptypes.Timestamp(ts)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }

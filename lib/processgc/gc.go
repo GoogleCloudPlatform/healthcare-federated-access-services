@@ -113,7 +113,7 @@ func (k *KeyGC) ProcessActiveProject(ctx context.Context, state *pb.Process, pro
 		process.AddProjectStats(1, "accounts", projectName, state)
 		keyTTL := project.Params.IntParams["keyTtl"]
 		keysPerAccount := project.Params.IntParams["keysPerAccount"]
-		got, rm, err := k.am.ManageAccountKeys(ctx, projectName, a.ID, 0, time.Duration(keyTTL)*time.Second, keysPerAccount)
+		got, rm, err := k.am.ManageAccountKeys(ctx, projectName, a.ID, 0, time.Duration(keyTTL)*time.Second, time.Now(), keysPerAccount)
 		if err != nil {
 			run := process.AddProjectError(err, projectName, state)
 			if run != processlib.Continue {

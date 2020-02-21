@@ -26,6 +26,7 @@ type MockAccountManagerEntry struct {
 	Project        string
 	TTL            time.Duration
 	MaxKeyTTL      time.Duration
+	Now            time.Time
 	KeysPerAccount int64
 }
 
@@ -68,7 +69,7 @@ func (m *MockAccountManager) RemoveServiceAccount(ctx context.Context, project, 
 }
 
 // ManageAccountKeys maintains or removes keys on a clean-up cycle. Returns: remaining keys for account, removed keys for account, and error.
-func (m *MockAccountManager) ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, keysPerAccount int64) (int, int, error) {
+func (m *MockAccountManager) ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, now time.Time, keysPerAccount int64) (int, int, error) {
 	m.calls = append(m.calls, MockAccountManagerEntry{Call: "ManageAccountKeys", Project: project, AccountID: accountID, TTL: ttl, MaxKeyTTL: maxKeyTTL, KeysPerAccount: keysPerAccount})
 	return 1, 2, nil
 }

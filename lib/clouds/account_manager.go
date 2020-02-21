@@ -37,5 +37,5 @@ type AccountManager interface {
 	RemoveServiceAccount(ctx context.Context, project, accountID string) error
 
 	// ManageAccountKeys maintains or removes keys on a clean-up cycle. Returns: remaining keys for account, removed keys for account, and error.
-	ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, keysPerAccount int64) (int, int, error)
+	ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, now time.Time, keysPerAccount int64) (int, int, error)
 }
