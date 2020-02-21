@@ -83,7 +83,7 @@ func TestSAW_GetAccountKey(t *testing.T) {
 	want := &clouds.ResourceTokenResult{
 		Format:  "base64",
 		Account: "ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com",
-		Token:   "projects/-/serviceAccounts/ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com/keys/fake-key-id-0/fake-private-key",
+		Token:   "projects/fake-account-project/serviceAccounts/ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com/keys/fake-key-id-0/fake-private-key",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("saw.GetAccountKey() returned diff (-want +got):\n%s", diff)
@@ -173,6 +173,208 @@ func TestSAW_GetTokenMetadata(t *testing.T) {
 	}
 }
 
+func TestSAW_ListTokenMetadata(t *testing.T) {
+	ctx := context.Background()
+
+	fix, cleanup := newFix(t)
+	defer cleanup()
+
+	store := fakestore.New()
+	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	params := &clouds.ResourceTokenCreationParams{
+		AccountProject: "fake-account-project",
+		Items:          []map[string]string{},
+		Roles:          []string{},
+		Scopes:         []string{"fake-scope"},
+		BillingProject: "fake-billing-project",
+	}
+
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+
+	if _, err := saw.MintTokenWithTTL(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("MintTokenWithTTL() failed: %v", err)
+	}
+
+	got, err := saw.ListTokenMetadata(ctx, "fake-account-project", "fake-id")
+	if err != nil {
+		t.Errorf("GetTokenMetadata() failed: %v", err)
+	}
+
+	exp := Time(fix.credsSrv.tokens[0].ExpireTime)
+	want := []*cpb.TokenMetadata{{
+		Name:     "fake-key-id-0",
+		IssuedAt: RFC3339(Timestamp(exp.Add(-1 * time.Hour))),
+		Expires:  RFC3339(Timestamp(exp.Add(23 * time.Hour))),
+	}}
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Errorf("saw.GetTokenMetadata() returned diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestSAW_DeleteTokens(t *testing.T) {
+	ctx := context.Background()
+
+	fix, cleanup := newFix(t)
+	defer cleanup()
+
+	store := fakestore.New()
+	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	params := &clouds.ResourceTokenCreationParams{
+		AccountProject: "fake-account-project",
+		Items:          []map[string]string{},
+		Roles:          []string{},
+		Scopes:         []string{"fake-scope"},
+		BillingProject: "fake-billing-project",
+	}
+
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+
+	if _, err := saw.MintTokenWithTTL(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("MintTokenWithTTL() failed: %v", err)
+	}
+
+	if err := saw.DeleteTokens(ctx, "fake-account-project", "fake-id", nil); err != nil {
+		t.Errorf("DeleteTokens() failed: %v", err)
+	}
+
+	if len(fix.iamSrv.keys) != 0 {
+		t.Errorf("saw.DeleteTokens() didn't delete the keys.")
+	}
+}
+
+func TestSAW_GetServiceAccounts(t *testing.T) {
+	ctx := context.Background()
+
+	fix, cleanup := newFix(t)
+	defer cleanup()
+
+	store := fakestore.New()
+	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	params := &clouds.ResourceTokenCreationParams{
+		AccountProject: "fake-account-project",
+		Items:          []map[string]string{},
+		Roles:          []string{},
+		Scopes:         []string{"fake-scope"},
+		BillingProject: "fake-billing-project",
+	}
+
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+
+	nctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	c, err := saw.GetServiceAccounts(nctx, "fake-account-project")
+	if err != nil {
+		t.Errorf("GetServiceAccounts() failed: %v", err)
+	}
+
+	var got []*clouds.Account
+	for a := range c {
+		got = append(got, a)
+	}
+
+	want := []*clouds.Account{{
+		ID:          "ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com",
+		DisplayName: "fake-id",
+	}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("saw.GetServiceAccounts() returned diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestSAW_RemoveServiceAccount(t *testing.T) {
+	ctx := context.Background()
+
+	fix, cleanup := newFix(t)
+	defer cleanup()
+
+	store := fakestore.New()
+	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	params := &clouds.ResourceTokenCreationParams{
+		AccountProject: "fake-account-project",
+		Items:          []map[string]string{},
+		Roles:          []string{},
+		Scopes:         []string{"fake-scope"},
+		BillingProject: "fake-billing-project",
+	}
+
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+
+	if err := saw.RemoveServiceAccount(ctx, "fake-account-project", "fake-id"); err != nil {
+		t.Errorf("RemoveServiceAccount() failed: %v", err)
+	}
+}
+
+func TestSAW_ManageAccountKeys_RemovesExpiredKeys(t *testing.T) {
+	ctx := context.Background()
+
+	fix, cleanup := newFix(t)
+	defer cleanup()
+
+	store := fakestore.New()
+	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	params := &clouds.ResourceTokenCreationParams{
+		AccountProject: "fake-account-project",
+		Items:          []map[string]string{},
+		Roles:          []string{},
+		Scopes:         []string{"fake-scope"},
+		BillingProject: "fake-billing-project",
+	}
+
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+
+	active, removed, err := saw.ManageAccountKeys(ctx, "fake-project-id", emailID("fake-project-id", "fake-id"), time.Minute, time.Hour, time.Now(), 2)
+	if err != nil {
+		t.Errorf("ManageAccountKeys() failed: %v", err)
+	}
+	if active != 2 || removed != 1 {
+		t.Errorf("ManageAccountKeys() = active:%v, removed:%v, want active:%v, removed:%v", active, removed, 2, 1)
+	}
+
+	active, removed, err = saw.ManageAccountKeys(ctx, "fake-project-id", emailID("fake-project-id", "fake-id"), time.Minute, time.Hour, time.Now().Add(48*time.Hour), 2)
+	if err != nil {
+		t.Errorf("ManageAccountKeys() failed: %v", err)
+	}
+	if active != 0 || removed != 2 {
+		t.Errorf("ManageAccountKeys() = active:%v, removed:%v, want active:%v, removed:%v", active, removed, 0, 2)
+	}
+}
+
 // Fix is a test fixture.
 type Fix struct {
 	rpc      *fakegrpc.Fake
@@ -231,7 +433,7 @@ type fakeIAM struct {
 	accounts []*iampb.ServiceAccount
 	keys     []*iampb.ServiceAccountKey
 
-	iamgrpcpb.UnimplementedIAMServer
+	iamgrpcpb.IAMServer
 }
 
 func (f *fakeIAM) ListServiceAccounts(ctx context.Context, req *iampb.ListServiceAccountsRequest) (*iampb.ListServiceAccountsResponse, error) {
@@ -272,9 +474,6 @@ func (f *fakeIAM) CreateServiceAccount(ctx context.Context, req *iampb.CreateSer
 		ProjectId:      proj,
 		Oauth2ClientId: guid,
 		DisplayName:    req.GetServiceAccount().GetDisplayName(),
-		Description:    req.GetServiceAccount().GetDescription(),
-		ActasResources: req.GetServiceAccount().GetActasResources(),
-		Disabled:       req.GetServiceAccount().GetDisabled(),
 	}
 	a.Etag = HashProto(a)
 
@@ -288,11 +487,13 @@ func (f *fakeIAM) CreateServiceAccount(ctx context.Context, req *iampb.CreateSer
 func (f *fakeIAM) DeleteServiceAccount(ctx context.Context, req *iampb.DeleteServiceAccountRequest) (*epb.Empty, error) {
 	glog.Infof("DeleteServiceAccountReq: %v", req)
 	name := req.Name
-	for i := range f.accounts {
-		if f.accounts[i].Name == name {
-			f.accounts = append(f.accounts[:i], f.accounts[i+1:]...)
+	var updated []*iampb.ServiceAccount
+	for _, a := range f.accounts {
+		if a.Name != name {
+			updated = append(updated, a)
 		}
 	}
+	f.accounts = updated
 	return &epb.Empty{}, nil
 }
 
@@ -329,12 +530,10 @@ func (f *fakeIAM) CreateServiceAccountKey(ctx context.Context, req *iampb.Create
 	}
 	a := &iampb.ServiceAccountKey{
 		Name:            name,
-		PublicKeyData:   []byte(name + "/fake-public-key"),
-		PrivateKeyData:  []byte(name + "/fake-private-key"),
 		PrivateKeyType:  iampb.ServiceAccountPrivateKeyType_TYPE_GOOGLE_CREDENTIALS_FILE,
 		KeyAlgorithm:    iampb.ServiceAccountKeyAlgorithm_KEY_ALG_RSA_2048,
-		KeyType:         iampb.ListServiceAccountKeysRequest_USER_MANAGED,
-		KeyOrigin:       iampb.ServiceAccountKeyOrigin_GOOGLE_PROVIDED,
+		PrivateKeyData:  []byte(name + "/fake-private-key"),
+		PublicKeyData:   []byte(name + "/fake-public-key"),
 		ValidAfterTime:  Timestamp(time.Now()),
 		ValidBeforeTime: Timestamp(time.Now().Add(24 * time.Hour)),
 	}
@@ -346,18 +545,20 @@ func (f *fakeIAM) CreateServiceAccountKey(ctx context.Context, req *iampb.Create
 func (f *fakeIAM) DeleteServiceAccountKey(ctx context.Context, req *iampb.DeleteServiceAccountKeyRequest) (*epb.Empty, error) {
 	glog.Infof("DeleteServiceAccountKeyReq: %v", req)
 	name := req.Name
-	for i := range f.keys {
-		if f.keys[i].Name == name {
-			f.keys = append(f.keys[:i], f.keys[i+1:]...)
+	var updated []*iampb.ServiceAccountKey
+	for _, a := range f.keys {
+		if a.Name != name {
+			updated = append(updated, a)
 		}
 	}
+	f.keys = updated
 	return &epb.Empty{}, nil
 }
 
 type fakeIAMCreds struct {
 	count  int
 	tokens []*iamcredscpb.GenerateAccessTokenResponse
-	iamcredsgrpcpb.UnimplementedIAMCredentialsServer
+	iamcredsgrpcpb.IAMCredentialsServer
 }
 
 func (f *fakeIAMCreds) GenerateAccessToken(ctx context.Context, req *iamcredscpb.GenerateAccessTokenRequest) (*iamcredscpb.GenerateAccessTokenResponse, error) {

@@ -169,9 +169,9 @@ func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl
 	return wh.GetAccessToken(ctx, id, params)
 }
 
-// GetTokenMetadata returns an access token based on its name.
-func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, name string) (*cpb.TokenMetadata, error) {
-	account := accountResourceName(project, accountResourceID(project, id))
+// GetTokenMetadata returns an access token based on its key.
+func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, keyName string) (*cpb.TokenMetadata, error) {
+	account := accountResourceName(project, emailID(project, id))
 	// A standard Keys.Get does not return ValidAfterTime or ValidBeforeTime
 	// so use List and pull the right key out of the list. These lists are small.
 	k, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: account, KeyTypes: userManaged})
@@ -180,20 +180,20 @@ func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, n
 	}
 	for _, key := range k.GetKeys() {
 		parts := strings.Split(key.Name, "/")
-		if name == parts[len(parts)-1] {
+		if keyName == parts[len(parts)-1] {
 			return &cpb.TokenMetadata{
-				Name:     name,
+				Name:     keyName,
 				IssuedAt: RFC3339(key.ValidAfterTime),
 				Expires:  RFC3339(key.ValidBeforeTime),
 			}, nil
 		}
 	}
-	return nil, fmt.Errorf("token key %q not found", name)
+	return nil, fmt.Errorf("token key %q not found", keyName)
 }
 
 // ListTokenMetadata returns a list of outstanding access tokens.
 func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id string) ([]*cpb.TokenMetadata, error) {
-	account := accountResourceName(project, accountResourceID(project, id))
+	account := accountResourceName(project, emailID(project, id))
 	k, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: account, KeyTypes: userManaged})
 	if err != nil {
 		return nil, fmt.Errorf("list tokens from service keys: %v", err)
@@ -215,17 +215,17 @@ func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id s
 
 // DeleteTokens removes tokens belonging to 'id' with given names.
 // If 'names' is empty, delete all tokens belonging to 'id'.
-func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string, names []string) error {
-	account := accountResourceName(project, accountResourceID(project, id))
-	if len(names) == 0 {
+func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string, keyNames []string) error {
+	account := accountResourceName(project, emailID(project, id))
+	if len(keyNames) == 0 {
 		var err error
-		names, err = wh.fetchAllNames(ctx, account)
+		keyNames, err = wh.fetchAllNames(ctx, account)
 		if err != nil {
 			return err
 		}
 	}
 
-	for _, name := range names {
+	for _, name := range keyNames {
 		if err := wh.iam.DeleteServiceAccountKey(ctx, &iampb.DeleteServiceAccountKeyRequest{Name: keyResourceName(project, id, name)}); err != nil {
 			return fmt.Errorf("deleting token key %q: %v", name, err)
 		}
@@ -234,12 +234,12 @@ func (wh *AccountWarehouse) DeleteTokens(ctx context.Context, project, id string
 }
 
 func (wh *AccountWarehouse) fetchAllNames(ctx context.Context, account string) ([]string, error) {
-	k, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: account, KeyTypes: userManaged})
+	resp, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: account, KeyTypes: userManaged})
 	if err != nil {
 		return nil, fmt.Errorf("listing tokens for service keys: %v", err)
 	}
-	names := make([]string, 0, len(k.Keys))
-	for _, key := range k.GetKeys() {
+	names := make([]string, 0, len(resp.Keys))
+	for _, key := range resp.GetKeys() {
 		parts := strings.Split(key.Name, "/")
 		name := parts[len(parts)-1]
 		names = append(names, name)
@@ -253,7 +253,7 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 		numKeys = defaultKeysPerAccount
 	}
 
-	account, err := wh.configureBackingAccount(ctx, id, params)
+	email, err := wh.configureBackingAccount(ctx, id, params)
 	if err != nil {
 		return nil, fmt.Errorf("configuring backing account: %v", err)
 	}
@@ -261,18 +261,18 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 	// Call Manage to make room for the new key if needed.
 	makeRoom := numKeys - 1
 	keyTTL := common.KeyTTL(maxTTL, numKeys)
-	if _, _, err := wh.ManageAccountKeys(ctx, params.AccountProject, account, ttl, keyTTL, time.Now(), int64(makeRoom)); err != nil {
+	if _, _, err := wh.ManageAccountKeys(ctx, params.AccountProject, email, ttl, keyTTL, time.Now(), int64(makeRoom)); err != nil {
 		return nil, fmt.Errorf("garbage collecting keys: %v", err)
 	}
 
-	key, err := wh.iam.CreateServiceAccountKey(ctx, &iampb.CreateServiceAccountKeyRequest{Name: accountResourceName(inheritProject, account), PrivateKeyType: iampb.ServiceAccountPrivateKeyType_TYPE_GOOGLE_CREDENTIALS_FILE})
+	key, err := wh.iam.CreateServiceAccountKey(ctx, &iampb.CreateServiceAccountKeyRequest{Name: accountResourceName(params.AccountProject, email), PrivateKeyType: iampb.ServiceAccountPrivateKeyType_TYPE_GOOGLE_CREDENTIALS_FILE})
 	if err != nil && status.Code(err) != codes.AlreadyExists {
 		return nil, fmt.Errorf("creating key: %v", err)
 	}
 
 	if !httputil.IsJSON(params.TokenFormat) {
 		return &clouds.ResourceTokenResult{
-			Account: account,
+			Account: email,
 			Token:   string(key.PrivateKeyData),
 			Format:  "base64",
 		}, nil
@@ -283,7 +283,7 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 		return nil, fmt.Errorf("decoding key: %v", err)
 	}
 	return &clouds.ResourceTokenResult{
-		Account: account,
+		Account: email,
 		Token:   string(bytes),
 		Format:  params.TokenFormat,
 	}, nil
@@ -295,12 +295,12 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 //   keysPerAccount is the maximum number of keys allowed per account. If too many keys exists, older keys will be removed.
 // Returns:
 //   the number of remaining active keys and removed keys for the account.
-func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, account string, ttl, maxTTL time.Duration, now time.Time, keysPerAccount int64) (int, int, error) {
+func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, email string, ttl, maxTTL time.Duration, now time.Time, keysPerAccount int64) (int, int, error) {
 	// TODO: instead of turning duration to string and comparing strings, the string ValidAfterTime should be converted to time and compared using time comparison.
 	// A key has expired if key.ValidAfterTime + maxTTL < now, i.e. key.ValidAfterTime < now - maxTTL
 	expired := now.Add(-1 * maxTTL).Format(time.RFC3339)
 
-	resp, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: accountResourceName(inheritProject, account), KeyTypes: userManaged})
+	resp, err := wh.iam.ListServiceAccountKeys(ctx, &iampb.ListServiceAccountKeysRequest{Name: accountResourceName(project, email), KeyTypes: userManaged})
 	if err != nil {
 		return 0, 0, fmt.Errorf("getting key list: %v", err)
 	}
@@ -340,18 +340,18 @@ func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, acco
 // GetAccessToken returns an access token for the service account uniquely
 // associated with id.
 func (wh *AccountWarehouse) GetAccessToken(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
-	account, err := wh.configureBackingAccount(ctx, id, params)
+	email, err := wh.configureBackingAccount(ctx, id, params)
 	if err != nil {
 		return nil, fmt.Errorf("getting backing account: %v", err)
 	}
 
-	resp, err := wh.creds.GenerateAccessToken(ctx, &iamcredscpb.GenerateAccessTokenRequest{Name: accountResourceName(inheritProject, account), Scope: params.Scopes})
+	resp, err := wh.creds.GenerateAccessToken(ctx, &iamcredscpb.GenerateAccessTokenRequest{Name: accountResourceName(params.AccountProject, email), Scope: params.Scopes})
 	if err != nil {
 		return nil, fmt.Errorf("generating access token: %v", err)
 	}
 
 	return &clouds.ResourceTokenResult{
-		Account: account,
+		Account: email,
 		Token:   resp.AccessToken,
 		Format:  "base64",
 	}, nil
@@ -368,7 +368,6 @@ func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, project stri
 			a := &clouds.Account{
 				ID:          acct.Email,
 				DisplayName: acct.DisplayName,
-				Description: acct.Description,
 			}
 			select {
 			case c <- a:
@@ -399,8 +398,8 @@ func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, project stri
 }
 
 // RemoveServiceAccount remvoes a service account.
-func (wh *AccountWarehouse) RemoveServiceAccount(ctx context.Context, project, email string) error {
-	name := accountResourceName(inheritProject, email)
+func (wh *AccountWarehouse) RemoveServiceAccount(ctx context.Context, project, id string) error {
+	name := accountResourceName(project, emailID(project, id))
 	return wh.iam.DeleteServiceAccount(ctx, &iampb.DeleteServiceAccountRequest{Name: name})
 }
 
@@ -415,10 +414,11 @@ func (wh *AccountWarehouse) configureBackingAccount(ctx context.Context, id stri
 	return email, nil
 }
 
+// getOrCreateBackingAccount returns the accountID (email).
 func (wh *AccountWarehouse) getOrCreateBackingAccount(ctx context.Context, id string, params *clouds.ResourceTokenCreationParams) (string, error) {
 	proj := params.AccountProject
 	hid := hashID(id)
-	name := accountResourceName(proj, accountResourceID(proj, hid))
+	name := accountResourceName(proj, emailID(proj, id))
 
 	account, err := wh.iam.GetServiceAccount(ctx, &iampb.GetServiceAccountRequest{Name: name})
 	if err != nil && status.Code(err) != codes.NotFound {
@@ -553,9 +553,10 @@ func hashID(id string) string {
 	return "i" + hex.EncodeToString(hash[:])[:29]
 }
 
-// accountResourceID returns the resource ID (email) of a given account ID.
-func accountResourceID(project, hashID string) string {
-	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", hashID, project)
+// emailID returns the resource ID (email) of a given external id.
+// "HASH(ID)@PROJECT.iam.gserviceaccount.com"
+func emailID(project, id string) string {
+	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", hashID(id), project)
 }
 
 // projectResourceName returns name of a project given its project ID.
@@ -566,14 +567,14 @@ func projectResourceName(projectID string) string {
 	return path.Join("projects", projectID)
 }
 
-// accountResourceName returns name of a service account given its project ID name and acount ID.
+// accountResourceName returns name of a service account given its project ID name and account ID.
 func accountResourceName(projectID, accountID string) string {
 	return path.Join(projectResourceName(projectID), "serviceAccounts", accountID)
 }
 
 // keyResourceName returns name of a service account key given its project ID and service accounts ID and key ID.
 func keyResourceName(projectID, accountID, keyID string) string {
-	return path.Join(accountResourceName(projectID, accountID), "keys", keyID)
+	return path.Join(accountResourceName(projectID, emailID(projectID, accountID)), "keys", keyID)
 }
 
 // RFC3339 convers a Timestamp to RFC3339 string.
