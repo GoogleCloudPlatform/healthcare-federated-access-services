@@ -22,10 +22,9 @@ import (
 	"strings"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 )
 
 func main() {
@@ -72,28 +71,29 @@ func main() {
 }
 
 func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, store *dsstore.DatastoreStorage) {
-	wh := saw.MustBuildAccountWarehouse(ctx, store)
+	wh := saw.MustNew(ctx, store)
 	var (
 		removed, skipped, errors int
 		emails                   []string
 	)
 	maxErrors := 20
 	aborted := ""
-	err := wh.GetServiceAccounts(ctx, project, func(sa *clouds.Account) bool {
-		// DAM adds service account DisplayName of the form: subject|service_full_path
-		// so pull out the service_full_path and match on the accountPrefix provided.
-		parts := strings.SplitN(sa.DisplayName, "|", 2)
-		if len(parts) < 2 || !strings.HasPrefix(parts[1], accountPrefix) {
-			skipped++
-			return true
-		}
-		emails = append(emails, sa.ID)
-		return true
-	})
+	accounts, err := wh.GetServiceAccounts(ctx, project)
 	if err != nil {
 		glog.Errorf("fetching service accounts from project %q failed: %v", project, err)
 		return
 	}
+
+	for a := range accounts {
+		// DAM adds service account DisplayName of the form: subject|service_full_path
+		// so pull out the service_full_path and match on the accountPrefix provided.
+		parts := strings.SplitN(a.DisplayName, "|", 2)
+		if len(parts) < 2 || !strings.HasPrefix(parts[1], accountPrefix) {
+			skipped++
+		}
+		emails = append(emails, a.ID)
+	}
+
 	for _, email := range emails {
 		if err := wh.RemoveServiceAccount(ctx, project, email); err != nil {
 			if errors < 3 {

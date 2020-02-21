@@ -26,7 +26,7 @@ type MockAccountManagerEntry struct {
 	Project        string
 	TTL            time.Duration
 	MaxKeyTTL      time.Duration
-	KeysPerAccount int
+	KeysPerAccount int64
 }
 
 // MockAccountManager provides an account manager implementation for testing.
@@ -44,14 +44,20 @@ func NewMockAccountManager(accounts []*Account) *MockAccountManager {
 }
 
 // GetServiceAccounts calls "callback" once per service account for the given project.
-func (m *MockAccountManager) GetServiceAccounts(ctx context.Context, project string, callback func(sa *Account) bool) error {
+func (m *MockAccountManager) GetServiceAccounts(ctx context.Context, project string) (<-chan *Account, error) {
 	m.calls = append(m.calls, MockAccountManagerEntry{Call: "GetServiceAccounts", Project: project})
-	for _, account := range m.accounts {
-		if callback(account) == false {
-			break
+	c := make(chan *Account)
+	go func() {
+		defer close(c)
+		for _, a := range m.accounts {
+			select {
+			case <-ctx.Done():
+				return
+			case c <- a:
+			}
 		}
-	}
-	return nil
+	}()
+	return c, nil
 }
 
 // RemoveServiceAccount removes a service account related to the given project.
@@ -61,7 +67,7 @@ func (m *MockAccountManager) RemoveServiceAccount(ctx context.Context, project, 
 }
 
 // ManageAccountKeys maintains or removes keys on a clean-up cycle. Returns: remaining keys for account, removed keys for account, and error.
-func (m *MockAccountManager) ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, keysPerAccount int) (int, int, error) {
+func (m *MockAccountManager) ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, keysPerAccount int64) (int, int, error) {
 	m.calls = append(m.calls, MockAccountManagerEntry{Call: "ManageAccountKeys", Project: project, AccountID: accountID, TTL: ttl, MaxKeyTTL: maxKeyTTL, KeysPerAccount: keysPerAccount})
 	return 1, 2, nil
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package process
+package processgc
 
 import (
 	"context"
@@ -108,8 +108,8 @@ func TestKeyGC_UpdateSettings(t *testing.T) {
 	}
 
 	initFreq := time.Hour
-	if initFreq != gc.process.scheduleFrequency {
-		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", initFreq, gc.process.scheduleFrequency)
+	if initFreq != gc.process.ScheduleFrequency() {
+		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", initFreq, gc.process.ScheduleFrequency())
 	}
 
 	gc.UpdateSettings(100*time.Hour, 6, nil)
@@ -117,11 +117,11 @@ func TestKeyGC_UpdateSettings(t *testing.T) {
 	want := &pb.Process_Params{
 		IntParams: map[string]int64{"keyTtl": 420001, "keysPerAccount": 6, "maxRequestedTtl": 360000},
 	}
-	if !proto.Equal(want, gc.process.defaultSettings) {
-		t.Errorf("process settings mismatch: want %+v, got %+v", want, gc.process.defaultSettings)
+	if !proto.Equal(want, gc.process.DefaultSettings()) {
+		t.Errorf("process settings mismatch: want %+v, got %+v", want, gc.process.DefaultSettings())
 	}
 	wantFreq, _ := time.ParseDuration("11h40m0.1s")
-	if wantFreq != gc.process.scheduleFrequency {
-		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", wantFreq, gc.process.scheduleFrequency)
+	if wantFreq != gc.process.ScheduleFrequency() {
+		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", wantFreq, gc.process.ScheduleFrequency())
 	}
 }

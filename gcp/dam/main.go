@@ -24,10 +24,10 @@ import (
 	"os/signal"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/server" /* copybara-comment: server */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -80,7 +80,7 @@ func main() {
 		glog.Fatalf("Unknown storage type %q", storageType)
 	}
 
-	wh := saw.MustBuildAccountWarehouse(ctx, store)
+	wh := saw.MustNew(ctx, store)
 
 	logger, err := logging.NewClient(ctx, project)
 	if err != nil {

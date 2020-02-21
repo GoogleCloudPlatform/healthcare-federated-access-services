@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package process
+// Package processgc provices an Account Manager Garbage Collection.
+package processgc
 
 import (
 	"context"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	processlib "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/process" /* copybara-comment: process */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
@@ -34,7 +36,7 @@ const (
 type KeyGC struct {
 	name    string
 	am      clouds.AccountManager
-	process *Process
+	process *processlib.Process
 	wait    func(ctx context.Context, duration time.Duration) bool
 }
 
@@ -51,7 +53,8 @@ func NewKeyGC(name string, warehouse clouds.AccountManager, store storage.Store,
 			"keyTtl":          int64(common.KeyTTL(maxRequestedTTL, keysPerAccount).Seconds()),
 		},
 	}
-	k.process = NewProcess(name, k, store, keyScheduleFrequency, defaultParams)
+	// TODO: reverse the dependency, this package doesn't need to know about process.
+	k.process = processlib.NewProcess(name, k, store, keyScheduleFrequency, defaultParams)
 	return k
 }
 
@@ -93,39 +96,56 @@ func (k *KeyGC) Run(ctx context.Context) {
 }
 
 // ProcessActiveProject has a worker perform the work needed to process an active project.
-func (k *KeyGC) ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *Process) error {
-	return k.am.GetServiceAccounts(ctx, projectName, func(sa *clouds.Account) bool {
-		if !isGarbageCollectAccount(sa) {
-			return true
+func (k *KeyGC) ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *processlib.Process) error {
+	accounts, err := k.am.GetServiceAccounts(ctx, projectName)
+	if err != nil {
+		return err
+	}
+
+	for a := range accounts {
+		if !isGarbageCollectAccount(a) {
+			continue
 		}
-		run := Continue
+
 		process.AddProjectStats(1, "accounts", projectName, state)
 		keyTTL := project.Params.IntParams["keyTtl"]
 		keysPerAccount := project.Params.IntParams["keysPerAccount"]
-		got, rm, err := k.am.ManageAccountKeys(ctx, projectName, sa.ID, 0, time.Duration(keyTTL)*time.Second, int(keysPerAccount))
+		got, rm, err := k.am.ManageAccountKeys(ctx, projectName, a.ID, 0, time.Duration(keyTTL)*time.Second, keysPerAccount)
 		if err != nil {
-			run = process.AddProjectError(err, projectName, state)
+			run := process.AddProjectError(err, projectName, state)
+			if run != processlib.Continue {
+				return nil
+			}
+			continue
 		}
 		process.AddProjectStats(float64(got), "keysKept", projectName, state)
 		process.AddProjectStats(float64(rm), "keysRemoved", projectName, state)
-		return run == Continue
-	})
+	}
+	return nil
 }
 
 // CleanupProject has a worker perform the work needed to clean up a project that was active previously.
-func (k *KeyGC) CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *Process) error {
-	return k.am.GetServiceAccounts(ctx, projectName, func(sa *clouds.Account) bool {
-		if isGarbageCollectAccount(sa) {
-			if err := k.am.RemoveServiceAccount(ctx, projectName, sa.ID); err == nil {
-				process.AddProjectStats(1, "accountsRemoved", projectName, state)
-			} else {
-				process.AddProjectStats(1, "accountsDirty", projectName, state)
-				process.AddProjectError(err, projectName, state)
-				return false
-			}
+func (k *KeyGC) CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *processlib.Process) error {
+	accounts, err := k.am.GetServiceAccounts(ctx, projectName)
+	if err != nil {
+		return err
+	}
+
+	for a := range accounts {
+		if !isGarbageCollectAccount(a) {
+			continue
 		}
-		return true
-	})
+		if err := k.am.RemoveServiceAccount(ctx, projectName, a.ID); err != nil {
+			process.AddProjectStats(1, "accountsDirty", projectName, state)
+			run := process.AddProjectError(err, projectName, state)
+			if run != processlib.Continue {
+				return nil
+			}
+			continue
+		}
+		process.AddProjectStats(1, "accountsRemoved", projectName, state)
+	}
+	return nil
 }
 
 // Wait indicates that the worker should wait for the next active cycle to begin.

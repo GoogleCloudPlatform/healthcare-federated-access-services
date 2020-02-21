@@ -70,6 +70,16 @@ const (
 	None Progress = "None"
 )
 
+// Worker represents a process that perform work on the project state provided.
+type Worker interface {
+	// ProcessActiveProject has a worker perform the work needed to process an active project.
+	ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *Process) error
+	// CleanupProject has a worker perform the work needed to clean up a project that was active previously.
+	CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *Process) error
+	// Wait indicates that the worker should wait for the next active cycle to begin. Return false to exit worker.
+	Wait(ctx context.Context, duration time.Duration) bool
+}
+
 // Process is a background process that performs work at a scheduled frequency.
 type Process struct {
 	name                 string
@@ -82,16 +92,6 @@ type Process struct {
 	progressFrequency    time.Duration
 	defaultSettings      *pb.Process_Params
 	running              bool
-}
-
-// Worker represents a process that perform work on the project state provided.
-type Worker interface {
-	// ProcessActiveProject has a worker perform the work needed to process an active project.
-	ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *Process) error
-	// CleanupProject has a worker perform the work needed to clean up a project that was active previously.
-	CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *Process) error
-	// Wait indicates that the worker should wait for the next active cycle to begin. Return false to exit worker.
-	Wait(ctx context.Context, duration time.Duration) bool
 }
 
 // NewProcess creates a new process to perform work of a given name. It will trigger every "scheduleFrequency"
@@ -114,6 +114,16 @@ func NewProcess(name string, worker Worker, store storage.Store, scheduleFrequen
 	p.scheduleFrequency = sf
 	p.progressFrequency = pf
 	return p
+}
+
+// ScheduleFrequency returns schedule frequency.
+func (p *Process) ScheduleFrequency() time.Duration {
+	return p.scheduleFrequency
+}
+
+// DefaultSettings returns the default settings.
+func (p *Process) DefaultSettings() *pb.Process_Params {
+	return p.defaultSettings
 }
 
 // RegisterProject adds a project to the state for workers to process.

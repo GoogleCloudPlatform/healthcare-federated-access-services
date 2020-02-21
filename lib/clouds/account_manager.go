@@ -30,11 +30,11 @@ type Account struct {
 type AccountManager interface {
 
 	// GetServiceAccounts calls "callback" once per service account for the given project.
-	GetServiceAccounts(ctx context.Context, project string, callback func(sa *Account) bool) error
+	GetServiceAccounts(ctx context.Context, project string) (<-chan *Account, error)
 
 	// RemoveServiceAccount removes a service account related to the given project.
 	RemoveServiceAccount(ctx context.Context, project, accountID string) error
 
 	// ManageAccountKeys maintains or removes keys on a clean-up cycle. Returns: remaining keys for account, removed keys for account, and error.
-	ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, keysPerAccount int) (int, int, error)
+	ManageAccountKeys(ctx context.Context, project, accountID string, ttl, maxKeyTTL time.Duration, keysPerAccount int64) (int, int, error)
 }
