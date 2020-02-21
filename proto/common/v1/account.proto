@@ -61,8 +61,6 @@ message ConnectedAccount {
   int64 revision = 5;
   int64 link_revision = 6;
   Passport passport = 7;
-  // TODO: remove "tags".
-  repeated string tags = 8 [deprecated = true];
   IdentityProvider computed_identity_provider = 9
       [json_name = "identityProvider"];
   string computed_login_hint = 10 [json_name = "loginHint"];

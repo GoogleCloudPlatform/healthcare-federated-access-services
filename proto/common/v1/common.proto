@@ -60,19 +60,11 @@ message TestPersona {
 message Permissions {
   message PermissionUser {
     map<string, int64> roles = 1;
-    // TODO: remove "tags".
-    repeated string tags = 2 [deprecated = true];
   }
   string version = 1;
   int64 revision = 2;
   double commit_time = 3;
   map<string, PermissionUser> users = 4;
-}
-
-// TODO: remove "tags".
-message AccountTag {
-  string category = 1;
-  map<string, string> ui = 3;
 }
 
 // LoginState records states for login and login callback.
