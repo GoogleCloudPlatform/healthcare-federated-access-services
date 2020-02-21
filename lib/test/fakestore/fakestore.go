@@ -210,9 +210,7 @@ func (s *Store) multiRead(
 			continue
 		}
 
-		if proto.MessageReflect(v).Descriptor() != proto.MessageReflect(typ).Descriptor() {
-			return 0, status.Errorf(codes.InvalidArgument, "bad type provided: %T, want %T", typ, v)
-		}
+		// TODO: check the type of v matches the type of typ
 
 		res = append(res, KV{k, v})
 	}
