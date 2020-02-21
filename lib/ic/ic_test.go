@@ -111,30 +111,6 @@ func TestHandlers(t *testing.T) {
 
 	tests := []test.HandlerTest{
 		{
-			Name:    "Get linked accounts (foo)",
-			Method:  "GET",
-			Path:    "/identity/v1alpha/test/accounts/non-admin/subjects/foo",
-			Persona: "admin",
-			Output:  "^.*not found",
-			Status:  http.StatusNotFound,
-		},
-		{
-			Name:    "Get linked accounts (foo@bar.com)",
-			Method:  "GET",
-			Path:    "/identity/v1alpha/test/accounts/non-admin/subjects/foo@bar.com",
-			Persona: "admin",
-			Output:  "^.*not found",
-			Status:  http.StatusNotFound,
-		},
-		{
-			Name:    "Get account",
-			Method:  "GET",
-			Path:    "/identity/v1alpha/test/accounts/-",
-			Persona: "non-admin",
-			Output:  `^.*non-admin@example.org.*"passport"`,
-			Status:  http.StatusOK,
-		},
-		{
 			Name:    "Get SCIM users",
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users",

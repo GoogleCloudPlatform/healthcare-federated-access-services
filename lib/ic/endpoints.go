@@ -91,8 +91,6 @@ const (
 	// ---------------------------------------------------------------------------
 	// The following are unsupported and to be removed.
 	// ---------------------------------------------------------------------------
-	accountPath            = "/identity/v1alpha/{realm}/accounts/{name}"
-	accountSubjectPath     = "/identity/v1alpha/{realm}/accounts/{name}/subjects/{subject}"
 	adminClaimsPath        = "/identity/v1alpha/{realm}/admin/subjects/{name}/account/claims"
 	adminTokenMetadataPath = "/identity/v1alpha/{realm}/admin/tokens"
 )

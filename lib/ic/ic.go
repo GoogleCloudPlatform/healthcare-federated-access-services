@@ -1971,8 +1971,6 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(consentPath, auth.MustWithAuth(NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// legacy endpoints
-	r.HandleFunc(accountPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.accountFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(accountSubjectPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.accountSubjectFactory()), checker, auth.RequireUserToken))
 	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminClaimsFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
 }
