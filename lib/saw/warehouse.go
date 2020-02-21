@@ -36,7 +36,7 @@ import (
 	"google.golang.org/api/iamcredentials/v1" /* copybara-comment: iamcredentials */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
-	grpcbackoff "google3/third_party/golang/grpc/backoff/backoff"
+	grpcbackoff "google.golang.org/grpc/backoff" /* copybara-comment */
 	"google.golang.org/grpc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
