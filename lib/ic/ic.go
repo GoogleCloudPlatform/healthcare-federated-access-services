@@ -60,7 +60,7 @@ import (
 )
 
 const (
-	keyID = "kid"
+	keyID = "visa"
 
 	maxClaimsLength = 1900
 
