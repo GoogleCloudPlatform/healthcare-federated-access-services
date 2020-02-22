@@ -48,11 +48,11 @@ if [[ "$?" != 0 ]]; then
   exit 1
 fi
 
-echo -e ${GREEN?}'Preparing the GCP project for deployment.'${RESET?}
+echo -e ${GREEN?}'Preparing the GCP project '${PROJECT?}' for deployment.'${RESET?}
 # Enbable the required APIs.
 echo -e ${GREEN?}'Enabling the required APIs.'${RESET?}
 
-gcloud services enable \
+gcloud services enable --project=${PROJECT?}\
   appengine.googleapis.com \
   appengineflex.googleapis.com \
   appenginestandard.googleapis.com \
@@ -66,7 +66,7 @@ gcloud services enable \
   cloudkms.googleapis.com
 
 # Create a GAE app.
-gcloud app create --region=us-central
+gcloud app create --project=${PROJECT?} --region=us-central
 
 # Grant the required permissions.
 echo -e ${GREEN?}'Granting the required permissions.'${RESET?}
@@ -86,28 +86,28 @@ gcloud projects add-iam-policy-binding -q ${PROJECT?} \
 # TODO: make region configurable.
 
 # Create a datastore index to power related queries.
-gcloud datastore indexes create deploy/index.yaml --quiet
+gcloud datastore indexes create deploy/index.yaml --project=${PROJECT?} --quiet
 
 # Setup Cloud SQL
 # Create a CloudSQL db-f1-micro (memory=128M, disk=250G) postgres 11 instance in us-central-1.
 echo -e ${GREEN?}'Creating Cloud SQL database for Hydra.'${RESET?}
 
-gcloud sql instances create hydra --database-version=POSTGRES_11 \
+gcloud sql instances create hydra --project=${PROJECT?} --database-version=POSTGRES_11 \
   --tier=db-f1-micro --region=us-central1
 # Create user: name="${NAME}", password="${PASSWORD}"
-gcloud sql users create hydra --instance=hydra --password=hydra
+gcloud sql users create hydra --project=${PROJECT?} --instance=hydra --password=hydra
 # Create database ic
-gcloud sql databases create ic --instance=hydra
+gcloud sql databases create ic --project=${PROJECT?} --instance=hydra
 # Create database dam
-gcloud sql databases create dam --instance=hydra
+gcloud sql databases create dam --project=${PROJECT?} --instance=hydra
 
 echo -e ${GREEN?}'Creating a GCS bucket with an example file.'${RESET?}
 
-gsutil mb gs://${PROJECT?}-test-dataset
+gsutil mb -p=${PROJECT?} gs://${PROJECT?}-test-dataset
 tempdir=`mktemp -d`
 pushd $tempdir
 echo "This is an example" > example.txt
-gsutil cp example.txt gs://${PROJECT?}-test-dataset
+gsutil cp -p=${PROJECT?} example.txt gs://${PROJECT?}-test-dataset
 popd
 rm -rf $tempdir
 
@@ -118,12 +118,12 @@ tempdir=`mktemp -d`
 pushd $tempdir
 git clone https://github.com/GoogleCloudPlatform/golang-samples.git
 pushd golang-samples/appengine/go11x/helloworld
-gcloud -q app deploy .
+gcloud app deploy --project=${PROJECT?} -q .
 popd
 popd
 rm -rf $tempdir
 
 echo -e ${GREEN?}'Building Base Hydra Docker Image.'${RESET?}
-gcloud builds submit --config deploy/build/hydra/cloudbuild.yaml .
+gcloud builds submit --project=${PROJECT?} --config=deploy/build/hydra/cloudbuild.yaml .
 
 echo -e ${GREEN?}'Project preparation complete.'${RESET?}

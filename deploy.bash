@@ -184,27 +184,27 @@ if [[ "${BYPASS_BUILD}" == "" ]]; then
 
   if deploy_service "personas" $BYPASS_BUILD; then
     echo -e ${GREEN?}'Building Personas Docker Image.'${RESET?}
-    gcloud builds submit --config deploy/build/personas/cloudbuild.yaml .
+    gcloud builds submit --project=${PROJECT?} --config deploy/build/personas/cloudbuild.yaml .
   fi
 
   if deploy_service "ic" $BYPASS_BUILD; then
     echo -e ${GREEN?}'Building IC Docker Image.'${RESET?}
-    gcloud builds submit --config deploy/build/ic/cloudbuild.yaml .
+    gcloud builds submit --project=${PROJECT?} --config deploy/build/ic/cloudbuild.yaml .
   fi
 
   if deploy_service "icdemo" $BYPASS_BUILD; then
     echo -e ${GREEN?}'Building ICDEMO Docker Image.'${RESET?}
-    gcloud builds submit --config deploy/build/icdemo/cloudbuild.yaml .
+    gcloud builds submit --project=${PROJECT?} --config deploy/build/icdemo/cloudbuild.yaml .
   fi
 
   if deploy_service "dam" $BYPASS_BUILD; then
     echo -e ${GREEN?}'Building DAM Docker Image.'${RESET?}
-    gcloud builds submit --config deploy/build/dam/cloudbuild.yaml .
+    gcloud builds submit --project=${PROJECT?} --config deploy/build/dam/cloudbuild.yaml .
   fi
 
   if deploy_service "damdemo" $BYPASS_BUILD; then
     echo -e ${GREEN?}'Building DAMDEMO Docker Image.'${RESET?}
-    gcloud builds submit --config deploy/build/damdemo/cloudbuild.yaml .
+    gcloud builds submit --project=${PROJECT?} --config deploy/build/damdemo/cloudbuild.yaml .
   fi
 else
   echo -e ${GREEN?}'BYPASS_BUILD flag is set. Bypassing the building of Docker images for the services.'${RESET?}
@@ -219,27 +219,27 @@ fi
 
 if deploy_service "personas"; then
   echo -e ${GREEN?}'Deploy PERSONA BROKER.'${RESET?}
-  gcloud beta -q app deploy deploy/build/personas/personas.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-personas:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/personas/personas.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-personas:latest
 fi
 
 if deploy_service "ic"; then
   echo -e ${GREEN?}'Deploy IC.'${RESET?}
-  gcloud beta -q app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest
 fi
 
 if deploy_service "icdemo"; then
   echo -e ${GREEN?}'Deploy ICDEMO.'${RESET?}
-  gcloud beta -q app deploy deploy/build/icdemo/icdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-icdemo:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/icdemo/icdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-icdemo:latest
 fi
 
 if deploy_service "dam"; then
   echo -e ${GREEN?}'Deploy DAM.'${RESET?}
-  gcloud beta -q app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest
 fi
 
 if deploy_service "damdemo"; then
   echo -e ${GREEN?}'Deploy DAMDEMO.'${RESET?}
-  gcloud beta -q app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest
 fi
 
 echo -e ${GREEN?}'=== DEPLOY COMPLETE ==='${RESET?}
