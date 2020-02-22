@@ -17,6 +17,7 @@ package dam_test
 import (
 	"testing"
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -33,7 +34,7 @@ const (
 
 func TestCheckIntegrity_FileConfig(t *testing.T) {
 	s, cfg := setupFromFile(t)
-	t.Logf("DAMConfig: %v", cfg)
+	glog.Infof("DAMConfig: %v", cfg)
 	if err := s.CheckIntegrity(cfg).Err(); err != nil {
 		t.Errorf("CheckIntegrity(cfg) error: %v", err)
 	}
