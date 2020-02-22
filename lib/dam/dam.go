@@ -216,6 +216,8 @@ func NewService(params *Options) *Service {
 		}
 	}
 
+	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
+
 	sh.s = s
 	sh.Handler = mux.NewRouter()
 	registerHandlers(sh.Handler, s)
