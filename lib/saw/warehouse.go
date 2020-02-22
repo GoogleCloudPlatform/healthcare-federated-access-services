@@ -345,7 +345,7 @@ func (wh *AccountWarehouse) GetAccessToken(ctx context.Context, id string, param
 		return nil, fmt.Errorf("getting backing account: %v", err)
 	}
 
-	resp, err := wh.creds.GenerateAccessToken(ctx, &iamcredscpb.GenerateAccessTokenRequest{Name: accountResourceName(params.AccountProject, email), Scope: params.Scopes})
+	resp, err := wh.creds.GenerateAccessToken(ctx, &iamcredscpb.GenerateAccessTokenRequest{Name: accountResourceName(inheritProject, email), Scope: params.Scopes})
 	if err != nil {
 		return nil, fmt.Errorf("generating access token: %v", err)
 	}
