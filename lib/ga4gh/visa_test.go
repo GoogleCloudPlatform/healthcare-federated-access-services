@@ -183,7 +183,7 @@ func fakeVisaData() *VisaData {
 				{
 					{
 						Type:   "AffiliationAndRole",
-						Value:  "glob:faculty@*",
+						Value:  "pattern:faculty@*",
 						Source: "const:https://fake-broker.org",
 						By:     "const:system",
 					},
@@ -223,7 +223,7 @@ func fakeVisaDataJSON() string {
       [
         {
           "type": "AffiliationAndRole",
-          "value": "glob:faculty@*",
+          "value": "pattern:faculty@*",
           "source": "const:https://fake-broker.org",
           "by": "const:system"
         },

@@ -26,7 +26,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -37,6 +36,7 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -588,14 +588,14 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 			httputil.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}
-		claims, err := s.accountLinkToClaims(r.Context(), acct, id.Subject, cfg, secrets)
+		visas, err := s.accountLinkToVisas(r.Context(), acct, id.Subject, provider, cfg, secrets)
 		if err != nil {
 			httputil.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}
-		if !claimsAreEqual(claims, id.GA4GH) {
+		if !visasAreEqual(visas, id.VisaJWTs) {
 			// Refresh the claims in the storage layer.
-			if err := s.populateAccountClaims(r.Context(), acct, id, provider); err != nil {
+			if err := s.populateAccountVisas(r.Context(), acct, id, provider); err != nil {
 				httputil.WriteError(w, http.StatusServiceUnavailable, err)
 				return
 			}
@@ -984,20 +984,18 @@ func (s *Service) idpProvidesPassports(idp *cpb.IdentityProvider) bool {
 	return false
 }
 
-func (s *Service) accountLinkToClaims(ctx context.Context, acct *cpb.Account, subject string, cfg *pb.IcConfig, secrets *pb.IcSecrets) (map[string][]ga4gh.OldClaim, error) {
-	id := &ga4gh.Identity{
-		GA4GH: make(map[string][]ga4gh.OldClaim),
-	}
-	link, _ := findLinkedAccount(acct, subject)
+func (s *Service) accountLinkToVisas(ctx context.Context, acct *cpb.Account, subject, provider string, cfg *pb.IcConfig, secrets *pb.IcSecrets) ([]string, error) {
+	id := &ga4gh.Identity{}
+	link, _ := findLinkedAccount(acct, subject, provider)
 	if link == nil {
-		return id.GA4GH, nil
+		return []string{}, nil
 	}
 	ttl := getDurationOption(cfg.Options.ClaimTtlCap, descClaimTtlCap)
 	if err := s.populateLinkVisas(ctx, id, link, ttl, cfg, secrets); err != nil {
 		return nil, err
 	}
 
-	return id.GA4GH, nil
+	return id.VisaJWTs, nil
 }
 
 func linkedIdentityValue(sub, iss string) string {
@@ -1252,7 +1250,7 @@ func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity
 		State:             storage.StateActive,
 		Ui:                make(map[string]string),
 	}
-	err := s.populateAccountClaims(ctx, acct, linkID, provider)
+	err := s.populateAccountVisas(ctx, acct, linkID, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -1285,8 +1283,8 @@ func (s *Service) decryptEmbeddedTokens(ctx context.Context, tokens [][]byte) ([
 	return res, nil
 }
 
-func (s *Service) populateAccountClaims(ctx context.Context, acct *cpb.Account, id *ga4gh.Identity, provider string) error {
-	link, _ := findLinkedAccount(acct, id.Subject)
+func (s *Service) populateAccountVisas(ctx context.Context, acct *cpb.Account, id *ga4gh.Identity, provider string) error {
+	link, _ := findLinkedAccount(acct, id.Subject, provider)
 	now := common.GetNowInUnixNano()
 	if link == nil {
 		link = &cpb.ConnectedAccount{
@@ -1338,40 +1336,24 @@ func setupAccountProperties(id *ga4gh.Identity, subject string, created, modifie
 	}
 }
 
-func claimsAreEqual(a, b map[string][]ga4gh.OldClaim) bool {
+func visasAreEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	for k, av := range a {
-		bv, ok := b[k]
-		if !ok || len(av) != len(bv) {
-			return false
-		}
-		for i := 0; i < len(av); i++ {
-			if reflect.DeepEqual(av[i], bv[i]) {
-				continue
-			}
-			found := false
-			for j := 0; j < len(bv); j++ {
-				if i != j && reflect.DeepEqual(av[i], bv[j]) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false
-			}
-		}
+	sort.Strings(a)
+	sort.Strings(b)
+	if diff := cmp.Diff(a, b); diff == "" {
+		return true
 	}
-	return true
+	return false
 }
 
-func findLinkedAccount(acct *cpb.Account, subject string) (*cpb.ConnectedAccount, int) {
+func findLinkedAccount(acct *cpb.Account, subject, provider string) (*cpb.ConnectedAccount, int) {
 	if acct.ConnectedAccounts == nil {
 		return nil, -1
 	}
 	for i, link := range acct.ConnectedAccounts {
-		if link.Properties.Subject == subject {
+		if link.Provider == provider && link.Properties.Subject == subject {
 			return link, i
 		}
 	}

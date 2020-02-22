@@ -22,6 +22,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
@@ -60,6 +61,11 @@ var (
 	// hydraPublicAddr is the address for the Hydra public endpoints.
 	hydraPublicAddr = ""
 	port            = osenv.VarWithDefault("DAM_PORT", "8081")
+
+	cfgVars = map[string]string{
+		"${YOUR_PROJECT_ID}":  project,
+		"${YOUR_ENVIRONMENT}": envPrefix(srvName),
+	}
 )
 
 func main() {
@@ -76,8 +82,12 @@ func main() {
 		store = dsstore.NewDatastoreStorage(ctx, project, srvName, cfgPath)
 	case "memory":
 		store = storage.NewMemoryStorage(srvName, cfgPath)
+		// Import and resolve template variables, if any.
+		if err := dam.ImportConfig(store, srvName, nil, cfgVars); err != nil {
+			glog.Exitf("dam.ImportConfig(_, %q, _) failed: %v", srvName, err)
+		}
 	default:
-		glog.Fatalf("Unknown storage type %q", storageType)
+		glog.Exitf("Unknown storage type %q", storageType)
 	}
 
 	wh := saw.MustNew(ctx, store)
@@ -119,4 +129,11 @@ func main() {
 	<-c
 
 	srv.Shutdown()
+}
+
+func envPrefix(name string) string {
+	if strings.Contains(name, "-") {
+		return "-" + strings.SplitN(name, "-", 2)[1]
+	}
+	return ""
 }

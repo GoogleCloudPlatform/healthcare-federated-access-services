@@ -22,6 +22,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
@@ -59,6 +60,11 @@ var (
 	hydraAdminAddr = ""
 	// hydraPublicAddr is the address for the Hydra public endpoint.
 	hydraPublicAddr = ""
+
+	cfgVars = map[string]string{
+		"${YOUR_PROJECT_ID}":  project,
+		"${YOUR_ENVIRONMENT}": envPrefix(srvName),
+	}
 )
 
 func main() {
@@ -75,22 +81,26 @@ func main() {
 		store = dsstore.NewDatastoreStorage(ctx, project, srvName, cfgPath)
 	case "memory":
 		store = storage.NewMemoryStorage(srvName, cfgPath)
+		// Import and resolve template variables, if any.
+		if err := ic.ImportConfig(store, srvName, cfgVars); err != nil {
+			glog.Exitf("ic.ImportConfig(_, %q, _) failed: %v", srvName, err)
+		}
 	default:
 		glog.Exitf("Unknown storage type: %q", storageType)
 	}
 
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
-		glog.Fatalf("kms.NewKeyManagementClient(ctx) failed: %v", err)
+		glog.Exitf("kms.NewKeyManagementClient(ctx) failed: %v", err)
 	}
 	gcpkms, err := gcpcrypt.New(ctx, project, "global", srvName+"_ring", srvName+"_key", client)
 	if err != nil {
-		glog.Fatalf("gcpcrypt.New(ctx, %q, %q, %q, %q, client) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
+		glog.Exitf("gcpcrypt.New(ctx, %q, %q, %q, %q, client) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
 	}
 
 	logger, err := logging.NewClient(ctx, project)
 	if err != nil {
-		glog.Fatalf("logging.NewClient() failed: %v", err)
+		glog.Exitf("logging.NewClient() failed: %v", err)
 	}
 	logger.OnError = func(err error) {
 		glog.Warningf("StackdriverLogging.Client.OnError: %v", err)
@@ -125,4 +135,11 @@ func main() {
 	<-c
 
 	srv.Shutdown()
+}
+
+func envPrefix(name string) string {
+	if strings.Contains(name, "-") {
+		return "-" + strings.SplitN(name, "-", 2)[1]
+	}
+	return ""
 }
