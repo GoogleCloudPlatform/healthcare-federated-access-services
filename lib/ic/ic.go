@@ -1179,11 +1179,11 @@ func (auth *authToken) Valid() error {
 }
 
 func (s *Service) visaIssuerJKU() string {
-	return path.Join(s.getVisaIssuerString(), "/.well-known/jwks.json")
+	return path.Join(s.getVisaIssuerString(), "/jwks")
 }
 
 func (s *Service) getVisaIssuerString() string {
-	return s.getDomainURL() + "/oidc"
+	return s.getDomainURL() + "/visas"
 }
 
 func (s *Service) getIssuerString() string {
@@ -1901,8 +1901,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
 
-	// info endpoint
+	// info endpoints
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(jwksPath, auth.MustWithAuth(s.JWKS, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// administration endpoints
 	r.HandleFunc(realmPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.realmFactory()), checker, auth.RequireAdminToken))

@@ -59,6 +59,9 @@ The following are the main IC endpoints:
 The following are public endpoints for discovery and/or health check.
 
 *  "/identity": metadata about the service, like versions of various services.
+*  "/visas/jwks": signing keys for visas issued by the IC. Note that is is a
+   different set of keys than what are used for signing IC tokens authored by
+   OAuth2 endpoints.
 
 ### Admin Configuration Endpoints
 

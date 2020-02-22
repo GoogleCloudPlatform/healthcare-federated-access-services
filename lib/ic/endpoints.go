@@ -41,6 +41,8 @@ const (
 	// infoPath: metadata about the service, like versions of various services.
 	// Required permission: admin
 	infoPath = "/identity"
+	// Return the JWKS of keys for visas signed by the IC.
+	jwksPath = "/visas/jwks"
 
 	// The following are for managing realms.
 	realmPath = "/identity/v1alpha/{realm}"

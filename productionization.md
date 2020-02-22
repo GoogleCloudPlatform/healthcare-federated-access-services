@@ -177,6 +177,10 @@ The following projects are used for the cross project and environment scenarios:
     in file. Consider using [secrets-management](https://cloud.google.com/solutions/secrets-management)
     in production.
 
+1.  Make sure that the `FEDERATED_ACCESS_ENABLE_EXPERIMENTAL` option is turned
+    off and not later turned on. It can be turned off by removing the `export`
+    from the configuration.
+
 ## Security
 
 ### DAM Background Processes

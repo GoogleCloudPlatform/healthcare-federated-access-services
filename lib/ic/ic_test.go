@@ -111,6 +111,14 @@ func TestHandlers(t *testing.T) {
 
 	tests := []test.HandlerTest{
 		{
+			Name:    "Get JWKS",
+			Method:  "GET",
+			Path:    "/visas/jwks",
+			Persona: "non-admin",
+			Output:  `{"keys":[{"alg":"RS256","e":"AQAB","kid":"visa","kty":"RSA","n":"LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1JSUJDZ0tDQVFFQW9mbUJaMnorVy8yM1ZIeGk3TGZiaWh4T0duckRYbXAwQzY3bHJ4L1JlVGJxckhXdTQvS3pWSjU5SmhJZ2daaW51ajRRWGs1WldDZVhmN1FuOE9Fcyt4VWxvU3VmWDgvNStRb0tOaTNzQnhvT3hBdlBQZHVsODdkTDVmVm9yK25QcThiNHZSZHRoRE1sSS9ubVVqODFROHBKeUdkYnFYa1JoMXhGQ3ZMRU9ZTjBmWC93bkw0aFgrMXk3M0VRSEZnUnRuOG9EVWF6aTJxTXpENHNlY1VSZ3Q3bWNEdGQ1aWF1ckpONnMrL1NqMU5NNnBUczZnWnlnRitYdit4dStEM1FQVktXdVBGSVJ3S3BOWXlWenRrRGtzN1c2TjhYNjRFa1JhWkFvQStmTTNISm9sKy9yd0VKOXYwK1h0MTdzcW1aaDJJQ09CcUJWckk2N1RxcXFTYWZnUUlEQVFBQgotLS0tLUVORCBSU0EgUFVCTElDIEtFWS0tLS0t","use":"sig","x5c":null}]}`,
+			Status:  http.StatusOK,
+		},
+		{
 			Name:    "Get SCIM users",
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users",
@@ -649,7 +657,7 @@ func verifyService(t *testing.T, got, want, field string) {
 
 func TestAddLinkedIdentities(t *testing.T) {
 	subject := "111@a.com"
-	issuer := "https://example.com/oidc"
+	issuer := "https://example.com/visas"
 	subjectInIdp := "222"
 	emailInIdp := "222@idp.com"
 	idp := "idp"
