@@ -30,7 +30,7 @@
       "redirectUris": [
         "http://example.com"
       ],
-      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin link",
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin link sync",
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
     },

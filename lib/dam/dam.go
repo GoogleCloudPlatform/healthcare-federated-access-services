@@ -87,6 +87,7 @@ type Service struct {
 	serviceName      string
 	hydraAdminURL    string
 	hydraPublicURL   string
+	hydraSyncFreq    time.Duration
 	store            storage.Store
 	warehouse        clouds.ResourceTokenCreator
 	logger           *logging.Client
@@ -128,6 +129,8 @@ type Options struct {
 	HydraAdminURL string
 	// HydraPublicURL: hydra public endpoints url
 	HydraPublicURL string
+	// HydraSyncFreq: how often to allow clients:sync to be called
+	HydraSyncFreq time.Duration
 	// HidePolicyBasis: do not send policy basis to client
 	HidePolicyBasis bool
 	// HideRejectDetail: do not send rejected visas details
@@ -144,6 +147,10 @@ func NewService(params *Options) *Service {
 	perms, err := permissions.LoadPermissions(params.Store)
 	if err != nil {
 		glog.Fatalf("cannot load permissions: %v", err)
+	}
+	syncFreq := time.Minute
+	if params.HydraSyncFreq > 0 {
+		syncFreq = params.HydraSyncFreq
 	}
 
 	sh := &ServiceHandler{}
@@ -164,6 +171,7 @@ func NewService(params *Options) *Service {
 		useHydra:         params.UseHydra,
 		hydraAdminURL:    params.HydraAdminURL,
 		hydraPublicURL:   params.HydraPublicURL,
+		hydraSyncFreq:    syncFreq,
 		visaVerifier:     verifier.New(""),
 	}
 
@@ -254,15 +262,24 @@ func getName(r *http.Request) string {
 	return ""
 }
 
-func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, item proto.Message) (*pb.DamConfig, *ga4gh.Identity, int, error) {
+func (s *Service) handlerSetupNoAuth(tx storage.Tx, r *http.Request, item proto.Message) (*pb.DamConfig, int, error) {
+	r.ParseForm()
 	if item != nil {
 		if err := jsonpb.Unmarshal(r.Body, item); err != nil && err != io.EOF {
-			return nil, nil, http.StatusBadRequest, err
+			return nil, http.StatusBadRequest, err
 		}
 	}
 	cfg, err := s.loadConfig(tx, getRealm(r))
 	if err != nil {
-		return nil, nil, http.StatusServiceUnavailable, err
+		return nil, http.StatusServiceUnavailable, err
+	}
+	return cfg, http.StatusOK, nil
+}
+
+func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, item proto.Message) (*pb.DamConfig, *ga4gh.Identity, int, error) {
+	cfg, status, err := s.handlerSetupNoAuth(tx, r, item)
+	if err != nil {
+		return nil, nil, status, err
 	}
 	id, status, err := s.getBearerTokenIdentity(cfg, r)
 	if err != nil {
@@ -464,23 +481,24 @@ func testPersona(ctx context.Context, personaName string, resources []string, cf
 // the last one (if it doesn't time out), or non-zero to indicate that a recent sync
 // is good enough. Note there are some race conditions with several client changes
 // overlapping in flight that could still have the two services be out of sync.
-func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string]string, minFrequency time.Duration, tx storage.Tx) error {
+func (s *Service) syncToHydra(clients map[string]*cpb.Client, secrets map[string]string, minFrequency time.Duration, tx storage.Tx) (*cpb.ClientState, error) {
 	if !s.useHydra {
-		return nil
+		return nil, nil
 	}
 	ltx := s.store.LockTx("hydra_"+s.serviceName, minFrequency, tx)
 	if ltx == nil {
-		return nil
+		return nil, fmt.Errorf("hydra sync has completed recently or is active")
 	}
 	if tx == nil {
 		// Is a new tx (i.e. ltx didn't override tx)
 		defer ltx.Finish()
 	}
-	if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, clients, secrets); err != nil {
+	state, err := oathclients.SyncClients(s.httpClient, s.hydraAdminURL, clients, secrets)
+	if err != nil {
 		glog.Errorf("failed to sync hydra clients: %v", err)
-		return err
+		return nil, err
 	}
-	return nil
+	return state, nil
 }
 
 func resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, []string, error) {
@@ -1243,6 +1261,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(damRoleCategoriesPath, auth.MustWithAuth(s.GetDamRoleCategories, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(testPersonasPath, auth.MustWithAuth(s.GetTestPersonas, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 
+	// light-weight admin functions using client_id, client_secret and client scope to limit use
+	r.HandleFunc(syncClientsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.syncClientsFactory()), checker, auth.RequireClientIDAndSecret))
+
 	// administration endpoints
 	r.HandleFunc(realmPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.realmFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, checker, auth.RequireAdminToken)).Methods(http.MethodGet)
@@ -1260,7 +1281,6 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPersonaFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configClientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClientsSyncPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientsSyncFactory()), checker, auth.RequireAdminToken))
 
 	r.HandleFunc(processesPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processesFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(processPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processFactory()), checker, auth.RequireAdminToken))

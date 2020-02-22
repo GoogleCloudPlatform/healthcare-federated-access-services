@@ -46,19 +46,21 @@ var (
 
 // HandlerTest holds the test variables for a service handler test.
 type HandlerTest struct {
-	Name        string
-	Method      string
-	Path        string
-	Input       string
-	Params      string
-	IsForm      bool
-	Persona     string
-	Scope       string
-	LinkPersona string
-	LinkScope   string
-	Output      string
-	CmpOptions  cmp.Options
-	Status      int
+	ClientID     string
+	ClientSecret string
+	Name         string
+	Method       string
+	Path         string
+	Input        string
+	Params       string
+	IsForm       bool
+	Persona      string
+	Scope        string
+	LinkPersona  string
+	LinkScope    string
+	Output       string
+	CmpOptions   cmp.Options
+	Status       int
 }
 
 type serviceHandler interface {
@@ -84,11 +86,19 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 			if cfg != nil {
 				p = cfg.TestPersonas[pname]
 			}
-			acTok, _, err := persona.NewAccessToken(pname, issuerURL, TestClientID, test.Scope, p)
+			clientID := TestClientID
+			if test.ClientID != "" {
+				clientID = test.ClientID
+			}
+			clientSecret := TestClientSecret
+			if test.ClientSecret != "" {
+				clientSecret = test.ClientSecret
+			}
+			acTok, _, err := persona.NewAccessToken(pname, issuerURL, clientID, test.Scope, p)
 			if err != nil {
 				t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, issuerURL, err)
 			}
-			target := fmt.Sprintf("%s?client_id=%s&client_secret=%s", test.Path, TestClientID, TestClientSecret)
+			target := fmt.Sprintf("%s?client_id=%s&client_secret=%s", test.Path, clientID, clientSecret)
 			if len(test.Params) > 0 {
 				target += "&" + test.Params
 			}
@@ -112,7 +122,7 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 			}
 			r.Header.Set("Authorization", "Bearer "+string(acTok))
 			if len(test.LinkPersona) > 0 {
-				linkTok, _, err := persona.NewAccessToken(test.LinkPersona, issuerURL, TestClientID, test.LinkScope, nil)
+				linkTok, _, err := persona.NewAccessToken(test.LinkPersona, issuerURL, clientID, test.LinkScope, nil)
 				if err != nil {
 					t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", test.LinkPersona, issuerURL, err)
 				}

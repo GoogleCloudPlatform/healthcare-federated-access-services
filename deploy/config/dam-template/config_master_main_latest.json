@@ -492,6 +492,17 @@
       "scope": "openid offline ga4gh_passport_v1 profile email identities",
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
+    },
+    "admin_tool": {
+      "clientId": "0ef2f928-ba67-47b6-9cd6-288be82e3497",
+      "ui": {
+        "label": "Admin Tool",
+        "description": "Administrator's admin.bash tool"
+      },
+      "redirectUris": ["/"],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin sync",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
     }
   },
   "options": {

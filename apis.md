@@ -66,13 +66,18 @@ The following are public endpoints for discovery and/or health check.
 ### Admin Configuration Endpoints
 
 The following are used for managing IC's configuration.
-They require "admin" permission.
+They require "admin" permission access token unless otherwise noted below.
 
-*  "/identity/v1alpha/{realm}/config" and sub-resources: managing configuration.
-*  "/identity/v1alpha/{realm}/config/clients:sync": syncs client information
+*  "/identity/v1alpha/{realm}/clients:sync": syncs client information
    between the IC and Hydra where the IC's configuration is considered the
-   source of truth. Syncing generally happens as configurations change, but this
-   endpoint allows an administrator or tool to invoke it explicitly.
+   source of truth.
+   *  Syncing generally happens as configurations change, but this endpoint
+      allows an administrator or tool to invoke it explicitly.
+   *  It does not require an admin access token, but does require the client
+      (indentified by the `client_id`) has the `sync` scope set in the
+      configuration.
+   *  Syncing is limited to once per minute.
+*  "/identity/v1alpha/{realm}/config" and sub-resources: managing configuration.
 *  "/identity/v1alpha/{realm}/config/reset": resets the configuration to its initial version read from configuration file.
 *  "/identity/v1alpha/{realm}/config/history": history of configuration changes.
 
@@ -241,19 +246,24 @@ They require "admin" permission.
 ### Admin Configuration Endpoints
 
 The following are used for managing DAM's configuration.
-They require "admin" permission.
+They require "admin" permission access token unless otherwise noted below.
 
+*  "/dam/v1alpha/{realm}/clients:sync": syncs client information
+   between the DAM and Hydra where the DAM's configuration is considered the
+   source of truth.
+   *  Syncing generally happens as configurations change, but this endpoint
+      allows an administrator or tool to invoke it explicitly.
+   *  It does not require an admin access token, but does require the client
+      (indentified by the `client_id`) has the `sync` scope set in the
+      configuration.
+   *  Syncing is limited to once per minute.
 *  "/dam/v1alpha/{realm}": supports GET and DELETE of a realm.
 *  "/dam/v1alpha/{realm}/config" and sub-resources: managing configuration.
-*  "/dam/v1alpha/{realm}/config/clients:sync": syncs client information
-   between the DAM and Hydra where the DAM's configuration is considered the
-   source of truth. Syncing generally happens as configurations change, but this
-   endpoint allows an administrator or tool to invoke it explicitly.
 *  "/dam/v1alpha/{realm}/config/reset": resets the config to its initial version read from configuration file.
 *  "/dam/v1alpha/{realm}/config/history": history of configuration changes.
 *  /dam/v1alpha/{realm}/tests": performs a set of tests for validity of the current configuration.
 
-### Admin Configuration Endpoints
+### Non-Admin Configuration Endpoints
 
 The following provide read-only access to non-admins for various parts of
 DAM configuration. They filter out sensitive parts of the configuration.

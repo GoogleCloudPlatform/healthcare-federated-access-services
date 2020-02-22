@@ -190,3 +190,13 @@ func QuoteSplit(str, separator string, stripQuotes bool) []string {
 	}
 	return out
 }
+
+// ContainsWord returns true if the string contains the (space-separated) full word.
+func ContainsWord(str, word string) bool {
+	for _, part := range strings.Split(str, " ") {
+		if part == word {
+			return true
+		}
+	}
+	return false
+}

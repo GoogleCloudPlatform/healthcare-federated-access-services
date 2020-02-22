@@ -53,12 +53,15 @@ const (
 	configPath                  = "/identity/v1alpha/{realm}/config"
 	configIdentityProvidersPath = "/identity/v1alpha/{realm}/config/identityProviders/{name}"
 	configClientsPath           = "/identity/v1alpha/{realm}/config/clients/{name}"
-	configClientsSyncPath       = "/identity/v1alpha/{realm}/config/clients:sync"
 	configOptionsPath           = "/identity/v1alpha/{realm}/config/options"
 
 	// ConfigReset: resets the config to its initial state read from configuration file.
 	// Required permission: admin
 	configResetPath = "/identity/v1alpha/{realm}/config/reset"
+
+	// SyncClients: performs a sync of clients to Hydra.
+	// Required permission: trusted client with "sync" scope defined in the config.
+	syncClientsPath = "/identity/v1alpha/{realm}/clients:sync"
 
 	// ConfigHistory: history of configuration changes.
 	// Required permission: admin

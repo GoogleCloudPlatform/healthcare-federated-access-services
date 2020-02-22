@@ -71,27 +71,27 @@ func main() {
 
 	hydraAdminURL := os.Getenv("HYDRA_ADMIN_URL")
 	if hydraAdminURL == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
+		glog.Exitf("Environment variable %q must be set: see app.yaml for more information", "HYDRA_ADMIN_URL")
 	}
 
 	serviceType := os.Getenv("TYPE")
 	if serviceType != "ic" && serviceType != "dam" {
-		glog.Fatalf("Environment variable %q must be set to ic or dam", "TYPE")
+		glog.Exitf("Environment variable %q must be set to ic or dam", "TYPE")
 	}
 
 	path := os.Getenv("CONFIG_PATH")
 	if path == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
+		glog.Exitf("Environment variable %q must be set: see app.yaml for more information", "CONFIG_PATH")
 	}
 
 	serviceName := os.Getenv("SERVICE_NAME")
 	if serviceName == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "SERVICE_NAME")
+		glog.Exitf("Environment variable %q must be set: see app.yaml for more information", "SERVICE_NAME")
 	}
 
 	project := os.Getenv("PROJECT")
 	if project == "" {
-		glog.Fatalf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
+		glog.Exitf("Environment variable %q must be set: see app.yaml for more information", "PROJECT")
 	}
 
 	clients, secrets := loadClients(serviceType, serviceName, path)
@@ -100,12 +100,13 @@ func main() {
 
 	tx := store.LockTx(serviceType+"_hydra", 0*time.Second, nil)
 	if tx == nil {
-		glog.Fatalf("failed to reset hydra clients: cannot acquire storage lock")
+		glog.Exitf("failed to reset hydra clients: cannot acquire storage lock")
 	}
 	defer tx.Finish()
-	if err := oathclients.ResetClients(http.DefaultClient, hydraAdminURL, clients, secrets); err != nil {
-		glog.Fatalf("failed to reset hydra clients: %v", err)
+	state, err := oathclients.SyncClients(http.DefaultClient, hydraAdminURL, clients, secrets)
+	if err != nil {
+		glog.Exitf("failed to reset hydra clients: %v", err)
 	}
 
-	glog.Info("hydra clients reset finish.")
+	glog.Infof("sync hydra clients completed: added %d, updated %d, removed %d, unchanged %d, no_secret %d", len(state.Add), len(state.Update), len(state.Remove), len(state.Unchanged), len(state.NoSecret))
 }

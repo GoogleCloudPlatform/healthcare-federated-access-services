@@ -26,7 +26,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
@@ -141,7 +140,7 @@ func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 	}
 	// Assumes that secrets don't change within this handler.
 	if c.s.useHydra && !check.ClientsEqual(c.input.Item.Clients, c.cfg.Clients) {
-		if err = c.s.syncToHydra(c.input.Item.Clients, secrets.ClientSecrets, 0, tx); err != nil {
+		if _, err = c.s.syncToHydra(c.input.Item.Clients, secrets.ClientSecrets, 0, tx); err != nil {
 			return err
 		}
 	}
@@ -368,78 +367,6 @@ func (c *configOptions) Save(tx storage.Tx, name string, vars map[string]string,
 // ....
 
 // HTTP handler for ".../config/options"
-func (s *Service) configClientsSyncFactory() *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
-		TypeName:            "configClientsSync",
-		PathPrefix:          configClientsSyncPath,
-		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return &configClientsSync{
-				s: s,
-				w: w,
-				r: r,
-			}
-		},
-	}
-}
-
-type configClientsSync struct {
-	s   *Service
-	w   http.ResponseWriter
-	r   *http.Request
-	cfg *pb.IcConfig
-	id  *ga4gh.Identity
-	tx  storage.Tx
-}
-
-func (c *configClientsSync) Setup(tx storage.Tx) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, nil)
-	c.cfg = cfg
-	c.id = id
-	c.tx = tx
-	return status, err
-}
-
-func (c *configClientsSync) LookupItem(name string, vars map[string]string) bool {
-	return true
-}
-
-func (c *configClientsSync) NormalizeInput(name string, vars map[string]string) error {
-	return nil
-}
-
-func (c *configClientsSync) Get(name string) error {
-	secrets, err := c.s.loadSecrets(c.tx)
-	if err != nil {
-		return err
-	}
-
-	return c.s.syncToHydra(c.cfg.Clients, secrets.ClientSecrets, 0, c.tx)
-}
-
-func (c *configClientsSync) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
-}
-
-func (c *configClientsSync) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
-}
-
-func (c *configClientsSync) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
-}
-
-func (c *configClientsSync) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
-}
-
-func (c *configClientsSync) CheckIntegrity() *status.Status {
-	return nil
-}
-
-func (c *configClientsSync) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return nil
-}
 
 // ConfigHistory implements the HistoryConfig RPC method.
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
@@ -507,7 +434,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := oathclients.ResetClients(s.httpClient, s.hydraAdminURL, conf.Clients, secrets.ClientSecrets); err != nil {
+		if _, err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0, nil); err != nil {
 			httputil.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}

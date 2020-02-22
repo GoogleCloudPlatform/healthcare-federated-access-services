@@ -46,6 +46,17 @@
       "grantTypes": ["authorization_code"],
       "responseTypes": ["token", "code", "id_token"]
     },
+    "admin_tool": {
+      "clientId": "1b2b57c0-46dc-48ce-bd5b-389f26489bcd",
+      "ui": {
+        "label": "Admin Tool",
+        "description": "Administrator's admin.bash tool"
+      },
+      "redirectUris": ["/"],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin sync",
+      "grantTypes": ["authorization_code"],
+      "responseTypes": ["token", "code", "id_token"]
+    },
     "ga4gh_dam": {
       "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
       "ui": {

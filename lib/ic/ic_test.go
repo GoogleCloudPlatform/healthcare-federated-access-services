@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -100,6 +101,7 @@ func TestHandlers(t *testing.T) {
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraURL,
+		HydraSyncFreq:  time.Nanosecond,
 	}
 	s := NewService(opts)
 	verifyService(t, s.domain, opts.Domain, "domain")
@@ -603,6 +605,7 @@ func TestAdminHandlers(t *testing.T) {
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraURL,
+		HydraSyncFreq:  time.Nanosecond,
 	})
 	tests := []test.HandlerTest{
 		{
@@ -644,6 +647,36 @@ func TestAdminHandlers(t *testing.T) {
 			Persona: "admin",
 			Output:  `{}`,
 			Status:  http.StatusOK,
+		},
+		{
+			Method:  "PUT",
+			Path:    "/identity/v1alpha/test/clients:sync",
+			Persona: "non-admin",
+			Output:  `^.*not allowed`,
+			Status:  http.StatusBadRequest,
+		},
+		{
+			Method:       "PUT",
+			Path:         "/identity/v1alpha/test/clients:sync",
+			Persona:      "non-admin",
+			ClientID:     "bad",
+			ClientSecret: "worse",
+			Output:       `^.*unrecognized`,
+			Status:       http.StatusUnauthorized,
+		},
+		{
+			Method:  "PATCH",
+			Path:    "/identity/v1alpha/test/clients:sync",
+			Persona: "non-admin",
+			Output:  `^.*not allowed`,
+			Status:  http.StatusBadRequest,
+		},
+		{
+			Method:  "DELETE",
+			Path:    "/identity/v1alpha/test/clients:sync",
+			Persona: "non-admin",
+			Output:  `^.*not allowed`,
+			Status:  http.StatusBadRequest,
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests, hydraURL, server.Config())
@@ -762,6 +795,7 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraURL,
+		HydraSyncFreq:  time.Nanosecond,
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1642,21 +1676,69 @@ func TestClients_Get_Error(t *testing.T) {
 	}
 }
 
-func TestClientsSync(t *testing.T) {
+func TestSyncClients_Get(t *testing.T) {
 	s, cfg, sec, _, iss, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
 	clientName := "test_client"
-	pname := "admin"
 	cli := cfg.Clients[clientName]
 
-	resp := icSendTestRequest(t, http.MethodGet, clientPath, clientName, pname, cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := icSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	wantStatus := http.StatusOK
 	if resp.StatusCode != wantStatus {
-		t.Errorf("clientsSync resp.StatusCode = %d, want %d", resp.StatusCode, wantStatus)
+		body, _ := ioutil.ReadAll(resp.Body)
+		t.Fatalf("syncClients resp.StatusCode = %d, want %d, body = %s", resp.StatusCode, wantStatus, body)
+	}
+	got := &cpb.ClientState{}
+	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
+		t.Fatalf("jsonpb.Unmarshal() failed: %v", err)
+	}
+	if codes.Code(got.Status.Code) != codes.OK {
+		t.Errorf("syncClients status code mismatch: got %d, want %d", got.Status.Code, codes.OK)
+	}
+}
+
+func TestSyncClients_Post(t *testing.T) {
+	s, cfg, sec, _, iss, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	clientName := "test_client"
+	cli := cfg.Clients[clientName]
+
+	resp := icSendTestRequest(t, http.MethodPost, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+
+	wantStatus := http.StatusOK
+	if resp.StatusCode != wantStatus {
+		t.Errorf("syncClients resp.StatusCode = %d, want %d", resp.StatusCode, wantStatus)
+	}
+	got := &cpb.ClientState{}
+	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
+		t.Fatalf("jsonpb.Unmarshal() failed: %v", err)
+	}
+	if codes.Code(got.Status.Code) != codes.OK {
+		t.Errorf("syncClients status code mismatch: got code %d, want code %d, got body: %+v", got.Status.Code, codes.OK, got)
+	}
+}
+
+func TestSyncClients_ScopeError(t *testing.T) {
+	s, cfg, sec, _, iss, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	clientName := "test_client2"
+	cli := cfg.Clients[clientName]
+
+	resp := icSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+
+	wantStatus := http.StatusForbidden
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("clientsSync resp.StatusCode = %d, want %d", resp.StatusCode, wantStatus)
 	}
 }
 

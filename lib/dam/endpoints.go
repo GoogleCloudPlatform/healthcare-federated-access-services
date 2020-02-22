@@ -64,11 +64,14 @@ const (
 	configClientPath                = "/dam/v1alpha/{realm}/config/clients/{name}"
 	configTestPersonasPath          = "/dam/v1alpha/{realm}/config/testPersonas"
 	configTestPersonaPath           = "/dam/v1alpha/{realm}/config/testPersonas/{name}"
-	configClientsSyncPath           = "/dam/v1alpha/{realm}/config/clients:sync"
 
 	// ConfigReset: resets the config to its initial state read from configuration file.
 	// Required permission: admin
 	configResetPath = "/dam/v1alpha/{realm}/config/reset"
+
+	// SyncClients: performs a sync of clients to Hydra.
+	// Required permission: trusted client with "sync" scope defined in the config.
+	syncClientsPath = "/dam/v1alpha/{realm}/clients:sync"
 
 	// ConfigHistory: history of configuration changes.
 	// Required permission: admin

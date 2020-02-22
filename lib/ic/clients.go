@@ -15,11 +15,13 @@
 package ic
 
 import (
+	"fmt"
 	"net/http"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -131,4 +133,117 @@ func toICModification(m *cpb.ConfigModification) *pb.ConfigModification {
 		Revision: m.Revision,
 		DryRun:   m.DryRun,
 	}
+}
+
+//////////////////////////////////////////////////////////////////
+// GET /dam/v1alpha/{realm}/clients:sync:
+//   Return empty response on success
+//////////////////////////////////////////////////////////////////
+
+func (s *Service) syncClientsFactory() *handlerfactory.HandlerFactory {
+	return &handlerfactory.HandlerFactory{
+		TypeName:            "configClientsSync",
+		PathPrefix:          syncClientsPath,
+		HasNamedIdentifiers: false,
+		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+			return NewSyncClientsHandler(s, w, r)
+		},
+	}
+}
+
+type syncClientsHandler struct {
+	s   *Service
+	w   http.ResponseWriter
+	r   *http.Request
+	cfg *pb.IcConfig
+	tx  storage.Tx
+}
+
+// NewSyncClientsHandler implements the sync Hydra clients RPC method.
+func NewSyncClientsHandler(s *Service, w http.ResponseWriter, r *http.Request) *syncClientsHandler {
+	return &syncClientsHandler{
+		s: s,
+		w: w,
+		r: r,
+	}
+}
+func (h *syncClientsHandler) Setup(tx storage.Tx) (int, error) {
+	cfg, st, err := h.s.handlerSetupNoAuth(tx, h.r, nil)
+	if err != nil {
+		return st, err
+	}
+
+	cliID := getClientID(h.r)
+	var scope string
+	for _, c := range cfg.Clients {
+		if c.ClientId == cliID {
+			scope = c.Scope
+			break
+		}
+	}
+
+	if !common.ContainsWord(scope, "sync") {
+		return http.StatusUnauthorized, status.Errorf(codes.PermissionDenied, `client does not have the 'sync' scope`)
+	}
+
+	h.cfg = cfg
+	h.tx = tx
+	return http.StatusOK, nil
+}
+func (h *syncClientsHandler) LookupItem(name string, vars map[string]string) bool {
+	// Allow POST to proceed by returning false, otherwise mark it as existing.
+	return h.r.Method != http.MethodPost
+}
+func (h *syncClientsHandler) NormalizeInput(name string, vars map[string]string) error {
+	return nil
+}
+func (h *syncClientsHandler) Get(name string) error {
+	secrets, err := h.s.loadSecrets(h.tx)
+	if err != nil {
+		return err
+	}
+
+	state, err := oathclients.SyncState(h.s.httpClient, h.s.hydraAdminURL, h.cfg.Clients, secrets.ClientSecrets)
+	if err != nil {
+		state = &cpb.ClientState{
+			Status: httputil.NewStatus(codes.Aborted, fmt.Sprintf("getting client sync state failed: %v", err)).Proto(),
+		}
+		httputil.WriteProtoResp(h.w, state)
+		return err
+	}
+
+	httputil.WriteProtoResp(h.w, state)
+	return nil
+}
+func (h *syncClientsHandler) Post(name string) error {
+	secrets, err := h.s.loadSecrets(h.tx)
+	if err != nil {
+		return err
+	}
+
+	state, err := h.s.syncToHydra(h.cfg.Clients, secrets.ClientSecrets, h.s.hydraSyncFreq, h.tx)
+	if err != nil {
+		state = &cpb.ClientState{
+			Status: httputil.NewStatus(codes.Aborted, fmt.Sprintf("sync clients did not complete: %v", err)).Proto(),
+		}
+		httputil.WriteProtoResp(h.w, state)
+		return err
+	}
+	httputil.WriteProtoResp(h.w, state)
+	return nil
+}
+func (h *syncClientsHandler) Put(name string) error {
+	return fmt.Errorf("PUT not allowed")
+}
+func (h *syncClientsHandler) Patch(name string) error {
+	return fmt.Errorf("PATCH not allowed")
+}
+func (h *syncClientsHandler) Remove(name string) error {
+	return fmt.Errorf("DELETE not allowed")
+}
+func (h *syncClientsHandler) CheckIntegrity() *status.Status {
+	return nil
+}
+func (h *syncClientsHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return nil
 }

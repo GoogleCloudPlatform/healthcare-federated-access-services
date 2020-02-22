@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package common;
 
+import "google/rpc/status.proto";
+
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
 
 ///////////////////////////////////////////////////
@@ -28,6 +30,28 @@ message Client {
   repeated string grant_types = 6;
   repeated string response_types = 7;
   map<string, string> ui = 3;
+}
+
+// ClientState represents operations needed to put Hydra in sync with the
+// service.
+message ClientState {
+  // Add: clients to add to Hydra per client name
+  map<string, Client> add = 1;
+  // Update: clients that need to be updated in Hydra per client name
+  map<string, Client> update = 2;
+  // UpdateDiff: the diff between hydra and the service per client name
+  map<string, string> update_diff = 3;
+  // Remove: clients to remove in Hydra per client name
+  map<string, Client> remove = 4;
+  // Unchanged: clients that are already in sync per client name
+  map<string, Client> unchanged = 5;
+  // NoSecret: clients that are not fully configured (secret missing)
+  map<string, Client> no_secret = 6;
+  // SecretMismatch: client names where the secrets don't match between Hydra
+  // and the service.
+  repeated string secret_mismatch = 7;
+  // Status: a processing status to return to the client
+  .google.rpc.Status status = 8;
 }
 
 message ClientResponse {

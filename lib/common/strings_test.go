@@ -288,40 +288,40 @@ func TestIsImageURL(t *testing.T) {
 
 func TestToURL(t *testing.T) {
 	tests := []struct {
-		name  string
-		fragment  string
-		domain string
-		want  string
+		name     string
+		fragment string
+		domain   string
+		want     string
 	}{
 		{
-			name:  "empty input",
+			name:     "empty input",
 			fragment: "",
-			domain: "",
-			want:  "",
+			domain:   "",
+			want:     "",
 		},
 		{
-			name:  "simple string",
+			name:     "simple string",
 			fragment: "/hello",
-			domain: "",
-			want:  "/hello",
+			domain:   "",
+			want:     "/hello",
 		},
 		{
-			name:  "simple URL",
+			name:     "simple URL",
 			fragment: "/hello",
-			domain: "http://example.org",
-			want:  "http://example.org/hello",
+			domain:   "http://example.org",
+			want:     "http://example.org/hello",
 		},
 		{
-			name:  "domain with trailing slash",
+			name:     "domain with trailing slash",
 			fragment: "/hello",
-			domain: "http://example.org/",
-			want:  "http://example.org/hello",
+			domain:   "http://example.org/",
+			want:     "http://example.org/hello",
 		},
 		{
-			name:  "domain and path with trailing slash",
+			name:     "domain and path with trailing slash",
 			fragment: "hello/",
-			domain: "http://example.org/",
-			want:  "http://example.org/hello",
+			domain:   "http://example.org/",
+			want:     "http://example.org/hello",
 		},
 	}
 
@@ -662,6 +662,79 @@ func TestQuoteSplit(t *testing.T) {
 			got := QuoteSplit(tc.input, separator, stripQuotes)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("test case %q: QuoteSplit(%q, %q, %v) returned diff (-want +got):\n%s", tc.name, tc.input, separator, stripQuotes, diff)
+			}
+		})
+	}
+}
+
+func TestContainsWord(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		word  string
+		want  bool
+	}{
+		{
+			name:  "empty input empty word",
+			input: "",
+			word:  "",
+			want:  true,
+		},
+		{
+			name:  "empty input with word",
+			input: "",
+			word:  "hi",
+			want:  false,
+		},
+		{
+			name:  "word is space character",
+			input: "testing with spaces",
+			word:  " ",
+			want:  false,
+		},
+		{
+			name:  "trivial match",
+			input: "hi",
+			word:  "hi",
+			want:  true,
+		},
+		{
+			name:  "trivial mismatch",
+			input: "hi",
+			word:  "he",
+			want:  false,
+		},
+		{
+			name:  "match word at start",
+			input: "hi there world!",
+			word:  "hi",
+			want:  true,
+		},
+		{
+			name:  "match word in middle",
+			input: "hi there world!",
+			word:  "there",
+			want:  true,
+		},
+		{
+			name:  "match word at end",
+			input: "hi there world!",
+			word:  "world!",
+			want:  true,
+		},
+		{
+			name:  "multi-word no match",
+			input: "hi there world!",
+			word:  "world",
+			want:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ContainsWord(tc.input, tc.word)
+			if got != tc.want {
+				t.Errorf("test case %q: ContainsWord(%q, %q) failed: got %v, want %v", tc.name, tc.input, tc.word, got, tc.want)
 			}
 		})
 	}
