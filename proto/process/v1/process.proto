@@ -83,14 +83,21 @@ message Process {
     State state = 8;
   }
 
-  // Processes may act on a set of projects, and may have different input
-  // parameters per project.
-  message Project {
-    // Time when the project settings were last modified.
+  // Processes may act on a set of work items, and may have different input
+  // parameters per item. What work items represent may be different between
+  // different types of workers. A worker gets called for each item on a work
+  // list (stored as maps, but can be iterated over as a list).
+  // A named work item can only appear on one of three maps:
+  // 1. active_work
+  // 2. cleanup_work
+  // 3. dropped_work
+  message Work {
+    // Time when the work item's settings was last modified.
     google.protobuf.Timestamp modified = 1;
 
-    // Input parameters of the project. These will vary depending on the needs
-    // of process workers that may need input parameters to complete their work.
+    // Input parameters for the work item. These will vary depending on the
+    // needs of process workers that may need input parameters to complete their
+    // work.
     // Example: if there were a rename process that occationally updates the
     // names of objects in the storage layer, then it may have params of:
     //   {
@@ -102,10 +109,10 @@ message Process {
     //       "maxReplacements": 1
     //     }
     //   }
-    // Note: this structure allows input parameters to vary between projects.
+    // Note: this structure allows input parameters to vary between work items.
     Params params = 2;
 
-    // Project status. Changes here do not cause "modified" settings timestamp
+    // Work status. Changes here do not cause "modified" settings timestamp
     // to change.
     Status status = 3;
   }
@@ -122,27 +129,30 @@ message Process {
   // Frequency of how often a process is scheduled to start processing.
   google.protobuf.Duration schedule_frequency = 3;
 
-  // List of active projects being processed.
-  map<string, Project> active_projects = 4;
+  // A set of active work items being processed. The key is the name of the work
+  // item.
+  map<string, Work> active_work = 4;
 
-  // Projects to be dropped during a future active period. Is a map of
-  // project name to timestamp of request.
-  map<string, google.protobuf.Timestamp> cleanup_projects = 5;
+  // Work to be dropped during a future active period. Is a map of the work
+  // item name to timestamp of request. Some workers may treat this as a no-op
+  // while others may have critical cleanup to do before dropping the work.
+  // The key is the name of the work item.
+  map<string, google.protobuf.Timestamp> cleanup_work = 5;
 
-  // Projects that are no longer active (i.e. dropped) as a form of tracking
-  // previous state. Is a map of project name to timestamp of when the project
-  // was dropped.
-  map<string, google.protobuf.Timestamp> dropped_projects = 6;
+  // Work that are no longer active (i.e. dropped) as a form of tracking
+  // previous state. Is a map of work item name to timestamp of when the work
+  // item was dropped. The key is the name of the work item.
+  map<string, google.protobuf.Timestamp> dropped_work = 6;
 
-  // Input parameters of the project.
+  // Input parameters for the worker to use across work items.
   Params settings = 7;
 
   // Time of most recent change to the ProcessStatus.Params settings.
   google.protobuf.Timestamp settings_time = 8;
 
-  // Status over all projects for the most recent period or active period.
+  // Status over all work items for the most recent period or active period.
   Status process_status = 9;
 
-  // Aggregate stats over all projects and time periods since last reset.
+  // Aggregate stats over all time periods for all work items since last reset.
   map<string, double> aggregate_stats = 10;
 }

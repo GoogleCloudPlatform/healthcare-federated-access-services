@@ -58,14 +58,14 @@ func NewKeyGC(name string, warehouse clouds.AccountManager, store storage.Store,
 	return k
 }
 
-// RegisterProject adds a project to the state for workers to process.
-func (k *KeyGC) RegisterProject(project string, params *pb.Process_Params, tx storage.Tx) (*pb.Process_Project, error) {
-	return k.process.RegisterProject(project, params, tx)
+// RegisterWork adds a work item to the state for workers to process.
+func (k *KeyGC) RegisterWork(workName string, params *pb.Process_Params, tx storage.Tx) (*pb.Process_Work, error) {
+	return k.process.RegisterWork(workName, params, tx)
 }
 
-// UnregisterProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-func (k *KeyGC) UnregisterProject(projectName string, tx storage.Tx) error {
-	return k.process.UnregisterProject(projectName, tx)
+// UnregisterWork (eventually) removes a work item from the active state, and allows cleanup work to be performed.
+func (k *KeyGC) UnregisterWork(workName string, tx storage.Tx) error {
+	return k.process.UnregisterWork(workName, tx)
 }
 
 // UpdateSettings alters resource management settings.
@@ -95,12 +95,12 @@ func (k *KeyGC) Run(ctx context.Context) {
 	k.process.Run(ctx)
 }
 
-// ProcessActiveProject has a worker perform the work needed to process an active project.
-func (k *KeyGC) ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *processlib.Process) error {
+// ProcessActiveWork has a worker perform the work needed to process an active work item.
+func (k *KeyGC) ProcessActiveWork(ctx context.Context, state *pb.Process, workName string, work *pb.Process_Work, process *processlib.Process) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	accounts, err := k.am.GetServiceAccounts(ctx, projectName)
+	accounts, err := k.am.GetServiceAccounts(ctx, workName)
 	if err != nil {
 		return err
 	}
@@ -110,29 +110,29 @@ func (k *KeyGC) ProcessActiveProject(ctx context.Context, state *pb.Process, pro
 			continue
 		}
 
-		process.AddProjectStats(1, "accounts", projectName, state)
-		keyTTL := project.Params.IntParams["keyTtl"]
-		keysPerAccount := project.Params.IntParams["keysPerAccount"]
-		got, rm, err := k.am.ManageAccountKeys(ctx, projectName, a.ID, 0, time.Duration(keyTTL)*time.Second, time.Now(), keysPerAccount)
+		process.AddWorkStats(1, "accounts", workName, state)
+		keyTTL := work.Params.IntParams["keyTtl"]
+		keysPerAccount := work.Params.IntParams["keysPerAccount"]
+		got, rm, err := k.am.ManageAccountKeys(ctx, workName, a.ID, 0, time.Duration(keyTTL)*time.Second, time.Now(), keysPerAccount)
 		if err != nil {
-			run := process.AddProjectError(err, projectName, state)
+			run := process.AddWorkError(err, workName, state)
 			if run != processlib.Continue {
 				return nil
 			}
 			continue
 		}
-		process.AddProjectStats(float64(got), "keysKept", projectName, state)
-		process.AddProjectStats(float64(rm), "keysRemoved", projectName, state)
+		process.AddWorkStats(float64(got), "keysKept", workName, state)
+		process.AddWorkStats(float64(rm), "keysRemoved", workName, state)
 	}
 	return nil
 }
 
-// CleanupProject has a worker perform the work needed to clean up a project that was active previously.
-func (k *KeyGC) CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *processlib.Process) error {
+// CleanupWork has a worker perform the work needed to clean up a work item that was active previously.
+func (k *KeyGC) CleanupWork(ctx context.Context, state *pb.Process, workName string, process *processlib.Process) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	accounts, err := k.am.GetServiceAccounts(ctx, projectName)
+	accounts, err := k.am.GetServiceAccounts(ctx, workName)
 	if err != nil {
 		return err
 	}
@@ -141,15 +141,15 @@ func (k *KeyGC) CleanupProject(ctx context.Context, state *pb.Process, projectNa
 		if !isGarbageCollectAccount(a) {
 			continue
 		}
-		if err := k.am.RemoveServiceAccount(ctx, projectName, a.ID); err != nil {
-			process.AddProjectStats(1, "accountsDirty", projectName, state)
-			run := process.AddProjectError(err, projectName, state)
+		if err := k.am.RemoveServiceAccount(ctx, workName, a.ID); err != nil {
+			process.AddWorkStats(1, "accountsDirty", workName, state)
+			run := process.AddWorkError(err, workName, state)
 			if run != processlib.Continue {
 				return nil
 			}
 			continue
 		}
-		process.AddProjectStats(1, "accountsRemoved", projectName, state)
+		process.AddWorkStats(1, "accountsRemoved", workName, state)
 	}
 	return nil
 }

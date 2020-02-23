@@ -54,14 +54,14 @@ func TestKeyGC(t *testing.T) {
 			"bar": 2,
 		},
 	}
-	if _, err := gc.RegisterProject("test_process", params, nil); err != nil {
-		t.Fatalf(`RegisterProject("test_process", %+v) failed: %v`, params, err)
+	if _, err := gc.RegisterWork("test_process", params, nil); err != nil {
+		t.Fatalf(`RegisterWork("test_process", %+v) failed: %v`, params, err)
 	}
-	if _, err := gc.RegisterProject("bad", nil, nil); err != nil {
-		t.Fatalf(`RegisterProject("bad", nil) failed: %v`, err)
+	if _, err := gc.RegisterWork("bad", nil, nil); err != nil {
+		t.Fatalf(`RegisterWork("bad", nil) failed: %v`, err)
 	}
-	if err := gc.UnregisterProject("bad", nil); err != nil {
-		t.Fatalf(`UnregisterProject("bad") failed: %v`, err)
+	if err := gc.UnregisterWork("bad", nil); err != nil {
+		t.Fatalf(`UnregisterWork("bad") failed: %v`, err)
 	}
 
 	gc.Run(context.Background())
@@ -77,16 +77,16 @@ func TestKeyGC(t *testing.T) {
 		gotStatus.Stats["duration"] = 100
 	}
 	wantStats := map[string]float64{
-		"duration":                100,
-		"errors":                  0,
-		"project.accounts":        2,
-		"project.accountsRemoved": 2,
-		"project.keysKept":        2,
-		"project.keysRemoved":     4,
-		"projects":                1,
-		"projectsCleaned":         1,
-		"runs":                    1,
-		"state.completed":         1,
+		"duration":             100,
+		"errors":               0,
+		"runs":                 1,
+		"state.completed":      1,
+		"work.accounts":        2,
+		"work.accountsRemoved": 2,
+		"work.keysKept":        2,
+		"work.keysRemoved":     4,
+		"workItems":            1,
+		"workItemsCleaned":     1,
 	}
 	glog.Infof("process status: %+v", state.ProcessStatus)
 	if diff := cmp.Diff(wantStats, gotStatus.Stats); diff != "" {

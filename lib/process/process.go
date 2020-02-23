@@ -37,17 +37,17 @@ var (
 	instanceID = common.GenerateGUID()
 )
 
-// ErrorAction indicates how an AddError or AddProjectError should be handled.
+// ErrorAction indicates how an AddError or AddWorkError should be handled.
 type ErrorAction string
 
 // Progress indicates how an update was handled.
 type Progress string
 
 const (
-	maxProjectErrors = 10
-	maxTotalErrors   = 25
-	minJitter        = 5
-	maxJitter        = 30
+	maxWorkErrors  = 10
+	maxTotalErrors = 25
+	minJitter      = 5
+	maxJitter      = 30
 
 	// Continue indicates the error was within max error tolerance.
 	Continue ErrorAction = "Continue"
@@ -70,12 +70,12 @@ const (
 	None Progress = "None"
 )
 
-// Worker represents a process that perform work on the project state provided.
+// Worker represents a process that perform work on the set of work items provided.
 type Worker interface {
-	// ProcessActiveProject has a worker perform the work needed to process an active project.
-	ProcessActiveProject(ctx context.Context, state *pb.Process, projectName string, project *pb.Process_Project, process *Process) error
-	// CleanupProject has a worker perform the work needed to clean up a project that was active previously.
-	CleanupProject(ctx context.Context, state *pb.Process, projectName string, process *Process) error
+	// ProcessActiveWork has a worker perform the work needed to process an active work item.
+	ProcessActiveWork(ctx context.Context, state *pb.Process, workName string, work *pb.Process_Work, process *Process) error
+	// CleanupWork has a worker perform the work needed to clean up a work item that was active previously.
+	CleanupWork(ctx context.Context, state *pb.Process, workName string, process *Process) error
 	// Wait indicates that the worker should wait for the next active cycle to begin. Return false to exit worker.
 	Wait(ctx context.Context, duration time.Duration) bool
 }
@@ -126,10 +126,10 @@ func (p *Process) DefaultSettings() *pb.Process_Params {
 	return p.defaultSettings
 }
 
-// RegisterProject adds a project to the state for workers to process.
-func (p *Process) RegisterProject(projectName string, projectParams *pb.Process_Params, tx storage.Tx) (*pb.Process_Project, error) {
-	if len(projectName) == 0 {
-		return nil, fmt.Errorf("process project registration: cannot register an empty project")
+// RegisterWork adds a work item to the state for workers to process.
+func (p *Process) RegisterWork(workName string, workParams *pb.Process_Params, tx storage.Tx) (*pb.Process_Work, error) {
+	if len(workName) == 0 {
+		return nil, fmt.Errorf("process work item registration: cannot register an empty work item")
 	}
 	tx = p.store.LockTx(p.name, 0, tx)
 	if tx == nil {
@@ -143,33 +143,33 @@ func (p *Process) RegisterProject(projectName string, projectParams *pb.Process_
 	}
 
 	now := ptypes.TimestampNow()
-	if projectParams == nil {
-		projectParams = &pb.Process_Params{}
+	if workParams == nil {
+		workParams = &pb.Process_Params{}
 	}
-	proj := &pb.Process_Project{
+	work := &pb.Process_Work{
 		Modified: now,
-		Params:   projectParams,
+		Params:   workParams,
 		Status:   newStatus(pb.Process_Status_NEW),
 	}
-	old, ok := state.ActiveProjects[projectName]
-	if ok && proto.Equal(old.Params, proj.Params) {
-		glog.Infof("process %q instance %q verified project %q was already registered with the same parameters", p.name, instanceID, projectName)
-		return proj, nil
+	old, ok := state.ActiveWork[workName]
+	if ok && proto.Equal(old.Params, work.Params) {
+		glog.Infof("process %q instance %q verified work item %q was already registered with the same parameters", p.name, instanceID, workName)
+		return work, nil
 	}
-	state.ActiveProjects[projectName] = proj
-	delete(state.CleanupProjects, projectName)
-	delete(state.DroppedProjects, projectName)
+	state.ActiveWork[workName] = work
+	delete(state.CleanupWork, workName)
+	delete(state.DroppedWork, workName)
 
 	state.SettingsTime = ptypes.TimestampNow()
 	if err := p.writeState(state, tx); err != nil {
 		return nil, err
 	}
-	glog.Infof("process %q instance %q registered project %q settings: %+v", p.name, instanceID, projectName, proj.Params)
-	return proj, nil
+	glog.Infof("process %q instance %q registered work item %q settings: %+v", p.name, instanceID, workName, work.Params)
+	return work, nil
 }
 
-// UnregisterProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
-func (p *Process) UnregisterProject(projectName string, tx storage.Tx) error {
+// UnregisterWork (eventually) removes a work item from the active state, and allows cleanup work to be performed.
+func (p *Process) UnregisterWork(workName string, tx storage.Tx) error {
 	tx = p.store.LockTx(p.name, 0, tx)
 	if tx == nil {
 		return fmt.Errorf("lock process registration failed: lock unavailable")
@@ -181,19 +181,19 @@ func (p *Process) UnregisterProject(projectName string, tx storage.Tx) error {
 		return err
 	}
 
-	_, dropped := state.DroppedProjects[projectName]
-	_, cleanup := state.CleanupProjects[projectName]
+	_, dropped := state.DroppedWork[workName]
+	_, cleanup := state.CleanupWork[workName]
 	if dropped || cleanup {
 		return nil
 	}
 	// Schedule for cleanup.
-	delete(state.ActiveProjects, projectName)
-	state.CleanupProjects[projectName] = ptypes.TimestampNow()
+	delete(state.ActiveWork, workName)
+	state.CleanupWork[workName] = ptypes.TimestampNow()
 	state.SettingsTime = ptypes.TimestampNow()
 	if err := p.writeState(state, tx); err != nil {
 		return err
 	}
-	glog.Infof("process %s instance %q scheduling: project %q scheduled for clean up", p.name, instanceID, projectName)
+	glog.Infof("process %s instance %q scheduling: work item %q scheduled for clean up", p.name, instanceID, workName)
 	return nil
 }
 
@@ -295,16 +295,16 @@ func (p *Process) Progress(state *pb.Process) (Progress, error) {
 	return None, nil
 }
 
-// AddError will add error state to a given status block. Set "projectStatus" to nil if
+// AddError will add error state to a given status block. Set "workStatus" to nil if
 // it is not specific.
-func (p *Process) AddError(err error, projectStatus *pb.Process_Status, state *pb.Process) ErrorAction {
+func (p *Process) AddError(err error, workStatus *pb.Process_Status, state *pb.Process) ErrorAction {
 	now := ptypes.TimestampNow()
 	action := Continue
-	if projectStatus != nil {
-		projectStatus.TotalErrors++
-		projectStatus.LastErrorTime = now
-		if len(projectStatus.Errors) < maxProjectErrors {
-			projectStatus.Errors = append(projectStatus.Errors, &pb.Process_Error{Time: now, Text: err.Error()})
+	if workStatus != nil {
+		workStatus.TotalErrors++
+		workStatus.LastErrorTime = now
+		if len(workStatus.Errors) < maxWorkErrors {
+			workStatus.Errors = append(workStatus.Errors, &pb.Process_Error{Time: now, Text: err.Error()})
 		} else {
 			action = Abort
 		}
@@ -319,11 +319,11 @@ func (p *Process) AddError(err error, projectStatus *pb.Process_Status, state *p
 	return action
 }
 
-// AddProjectError will add error state to a given project status block as well as the process status block.
-func (p *Process) AddProjectError(err error, project string, state *pb.Process) ErrorAction {
-	proj, ok := state.ActiveProjects[project]
+// AddWorkError will add error state to a given work item status block as well as the process status block.
+func (p *Process) AddWorkError(err error, workName string, state *pb.Process) ErrorAction {
+	work, ok := state.ActiveWork[workName]
 	if ok {
-		return p.AddError(err, proj.Status, state)
+		return p.AddError(err, work.Status, state)
 	}
 	return p.AddError(err, nil, state)
 }
@@ -337,48 +337,49 @@ func (p *Process) AddStats(count float64, name string, state *pb.Process) {
 	state.ProcessStatus.Stats[name] = val + count
 }
 
-// AddProjectStats will increment metrics of a given name within the project and process status.
-func (p *Process) AddProjectStats(count float64, name, project string, state *pb.Process) {
-	proj, ok := state.ActiveProjects[project]
+// AddWorkStats will increment metrics of a given name within the work item and process status.
+func (p *Process) AddWorkStats(count float64, stat, workName string, state *pb.Process) {
+	work, ok := state.ActiveWork[workName]
 	if ok {
-		proj.Status.Stats[name] = proj.Status.Stats[name] + count
+		work.Status.Stats[stat] = work.Status.Stats[stat] + count
 	}
-	p.AddStats(count, "project."+name, state)
+	p.AddStats(count, "work."+stat, state)
 }
 
 func (p *Process) work(ctx context.Context, state *pb.Process) (Progress, error) {
 	// Create stable lists that will be followed even if a merge occurs during
 	// any Progress() updates.
-	var projects []string
+	var active []string
 	var cleanup []string
 	var drop []string
-	for project := range state.ActiveProjects {
-		projects = append(projects, project)
+	for work := range state.ActiveWork {
+		active = append(active, work)
 	}
-	for project := range state.CleanupProjects {
-		cleanup = append(cleanup, project)
+	for work := range state.CleanupWork {
+		cleanup = append(cleanup, work)
 	}
 	// Process in a consistent order makes progress reports easier to compare.
-	sort.Strings(projects)
+	sort.Strings(active)
 	sort.Strings(cleanup)
+	sort.Strings(drop)
 
-	// Process active projects.
-	for _, projectName := range projects {
-		project, ok := state.ActiveProjects[projectName]
+	// Process active work.
+	for _, workName := range active {
+		work, ok := state.ActiveWork[workName]
 		if !ok {
 			// Was removed on merge.
 			continue
 		}
-		p.AddStats(1, "projects", state)
-		project.Status = newStatus(pb.Process_Status_ACTIVE)
-		err := p.worker.ProcessActiveProject(ctx, state, projectName, project, p)
+		p.AddStats(1, "workItems", state)
+		work.Status = newStatus(pb.Process_Status_ACTIVE)
+		err := p.worker.ProcessActiveWork(ctx, state, workName, work, p)
 		if err == nil {
-			p.setProjectState(pb.Process_Status_COMPLETED, projectName, state)
-		} else if p.AddProjectError(err, projectName, state) == Abort {
-			p.setProjectState(pb.Process_Status_ABORTED, projectName, state)
+			p.setWorkState(pb.Process_Status_COMPLETED, workName, state)
+		} else if p.AddWorkError(err, workName, state) == Abort {
+			p.setWorkState(pb.Process_Status_ABORTED, workName, state)
 			return Aborted, err
 		} else {
-			p.setProjectState(pb.Process_Status_INCOMPLETE, projectName, state)
+			p.setWorkState(pb.Process_Status_INCOMPLETE, workName, state)
 		}
 		progress, err := p.Progress(state)
 		if progress == Conflict || progress == Aborted {
@@ -386,33 +387,33 @@ func (p *Process) work(ctx context.Context, state *pb.Process) (Progress, error)
 		}
 	}
 
-	// Process cleanup projects.
-	for _, projectName := range cleanup {
-		if _, ok := state.CleanupProjects[projectName]; !ok {
+	// Process cleanup work.
+	for _, workName := range cleanup {
+		if _, ok := state.CleanupWork[workName]; !ok {
 			// Was removed on merge.
 			continue
 		}
 		errors := 0
 		run := Continue
-		err := p.worker.CleanupProject(ctx, state, projectName, p)
+		err := p.worker.CleanupWork(ctx, state, workName, p)
 		if err != nil && !ignoreCleanupError(err) {
 			errors++
-			err = fmt.Errorf("warehouse get service accounts on project %q: %v", projectName, err)
+			err = fmt.Errorf("clean up work on item %q: %v", workName, err)
 			run = p.AddError(err, nil, state)
 		}
 		if run == Abort {
-			p.AddStats(1, "projectsDirty", state)
-			p.AddStats(1, "projectsAborted", state)
+			p.AddStats(1, "workItemsDirty", state)
+			p.AddStats(1, "workItemsAborted", state)
 			return Aborted, err
 		}
 		if errors == 0 {
-			p.AddStats(1, "projectsCleaned", state)
-			if _, ok := state.ActiveProjects[projectName]; !ok {
-				// Only add to the drop list because there were no errors to retry later and merge has not returned the project to the active list.
-				drop = append(drop, projectName)
+			p.AddStats(1, "workItemsCleaned", state)
+			if _, ok := state.ActiveWork[workName]; !ok {
+				// Only add to the drop list because there were no errors to retry later and merge has not returned the work item to the active list.
+				drop = append(drop, workName)
 			}
 		} else {
-			p.AddStats(1, "projectsDirty", state)
+			p.AddStats(1, "workItemsDirty", state)
 		}
 		progress, err := p.Progress(state)
 		if progress == Conflict || progress == Aborted {
@@ -420,27 +421,27 @@ func (p *Process) work(ctx context.Context, state *pb.Process) (Progress, error)
 		}
 	}
 
-	// Move cleanup projects to dropped projects if no errors encountered during cleaning (i.e. it is on the drop list).
+	// Move cleanup work to dropped work if no errors encountered during cleaning (i.e. it is on the drop list).
 	now := ptypes.TimestampNow()
-	for _, projectName := range drop {
-		delete(state.CleanupProjects, projectName)
-		if _, ok := state.ActiveProjects[projectName]; ok {
+	for _, workName := range drop {
+		delete(state.CleanupWork, workName)
+		if _, ok := state.ActiveWork[workName]; ok {
 			// Was added on merge, do not drop.
 			continue
 		}
-		state.DroppedProjects[projectName] = now
+		state.DroppedWork[workName] = now
 	}
 	return Completed, nil
 }
 
-func (p *Process) setProjectState(statusState pb.Process_Status_State, projectName string, state *pb.Process) {
-	project, ok := state.ActiveProjects[projectName]
+func (p *Process) setWorkState(statusState pb.Process_Status_State, workName string, state *pb.Process) {
+	work, ok := state.ActiveWork[workName]
 	if !ok {
 		return
 	}
-	project.Status.State = statusState
+	work.Status.State = statusState
 	if statusState == pb.Process_Status_COMPLETED {
-		project.Status.FinishTime = ptypes.TimestampNow()
+		work.Status.FinishTime = ptypes.TimestampNow()
 	}
 }
 
@@ -555,8 +556,8 @@ func (p *Process) update(state *pb.Process) (Progress, error) {
 func (p *Process) finish(state *pb.Process, completion pb.Process_Status_State) {
 	state.ProcessStatus.FinishTime = ptypes.TimestampNow()
 	state.ProcessStatus.State = completion
-	if _, ok := state.ProcessStatus.Stats["projects"]; !ok {
-		p.AddStats(0, "projects", state)
+	if _, ok := state.ProcessStatus.Stats["workItems"]; !ok {
+		p.AddStats(0, "workItems", state)
 	}
 	aggregateStats(state)
 	p.update(state)
@@ -566,60 +567,60 @@ func (p *Process) mergeProcessState(state, src *pb.Process) Progress {
 	var rm []string
 	now := ptypes.TimestampNow()
 
-	// ActiveProjects: take params etc from src, but retain some processing state.
-	// Remove from ActiveProjects if project is not in src.
-	for k, destv := range state.ActiveProjects {
-		if srcp, ok := src.ActiveProjects[k]; ok {
+	// ActiveWork: take params etc from src, but retain some processing state.
+	// Remove from ActiveWork if work item is not in src.
+	for k, destv := range state.ActiveWork {
+		if srcp, ok := src.ActiveWork[k]; ok {
 			srcp.Status = destv.Status
-			state.ActiveProjects[k] = srcp
+			state.ActiveWork[k] = srcp
 		} else {
 			rm = append(rm, k)
 		}
 	}
 	for _, k := range rm {
-		delete(state.ActiveProjects, k)
-		if _, ok := state.CleanupProjects[k]; !ok {
-			state.CleanupProjects[k] = now
+		delete(state.ActiveWork, k)
+		if _, ok := state.CleanupWork[k]; !ok {
+			state.CleanupWork[k] = now
 		}
 	}
-	// Copy over active projects from src that are not currently in processing state.
-	for k, srcv := range src.ActiveProjects {
-		if _, ok := state.ActiveProjects[k]; !ok {
-			state.ActiveProjects[k] = srcv
-		}
-	}
-
-	// CleanupProjects: add all from src.
-	for k, v := range src.CleanupProjects {
-		state.CleanupProjects[k] = v
-		if _, ok := state.DroppedProjects[k]; ok {
-			delete(state.DroppedProjects, k)
-		}
-		if _, ok := state.ActiveProjects[k]; ok {
-			delete(state.CleanupProjects, k)
+	// Copy over active work items from src that are not currently in processing state.
+	for k, srcv := range src.ActiveWork {
+		if _, ok := state.ActiveWork[k]; !ok {
+			state.ActiveWork[k] = srcv
 		}
 	}
 
-	// DroppedProjects: will only have changed in some error states, add from src
+	// CleanupWork: add all from src.
+	for k, v := range src.CleanupWork {
+		state.CleanupWork[k] = v
+		if _, ok := state.DroppedWork[k]; ok {
+			delete(state.DroppedWork, k)
+		}
+		if _, ok := state.ActiveWork[k]; ok {
+			delete(state.CleanupWork, k)
+		}
+	}
+
+	// DroppedWork: will only have changed in some error states, add from src
 	// if not on other lists. Timestamp of when dropped is not critical.
-	for k, v := range src.DroppedProjects {
-		_, active := state.ActiveProjects[k]
-		_, clean := state.CleanupProjects[k]
-		_, drop := state.DroppedProjects[k]
+	for k, v := range src.DroppedWork {
+		_, active := state.ActiveWork[k]
+		_, clean := state.CleanupWork[k]
+		_, drop := state.DroppedWork[k]
 		if !active && !clean && !drop {
-			state.CleanupProjects[k] = v
+			state.CleanupWork[k] = v
 		}
 	}
 	rm = []string{}
-	for k := range state.DroppedProjects {
-		_, active := state.ActiveProjects[k]
-		_, clean := state.CleanupProjects[k]
+	for k := range state.DroppedWork {
+		_, active := state.ActiveWork[k]
+		_, clean := state.CleanupWork[k]
 		if active || clean {
 			rm = append(rm, k)
 		}
 	}
-	for _, project := range rm {
-		delete(state.DroppedProjects, project)
+	for _, work := range rm {
+		delete(state.DroppedWork, work)
 	}
 
 	// Keep ProcessName, Instance, ProcessStatus, and AggregateStats.
@@ -676,14 +677,14 @@ func (p *Process) cutoff(state *pb.Process) *tspb.Timestamp {
 }
 
 func (p *Process) setup(state *pb.Process) {
-	if state.ActiveProjects == nil {
-		state.ActiveProjects = make(map[string]*pb.Process_Project)
+	if state.ActiveWork == nil {
+		state.ActiveWork = make(map[string]*pb.Process_Work)
 	}
-	if state.CleanupProjects == nil {
-		state.CleanupProjects = make(map[string]*tspb.Timestamp)
+	if state.CleanupWork == nil {
+		state.CleanupWork = make(map[string]*tspb.Timestamp)
 	}
-	if state.DroppedProjects == nil {
-		state.DroppedProjects = make(map[string]*tspb.Timestamp)
+	if state.DroppedWork == nil {
+		state.DroppedWork = make(map[string]*tspb.Timestamp)
 	}
 	if state.ProcessStatus == nil {
 		state.ProcessStatus = &pb.Process_Status{

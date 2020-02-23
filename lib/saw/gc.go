@@ -31,13 +31,13 @@ func (wh *AccountWarehouse) Run(ctx context.Context) {
 
 // RegisterAccountProject adds a project to the state for workers to process.
 func (wh *AccountWarehouse) RegisterAccountProject(project string, tx storage.Tx) error {
-	_, err := wh.keyGC.RegisterProject(project, nil, tx)
+	_, err := wh.keyGC.RegisterWork(project, nil, tx)
 	return err
 }
 
 // UnregisterAccountProject (eventually) removes a project from the active state, and allows cleanup work to be performed.
 func (wh *AccountWarehouse) UnregisterAccountProject(project string, tx storage.Tx) error {
-	return wh.keyGC.UnregisterProject(project, tx)
+	return wh.keyGC.UnregisterWork(project, tx)
 }
 
 // UpdateSettings alters resource management settings.
