@@ -18,8 +18,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -190,5 +192,58 @@ func TestResolveServiceRole(t *testing.T) {
 		if err == nil && test.expect != result.Ui["label"] {
 			t.Errorf("test %q results mismatch: want %v, got %v", test.role, test.expect, result.Ui["label"])
 		}
+	}
+}
+
+func TestExperimentalVarsCheck(t *testing.T) {
+	store := storage.NewMemoryStorage("dam-static", "testdata/config")
+	warehouse := clouds.NewMockTokenCreator(false)
+	secretStore := storage.NewMemoryStorage("dam", "testdata/config")
+	secrets := &pb.DamSecrets{}
+	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
+		t.Fatalf("reading secrets file: %v", err)
+	}
+	adapters, err := adapter.CreateAdapters(store, warehouse, secrets)
+	if err != nil {
+		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
+	}
+	desc := adapters.Descriptors[adapter.SawAdapterName]
+	d := pb.TargetAdapter{}
+	proto.Merge(&d, desc)
+
+	fakeDesc := "fake"
+	fakeFormat := "foo"
+	fakeVar := "testing"
+	fakeVarValue := "test_value"
+
+	d.ItemFormats[fakeFormat] = &pb.ItemFormat{
+		Variables: map[string]*pb.VariableFormat{
+			fakeVar: &pb.VariableFormat{
+				Regexp:       ".",
+				Optional:     true,
+				Experimental: true,
+			},
+		},
+	}
+	adapters.Descriptors[fakeDesc] = &d
+
+	original := globalflags.Experimental
+	defer func() { globalflags.Experimental = original }()
+	globalflags.Experimental = true
+
+	item := &pb.View_Item{Vars: map[string]string{fakeVar: fakeVarValue}}
+	vars, path, err := adapter.GetItemVariables(adapters, fakeDesc, fakeFormat, item)
+	if err != nil {
+		t.Fatalf("GetItemVariables(adapters, %q, %q, %+v) failed at path %q: %v", fakeDesc, fakeFormat, item, path, err)
+	}
+	if got, ok := vars[fakeVar]; !ok || got != fakeVarValue {
+		t.Fatalf("item variable value not found or mismatch: got %q, want %q", got, fakeVarValue)
+	}
+
+	// Now test again with only one change to isolate Experimental behavior.
+	globalflags.Experimental = false
+	vars, _, err = adapter.GetItemVariables(adapters, fakeDesc, fakeFormat, item)
+	if err == nil {
+		t.Fatalf("GetItemVariables(adapters, %q, %q, %+v) returned experimental variables in non-experimental mode: vars %+v", fakeDesc, fakeFormat, item, vars)
 	}
 }

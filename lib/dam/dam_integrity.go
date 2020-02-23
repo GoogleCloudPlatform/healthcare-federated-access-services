@@ -122,31 +122,9 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "sources", strconv.Itoa(i)), "trusted source URL must be HTTPS")
 			}
 		}
-		for i, claim := range ts.Claims {
-			if !strings.HasPrefix(claim, "^") {
-				// Not a regexp, so just look up the claim name.
-				if _, ok := cfg.ClaimDefinitions[claim]; !ok {
-					return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim name %q not found in claim definitions", claim))
-				}
-				continue
-			}
-			if !strings.HasSuffix(claim, "$") {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim regular expression %q does not end with %q", claim, "$"))
-			}
-			re, err := regexp.Compile(claim)
-			if err != nil {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim regular expression error: %v", err))
-			}
-			// Regexp should match at least one claim definition.
-			match := false
-			for defName := range cfg.ClaimDefinitions {
-				if re.Match([]byte(defName)) {
-					match = true
-					break
-				}
-			}
-			if !match {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("claim regular expression %q does not match any claim definitions", claim))
+		for i, visa := range ts.Claims {
+			if _, ok := cfg.ClaimDefinitions[visa]; !ok {
+				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("visa name %q not found in visa type definitions", visa))
 			}
 		}
 		if path, err := check.CheckUI(ts.Ui, true); err != nil {

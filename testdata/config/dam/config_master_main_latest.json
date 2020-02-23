@@ -82,10 +82,6 @@
         "https://institute3.nih.gov",
         "https://institute4.nih.gov"
       ],
-      "claims": [
-        "^[A-Z].*$",
-        "^Linked.*$"
-      ],
       "ui": {
         "label": "nih institutes",
         "description": "nih institutes claim source"
@@ -108,7 +104,7 @@
       ],
       "claims": [
         "ResearcherStatus",
-        "^Linked.*$"
+        "LinkedIdentities"
       ],
       "ui": {
         "label": "elixir institutes",

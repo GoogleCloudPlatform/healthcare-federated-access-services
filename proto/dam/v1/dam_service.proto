@@ -172,6 +172,12 @@ message VariableFormat {
   bool optional = 2;
   map<string, string> ui = 3;
   string type = 4;
+
+  // A variable marked with `experimental` will only be available when the
+  // experimental flag is set to true. Otherwise any configuration usage of an
+  // experimental variable in a non-experimental environment will invalidate
+  // the configuration.
+  bool experimental = 5;
 }
 
 message Realm {}

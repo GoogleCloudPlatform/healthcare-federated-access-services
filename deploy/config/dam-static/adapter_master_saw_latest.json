@@ -41,6 +41,7 @@
           "type": "split_pattern",
           "regexp": "^(/[-a-z0-9_\\.]+)+(/?\\*)?$",
           "optional": true,
+          "experimental": true,
           "ui": {
             "label": "GCS directory and file paths",
             "description": "A list of directories and files that may end in a '*' to indicate it is a prefix match"

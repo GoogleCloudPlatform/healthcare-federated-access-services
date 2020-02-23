@@ -24,6 +24,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -125,9 +126,12 @@ func GetItemVariables(adapters *TargetAdapters, targetAdapter, itemFormat string
 		return nil, httputil.StatusPath("itemFormats", itemFormat), fmt.Errorf("target adapter %q item format %q is undefined", targetAdapter, itemFormat)
 	}
 	for varname, val := range item.Vars {
-		_, ok := format.Variables[varname]
+		v, ok := format.Variables[varname]
 		if !ok {
 			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q is undefined", targetAdapter, itemFormat, varname)
+		}
+		if !globalflags.Experimental && v.Experimental {
+			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q is for experimental use only, not for use in this environment", targetAdapter, itemFormat, varname)
 		}
 		if len(val) == 0 {
 			// Treat empty input the same as not provided so long as the variable name is valid.
