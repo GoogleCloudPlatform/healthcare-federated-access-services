@@ -222,27 +222,27 @@ fi
 
 if deploy_service "personas"; then
   echo -e ${GREEN?}'Deploy PERSONA BROKER.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/personas/personas.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-personas:latest --version=latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/personas/personas.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-personas:latest --version=master
 fi
 
 if deploy_service "ic"; then
   echo -e ${GREEN?}'Deploy IC.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest --version=latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest --version=master
 fi
 
 if deploy_service "icdemo"; then
   echo -e ${GREEN?}'Deploy ICDEMO.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/icdemo/icdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-icdemo:latest --version=latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/icdemo/icdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-icdemo:latest --version=master
 fi
 
 if deploy_service "dam"; then
   echo -e ${GREEN?}'Deploy DAM.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest --version=latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest --version=master
 fi
 
 if deploy_service "damdemo"; then
   echo -e ${GREEN?}'Deploy DAMDEMO.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest --version=latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest --version=master
 fi
 
 echo -e ${GREEN?}'=== DEPLOY COMPLETE ==='${RESET?}

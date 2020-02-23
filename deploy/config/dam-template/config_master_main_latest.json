@@ -486,6 +486,7 @@
         "description": "The DAM demo test page"
       },
       "redirectUris": [
+        "/",
         "http://localhost:8092/test",
         "https://damdemo${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/test"
       ],
