@@ -150,6 +150,9 @@ sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/dam/config_master_mai
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/config/dam/secrets_master_main_latest.json
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/config/dam/secrets_master_main_latest.json
 
+mkdir -p ./deploy/build/
+cp -R  ./deploy/build-templates/* ./deploy/build/
+
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/personas/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/hydra/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/ic/Dockerfile
@@ -219,27 +222,27 @@ fi
 
 if deploy_service "personas"; then
   echo -e ${GREEN?}'Deploy PERSONA BROKER.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/personas/personas.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-personas:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/personas/personas.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-personas:latest --version=latest
 fi
 
 if deploy_service "ic"; then
   echo -e ${GREEN?}'Deploy IC.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest --version=latest
 fi
 
 if deploy_service "icdemo"; then
   echo -e ${GREEN?}'Deploy ICDEMO.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/icdemo/icdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-icdemo:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/icdemo/icdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-icdemo:latest --version=latest
 fi
 
 if deploy_service "dam"; then
   echo -e ${GREEN?}'Deploy DAM.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest --version=latest
 fi
 
 if deploy_service "damdemo"; then
   echo -e ${GREEN?}'Deploy DAMDEMO.'${RESET?}
-  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest
+  gcloud beta -q --project=${PROJECT?} app deploy deploy/build/damdemo/damdemo.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-damdemo:latest --version=latest
 fi
 
 echo -e ${GREEN?}'=== DEPLOY COMPLETE ==='${RESET?}
