@@ -103,7 +103,7 @@ gcloud sql databases create dam --project=${PROJECT?} --instance=hydra
 
 echo -e ${GREEN?}'Creating a GCS bucket with an example file.'${RESET?}
 
-gsutil mb -p=${PROJECT?} gs://${PROJECT?}-test-dataset
+gsutil mb -p ${PROJECT?} gs://${PROJECT?}-test-dataset
 tempdir=`mktemp -d`
 pushd $tempdir
 echo "This is an example" > example.txt
@@ -124,6 +124,11 @@ popd
 rm -rf $tempdir
 
 echo -e ${GREEN?}'Building Base Hydra Docker Image.'${RESET?}
+
+mkdir -p ./deploy/build/hydra
+cp -R  ./deploy/build-templates/hydra/* ./deploy/build/hydra/
+sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/hydra/Dockerfile
+
 gcloud builds submit --project=${PROJECT?} --config=deploy/build/hydra/cloudbuild.yaml .
 
 echo -e ${GREEN?}'Project preparation complete.'${RESET?}

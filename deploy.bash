@@ -154,7 +154,6 @@ mkdir -p ./deploy/build/
 cp -R  ./deploy/build-templates/* ./deploy/build/
 
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/personas/Dockerfile
-sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/hydra/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/ic/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/icdemo/Dockerfile
 sed -i 's/${YOUR_PROJECT_ID}/'${PROJECT?}'/g' ./deploy/build/dam/Dockerfile
