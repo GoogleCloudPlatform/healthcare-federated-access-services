@@ -118,7 +118,7 @@ tempdir=`mktemp -d`
 pushd $tempdir
 git clone https://github.com/GoogleCloudPlatform/golang-samples.git
 pushd golang-samples/appengine/go11x/helloworld
-gcloud app deploy --project=${PROJECT?} -q .
+gcloud app deploy --project=${PROJECT?} --version=master -q .
 popd
 popd
 rm -rf $tempdir
