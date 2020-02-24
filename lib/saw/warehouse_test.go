@@ -16,16 +16,9 @@ package saw
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
-	"io"
-	"strings"
 	"testing"
 	"time"
 
-	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
-	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
 	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
@@ -33,20 +26,16 @@ import (
 	"google.golang.org/api/cloudresourcemanager/v1" /* copybara-comment: cloudresourcemanager */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
-	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc" /* copybara-comment */
-	"google.golang.org/grpc/status" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
-	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakegrpc" /* copybara-comment: fakegrpc */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeiam" /* copybara-comment: fakeiam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakestore" /* copybara-comment: fakestore */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	iamgrpcpb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_grpc */
-	iampb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_proto */
-	iamcredscpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: common_go_proto */
 	iamcredsgrpcpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: iamcredentials_go_grpc */
-	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -122,7 +111,7 @@ func TestSAW_MintTokenWithTTL(t *testing.T) {
 	want := &clouds.ResourceTokenResult{
 		Format:  "base64",
 		Account: "ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com",
-		Token:   "token-1",
+		Token:   "projects/-/serviceAccounts/ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com/token-0",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("saw.MintTokenWithTTL() returned diff (-want +got):\n%s", diff)
@@ -162,11 +151,12 @@ func TestSAW_GetTokenMetadata(t *testing.T) {
 		t.Errorf("GetTokenMetadata() failed: %v", err)
 	}
 
-	exp := Time(fix.credsSrv.tokens[0].ExpireTime)
+	state := <-fix.credsSrv.State
+	exp := timeutil.Time(state.Tokens[0].ExpireTime)
 	want := &cpb.TokenMetadata{
 		Name:     "fake-key-id-0",
-		IssuedAt: RFC3339(Timestamp(exp.Add(-1 * time.Hour))),
-		Expires:  RFC3339(Timestamp(exp.Add(23 * time.Hour))),
+		IssuedAt: timeutil.RFC3339(timeutil.TimestampProto(exp.Add(-1 * time.Hour))),
+		Expires:  timeutil.RFC3339(timeutil.TimestampProto(exp.Add(23 * time.Hour))),
 	}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("saw.GetTokenMetadata() returned diff (-want +got):\n%s", diff)
@@ -206,11 +196,12 @@ func TestSAW_ListTokenMetadata(t *testing.T) {
 		t.Errorf("GetTokenMetadata() failed: %v", err)
 	}
 
-	exp := Time(fix.credsSrv.tokens[0].ExpireTime)
+	state := <-fix.credsSrv.State
+	exp := timeutil.Time(state.Tokens[0].ExpireTime)
 	want := []*cpb.TokenMetadata{{
 		Name:     "fake-key-id-0",
-		IssuedAt: RFC3339(Timestamp(exp.Add(-1 * time.Hour))),
-		Expires:  RFC3339(Timestamp(exp.Add(23 * time.Hour))),
+		IssuedAt: timeutil.RFC3339(timeutil.TimestampProto(exp.Add(-1 * time.Hour))),
+		Expires:  timeutil.RFC3339(timeutil.TimestampProto(exp.Add(23 * time.Hour))),
 	}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("saw.GetTokenMetadata() returned diff (-want +got):\n%s", diff)
@@ -249,7 +240,8 @@ func TestSAW_DeleteTokens(t *testing.T) {
 		t.Errorf("DeleteTokens() failed: %v", err)
 	}
 
-	if len(fix.iamSrv.keys) != 0 {
+	state := <-fix.iamSrv.State
+	if len(state.Keys) != 0 {
 		t.Errorf("saw.DeleteTokens() didn't delete the keys.")
 	}
 }
@@ -379,9 +371,9 @@ func TestSAW_ManageAccountKeys_RemovesExpiredKeys(t *testing.T) {
 type Fix struct {
 	rpc      *fakegrpc.Fake
 	iam      *iamadmin.IamClient
-	iamSrv   *fakeIAM
+	iamSrv   *fakeiam.Admin
 	creds    *iamcreds.IamCredentialsClient
-	credsSrv *fakeIAMCreds
+	credsSrv *fakeiam.Creds
 	bqds     BQPolicy
 	crm      CRMPolicy
 	gcs      GCSPolicy
@@ -402,10 +394,10 @@ func newFix(t *testing.T) (*Fix, func() error) {
 	}
 	f.rpc, cleanup = fakegrpc.New()
 
-	f.iamSrv = &fakeIAM{}
+	f.iamSrv = fakeiam.NewAdmin()
 	iamgrpcpb.RegisterIAMServer(f.rpc.Server, f.iamSrv)
 
-	f.credsSrv = &fakeIAMCreds{}
+	f.credsSrv = fakeiam.NewCreds()
 	iamcredsgrpcpb.RegisterIAMCredentialsServer(f.rpc.Server, f.credsSrv)
 
 	f.rpc.Start()
@@ -427,148 +419,6 @@ func newFix(t *testing.T) (*Fix, func() error) {
 	}
 
 	return f, cleanup
-}
-
-type fakeIAM struct {
-	accounts []*iampb.ServiceAccount
-	keys     []*iampb.ServiceAccountKey
-
-	iamgrpcpb.IAMServer
-}
-
-func (f *fakeIAM) ListServiceAccounts(ctx context.Context, req *iampb.ListServiceAccountsRequest) (*iampb.ListServiceAccountsResponse, error) {
-	glog.Infof("ListServiceAccountsReq: %v", req)
-	resp := &iampb.ListServiceAccountsResponse{Accounts: f.accounts}
-	glog.Infof("ListServiceAccountsResp: %v", resp)
-	return proto.Clone(resp).(*iampb.ListServiceAccountsResponse), nil
-}
-
-func (f *fakeIAM) GetServiceAccount(ctx context.Context, req *iampb.GetServiceAccountRequest) (*iampb.ServiceAccount, error) {
-	glog.Infof("GetServiceAccountReq: %v", req)
-	name := req.Name
-	for _, a := range f.accounts {
-		if a.Name == name {
-			glog.Infof("GetServiceAccountResp: %v", a)
-			return a, nil
-		}
-	}
-	return nil, status.Errorf(codes.NotFound, "service account with name %q not found", name)
-}
-
-func (f *fakeIAM) CreateServiceAccount(ctx context.Context, req *iampb.CreateServiceAccountRequest) (*iampb.ServiceAccount, error) {
-	glog.Infof("CreateServiceAccountReq: %v", req)
-	proj := strings.Split(req.Name, "/")[1]
-	email := fmt.Sprintf("%v@%v.iam.gserviceaccount.com", req.AccountId, proj)
-	name := fmt.Sprintf("projects/%v/serviceAccounts/%v", proj, email)
-	guid := uuid.New()
-	for _, a := range f.accounts {
-		if a.Name == name {
-			glog.Infof("CreateServiceAccountResp Already Exists: %v", a)
-			return nil, status.Errorf(codes.AlreadyExists, "service account with name %q already exists", name)
-		}
-	}
-	a := &iampb.ServiceAccount{
-		Name:           name,
-		UniqueId:       guid,
-		Email:          email,
-		ProjectId:      proj,
-		Oauth2ClientId: guid,
-		DisplayName:    req.GetServiceAccount().GetDisplayName(),
-	}
-	a.Etag = HashProto(a)
-
-	proto.Merge(a, req.ServiceAccount)
-	f.accounts = append(f.accounts, a)
-
-	glog.Infof("CreateServiceAccountResp: %v", a)
-	return a, nil
-}
-
-func (f *fakeIAM) DeleteServiceAccount(ctx context.Context, req *iampb.DeleteServiceAccountRequest) (*epb.Empty, error) {
-	glog.Infof("DeleteServiceAccountReq: %v", req)
-	name := req.Name
-	var updated []*iampb.ServiceAccount
-	for _, a := range f.accounts {
-		if a.Name != name {
-			updated = append(updated, a)
-		}
-	}
-	f.accounts = updated
-	return &epb.Empty{}, nil
-}
-
-func (f *fakeIAM) ListServiceAccountKeys(ctx context.Context, req *iampb.ListServiceAccountKeysRequest) (*iampb.ListServiceAccountKeysResponse, error) {
-	glog.Infof("ListServiceAccountKeysReq: %v", req)
-	resp := &iampb.ListServiceAccountKeysResponse{Keys: f.keys}
-	glog.Infof("ListServiceAccountKeysResp: %v", resp)
-	return proto.Clone(resp).(*iampb.ListServiceAccountKeysResponse), nil
-}
-
-func (f *fakeIAM) GetServiceAccountKey(ctx context.Context, req *iampb.GetServiceAccountKeyRequest) (*iampb.ServiceAccountKey, error) {
-	glog.Infof("GetServiceAccountKeyReq: %v", req)
-	name := req.Name
-	for _, a := range f.keys {
-		if a.Name == name {
-			resp := a
-			glog.Infof("GetServiceAccountKey: %v", resp)
-			return proto.Clone(resp).(*iampb.ServiceAccountKey), nil
-		}
-	}
-	return nil, status.Errorf(codes.NotFound, "service account key with name %q not found", name)
-}
-
-func (f *fakeIAM) CreateServiceAccountKey(ctx context.Context, req *iampb.CreateServiceAccountKeyRequest) (*iampb.ServiceAccountKey, error) {
-	glog.Infof("CreateServiceAccountKeyReq: %v", req)
-	account := req.Name
-	id := fmt.Sprintf("fake-key-id-%v", len(f.keys))
-	name := fmt.Sprintf("%v/keys/%v", account, id)
-	for _, a := range f.keys {
-		if a.Name == name {
-			glog.Infof("CreateServiceAccountKeyResp AlreadyExists: %v", a)
-			return nil, status.Errorf(codes.AlreadyExists, "service account with name %q already exists", name)
-		}
-	}
-	a := &iampb.ServiceAccountKey{
-		Name:            name,
-		PrivateKeyType:  iampb.ServiceAccountPrivateKeyType_TYPE_GOOGLE_CREDENTIALS_FILE,
-		KeyAlgorithm:    iampb.ServiceAccountKeyAlgorithm_KEY_ALG_RSA_2048,
-		PrivateKeyData:  []byte(name + "/fake-private-key"),
-		PublicKeyData:   []byte(name + "/fake-public-key"),
-		ValidAfterTime:  Timestamp(time.Now()),
-		ValidBeforeTime: Timestamp(time.Now().Add(24 * time.Hour)),
-	}
-	f.keys = append(f.keys, a)
-	glog.Infof("CreateServiceAccountKeyResp: %v", a)
-	return a, nil
-}
-
-func (f *fakeIAM) DeleteServiceAccountKey(ctx context.Context, req *iampb.DeleteServiceAccountKeyRequest) (*epb.Empty, error) {
-	glog.Infof("DeleteServiceAccountKeyReq: %v", req)
-	name := req.Name
-	var updated []*iampb.ServiceAccountKey
-	for _, a := range f.keys {
-		if a.Name != name {
-			updated = append(updated, a)
-		}
-	}
-	f.keys = updated
-	return &epb.Empty{}, nil
-}
-
-type fakeIAMCreds struct {
-	count  int
-	tokens []*iamcredscpb.GenerateAccessTokenResponse
-	iamcredsgrpcpb.IAMCredentialsServer
-}
-
-func (f *fakeIAMCreds) GenerateAccessToken(ctx context.Context, req *iamcredscpb.GenerateAccessTokenRequest) (*iamcredscpb.GenerateAccessTokenResponse, error) {
-	glog.Infof("GenerateAccessTokenReq: %v", req)
-	exp, _ := ptypes.TimestampProto(time.Now().Add(time.Hour))
-	f.count++
-	resp := &iamcredscpb.GenerateAccessTokenResponse{AccessToken: fmt.Sprintf("token-%v", f.count), ExpireTime: exp}
-	f.tokens = append(f.tokens, resp)
-	glog.Infof("GenerateAccessTokenResp: %v", resp)
-	return proto.Clone(resp).(*iamcredscpb.GenerateAccessTokenResponse), nil
 }
 
 type fakeGCS struct {
@@ -602,11 +452,4 @@ func (f *fakeCRM) Get(ctx context.Context, project string) (*cloudresourcemanage
 
 func (f *fakeCRM) Set(ctx context.Context, project string, policy *cloudresourcemanager.Policy) error {
 	return nil
-}
-
-// HashProto computes a hash of a proto.
-func HashProto(msg proto.Message) []byte {
-	h := sha256.New()
-	io.WriteString(h, msg.String())
-	return h.Sum(nil)
 }

@@ -27,7 +27,6 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/cenkalti/backoff" /* copybara-comment */
 	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
 	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
@@ -46,10 +45,10 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/processgc" /* copybara-comment: processgc */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	iampb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_proto */
 	iamcredscpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: common_go_proto */
-	tspb "github.com/golang/protobuf/ptypes/timestamp" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -183,8 +182,8 @@ func (wh *AccountWarehouse) GetTokenMetadata(ctx context.Context, project, id, k
 		if keyName == parts[len(parts)-1] {
 			return &cpb.TokenMetadata{
 				Name:     keyName,
-				IssuedAt: RFC3339(key.ValidAfterTime),
-				Expires:  RFC3339(key.ValidBeforeTime),
+				IssuedAt: timeutil.RFC3339(key.ValidAfterTime),
+				Expires:  timeutil.RFC3339(key.ValidBeforeTime),
 			}, nil
 		}
 	}
@@ -205,8 +204,8 @@ func (wh *AccountWarehouse) ListTokenMetadata(ctx context.Context, project, id s
 		parts := strings.Split(key.Name, "/")
 		md := &cpb.TokenMetadata{
 			Name:     parts[len(parts)-1],
-			IssuedAt: RFC3339(key.ValidAfterTime),
-			Expires:  RFC3339(key.ValidBeforeTime),
+			IssuedAt: timeutil.RFC3339(key.ValidAfterTime),
+			Expires:  timeutil.RFC3339(key.ValidBeforeTime),
 		}
 		mds = append(mds, md)
 	}
@@ -311,7 +310,7 @@ func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, emai
 	active := len(all)
 	for _, key := range all {
 		// Remove old keys.
-		if RFC3339(key.ValidAfterTime) < expired {
+		if timeutil.RFC3339(key.ValidAfterTime) < expired {
 			if err := wh.iam.DeleteServiceAccountKey(ctx, &iampb.DeleteServiceAccountKeyRequest{Name: key.Name}); err != nil {
 				return active, len(all) - active, fmt.Errorf("deleting key: %v", err)
 			}
@@ -326,7 +325,9 @@ func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, emai
 
 	// Remove earliest expiring extra keys if # of active keys exceeds the max.
 	// Sort the keys with decreasing expiry time.
-	sort.Slice(actives, func(i, j int) bool { return RFC3339(actives[i].ValidAfterTime) > RFC3339(actives[j].ValidAfterTime) })
+	sort.Slice(actives, func(i, j int) bool {
+		return timeutil.RFC3339(actives[i].ValidAfterTime) > timeutil.RFC3339(actives[j].ValidAfterTime)
+	})
 	for _, key := range actives[keysPerAccount:] {
 		if err = wh.iam.DeleteServiceAccountKey(ctx, &iampb.DeleteServiceAccountKeyRequest{Name: key.Name}); err != nil {
 			return active, len(all) - active, fmt.Errorf("deleting key: %v", err)
@@ -575,34 +576,4 @@ func accountResourceName(projectID, accountID string) string {
 // keyResourceName returns name of a service account key given its project ID and service accounts ID and key ID.
 func keyResourceName(projectID, accountID, keyID string) string {
 	return path.Join(accountResourceName(projectID, emailID(projectID, accountID)), "keys", keyID)
-}
-
-// RFC3339 convers a Timestamp to RFC3339 string.
-// Returns "" if the timestamp is invalid.
-func RFC3339(ts *tspb.Timestamp) string {
-	t, err := ptypes.Timestamp(ts)
-	if err != nil {
-		return ""
-	}
-	return t.Format(time.RFC3339)
-}
-
-// Timestamp returns the timestamp for a given time.
-// Returns empty if the time is invalid.
-func Timestamp(t time.Time) *tspb.Timestamp {
-	ts, err := ptypes.TimestampProto(t)
-	if err != nil {
-		return &tspb.Timestamp{}
-	}
-	return ts
-}
-
-// Time returns the time for a given timestamp.
-// Returns empty if the timestamp is invalid.
-func Time(ts *tspb.Timestamp) time.Time {
-	t, err := ptypes.Timestamp(ts)
-	if err != nil {
-		return time.Time{}
-	}
-	return t
 }
