@@ -29,7 +29,6 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
@@ -658,7 +657,7 @@ func timeCompare(a, b *tspb.Timestamp) float64 {
 
 func (p *Process) cutoff(state *pb.Process) *tspb.Timestamp {
 	cutoff := int64(0)
-	now := common.GetNowInUnix()
+	now := time.Now().Unix()
 
 	d, err := ptypes.Duration(state.ScheduleFrequency)
 	if err != nil {
@@ -719,7 +718,7 @@ func (p *Process) sleepTime(freq time.Duration) time.Duration {
 	defer p.mutex.Unlock()
 
 	// Calculate the duration until the next start cycle should begin, then add some jitter.
-	now := common.GetNowInUnix()
+	now := time.Now().Unix()
 	next := (int64(now/int64(secs)) + 1) * int64(secs)
 	secs = float64(next - now)
 	// Add a small amount of random jitter to avoid some lock contention.

@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
@@ -66,7 +66,7 @@ var (
 // NewAccessToken returns an access token for a persona at a given issuer.
 // The persona parameter may be nil.
 func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPersona) (ga4gh.AccessJWT, string, error) {
-	now := common.GetNowInUnix()
+	now := time.Now().Unix()
 	sub := name
 	email := name
 	if persona != nil {
@@ -238,13 +238,13 @@ func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion,
 			src = ga4gh.Source(assert.Source)
 		}
 		// assert.AssertedDuration cannot be negative and is assumed to be a duration in the past.
-		a, err := common.ParseDuration(assert.AssertedDuration, 120*time.Second)
+		a, err := timeutil.ParseDuration(assert.AssertedDuration)
 		if err != nil {
 			return nil, fmt.Errorf("persona %q visa %d asserted duration %q: %v", pname, i+1, assert.AssertedDuration, err)
 		}
 		asserted := int64(now - a.Seconds())
 		// assert.ExpiresDuration may be negative or positive where a negative value represents the past.
-		e, err := common.ParseNegDuration(assert.ExpiresDuration, 30*24*time.Hour)
+		e, err := timeutil.ParseDuration(assert.ExpiresDuration)
 		if err != nil {
 			return nil, fmt.Errorf("persona %q visa %d expires duration %q: %v", pname, i+1, assert.ExpiresDuration, err)
 		}

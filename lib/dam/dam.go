@@ -48,6 +48,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/verifier" /* copybara-comment: verifier */
@@ -986,10 +987,10 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 			Label:        "GCP Managed Keys Maximum Requested TTL",
 			Description:  "The maximum TTL of a requested access token on GCP and this setting is used in conjunction with managedKeysPerAccount to set up managed access key rotation policies within DAM (disabled by default)",
 			Type:         "string:duration",
-			Regexp:       common.DurationRegexpString,
+			Regexp:       timeutil.DurationREStr,
 			Min:          "2h",
 			Max:          "180d",
-			DefaultValue: common.TTLString(defaultMaxRequestedTTL),
+			DefaultValue: timeutil.TTLString(defaultMaxRequestedTTL),
 		},
 		"gcpManagedKeysPerAccount": {
 			Label:        "GCP Managed Keys Per Account",
@@ -1169,7 +1170,7 @@ func (s *Service) updateWarehouseOptions(opts *pb.ConfigOptions, realm string, t
 	if s.warehouse == nil || realm != storage.DefaultRealm {
 		return nil
 	}
-	ttl, _ := common.ParseDuration(opts.GcpManagedKeysMaxRequestedTtl, defaultMaxRequestedTTL)
+	ttl := timeutil.ParseDurationWithDefault(opts.GcpManagedKeysMaxRequestedTtl, defaultMaxRequestedTTL)
 	keys := int(opts.GcpManagedKeysPerAccount)
 	return s.warehouse.UpdateSettings(ttl, keys, tx)
 }

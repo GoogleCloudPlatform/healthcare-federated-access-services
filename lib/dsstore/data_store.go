@@ -28,7 +28,6 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"cloud.google.com/go/datastore" /* copybara-comment: datastore */
 	"google.golang.org/api/iterator" /* copybara-comment: iterator */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -451,7 +450,7 @@ func (s *DatastoreStorage) LockTx(lockName string, minFrequency time.Duration, t
 		return nil
 	}
 
-	entry.CommitTime = float64(common.GetNowInUnix())
+	entry.CommitTime = float64(time.Now().Unix())
 	if err := s.WriteTx(storage.LockDatatype, storage.DefaultRealm, storage.DefaultUser, lockName, storage.LatestRev, &entry, nil, tx); err != nil {
 		tx.Finish()
 		return nil

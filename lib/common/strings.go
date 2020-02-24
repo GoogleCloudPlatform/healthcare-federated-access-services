@@ -24,13 +24,18 @@ import (
 
 // JoinNonEmpty filters empty strings and joins remainder together.
 func JoinNonEmpty(in []string, separator string) string {
+	return strings.Join(FilterNonEmpty(in), separator)
+}
+
+// FilterNonEmpty returns the string list with empty strings removed.
+func FilterNonEmpty(in []string) []string {
 	out := []string{}
 	for _, v := range in {
 		if len(v) > 0 {
 			out = append(out, v)
 		}
 	}
-	return strings.Join(out, separator)
+	return out
 }
 
 // FilterStringsByPrefix filters returns only strings that do NOT have a given prefix.
@@ -42,6 +47,16 @@ func FilterStringsByPrefix(in []string, prefix string) []string {
 		}
 	}
 	return out
+}
+
+// ContainsWord returns true if the string contains the (space-separated) full word.
+func ContainsWord(str, word string) bool {
+	for _, part := range strings.Split(str, " ") {
+		if part == word {
+			return true
+		}
+	}
+	return false
 }
 
 // ToTitle does some auto-formatting on camel-cased or snake-cased strings to make them look like titles.
@@ -68,7 +83,10 @@ func ToTitle(str string) string {
 
 // IsURL returns true if the format of the string appears to be a fully qualified URL
 func IsURL(v string) bool {
-	if len(v) < 7 || !(strings.HasPrefix(v, "http://") || strings.HasPrefix(v, "https://")) || !(strings.Contains(v, ".") || strings.Contains(v, "localhost")) || len(strings.Split(v, ":")) > 3 || strings.Contains(v, "//http") {
+	if len(v) < 7 || len(strings.Split(v, ":")) > 3 ||
+		!(strings.HasPrefix(v, "http://") || strings.HasPrefix(v, "https://")) ||
+		!(strings.Contains(v, ".") || strings.Contains(v, "localhost")) ||
+		strings.Contains(v, "//http") {
 		return false
 	}
 	if _, err := url.Parse(v); err != nil {
@@ -163,14 +181,4 @@ func QuoteSplit(str, separator string, stripQuotes bool) []string {
 		}
 	}
 	return out
-}
-
-// ContainsWord returns true if the string contains the (space-separated) full word.
-func ContainsWord(str, word string) bool {
-	for _, part := range strings.Split(str, " ") {
-		if part == word {
-			return true
-		}
-	}
-	return false
 }

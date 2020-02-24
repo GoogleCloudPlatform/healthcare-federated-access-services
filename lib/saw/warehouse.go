@@ -41,7 +41,6 @@ import (
 	"google.golang.org/grpc" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/processgc" /* copybara-comment: processgc */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -259,7 +258,7 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 
 	// Call Manage to make room for the new key if needed.
 	makeRoom := numKeys - 1
-	keyTTL := common.KeyTTL(maxTTL, numKeys)
+	keyTTL := timeutil.KeyTTL(maxTTL, numKeys)
 	if _, _, err := wh.ManageAccountKeys(ctx, params.AccountProject, email, ttl, keyTTL, time.Now(), int64(makeRoom)); err != nil {
 		return nil, fmt.Errorf("garbage collecting keys: %v", err)
 	}

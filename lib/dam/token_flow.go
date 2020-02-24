@@ -28,11 +28,11 @@ import (
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -72,13 +72,13 @@ func extractAuthCode(r *http.Request) (string, error) {
 
 func parseTTL(maxAgeStr, ttlStr string) (time.Duration, error) {
 	if len(maxAgeStr) > 0 {
-		return common.ParseSeconds(maxAgeStr)
+		return timeutil.ParseSeconds(maxAgeStr)
 	}
 	if len(ttlStr) == 0 {
 		return defaultTTL, nil
 	}
 
-	ttl, err := common.ParseDuration(ttlStr, defaultTTL)
+	ttl, err := timeutil.ParseDuration(ttlStr)
 	if err != nil {
 		return 0, fmt.Errorf("TTL parameter %q format error: %v", ttlStr, err)
 	}
@@ -158,7 +158,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 			// TODO: remove these older fields
 			Name: resourceName,
 			View: makeView(viewName, view, res, cfg, s.hidePolicyBasis, s.adapters),
-			Ttl:  common.TTLString(ttl),
+			Ttl:  timeutil.TTLString(ttl),
 		}, http.StatusOK, nil
 	}
 
@@ -349,7 +349,7 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (*authHandlerOut, 
 		ResponseKeyFile: in.responseKeyFile,
 		Resources:       list,
 		Challenge:       in.challenge,
-		EpochSeconds:    common.GetNowInUnix(),
+		EpochSeconds:    time.Now().Unix(),
 		Realm:           realm,
 	}
 
@@ -523,7 +523,7 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 	out := &pb.ResourceTokens{
 		Resources:    make(map[string]*pb.ResourceTokens_Descriptor),
 		Access:       make(map[string]*pb.ResourceTokens_ResourceToken),
-		EpochSeconds: uint32(common.GetNowInUnix()),
+		EpochSeconds: uint32(time.Now().Unix()),
 	}
 	for i, r := range state.Resources {
 		res, ok := cfg.Resources[r.Resource]
@@ -570,7 +570,7 @@ func (s *Service) resourceTokenState(stateID string, tx storage.Tx) (*pb.Resourc
 		return nil, nil, fmt.Errorf("unauthorized")
 	}
 
-	now := common.GetNowInUnix()
+	now := time.Now().Unix()
 	if now-state.EpochSeconds > maxResourceStateSeconds {
 		return nil, nil, fmt.Errorf("authorization expired")
 	}

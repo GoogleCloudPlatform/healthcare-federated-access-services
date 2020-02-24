@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -89,7 +90,7 @@ func (a *SawAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenRe
 		return nil, fmt.Errorf("SAW minting token: DAM service account warehouse not configured")
 	}
 	userID := common.TokenUserID(input.Identity, SawMaxUserIDLength)
-	maxKeyTTL, _ := common.ParseDuration(input.Config.Options.GcpManagedKeysMaxRequestedTtl, input.MaxTTL)
+	maxKeyTTL := timeutil.ParseDurationWithDefault(input.Config.Options.GcpManagedKeysMaxRequestedTtl, input.MaxTTL)
 	params, err := resourceTokenCreationParams(input.GrantRole, input.ServiceTemplate, input.ServiceRole, input.View, input.Config, input.TokenFormat)
 	if err != nil {
 		return nil, fmt.Errorf("SAW minting token: %v", err)

@@ -30,6 +30,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	spb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2" /* copybara-comment: go_proto */
@@ -353,13 +354,13 @@ func (h *scimUser) Patch(name string) error {
 
 		case "locale":
 			dst = &h.save.Profile.Locale
-			if len(src) > 0 && !common.IsLocale(src) {
+			if len(src) > 0 && !timeutil.IsLocale(src) {
 				return fmt.Errorf("operation %d: %q is not a recognized locale", i, path)
 			}
 
 		case "timezone":
 			dst = &h.save.Profile.ZoneInfo
-			if len(src) > 0 && !common.IsTimeZone(src) {
+			if len(src) > 0 && !timeutil.IsTimeZone(src) {
 				return fmt.Errorf("operation %d: %q is not a recognized time zone", i, src)
 			}
 
@@ -693,8 +694,8 @@ func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 		ExternalId: acct.Properties.Subject,
 		Meta: &spb.ResourceMetadata{
 			ResourceType: "User",
-			Created:      common.TimestampString(int64(acct.Properties.Created)),
-			LastModified: common.TimestampString(int64(acct.Properties.Modified)),
+			Created:      timeutil.TimestampString(int64(acct.Properties.Created)),
+			LastModified: timeutil.TimestampString(int64(acct.Properties.Modified)),
 			Location:     s.getDomainURL() + strings.ReplaceAll(scimUsersPath, "{realm}", realm) + "/" + acct.Properties.Subject,
 			Version:      strconv.FormatInt(acct.Revision, 10),
 		},

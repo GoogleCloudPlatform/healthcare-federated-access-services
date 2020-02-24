@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -109,7 +109,7 @@ func (p *Permissions) IsAdmin(id *ga4gh.Identity) bool {
 	if id == nil {
 		return false
 	}
-	now := common.GetNowInUnixNano()
+	now := time.Now()
 	if p.isAdminUser(id.Subject, now) {
 		return true
 	}
@@ -128,7 +128,7 @@ func (p *Permissions) IsAdmin(id *ga4gh.Identity) bool {
 	return false
 }
 
-func (p *Permissions) isAdminUser(user string, now float64) bool {
+func (p *Permissions) isAdminUser(user string, now time.Time) bool {
 	// Only allowing "sub" that contain an "@" symbol. We don't want
 	// to allow admins to try to trigger on a raw account number
 	// without knowing where it came from.
@@ -140,7 +140,7 @@ func (p *Permissions) isAdminUser(user string, now float64) bool {
 		return false
 	}
 	r, ok := u.Roles["admin"]
-	if ok && (r < 0 || r > int64(now)) {
+	if ok && (r < 0 || r > now.UnixNano()/1e9) {
 		return true
 	}
 	return false

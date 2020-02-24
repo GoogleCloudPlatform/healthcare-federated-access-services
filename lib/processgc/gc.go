@@ -21,9 +21,10 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	processlib "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/process" /* copybara-comment: process */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
+
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
 
@@ -50,7 +51,7 @@ func NewKeyGC(name string, warehouse clouds.AccountManager, store storage.Store,
 		IntParams: map[string]int64{
 			"maxRequestedTtl": int64(maxRequestedTTL.Seconds()),
 			"keysPerAccount":  int64(keysPerAccount),
-			"keyTtl":          int64(common.KeyTTL(maxRequestedTTL, keysPerAccount).Seconds()),
+			"keyTtl":          int64(timeutil.KeyTTL(maxRequestedTTL, keysPerAccount).Seconds()),
 		},
 	}
 	// TODO: reverse the dependency, this package doesn't need to know about process.
@@ -70,7 +71,7 @@ func (k *KeyGC) UnregisterWork(workName string, tx storage.Tx) error {
 
 // UpdateSettings alters resource management settings.
 func (k *KeyGC) UpdateSettings(maxRequestedTTL time.Duration, keysPerAccount int, tx storage.Tx) error {
-	keyTTL := common.KeyTTL(maxRequestedTTL, keysPerAccount)
+	keyTTL := timeutil.KeyTTL(maxRequestedTTL, keysPerAccount)
 	settings := &pb.Process_Params{
 		IntParams: map[string]int64{
 			"maxRequestedTtl": int64(maxRequestedTTL.Seconds()),

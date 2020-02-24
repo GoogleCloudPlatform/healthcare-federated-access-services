@@ -22,9 +22,9 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -148,15 +148,15 @@ func OptInt(str string) int32 {
 }
 
 func OptDuration(optName, optVal, minVal, maxVal string) (time.Duration, time.Duration, time.Duration, error) {
-	v, err := common.ParseDuration(optVal, time.Hour)
+	v, err := timeutil.ParseDuration(optVal)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("option %q: value %q format error: %v", optName, optVal, err)
 	}
-	min, err := common.ParseDuration(minVal, time.Hour)
+	min, err := timeutil.ParseDuration(minVal)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("option %q: minimum %q format error: %v", optName, minVal, err)
 	}
-	max, err := common.ParseDuration(maxVal, time.Hour)
+	max, err := timeutil.ParseDuration(maxVal)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("option %q: maximum %q format error: %v", optName, maxVal, err)
 	}

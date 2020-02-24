@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -300,7 +300,7 @@ func (s *Service) hydraAcceptConsent(w http.ResponseWriter, r *http.Request, sta
 		return
 	}
 
-	now := common.GetNowInUnix()
+	now := time.Now().Unix()
 
 	// TODO: scope maybe different after optional information release.
 	// scope down the identity.

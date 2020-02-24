@@ -53,6 +53,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -145,7 +146,7 @@ var (
 		Label:        "Default Passport Token TTL",
 		Description:  "The duration of a passport TTL when no 'ttl' parameter is provided to the token minting endpoint",
 		Type:         "string:duration",
-		Regexp:       common.DurationRegexpString,
+		Regexp:       timeutil.DurationREStr,
 		Min:          "10s",
 		Max:          "180d",
 		DefaultValue: "10m",
@@ -154,7 +155,7 @@ var (
 		Label:        "Maximum Passport Token TTL",
 		Description:  "Passport requests with a 'ttl' parameter exceeding this value will be refused",
 		Type:         "string:duration",
-		Regexp:       common.DurationRegexpString,
+		Regexp:       timeutil.DurationREStr,
 		Min:          "10s",
 		Max:          "180d",
 		DefaultValue: "10m",
@@ -163,7 +164,7 @@ var (
 		Label:        "Authorization Code TTL",
 		Description:  "The valid duration of an authorization code requested from the login flow of the API (auth codes must be converted into another token before this expiry)",
 		Type:         "string:duration",
-		Regexp:       common.DurationRegexpString,
+		Regexp:       timeutil.DurationREStr,
 		Min:          "10s",
 		Max:          "60m",
 		DefaultValue: "10m",
@@ -172,7 +173,7 @@ var (
 		Label:        "Access Token TTL",
 		Description:  "The valid duration of an access token (for authentication and authorization purposes) requested from the login flow of the API",
 		Type:         "string:duration",
-		Regexp:       common.DurationRegexpString,
+		Regexp:       timeutil.DurationREStr,
 		Min:          "10s",
 		Max:          "180d",
 		DefaultValue: "1h",
@@ -181,7 +182,7 @@ var (
 		Label:        "Refresh Token TTL",
 		Description:  "The valid duration of an refresh token requested from the refresh token flow of the API",
 		Type:         "string:duration",
-		Regexp:       common.DurationRegexpString,
+		Regexp:       timeutil.DurationREStr,
 		Min:          "10s",
 		Max:          "180d",
 		DefaultValue: "12h",
@@ -190,7 +191,7 @@ var (
 		Label:        "Claim TTL Cap",
 		Description:  "A maximum duration of how long individual claims can be cached and used before requiring them to be refreshed from the authority issuing the claim",
 		Type:         "string:duration",
-		Regexp:       common.DurationRegexpString,
+		Regexp:       timeutil.DurationREStr,
 		Min:          "10s",
 		Max:          "9125d",
 		DefaultValue: "90d",
@@ -1256,7 +1257,7 @@ func matchRedirect(client *cpb.Client, redirect string) bool {
 }
 
 func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) (*cpb.Account, error) {
-	now := common.GetNowInUnixNano()
+	now := time.Now()
 	genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
 	accountPrefix := "ic_"
 	genlen -= len(accountPrefix)
@@ -1305,20 +1306,20 @@ func (s *Service) decryptEmbeddedTokens(ctx context.Context, tokens [][]byte) ([
 
 func (s *Service) populateAccountVisas(ctx context.Context, acct *cpb.Account, id *ga4gh.Identity, provider string) error {
 	link, _ := findLinkedAccount(acct, id.Subject, provider)
-	now := common.GetNowInUnixNano()
+	now := time.Now()
 	if link == nil {
 		link = &cpb.ConnectedAccount{
 			Profile:      setupAccountProfile(id),
 			Properties:   setupAccountProperties(id, id.Subject, now, now),
 			Provider:     provider,
-			Refreshed:    now,
+			Refreshed:    float64(now.UnixNano()) / 1e9,
 			Revision:     1,
 			LinkRevision: 1,
 		}
 		acct.ConnectedAccounts = append(acct.ConnectedAccounts, link)
 	} else {
 		// TODO: refresh some account profile attributes.
-		link.Refreshed = now
+		link.Refreshed = float64(now.UnixNano()) / 1e9
 		link.Revision++
 	}
 	tokens, err := s.encryptEmbeddedTokens(ctx, id.VisaJWTs)
@@ -1346,13 +1347,13 @@ func setupAccountProfile(id *ga4gh.Identity) *cpb.AccountProfile {
 	}
 }
 
-func setupAccountProperties(id *ga4gh.Identity, subject string, created, modified float64) *cpb.AccountProperties {
+func setupAccountProperties(id *ga4gh.Identity, subject string, created, modified time.Time) *cpb.AccountProperties {
 	return &cpb.AccountProperties{
 		Subject:       subject,
 		Email:         id.Email,
 		EmailVerified: id.EmailVerified,
-		Created:       created,
-		Modified:      modified,
+		Created:       float64(created.UnixNano()) / 1e9,
+		Modified:      float64(modified.UnixNano()) / 1e9,
 	}
 }
 
@@ -1657,23 +1658,15 @@ func validateURLs(input map[string]string) error {
 	return nil
 }
 
-func getDuration(d string, def time.Duration) time.Duration {
-	out, err := common.ParseDuration(d, def)
-	if err != nil {
-		return def
-	}
-	return out
-}
-
 func getDurationOption(d string, desc *pb.ConfigOptions_Descriptor) time.Duration {
 	if desc == nil || len(desc.DefaultValue) == 0 {
-		return getDuration(d, noDuration)
+		return timeutil.ParseDurationWithDefault(d, noDuration)
 	}
-	defVal, err := common.ParseDuration(desc.DefaultValue, noDuration)
+	defVal, err := timeutil.ParseDuration(desc.DefaultValue)
 	if err != nil || defVal == 0 {
-		return getDuration(d, noDuration)
+		return timeutil.ParseDurationWithDefault(d, noDuration)
 	}
-	return getDuration(d, defVal)
+	return timeutil.ParseDurationWithDefault(d, defVal)
 }
 
 func getIntOption(val int32, desc *pb.ConfigOptions_Descriptor) int {
@@ -1712,7 +1705,7 @@ func (s *Service) saveConfig(cfg *pb.IcConfig, desc, resType string, r *http.Req
 		return nil
 	}
 	cfg.Revision++
-	cfg.CommitTime = common.GetNowInUnixNano()
+	cfg.CommitTime = float64(time.Now().UnixNano()) / 1e9
 	if err := s.store.WriteTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, storage.MakeConfigHistory(desc, resType, cfg.Revision, cfg.CommitTime, r, id.Subject, orig, update), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
@@ -1761,7 +1754,7 @@ func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*cpb.Account
 
 func (s *Service) saveAccountLookup(lookup *cpb.AccountLookup, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
 	lookup.Revision++
-	lookup.CommitTime = common.GetNowInUnixNano()
+	lookup.CommitTime = float64(time.Now().UnixNano()) / 1e9
 	if err := s.store.WriteTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, fedAcct, lookup.Revision, lookup, storage.MakeConfigHistory("link account", storage.AccountLookupDatatype, lookup.Revision, lookup.CommitTime, r, id.Subject, nil, lookup), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
@@ -1782,7 +1775,7 @@ func (s *Service) removeAccountLookup(rev int64, realm, fedAcct string, r *http.
 
 func (s *Service) saveAccount(oldAcct, newAcct *cpb.Account, desc string, r *http.Request, subject string, tx storage.Tx) error {
 	newAcct.Revision++
-	newAcct.Properties.Modified = common.GetNowInUnixNano()
+	newAcct.Properties.Modified = float64(time.Now().UnixNano()) / 1e9
 	if newAcct.Properties.Created == 0 {
 		if oldAcct != nil && oldAcct.Properties.Created != 0 {
 			newAcct.Properties.Created = oldAcct.Properties.Created

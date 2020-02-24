@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package timeutil
 
 import (
 	"testing"
@@ -29,8 +29,6 @@ func TestTimestampString(t *testing.T) {
 }
 
 func TestParseDuration(t *testing.T) {
-	defaultDuration := 17 * time.Hour
-
 	tests := []struct {
 		name    string
 		input   string
@@ -40,7 +38,7 @@ func TestParseDuration(t *testing.T) {
 		{
 			name:    "empty",
 			input:   "",
-			want:    defaultDuration,
+			want:    0,
 			wantErr: false,
 		},
 		{
@@ -53,67 +51,12 @@ func TestParseDuration(t *testing.T) {
 			name:    "1 day 100 hour",
 			input:   "1d100h",
 			want:    124 * time.Hour,
-			wantErr: false,
-		},
-		{
-			name:    "miss order",
-			input:   "1s1h1d1m",
-			want:    25*time.Hour + time.Minute + time.Second,
 			wantErr: false,
 		},
 		{
 			name:    "float",
 			input:   "1.5d1.5h1m1s",
 			want:    37*time.Hour + 31*time.Minute + time.Second,
-			wantErr: false,
-		},
-		{
-			name:    "error",
-			input:   "1.1.1d",
-			want:    defaultDuration,
-			wantErr: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			d, err := ParseDuration(tc.input, defaultDuration)
-			if (err != nil) != tc.wantErr {
-				t.Errorf("got error %v, want error exists %v", err, tc.wantErr)
-			}
-
-			if d != tc.want {
-				t.Errorf("result = %s want %s", d.String(), tc.want.String())
-			}
-		})
-	}
-}
-
-func TestParseNegDuration(t *testing.T) {
-	defaultDuration := 17 * time.Hour
-
-	tests := []struct {
-		name    string
-		input   string
-		want    time.Duration
-		wantErr bool
-	}{
-		{
-			name:    "empty",
-			input:   "",
-			want:    defaultDuration,
-			wantErr: false,
-		},
-		{
-			name:    "day hour minute second",
-			input:   "1d1h1m1s",
-			want:    25*time.Hour + time.Minute + time.Second,
-			wantErr: false,
-		},
-		{
-			name:    "1 day 100 hour",
-			input:   "1d100h",
-			want:    124 * time.Hour,
 			wantErr: false,
 		},
 		{
@@ -135,30 +78,36 @@ func TestParseNegDuration(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "float",
-			input:   "1.5d1.5h1m1s",
-			want:    37*time.Hour + 31*time.Minute + time.Second,
-			wantErr: false,
-		},
-		{
 			name:    "error",
 			input:   "1.1.1d",
-			want:    defaultDuration,
+			want:    0,
 			wantErr: true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			d, err := ParseNegDuration(tc.input, defaultDuration)
+			d, err := ParseDuration(tc.input)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("got error %v, want error exists %v", err, tc.wantErr)
 			}
 
 			if d != tc.want {
-				t.Errorf("ParseNegDuration(%s, _) = %s want %s", tc.input, d.String(), tc.want.String())
+				t.Errorf("result = %s want %s", d.String(), tc.want.String())
 			}
 		})
+	}
+}
+
+func TestParseDurationWithDefault_Empty(t *testing.T) {
+	defaultDuration := 17 * time.Hour
+	input := ""
+
+	d := ParseDurationWithDefault(input, defaultDuration)
+
+	want := defaultDuration
+	if d != want {
+		t.Errorf("ParseNegDuration(%s, _) = %s want %v", input, d.String(), d.String())
 	}
 }
 
@@ -229,5 +178,72 @@ func TestTTLString(t *testing.T) {
 			}
 		})
 
+	}
+}
+
+func TestIsLocale(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "simple string",
+			input: "en",
+			want:  true,
+		},
+		{
+			name:  "locale with country",
+			input: "en-ca",
+			want:  true,
+		},
+		{
+			name:  "not a locale",
+			input: "hello",
+			want:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		got := IsLocale(tc.input)
+		if got != tc.want {
+			t.Errorf("test case %q: IsLocale(%q) = %v, want %v", tc.name, tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestIsTimeZone(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "simple string",
+			input: "America/Los_Angeles",
+			want:  true,
+		},
+		{
+			name:  "not a time zone",
+			input: "America/NotaTimeZone",
+			want:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		got := IsTimeZone(tc.input)
+		if got != tc.want {
+			t.Errorf("test case %q: IsTimeZone(%q) = %v, want %v", tc.name, tc.input, got, tc.want)
+		}
 	}
 }
