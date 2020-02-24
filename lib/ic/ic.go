@@ -41,6 +41,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
@@ -478,7 +479,7 @@ func (s *Service) buildState(idpName, realm, scope, challenge string, tx storage
 		Challenge: challenge,
 	}
 
-	id := common.GenerateGUID()
+	id := uuid.New()
 
 	err := s.store.WriteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, id, storage.LatestRev, login, nil, tx)
 	if err != nil {
@@ -644,7 +645,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 		LoginHint: loginHint,
 	}
 
-	stateID := common.GenerateGUID()
+	stateID := uuid.New()
 
 	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
 	if err != nil {
@@ -663,8 +664,8 @@ func extractClientName(cfg *pb.IcConfig, clientID string) string {
 	clientName := "the application"
 	for name, cli := range cfg.Clients {
 		if cli.ClientId == clientID {
-			if cli.Ui != nil && len(cli.Ui[common.UILabel]) > 0 {
-				clientName = cli.Ui[common.UILabel]
+			if cli.Ui != nil && len("label") > 0 {
+				clientName = cli.Ui["label"]
 			} else {
 				clientName = name
 			}
@@ -1151,7 +1152,7 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 		Audiences:        ga4gh.Audiences(aud),
 		IssuedAt:         iat,
 		NotBefore:        nbf,
-		ID:               common.GenerateGUID(),
+		ID:               uuid.New(),
 		AuthorizedParty:  azp,
 		Expiry:           exp,
 		Scope:            scope,
@@ -1259,7 +1260,7 @@ func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity
 	genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
 	accountPrefix := "ic_"
 	genlen -= len(accountPrefix)
-	subject := accountPrefix + strings.Replace(common.GenerateGUID(), "-", "", -1)[:genlen]
+	subject := accountPrefix + strings.Replace(uuid.New(), "-", "", -1)[:genlen]
 
 	acct := &cpb.Account{
 		Revision:          0,

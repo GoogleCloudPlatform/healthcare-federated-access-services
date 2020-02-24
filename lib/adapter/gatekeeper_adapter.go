@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -117,7 +118,7 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 			ExpiresAt: now.Add(input.TTL).Unix(),
 			NotBefore: now.Add(-1 * time.Minute).Unix(),
 			IssuedAt:  now.Unix(),
-			Id:        common.GenerateGUID(),
+			Id:        uuid.New(),
 		},
 		Scopes: input.ServiceRole.TargetScopes,
 	}

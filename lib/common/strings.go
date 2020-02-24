@@ -19,16 +19,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"time"
 	"unicode"
-
-	"golang.org/x/text/language" /* copybara-comment */
-	"github.com/pborman/uuid" /* copybara-comment */
 )
-
-func GenerateGUID() string {
-	return uuid.New()
-}
 
 // JoinNonEmpty filters empty strings and joins remainder together.
 func JoinNonEmpty(in []string, separator string) string {
@@ -146,24 +138,6 @@ func ExtractVariables(v string) (map[string]bool, error) {
 		args[p[0]] = true
 	}
 	return args, nil
-}
-
-// IsLocale returns true if the "name" provided is a locale name as per https://tools.ietf.org/html/bcp47.
-func IsLocale(name string) bool {
-	_, err := language.Parse(name)
-	if err == nil {
-		return true
-	}
-	return false
-}
-
-// IsTimeZone returns true if the "name" provided is an IANA Time Zone name.
-func IsTimeZone(name string) bool {
-	_, err := time.LoadLocation(name)
-	if err == nil && len(name) > 0 {
-		return true
-	}
-	return false
 }
 
 // QuoteSplit is similiar to strings.Split() but doesn't split within double-quotes.

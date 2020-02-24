@@ -169,16 +169,16 @@ func CheckUI(ui map[string]string, requireDescription bool) (string, error) {
 		return "ui", fmt.Errorf("UI object missing")
 	}
 
-	if label := ui[common.UILabel]; len(label) == 0 {
-		return httputil.StatusPath("ui", common.UILabel), fmt.Errorf("UI object missing %q field", common.UILabel)
+	if label := ui["label"]; len(label) == 0 {
+		return httputil.StatusPath("ui", "label"), fmt.Errorf("UI object missing %q field", "label")
 	}
 
 	if !requireDescription {
 		return "", nil
 	}
 
-	if desc := ui[common.UIDescription]; len(desc) == 0 {
-		return httputil.StatusPath("ui", common.UIDescription), fmt.Errorf("UI object missing %q field", common.UIDescription)
+	if desc := ui["description"]; len(desc) == 0 {
+		return httputil.StatusPath("ui", "description"), fmt.Errorf("UI object missing %q field", "description")
 	}
 
 	return "", nil

@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/text/language" /* copybara-comment */
 )
 
 const (
@@ -139,4 +141,22 @@ func GetNowInUnixNano() float64 {
 // GetNowInUnix returns Unix timestamp in seconds, equivalent to `date "+%s"`.
 func GetNowInUnix() int64 {
 	return time.Now().Unix()
+}
+
+// IsTimeZone returns true if the "name" provided is an IANA Time Zone name.
+func IsTimeZone(name string) bool {
+	_, err := time.LoadLocation(name)
+	if err == nil && len(name) > 0 {
+		return true
+	}
+	return false
+}
+
+// IsLocale returns true if the "name" provided is a locale name as per https://tools.ietf.org/html/bcp47.
+func IsLocale(name string) bool {
+	_, err := language.Parse(name)
+	if err == nil {
+		return true
+	}
+	return false
 }

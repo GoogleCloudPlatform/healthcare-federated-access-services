@@ -28,13 +28,14 @@ import (
 	tspb "github.com/golang/protobuf/ptypes/timestamp" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
 
 var (
-	instanceID = common.GenerateGUID()
+	instanceID = uuid.New()
 )
 
 // ErrorAction indicates how an AddError or AddWorkError should be handled.

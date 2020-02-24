@@ -269,8 +269,8 @@ func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sour
 				return httputil.StatusPath("variableDefinitions", name), fmt.Errorf("variable value %q invalid format", arg)
 			}
 		}
-		if v.Ui == nil || v.Ui[common.UIDescription] == "" {
-			return httputil.StatusPath("variableDefinitions", name, "ui", common.UIDescription), fmt.Errorf("description not provided")
+		if v.Ui == nil || v.Ui["description"] == "" {
+			return httputil.StatusPath("variableDefinitions", name, "ui", "description"), fmt.Errorf("description not provided")
 		}
 	}
 

@@ -389,7 +389,10 @@ func (s *DatastoreStorage) multiDelete(q *datastore.Query) (int, error) {
 	}
 	total := len(keys)
 	for i := 0; i < total; i += multiDeleteChunkSize {
-		end := common.Min(i+multiDeleteChunkSize, total)
+		end := i + multiDeleteChunkSize
+		if total < end {
+			end = total
+		}
 		chunk := keys[i:end]
 		if err := s.client.DeleteMulti(s.ctx, chunk); err != nil {
 			return total, err

@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
@@ -247,8 +248,8 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 		if ui == nil {
 			ui = make(map[string]string)
 		}
-		if _, ok := ui[common.UILabel]; !ok {
-			ui[common.UILabel] = common.ToTitle(pname)
+		if _, ok := ui["label"]; !ok {
+			ui["label"] = common.ToTitle(pname)
 		}
 
 		params := url.Values{}
@@ -328,7 +329,7 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		AccessToken: string(acTok),
 		TokenType:   "bearer",
 		ExpiresIn:   60 * 60 * 24 * 365,
-		Uid:         common.GenerateGUID(),
+		Uid:         uuid.New(),
 	}
 	httputil.WriteProtoResp(w, resp)
 }
