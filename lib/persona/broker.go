@@ -29,10 +29,11 @@ import (
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -150,7 +151,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	token := parts[1]
 
-	src, err := common.ConvertTokenToIdentityUnsafe(token)
+	src, err := ga4gh.ConvertTokenToIdentityUnsafe(token)
 	if err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid Authorization token"))
 		return
@@ -249,7 +250,7 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 			ui = make(map[string]string)
 		}
 		if _, ok := ui["label"]; !ok {
-			ui["label"] = common.ToTitle(pname)
+			ui["label"] = strutil.ToTitle(pname)
 		}
 
 		params := url.Values{}

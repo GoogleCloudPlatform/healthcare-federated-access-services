@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -87,7 +87,7 @@ func expandSources(claim string, src string, sources map[string]*pb.TrustedSourc
 	}
 	out := make(map[string]bool)
 	for _, f := range from {
-		if common.IsURL(f) {
+		if strutil.IsURL(f) {
 			out[f] = true
 			continue
 		}
@@ -142,7 +142,7 @@ func expandValues(input string, args map[string]string) ([]string, error) {
 		return vals, err
 	}
 	for i, v := range vals {
-		out, err := common.ReplaceVariables(v, args)
+		out, err := strutil.ReplaceVariables(v, args)
 		if err != nil {
 			return nil, err
 		}
@@ -240,7 +240,7 @@ func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sour
 			if _, err := expandValues(clause.Value, valArgs); err != nil {
 				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}
-			valArgs, err := common.ExtractVariables(clause.Value)
+			valArgs, err := strutil.ExtractVariables(clause.Value)
 			if err != nil {
 				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}

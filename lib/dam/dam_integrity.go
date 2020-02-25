@@ -28,10 +28,10 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -537,14 +537,14 @@ func checkTrustedIssuer(iss string, cfg *pb.DamConfig, vopts ValidateCfgOpts) *s
 func rmTestResource(cfg *pb.DamConfig, name string) {
 	prefix := name + "/"
 	for _, p := range cfg.TestPersonas {
-		p.Access = common.FilterStringsByPrefix(p.Access, prefix)
+		p.Access = strutil.FilterStringsByPrefix(p.Access, prefix)
 	}
 }
 
 func rmTestView(cfg *pb.DamConfig, resName, viewName string) {
 	prefix := resName + "/" + viewName + "/"
 	for _, p := range cfg.TestPersonas {
-		p.Access = common.FilterStringsByPrefix(p.Access, prefix)
+		p.Access = strutil.FilterStringsByPrefix(p.Access, prefix)
 	}
 }
 

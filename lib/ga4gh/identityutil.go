@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package ga4gh
 
 import (
 	"context"
@@ -23,14 +23,13 @@ import (
 
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 
 	jose "gopkg.in/square/go-jose.v2" /* copybara-comment */
 	josejwt "gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 )
 
 // IsAudience returns true if the token's "azp" or "aud" contains the self string or clientID.
-func IsAudience(token *ga4gh.Identity, clientID, self string) bool {
+func IsAudience(token *Identity, clientID, self string) bool {
 	if len(token.AuthorizedParty) == 0 && len(token.Audiences) == 0 {
 		// Is a public token.
 		return true
@@ -65,7 +64,7 @@ func userID(subject, issuer string, maxLength int) string {
 }
 
 // TokenUserID returns an user identifier for a given token.
-func TokenUserID(token *ga4gh.Identity, maxLength int) string {
+func TokenUserID(token *Identity, maxLength int) string {
 	return userID(token.Subject, token.Issuer, maxLength)
 }
 
@@ -91,12 +90,12 @@ func VerifyTokenWithKey(publicKey *rsa.PublicKey, tok string) error {
 }
 
 // ConvertTokenToIdentityUnsafe unsafely converts a token to an identity.
-func ConvertTokenToIdentityUnsafe(tok string) (*ga4gh.Identity, error) {
+func ConvertTokenToIdentityUnsafe(tok string) (*Identity, error) {
 	parsed, err := josejwt.ParseSigned(tok)
 	if err != nil {
 		return nil, fmt.Errorf("parsing JWT: %v", err)
 	}
-	var id ga4gh.Identity
+	var id Identity
 	if err := parsed.UnsafeClaimsWithoutVerification(&id); err != nil {
 		return nil, fmt.Errorf("extracting base claims without verifying signature: %v", err)
 	}
@@ -105,7 +104,7 @@ func ConvertTokenToIdentityUnsafe(tok string) (*ga4gh.Identity, error) {
 
 // HasUserinfoClaims checks if /userinfo endpoint needs to be called to fetch additional claims for
 // a particular identity.
-func HasUserinfoClaims(id *ga4gh.Identity) bool {
+func HasUserinfoClaims(id *Identity) bool {
 	var scopes []string
 	// Hydra is using "scp" claims in access token.
 	if len(id.Scp) > 0 {

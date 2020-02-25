@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 )
 
 const (
@@ -124,7 +124,7 @@ func BuildFilters(str string, fields map[string]func(p proto.Message) string) ([
 		return nil, nil
 	}
 	var out [][]Filter
-	ands := common.QuoteSplit(str, " and ", false)
+	ands := strutil.QuoteSplit(str, " and ", false)
 	for _, a := range ands {
 		var ors []Filter
 		a = strings.Trim(a, " ")
@@ -135,7 +135,7 @@ func BuildFilters(str string, fields map[string]func(p proto.Message) string) ([
 			a = a[1 : len(a)-1]
 		}
 		// Perform additional checks to improve error handling.
-		parts := common.QuoteSplit(a, " ", false)
+		parts := strutil.QuoteSplit(a, " ", false)
 		for _, p := range parts {
 			if strings.HasPrefix(p, `"`) {
 				continue

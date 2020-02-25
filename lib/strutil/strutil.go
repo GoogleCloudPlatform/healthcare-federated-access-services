@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+// Package strutil provides utility functions for working with strings.
+package strutil
 
 import (
 	"fmt"
@@ -27,26 +28,27 @@ func JoinNonEmpty(in []string, separator string) string {
 	return strings.Join(FilterNonEmpty(in), separator)
 }
 
-// FilterNonEmpty returns the string list with empty strings removed.
-func FilterNonEmpty(in []string) []string {
-	out := []string{}
+// Filter returns strings that have the provided property.
+func Filter(in []string, p func(string) bool) []string {
+	var out []string
 	for _, v := range in {
-		if len(v) > 0 {
+		if p(v) {
 			out = append(out, v)
 		}
 	}
 	return out
 }
 
+// FilterNonEmpty returns the string list with empty strings removed.
+func FilterNonEmpty(in []string) []string {
+	p := func(v string) bool { return v != "" }
+	return Filter(in, p)
+}
+
 // FilterStringsByPrefix filters returns only strings that do NOT have a given prefix.
 func FilterStringsByPrefix(in []string, prefix string) []string {
-	var out []string
-	for _, v := range in {
-		if !strings.HasPrefix(v, prefix) {
-			out = append(out, v)
-		}
-	}
-	return out
+	p := func(v string) bool { return !strings.HasPrefix(v, prefix) }
+	return Filter(in, p)
 }
 
 // ContainsWord returns true if the string contains the (space-separated) full word.

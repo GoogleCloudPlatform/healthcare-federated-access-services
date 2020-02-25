@@ -44,7 +44,6 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -53,6 +52,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
@@ -796,7 +796,7 @@ func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
 	if len(tok) == 0 {
 		return "", http.StatusUnauthorized, fmt.Errorf("bearer token not found")
 	}
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return "", http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
 	}
@@ -808,12 +808,12 @@ func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
 }
 
 func (s *Service) getTokenIdentity(ctx context.Context, tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
 	}
 
-	v, err := common.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
+	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("GetOIDCTokenVerifier failed: %v", err)
 	}
@@ -824,7 +824,7 @@ func (s *Service) getTokenIdentity(ctx context.Context, tok, scope, clientID str
 
 	if len(id.Scope) == 0 && len(id.Scp) > 0 {
 		// Hydra populates "scp" instead of "scope", so populate "scope" accordingly.
-		id.Scope = common.JoinNonEmpty(id.Scp, " ")
+		id.Scope = strutil.JoinNonEmpty(id.Scp, " ")
 	}
 
 	// TODO: add more checks here as appropriate.
@@ -835,7 +835,7 @@ func (s *Service) getTokenIdentity(ctx context.Context, tok, scope, clientID str
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for issuer %q", id.Issuer)
 	} else if len(scope) > 0 && !hasScopes(scope, id.Scope, matchFullScope) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for scope %q", scope)
-	} else if !common.IsAudience(id, clientID, iss) {
+	} else if !ga4gh.IsAudience(id, clientID, iss) {
 		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized party")
 	}
 	return id, http.StatusOK, nil
@@ -948,7 +948,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityPro
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("translating access token from issuer %q: %v", idp.Issuer, err)
 		}
-		if !common.HasUserinfoClaims(tid) {
+		if !ga4gh.HasUserinfoClaims(tid) {
 			return tid, http.StatusOK, nil
 		}
 		id, err := translator.FetchUserinfoClaims(r.Context(), tid, acTok, t)
@@ -1651,7 +1651,7 @@ func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity,
 
 func validateURLs(input map[string]string) error {
 	for k, v := range input {
-		if !common.IsURL(v) {
+		if !strutil.IsURL(v) {
 			return fmt.Errorf("%q value %q is not a URL", k, v)
 		}
 	}

@@ -30,7 +30,6 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
@@ -275,7 +274,7 @@ func extractBearerToken(r *http.Request) string {
 // tokenToIdentityWithoutVerification parse the token to Identity struct.
 // Also normalize the issuer string inside Identity and apply the transform needed in Checker.
 func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identity, errType, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err)
 	}
@@ -303,7 +302,7 @@ func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) (errType, error
 		return errSubMissing, status.Error(codes.Unauthenticated, "token unauthorized: no subject")
 	}
 
-	if !common.IsAudience(id, clientID, iss) {
+	if !ga4gh.IsAudience(id, clientID, iss) {
 		// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
 		return errAudMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: unauthorized party")
 	}
@@ -317,7 +316,7 @@ func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) (errType, error
 
 // verifyToken oidc spec verfiy token.
 func verifyToken(ctx context.Context, tok, iss, clientID string) (errType, error) {
-	v, err := common.GetOIDCTokenVerifier(ctx, clientID, iss)
+	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, iss)
 	if err != nil {
 		return errVerifierUnavailable, status.Errorf(codes.Unauthenticated, "GetOIDCTokenVerifier failed: %v", err)
 	}

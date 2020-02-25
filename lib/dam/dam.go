@@ -40,7 +40,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -315,12 +314,12 @@ func (s *Service) getIssuerString() string {
 }
 
 func (s *Service) damSignedBearerTokenToPassportIdentity(ctx context.Context, cfg *pb.DamConfig, tok, clientID string) (*ga4gh.Identity, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("inspecting token: %v", err))
 	}
 
-	v, err := common.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
+	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, fmt.Sprintf("GetOIDCTokenVerifier failed: %v", err))
 	}
@@ -337,7 +336,7 @@ func (s *Service) damSignedBearerTokenToPassportIdentity(ctx context.Context, cf
 	if id.Issuer != iss {
 		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("bearer token unauthorized for issuer %q", id.Issuer))
 	}
-	if !common.IsAudience(id, clientID, iss) {
+	if !ga4gh.IsAudience(id, clientID, iss) {
 		return nil, status.Errorf(codes.Unauthenticated, "bearer token unauthorized party")
 	}
 
@@ -372,7 +371,7 @@ func (s *Service) damSignedBearerTokenToPassportIdentity(ctx context.Context, cf
 }
 
 func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(tok)
+	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting token: %v", err)
 	}
@@ -387,7 +386,7 @@ func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.D
 	if err != nil {
 		return nil, fmt.Errorf("translating token from issuer %q: %v", iss, err)
 	}
-	if common.HasUserinfoClaims(id) {
+	if ga4gh.HasUserinfoClaims(id) {
 		id, err = translator.FetchUserinfoClaims(ctx, id, tok, t)
 		if err != nil {
 			return nil, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)

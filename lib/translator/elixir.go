@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/coreos/go-oidc" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
@@ -36,7 +35,7 @@ type ElixirTranslator struct {
 // tokens passed to this translator do not have an audience claim with a value equal to the
 // clientID value then they will be rejected.
 func NewElixirTranslator(ctx context.Context, clientID string) (*ElixirTranslator, error) {
-	v, err := common.GetOIDCTokenVerifier(ctx, clientID, elixirIssuer)
+	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, elixirIssuer)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +51,7 @@ func (s *ElixirTranslator) TranslateToken(ctx context.Context, auth string) (*ga
 }
 
 func (s *ElixirTranslator) translateToken(auth string) (*ga4gh.Identity, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(auth)
+	id, err := ga4gh.ConvertTokenToIdentityUnsafe(auth)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting token: %v", err)
 	}

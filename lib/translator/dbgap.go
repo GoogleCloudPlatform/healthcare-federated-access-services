@@ -29,8 +29,8 @@ import (
 
 	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 )
 
 const (
@@ -156,21 +156,21 @@ func NewDbGapTranslator(publicKey, selfIssuer, signingPrivateKey string) (*DbGap
 
 // TranslateToken implements the ga4gh.Translator interface.
 func (s *DbGapTranslator) TranslateToken(ctx context.Context, auth string) (*ga4gh.Identity, error) {
-	if err := common.VerifyTokenWithKey(s.publicKey, auth); err != nil {
+	if err := ga4gh.VerifyTokenWithKey(s.publicKey, auth); err != nil {
 		return nil, fmt.Errorf("verifying user token signature: %v", err)
 	}
 	userInfo, err := s.getURL(dbGapUserInfoURL, auth)
 	if err != nil {
 		return nil, fmt.Errorf("getting dbGaP user info: %v", err)
 	}
-	if err := common.VerifyTokenWithKey(s.publicKey, userInfo); err != nil {
+	if err := ga4gh.VerifyTokenWithKey(s.publicKey, userInfo); err != nil {
 		return nil, fmt.Errorf("verifying user info token signature: %v", err)
 	}
 	passport, err := s.getURL(dbGapPassportURL, auth)
 	if err != nil {
 		return nil, fmt.Errorf("getting dbGaP passport: %v", err)
 	}
-	if err := common.VerifyTokenWithKey(s.publicKey, passport); err != nil {
+	if err := ga4gh.VerifyTokenWithKey(s.publicKey, passport); err != nil {
 		return nil, fmt.Errorf("verifying passport token signature: %v", err)
 	}
 
@@ -222,7 +222,7 @@ func (s *DbGapTranslator) translateToken(token *oidc.IDToken, claims dbGapClaims
 		Expiry:     token.Expiry.Unix(),
 		GivenName:  claims.Vcard.GivenName,
 		FamilyName: claims.Vcard.FamilyName,
-		Name:       common.JoinNonEmpty([]string{claims.Vcard.GivenName, claims.Vcard.FamilyName}, " "),
+		Name:       strutil.JoinNonEmpty([]string{claims.Vcard.GivenName, claims.Vcard.FamilyName}, " "),
 		Email:      claims.Vcard.Email,
 		VisaJWTs:   []string{},
 	}

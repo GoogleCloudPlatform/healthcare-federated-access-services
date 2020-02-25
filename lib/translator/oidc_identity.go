@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/coreos/go-oidc" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
@@ -32,7 +31,7 @@ type OIDCIdentityTranslator struct {
 // NewOIDCIdentityTranslator creates a new OIDCIdentityTranslator with the provided issuer and
 // client ID.
 func NewOIDCIdentityTranslator(ctx context.Context, issuer, clientID string) (*OIDCIdentityTranslator, error) {
-	v, err := common.GetOIDCTokenVerifier(ctx, clientID, issuer)
+	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, issuer)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +47,7 @@ func (s *OIDCIdentityTranslator) TranslateToken(ctx context.Context, auth string
 }
 
 func (s *OIDCIdentityTranslator) translateToken(auth string) (*ga4gh.Identity, error) {
-	id, err := common.ConvertTokenToIdentityUnsafe(auth)
+	id, err := ga4gh.ConvertTokenToIdentityUnsafe(auth)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting token: %v", err)
 	}

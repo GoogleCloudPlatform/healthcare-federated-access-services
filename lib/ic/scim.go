@@ -25,11 +25,11 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -60,7 +60,7 @@ var (
 			for _, link := range acctProto(p).ConnectedAccounts {
 				list = append(list, link.GetProperties().Email)
 			}
-			return common.JoinNonEmpty(list, " ")
+			return strutil.JoinNonEmpty(list, " ")
 		},
 		"externalid": func(p proto.Message) string {
 			return acctProto(p).GetProperties().Subject
@@ -416,7 +416,7 @@ func (h *scimUser) Patch(name string) error {
 
 		case "photo":
 			dst = &h.save.Profile.Picture
-			if !common.IsImageURL(src) {
+			if !strutil.IsImageURL(src) {
 				return fmt.Errorf("invalid photo URL %q", src)
 			}
 
@@ -669,7 +669,7 @@ func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 	var photos []*spb.Attribute
 	primaryPic := acct.GetProfile().GetPicture()
 	if len(primaryPic) > 0 {
-		photos = append(photos, &spb.Attribute{Value: common.ToURL(primaryPic, s.getDomainURL()), Primary: true})
+		photos = append(photos, &spb.Attribute{Value: strutil.ToURL(primaryPic, s.getDomainURL()), Primary: true})
 	}
 	for _, ca := range acct.ConnectedAccounts {
 		if len(ca.Properties.Email) > 0 {
@@ -684,7 +684,7 @@ func (s *Service) newScimUser(acct *cpb.Account, realm string) *spb.User {
 			continue
 		}
 		if pic := ca.GetProfile().GetPicture(); len(pic) > 0 && pic != primaryPic {
-			photos = append(photos, &spb.Attribute{Value: common.ToURL(pic, s.getDomainURL())})
+			photos = append(photos, &spb.Attribute{Value: strutil.ToURL(pic, s.getDomainURL())})
 		}
 	}
 
@@ -721,7 +721,7 @@ func formattedName(acct *cpb.Account) string {
 	profile := acct.GetProfile()
 	name := profile.FormattedName
 	if len(name) == 0 {
-		name = common.JoinNonEmpty([]string{profile.GivenName, profile.MiddleName, profile.FamilyName}, " ")
+		name = strutil.JoinNonEmpty([]string{profile.GivenName, profile.MiddleName, profile.FamilyName}, " ")
 	}
 	if len(name) == 0 {
 		name = profile.Name

@@ -21,7 +21,6 @@ import (
 
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/common" /* copybara-comment: common */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -57,7 +56,7 @@ func (h *tokensHandler) Setup(tx storage.Tx) (int, error) {
 	return status, err
 }
 func (h *tokensHandler) LookupItem(name string, vars map[string]string) bool {
-	items, err := h.s.warehouse.ListTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength))
+	items, err := h.s.warehouse.ListTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, ga4gh.TokenUserID(h.id, adapter.SawMaxUserIDLength))
 	if err != nil {
 		return false
 	}
@@ -90,7 +89,7 @@ func (h *tokensHandler) Remove(name string) error {
 	if len(h.item) == 0 {
 		return nil
 	}
-	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), nil)
+	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, ga4gh.TokenUserID(h.id, adapter.SawMaxUserIDLength), nil)
 }
 func (h *tokensHandler) CheckIntegrity() *status.Status {
 	return nil
@@ -129,7 +128,7 @@ func (h *tokenHandler) Setup(tx storage.Tx) (int, error) {
 	return status, err
 }
 func (h *tokenHandler) LookupItem(name string, vars map[string]string) bool {
-	item, err := h.s.warehouse.GetTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), name)
+	item, err := h.s.warehouse.GetTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, ga4gh.TokenUserID(h.id, adapter.SawMaxUserIDLength), name)
 	if err != nil {
 		return false
 	}
@@ -154,7 +153,7 @@ func (h *tokenHandler) Patch(name string) error {
 }
 func (h *tokenHandler) Remove(name string) error {
 	list := []string{name}
-	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, common.TokenUserID(h.id, adapter.SawMaxUserIDLength), list)
+	return h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, ga4gh.TokenUserID(h.id, adapter.SawMaxUserIDLength), list)
 }
 func (h *tokenHandler) CheckIntegrity() *status.Status {
 	return nil

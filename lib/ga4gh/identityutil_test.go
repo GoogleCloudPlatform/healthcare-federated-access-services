@@ -12,48 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package ga4gh
 
 import (
 	"testing"
-
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
 func TestHasUserinfoClaims(t *testing.T) {
 	tests := []struct {
 		name string
-		id   *ga4gh.Identity
+		id   *Identity
 		want bool
 	}{
 		{
 			name: "no user info claim in scp",
-			id:   &ga4gh.Identity{Scp: []string{"aaa"}},
+			id:   &Identity{Scp: []string{"aaa"}},
 			want: false,
 		},
 		{
 			name: "no user info claim in scope",
-			id:   &ga4gh.Identity{Scope: "aaa"},
+			id:   &Identity{Scope: "aaa"},
 			want: false,
 		},
 		{
 			name: "ga4gh claim in scp",
-			id:   &ga4gh.Identity{Scp: []string{"ga4gh"}},
+			id:   &Identity{Scp: []string{"ga4gh"}},
 			want: true,
 		},
 		{
 			name: "ga4gh claim in scope",
-			id:   &ga4gh.Identity{Scope: "ga4gh"},
+			id:   &Identity{Scope: "ga4gh"},
 			want: true,
 		},
 		{
 			name: "ga4gh_passport_v1 claim in scp",
-			id:   &ga4gh.Identity{Scp: []string{"ga4gh_passport_v1"}},
+			id:   &Identity{Scp: []string{"ga4gh_passport_v1"}},
 			want: true,
 		},
 		{
 			name: "ga4gh_passport_v1 claim in scope",
-			id:   &ga4gh.Identity{Scope: "ga4gh_passport_v1"},
+			id:   &Identity{Scope: "ga4gh_passport_v1"},
 			want: true,
 		},
 	}
@@ -72,14 +70,14 @@ func TestIsAudience(t *testing.T) {
 	selfURL := "http://example.com"
 	tests := []struct {
 		name     string
-		id       *ga4gh.Identity
+		id       *Identity
 		clientID string
 		selfURL  string
 		want     bool
 	}{
 		{
 			name: "public token",
-			id: &ga4gh.Identity{
+			id: &Identity{
 				Audiences:       []string{},
 				AuthorizedParty: "",
 			},
@@ -89,7 +87,7 @@ func TestIsAudience(t *testing.T) {
 		},
 		{
 			name: "client id in aud",
-			id: &ga4gh.Identity{
+			id: &Identity{
 				Audiences:       []string{"something_else", clientID},
 				AuthorizedParty: "",
 			},
@@ -99,7 +97,7 @@ func TestIsAudience(t *testing.T) {
 		},
 		{
 			name: "client id in azp",
-			id: &ga4gh.Identity{
+			id: &Identity{
 				Audiences:       []string{"something_else"},
 				AuthorizedParty: clientID,
 			},
@@ -109,7 +107,7 @@ func TestIsAudience(t *testing.T) {
 		},
 		{
 			name: "no client id",
-			id: &ga4gh.Identity{
+			id: &Identity{
 				Audiences:       []string{"something_else", selfURL},
 				AuthorizedParty: selfURL,
 			},
@@ -119,7 +117,7 @@ func TestIsAudience(t *testing.T) {
 		},
 		{
 			name: "self in aud",
-			id: &ga4gh.Identity{
+			id: &Identity{
 				Audiences:       []string{"something_else", selfURL},
 				AuthorizedParty: "",
 			},
@@ -129,7 +127,7 @@ func TestIsAudience(t *testing.T) {
 		},
 		{
 			name: "self in azp",
-			id: &ga4gh.Identity{
+			id: &Identity{
 				Audiences:       []string{"something_else"},
 				AuthorizedParty: selfURL,
 			},
@@ -139,7 +137,7 @@ func TestIsAudience(t *testing.T) {
 		},
 		{
 			name: "not match",
-			id: &ga4gh.Identity{
+			id: &Identity{
 				Audiences:       []string{"something_else"},
 				AuthorizedParty: "something_else2",
 			},
@@ -163,38 +161,38 @@ func TestTokenUserID(t *testing.T) {
 	maxLen := 25
 	tests := []struct {
 		name string
-		id   *ga4gh.Identity
+		id   *Identity
 		want string
 	}{
 		{
 			name: "sub without @",
-			id: &ga4gh.Identity{
-			Subject:"a",
-			Issuer:issuer + "/oidc",
+			id: &Identity{
+				Subject: "a",
+				Issuer:  issuer + "/oidc",
 			},
 			want: "a|example.com",
 		},
 		{
 			name: "sub with @",
-			id: &ga4gh.Identity{
-				Subject:"a@a.com",
-				Issuer:issuer + "/oidc",
+			id: &Identity{
+				Subject: "a@a.com",
+				Issuer:  issuer + "/oidc",
 			},
 			want: "a@a.com|example.com",
 		},
 		{
 			name: "return sub",
-			id: &ga4gh.Identity{
-				Subject:"a@example.com",
-				Issuer:issuer + "/oidc",
+			id: &Identity{
+				Subject: "a@example.com",
+				Issuer:  issuer + "/oidc",
 			},
 			want: "a@example.com",
 		},
 		{
 			name: "too long",
-			id: &ga4gh.Identity{
-				Subject:"12345678901234567890@example.com",
-				Issuer:issuer + "/oidc",
+			id: &Identity{
+				Subject: "12345678901234567890@example.com",
+				Issuer:  issuer + "/oidc",
 			},
 			want: "12345678901234567890@exam",
 		},
