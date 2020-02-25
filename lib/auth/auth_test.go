@@ -128,7 +128,7 @@ func Test_ErrorAtClientSecret_Log(t *testing.T) {
 			sendRequest(http.MethodGet, path, "", "", "", "", "", router, oidc)
 			if !require.ClientID {
 				ets := errTypesFromLogs(logs)
-				wantErrType := []errType{noErr}
+				wantErrType := []errType{""}
 				if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
 					t.Errorf("error_type (-want +got): %s", diff)
 				}
@@ -165,7 +165,7 @@ func Test_RequiresClientID_Log(t *testing.T) {
 	sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
 
 	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{noErr}
+	wantErrType := []errType{""}
 	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
 		t.Errorf("error_type (-want +got): %s", diff)
 	}
@@ -256,7 +256,7 @@ func Test_RequiresClientSecret_Log(t *testing.T) {
 	sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
 
 	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{noErr}
+	wantErrType := []errType{""}
 	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
 		t.Errorf("error_type (-want +got): %s", diff)
 	}
@@ -681,7 +681,7 @@ func Test_RequiresUserToken_Log(t *testing.T) {
 			sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
 			ets := errTypesFromLogs(logs)
-			wantErrType := []errType{noErr}
+			wantErrType := []errType{""}
 			if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
 				t.Errorf("error_type (-want +got): %s", diff)
 			}
@@ -790,7 +790,7 @@ func Test_RequiresAdminToken_Log(t *testing.T) {
 	sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
 	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{noErr}
+	wantErrType := []errType{""}
 	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
 		t.Errorf("error_type (-want +got): %s", diff)
 	}
