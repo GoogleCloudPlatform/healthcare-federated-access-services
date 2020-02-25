@@ -161,74 +161,24 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 		return log, err
 	}
 
-	if !require.ClientID {
-		return log, nil
-	}
-
 	r.ParseForm()
-
 	cID := oathclients.ExtractClientID(r)
-	cSec := oathclients.ExtractClientSecret(r)
 
-	if et, err := s.verifyClientCredentials(cID, cSec, require); err != nil {
-		log.ErrorType = string(et)
-		return log, err
-	}
+	if require.ClientID {
+		cSec := oathclients.ExtractClientSecret(r)
 
-	// Not require bearer token.
-	if require.Role == None {
-		return log, nil
-	}
-
-	tok := extractBearerToken(r)
-
-	if et, err := verifyToken(r.Context(), tok, s.Issuer, cID); err != nil {
-		log.ErrorType = string(et)
-		return log, err
-	}
-
-	id, et, err := s.tokenToIdentityWithoutVerification(tok)
-	if err != nil {
-		log.ErrorType = string(et)
-		return log, err
-	}
-
-	log.TokenID = id.ID
-	log.TokenSubject = id.Subject
-	log.TokenIssuer = id.Issuer
-
-	if et, err := verifyIdentity(id, s.Issuer, cID); err != nil {
-		log.ErrorType = string(et)
-		return log, err
-	}
-
-	err = s.IsAdmin(id)
-
-	switch require.Role {
-	case Admin:
-		if err != nil {
-			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			log.ErrorType = string(errNotAdmin)
-			return log, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err)
+		if et, err := s.verifyClientCredentials(cID, cSec, require); err != nil {
+			log.ErrorType = string(et)
+			return log, err
 		}
-		return log, nil
-
-	case User:
-		// Token is for an administrator, who is able to act on behalf of any user, so short-circuit remaining checks.
-		if err == nil {
-			return log, nil
-		}
-		if user := mux.Vars(r)["user"]; len(user) != 0 && user != id.Subject {
-			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			log.ErrorType = string(errUserMismatch)
-			return log, status.Errorf(codes.Unauthenticated, "user in path does not match token")
-		}
-		return log, nil
-
-	default:
-		log.ErrorType = string(errUnknownRole)
-		return log, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role)
 	}
+
+	info, et, err := s.verifyAccessToken(r, cID, require)
+	log.TokenID = info.id
+	log.TokenSubject = info.subject
+	log.TokenIssuer = info.issuer
+	log.ErrorType = string(et)
+	return log, err
 }
 
 // verifyClientCredentials based on the provided requirement, the function
@@ -260,6 +210,66 @@ func (s *Checker) verifyClientCredentials(client, secret string, require Require
 	}
 
 	return noErr, nil
+}
+
+// tokenInfo includes needed information in access token.
+type tokenInfo struct {
+	id      string
+	subject string
+	issuer  string
+}
+
+// verifyAccessToken verify the access token meet the given requirement.
+func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Require) (tokenInfo, errType, error) {
+	if require.Role == None {
+		return tokenInfo{}, noErr, nil
+	}
+
+	tok := extractBearerToken(r)
+
+	if et, err := verifyToken(r.Context(), tok, s.Issuer, clientID); err != nil {
+		return tokenInfo{}, et, err
+	}
+
+	id, et, err := s.tokenToIdentityWithoutVerification(tok)
+	if err != nil {
+		return tokenInfo{}, et, err
+	}
+
+	info := tokenInfo{
+		id:      id.ID,
+		subject: id.Subject,
+		issuer:  id.Issuer,
+	}
+
+	if et, err := verifyIdentity(id, s.Issuer, clientID); err != nil {
+		return info, et, err
+	}
+
+	err = s.IsAdmin(id)
+
+	switch require.Role {
+	case Admin:
+		if err != nil {
+			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
+			return info, errNotAdmin, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err)
+		}
+		return info, noErr, nil
+
+	case User:
+		// Token is for an administrator, who is able to act on behalf of any user, so short-circuit remaining checks.
+		if err == nil {
+			return info, noErr, nil
+		}
+		if user := mux.Vars(r)["user"]; len(user) != 0 && user != id.Subject {
+			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
+			return info, errUserMismatch, status.Errorf(codes.Unauthenticated, "user in path does not match token")
+		}
+		return info, noErr, nil
+
+	default:
+		return info, errUnknownRole, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role)
+	}
 }
 
 // extractBearerToken from Authorization Header.
