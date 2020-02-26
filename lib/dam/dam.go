@@ -46,6 +46,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
@@ -139,10 +140,9 @@ type Options struct {
 
 // NewService create DAM service
 func NewService(params *Options) *Service {
-	fs := getFileStore(params.Store, damStaticService)
 	var roleCat pb.DamRoleCategoriesResponse
-	if err := fs.Read("role", storage.DefaultRealm, storage.DefaultUser, "en", storage.LatestRev, &roleCat); err != nil {
-		glog.Fatalf("cannot load role categories: %v", err)
+	if err := srcutil.LoadProto("deploy/metadata/dam_roles.json", &roleCat); err != nil {
+		glog.Fatalf("cannot load role categories file %q: %v", "deploy/metadata/dam_roles.json", err)
 	}
 	perms, err := permissions.LoadPermissions(params.Store)
 	if err != nil {
@@ -192,11 +192,11 @@ func NewService(params *Options) *Service {
 	if err != nil {
 		glog.Fatalf("cannot load client secrets: %v", err)
 	}
-	services, err := adapter.CreateAdapters(fs, params.Warehouse, secrets)
+	adapters, err := adapter.CreateAdapters(params.Store, params.Warehouse, secrets)
 	if err != nil {
 		glog.Fatalf("cannot load adapters: %v", err)
 	}
-	s.adapters = services
+	s.adapters = adapters
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -460,20 +460,20 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 	return id, http.StatusOK, nil
 }
 
-func testPersona(ctx context.Context, personaName string, resources []string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, []string, error) {
+func testPersona(ctx context.Context, personaName string, resources []string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, []string, []*ga4gh.RejectedVisa, error) {
 	p := cfg.TestPersonas[personaName]
 	id, err := persona.ToIdentity(personaName, p, defaultPersonaScope, "")
 	if err != nil {
-		return "INVALID", nil, err
+		return "INVALID", nil, nil, err
 	}
 	state, got, err := resolveAccessList(ctx, id, resources, nil, nil, cfg, vopts)
 	if err != nil {
-		return state, got, err
+		return state, got, id.RejectedVisas, err
 	}
 	if reflect.DeepEqual(p.Access, got) || (len(p.Access) == 0 && len(got) == 0) {
-		return "PASSED", got, nil
+		return "PASSED", got, id.RejectedVisas, nil
 	}
-	return "FAILED", got, fmt.Errorf("access does not match expectations")
+	return "FAILED", got, id.RejectedVisas, fmt.Errorf("access does not match expectations")
 }
 
 // syncToHydra pushes the configuration of clients and secrets to Hydra.
@@ -619,7 +619,7 @@ func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig,
 	}
 	serviceName := ""
 	for index, item := range srcView.Items {
-		vars, _, err := adapter.GetItemVariables(tas, st.ServiceName, st.ItemFormat, item)
+		vars, _, err := adapter.GetItemVariables(tas, st.ServiceName, item)
 		if err != nil {
 			return nil, fmt.Errorf("item %d: %v", index+1, err)
 		}
@@ -780,7 +780,7 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 			return out
 		}
 		for _, item := range entry.View.Items {
-			vars, _, err := adapter.GetItemVariables(tas, st.ServiceName, st.ItemFormat, item)
+			vars, _, err := adapter.GetItemVariables(tas, st.ServiceName, item)
 			if err != nil {
 				return out
 			}
@@ -1252,7 +1252,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(viewPath, auth.MustWithAuth(s.GetView, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(rolesPath, auth.MustWithAuth(s.GetViewRoles, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(rolePath, auth.MustWithAuth(s.GetViewRole, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
-	r.HandleFunc(adaptersPath, auth.MustWithAuth(s.GetTargetAdapters, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
+	r.HandleFunc(servicesPath, auth.MustWithAuth(s.GetServiceDescriptors, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.GetPassportTranslators, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(damRoleCategoriesPath, auth.MustWithAuth(s.GetDamRoleCategories, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(testPersonasPath, auth.MustWithAuth(s.GetTestPersonas, checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)

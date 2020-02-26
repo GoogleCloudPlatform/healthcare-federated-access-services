@@ -16,10 +16,15 @@
 package srcutil
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
 
 var (
@@ -52,6 +57,20 @@ func LoadFile(path string) (string, error) {
 		return "", err
 	}
 	return string(b), err
+}
+
+// LoadProto reads a JSON proto message from a file.
+func LoadProto(path string, msg proto.Message) error {
+	file, err := os.Open(Path(path))
+	if err != nil {
+		return fmt.Errorf("file %q I/O error: %v", path, err)
+	}
+	defer file.Close()
+
+	if err := jsonpb.Unmarshal(file, msg); err != nil && err != io.EOF {
+		return fmt.Errorf("file %q invalid JSON: %v", path, err)
+	}
+	return nil
 }
 
 func moduleRoot() string {

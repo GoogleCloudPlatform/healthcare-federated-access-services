@@ -103,14 +103,12 @@
   },
   "serviceTemplates": {
     "gcs": {
-      "serviceName": "token:gcp:sa",
-      "itemFormat": "gcs",
+      "serviceName": "gcs",
       "roles": {
         "viewer": {
-          "targetRoles": ["roles/storage.objectViewer"],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+          "serviceArgs": {
+            "roles": { "values": ["roles/storage.objectViewer"] }
+          },
           "damRoleCategories": ["metadata", "list", "read"],
           "ui": {
             "label": "File Viewer",

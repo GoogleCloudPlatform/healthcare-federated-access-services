@@ -91,13 +91,13 @@ func TestConfigHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/flatViews",
-			Output: `*"views":{"/dataset_example/bq_read/viewer/http:gcp:bq/text/csv":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/bq_read/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"bq_read","roleName":"viewer","interfaceName":"http:gcp:bq","interfaceUri":"https://www.googleapis.com/bigquery/v1/projects/dataset-example-project","contentType":"*","metadata":{*},"serviceName":"token:gcp:sa","platform":"gcp","platformService":"bigquery","maxTokenTtl":"3h","resourceUi":{*},"viewUi":{*},"roleUi":{*},"roleCategories":["list","metadata","read"]},"/dataset_example/gcp/viewer/gcp:gs/application/bam":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/gcp/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"gcp","roleName":"viewer","interfaceName":"gcp:gs","interfaceUri":"gs://dataset-example-bucket2","contentType":"application/bam"*`,
+			Output: `*"views":{"/dataset_example/bq_read/viewer/http:gcp:bq/text/csv":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/bq_read/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"bq_read","roleName":"viewer","interfaceName":"http:gcp:bq","interfaceUri":"https://www.googleapis.com/bigquery/v1/projects/dataset-example-project","contentType":"*","metadata":{*},"serviceName":"bigquery","platform":"gcp","platformService":"bigquery","maxTokenTtl":"3h","resourceUi":{*},"viewUi":{*},"roleUi":{*},"roleCategories":["list","metadata","read"]*`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "GET",
-			Path:   "/dam/v1alpha/master/targetAdapters",
-			Output: `*"token:gcp:sa":{"platform":"gcp",*,*"properties":{"canBeAggregated":true},"itemFormats":{"bigquery":{"variables":{"dataset":*,"project":*},"ui":*},"gcs":{"variables":{"bucket":*,"paths":*,"project":*,"type":*}*`,
+			Path:   "/dam/v1alpha/master/services",
+			Output: `*"gcs":{"platform":"gcp","serviceVariables":{*},"itemVariables":{"bucket":*,"paths":*,"project":*,"type":*},"properties":{"canBeAggregated":true}*`,
 			Status: http.StatusOK,
 		},
 		{

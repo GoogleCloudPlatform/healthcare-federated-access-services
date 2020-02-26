@@ -1,0 +1,45 @@
+{
+  "services": {
+    "gatekeeper": {
+      "platform": "oauth",
+      "properties": {
+        "singleItem": true,
+        "isAggregate": false,
+        "canBeAggregated": false
+      },
+      "serviceVariables": {
+        "scopes": {
+          "type": "const",
+          "regexp": ".",
+          "ui": {
+            "label": "Scopes",
+            "description": "An identifier to include in the 'scope' claim as part of the token permission model"
+          }
+        }
+      },
+      "itemVariables": {
+        "aud": {
+          "type": "const",
+          "regexp": ".",
+          "ui": {
+            "label": "Audience",
+            "description": "A unique JWT audience for the token to distiguish this resource or view from all others"
+          }
+        },
+        "url": {
+          "type": "const",
+          "regexp": "^(http://|https://).*$",
+          "ui": {
+            "label": "URL for the service",
+            "description": "Provide only one URL (i.e. one item) per resource view"
+          }
+        }
+      },
+      "ui": {
+        "description": "Generates scoped-down OAuth OIDC access tokens for use with a Gatekeeper Proxy (requires administrator to deploy a compatible reverse proxy underlying services)",
+        "label":       "Gatekeeper Token",
+        "itemFormat":  "http://{URL-FRAGMENT} or https://{URL-FRAGMENT}"
+      }
+    }
+  }
+}

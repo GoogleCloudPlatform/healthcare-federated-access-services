@@ -117,9 +117,9 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 	if !ok {
 		return nil, http.StatusInternalServerError, fmt.Errorf("view %q service template %q is not defined", viewName, view.ServiceTemplate)
 	}
-	service := s.adapters.ByName[st.ServiceName]
+	adapt := s.adapters.ByServiceName[st.ServiceName]
 	var aggregates []*adapter.AggregateView
-	if service.IsAggregator() {
+	if adapt.IsAggregator() {
 		aggregates, err = resolveAggregates(res, view, cfg, s.adapters)
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
@@ -144,7 +144,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 		View:            view,
 		TokenFormat:     tokenFormat,
 	}
-	result, err := service.MintToken(ctx, adapterAction)
+	result, err := adapt.MintToken(ctx, adapterAction)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
 	}
@@ -154,7 +154,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 			Account:     result.Account,
 			AccessToken: result.Token,
 			ExpiresIn:   uint32(ttl.Seconds()),
-			Platform:    service.Platform(),
+			Platform:    adapt.Platform(),
 			// TODO: remove these older fields
 			Name: resourceName,
 			View: makeView(viewName, view, res, cfg, s.hidePolicyBasis, s.adapters),

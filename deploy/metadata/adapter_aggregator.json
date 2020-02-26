@@ -1,17 +1,14 @@
 {
-  "platform": "dam",
-  "requirements": {
-    "targetRole": false,
-    "targetScope": false,
-    "aud": false
-  },
-  "properties": {
-    "isAggregate": true,
-    "canBeAggregated": false
-  },
-  "itemFormats": {
-    "view": {
-      "variables": {
+  "services": {
+    "aggregator": {
+      "platform": "dam",
+      "properties": {
+        "isAggregate": true,
+        "canBeAggregated": false
+      },
+      "serviceVariables": {
+      },
+      "itemVariables": {
         "resource": {
           "type": "const",
           "regexp": "^[A-Za-z][\\w\\-]*$",
@@ -30,12 +27,9 @@
         }
       },
       "ui": {
-        "label": "Aggregate compatible views across resources"
+        "label":       "View Aggregator",
+        "description": "Combines compatible views across resources to produce a single token with access to all of them"
       }
     }
-  },
-  "ui": {
-    "description": "Combines compatible views across resources to produce a single token with access to all of them",
-    "label":       "View Aggregator"
   }
 }

@@ -99,7 +99,7 @@ const (
 	viewPath              = "/dam/v1alpha/{realm}/resources/{name}/views/{view}"
 	rolesPath             = "/dam/v1alpha/{realm}/resources/{name}/views/{view}/roles"
 	rolePath              = "/dam/v1alpha/{realm}/resources/{name}/views/{view}/roles/{role}"
-	adaptersPath          = "/dam/v1alpha/{realm}/targetAdapters"
+	servicesPath          = "/dam/v1alpha/{realm}/services"
 	translatorsPath       = "/dam/v1alpha/{realm}/passportTranslators"
 	damRoleCategoriesPath = "/dam/v1alpha/{realm}/damRoleCategories"
 	testPersonasPath      = "/dam/v1alpha/{realm}/testPersonas"

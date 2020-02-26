@@ -43,13 +43,13 @@ func TestCreateAdapters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}
-	if len(adapters.ByName) != expectedNumOfAdapters {
-		t.Errorf("count ByName: want %d, got %d", expectedNumOfAdapters, len(adapters.ByName))
+	if len(adapters.ByAdapterName) != expectedNumOfAdapters {
+		t.Errorf("count ByName: want %d, got %d", expectedNumOfAdapters, len(adapters.ByAdapterName))
 	}
-	if len(adapters.ByName) != len(adapters.Descriptors) {
-		t.Errorf("count Descriptors should be same as count ByName: want %d, got %d", len(adapters.ByName), len(adapters.Descriptors))
+	if len(adapters.ByServiceName) != len(adapters.Descriptors) {
+		t.Errorf("count Descriptors should be same as count ByName: want %d, got %d", len(adapters.ByServiceName), len(adapters.Descriptors))
 	}
-	for name, item := range adapters.ByName {
+	for name, item := range adapters.ByServiceName {
 		if _, ok := adapters.Descriptors[name]; !ok {
 			t.Errorf("entry %q appears in ByName but not in Descriptors", name)
 		}
@@ -61,22 +61,13 @@ func TestCreateAdapters(t *testing.T) {
 		if desc == nil {
 			t.Errorf("descriptor %q: want not nil, got nil", name)
 		}
-		if len(desc.ItemFormats) > 0 {
-			vre, ok := adapters.VariableREs[name]
-			if !ok {
-				t.Fatalf("variable RE %q not found even though descriptor has ItemFormats", name)
-			}
-			if len(vre) != len(desc.ItemFormats) {
-				t.Errorf("variable RE %q count mismatch: want %d, got %d", name, len(desc.ItemFormats), len(vre))
-			}
-			for fmtName, fmt := range desc.ItemFormats {
-				fre, ok := vre[fmtName]
-				if !ok {
-					t.Fatalf("variable RE %q item format %q missing", name, fmtName)
-				}
-				if len(fre) != len(fmt.Variables) {
-					t.Errorf("variable RE %q item format %q count mismatch: want %d, got %d", name, fmtName, len(fmt.Variables), len(fre))
-				}
+		are, ok := adapters.VariableREs[name]
+		if !ok {
+			t.Fatalf("descriptor %q variable RE missing", name)
+		}
+		for varName := range desc.ItemVariables {
+			if _, ok := are[varName]; !ok {
+				t.Fatalf("descriptor %q variable %q RE entry missing", name, varName)
 			}
 		}
 	}
@@ -95,18 +86,21 @@ func TestGetItemVariables(t *testing.T) {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}
 	tests := []struct {
-		name   string
-		item   *pb.View_Item
-		expect map[string]string
-		fail   bool
+		name    string
+		service string
+		item    *pb.View_Item
+		expect  map[string]string
+		fail    bool
 	}{
 		{
-			name: "nil vars",
-			item: &pb.View_Item{},
-			fail: false,
+			name:    "nil vars",
+			service: "gcs",
+			item:    &pb.View_Item{},
+			fail:    false,
 		},
 		{
-			name: "empty vars",
+			name:    "empty vars",
+			service: "gcs",
 			item: &pb.View_Item{
 				Args: map[string]string{},
 			},
@@ -114,7 +108,8 @@ func TestGetItemVariables(t *testing.T) {
 			fail:   false,
 		},
 		{
-			name: "bad variable name",
+			name:    "bad variable name",
+			service: "gcs",
 			item: &pb.View_Item{
 				Args: map[string]string{
 					"foo": "bar",
@@ -123,7 +118,8 @@ func TestGetItemVariables(t *testing.T) {
 			fail: true,
 		},
 		{
-			name: "bad variable format",
+			name:    "bad variable format",
+			service: "gcs",
 			item: &pb.View_Item{
 				Args: map[string]string{
 					"bucket": "#$%#$%#$#",
@@ -132,7 +128,8 @@ func TestGetItemVariables(t *testing.T) {
 			fail: true,
 		},
 		{
-			name: "good project and bucket",
+			name:    "good project and bucket",
+			service: "gcs",
 			item: &pb.View_Item{
 				Args: map[string]string{
 					"project": "foo",
@@ -146,13 +143,13 @@ func TestGetItemVariables(t *testing.T) {
 			fail: false,
 		},
 	}
-	for _, test := range tests {
-		result, _, err := adapter.GetItemVariables(adapters, adapter.SawAdapterName, "gcs", test.item)
-		if test.fail != (err != nil) {
-			t.Fatalf("test %q error mismatch: want error %v, got error %v", test.name, test.fail, err)
+	for _, tc := range tests {
+		result, _, err := adapter.GetItemVariables(adapters, tc.service, tc.item)
+		if tc.fail != (err != nil) {
+			t.Fatalf("test %q error mismatch: want error %v, got error %v", tc.name, tc.fail, err)
 		}
-		if err == nil && !reflect.DeepEqual(result, test.expect) {
-			t.Errorf("test %q results mismatch: want %v, got %v", test.name, test.expect, result)
+		if err == nil && !reflect.DeepEqual(result, tc.expect) {
+			t.Errorf("test %q results mismatch: want %v, got %v", tc.name, tc.expect, result)
 		}
 	}
 }
@@ -212,17 +209,14 @@ func TestExperimentalVarsCheck(t *testing.T) {
 	proto.Merge(&d, desc)
 
 	fakeDesc := "fake"
-	fakeFormat := "foo"
 	fakeVar := "testing"
 	fakeVarValue := "test_value"
 
-	d.ItemFormats[fakeFormat] = &pb.ItemFormat{
-		Variables: map[string]*pb.VariableFormat{
-			fakeVar: &pb.VariableFormat{
-				Regexp:       ".",
-				Optional:     true,
-				Experimental: true,
-			},
+	d.ItemVariables = map[string]*pb.VariableFormat{
+		fakeVar: &pb.VariableFormat{
+			Regexp:       ".",
+			Optional:     true,
+			Experimental: true,
 		},
 	}
 	adapters.Descriptors[fakeDesc] = &d
@@ -232,9 +226,9 @@ func TestExperimentalVarsCheck(t *testing.T) {
 	globalflags.Experimental = true
 
 	item := &pb.View_Item{Args: map[string]string{fakeVar: fakeVarValue}}
-	vars, path, err := adapter.GetItemVariables(adapters, fakeDesc, fakeFormat, item)
+	vars, path, err := adapter.GetItemVariables(adapters, fakeDesc, item)
 	if err != nil {
-		t.Fatalf("GetItemVariables(adapters, %q, %q, %+v) failed at path %q: %v", fakeDesc, fakeFormat, item, path, err)
+		t.Fatalf("GetItemVariables(adapters, %q, %+v) failed at path %q: %v", fakeDesc, item, path, err)
 	}
 	if got, ok := vars[fakeVar]; !ok || got != fakeVarValue {
 		t.Fatalf("item variable value not found or mismatch: got %q, want %q", got, fakeVarValue)
@@ -242,8 +236,8 @@ func TestExperimentalVarsCheck(t *testing.T) {
 
 	// Now test again with only one change to isolate Experimental behavior.
 	globalflags.Experimental = false
-	vars, _, err = adapter.GetItemVariables(adapters, fakeDesc, fakeFormat, item)
+	vars, _, err = adapter.GetItemVariables(adapters, fakeDesc, item)
 	if err == nil {
-		t.Fatalf("GetItemVariables(adapters, %q, %q, %+v) returned experimental variables in non-experimental mode: vars %+v", fakeDesc, fakeFormat, item, vars)
+		t.Fatalf("GetItemVariables(adapters, %q, %+v) returned experimental variables in non-experimental mode: vars %+v", fakeDesc, item, vars)
 	}
 }

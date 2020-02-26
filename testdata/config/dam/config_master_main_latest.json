@@ -342,8 +342,7 @@
               "args": {
                 "project": "dataset-example-project",
                 "bucket": "dataset-example-payer-bucket2",
-                "type": "requester-pays",
-                "paths": "/hello/there*;/goodbye/charlie"
+                "type": "requester-pays"
               }
             }
           ],
@@ -501,13 +500,12 @@
   },
   "serviceTemplates": {
     "beacon": {
-      "serviceName": "token:jwt:gatekeeper",
-      "itemFormat": "url",
+      "serviceName": "gatekeeper",
       "roles" : {
         "basic_discovery": {
-          "targetScopes": [
-            "registered"
-          ],
+          "serviceArgs": {
+            "scopes": { "values": ["registered"] }
+          },
           "damRoleCategories": ["exists"],
           "ui": {
             "label": "Discovery Beacon Search without Metadata",
@@ -515,10 +513,9 @@
           }
         },
         "discovery": {
-          "targetScopes": [
-            "registered",
-            "controlled"
-          ],
+          "serviceArgs": {
+            "scopes": { "values": ["registered", "controlled"] }
+          },
           "damRoleCategories": ["metadata"],
           "ui": {
             "label": "Discovery Beacon Search with Metadata",
@@ -535,14 +532,12 @@
       }
     },
     "gcs": {
-      "serviceName": "token:gcp:sa",
-      "itemFormat": "gcs",
+      "serviceName": "gcs",
       "roles": {
         "viewer": {
-          "targetRoles": ["roles/storage.objectViewer"],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+          "serviceArgs": {
+            "roles": { "values": ["roles/storage.objectViewer"] }
+          },
           "damRoleCategories": ["metadata", "list", "read"],
           "ui": {
             "label": "File Viewer",
@@ -550,7 +545,9 @@
           }
         },
         "creator": {
-          "targetRoles": ["roles/storage.objectCreator"],
+          "serviceArgs": {
+            "roles": { "values": ["roles/storage.objectCreator"] }
+          },
           "damRoleCategories": ["write"],
           "ui": {
             "label": "File Creator",
@@ -558,13 +555,14 @@
           }
         },
         "editor": {
-          "targetRoles": [
-            "roles/storage.objectViewer",
-            "roles/storage.objectCreator"
-          ],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+          "serviceArgs": {
+            "roles": {
+              "values": [
+                "roles/storage.objectViewer",
+                "roles/storage.objectCreator"
+              ]
+            }
+          },
           "damRoleCategories": ["metadata", "list", "read", "write"],
           "ui": {
             "label": "File Editor",
@@ -582,14 +580,12 @@
       }
     },
     "bigquery": {
-      "serviceName": "token:gcp:sa",
-      "itemFormat": "bigquery",
+      "serviceName": "bigquery",
       "roles": {
         "viewer": {
-          "targetRoles": ["roles/BQReader"],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+          "serviceArgs": {
+            "roles": { "values": ["roles/BQReader"] }
+          },
           "damRoleCategories": ["metadata", "list", "read"],
           "ui": {
             "label": "BigQuery Viewer",
@@ -597,10 +593,9 @@
           }
         },
         "editor": {
-          "targetRoles": ["roles/bigquery.dataEditor"],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+          "serviceArgs": {
+            "roles": { "values": ["roles/bigquery.dataEditor"] }
+          },
           "damRoleCategories": ["metadata", "list", "read", "write"],
           "ui": {
             "label": "BigQuery Editor",
@@ -617,8 +612,7 @@
       }
     },
     "views": {
-      "serviceName": "token:aggregate:view",
-      "itemFormat": "view",
+      "serviceName": "aggregator",
       "roles": {
         "viewer": {
           "damRoleCategories": ["metadata", "list", "read"],
@@ -772,7 +766,6 @@
       },
       "access": [
         "dataset_example/bq_read/viewer",
-        "dataset_example/gcp/viewer",
         "dataset_example/gcs_payer/viewer",
         "dataset_example/gcs_read/viewer"
       ]

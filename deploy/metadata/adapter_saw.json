@@ -1,17 +1,31 @@
 {
-  "platform": "gcp",
-  "requirements": {
-    "targetRole": true,
-    "targetScope": false,
-    "aud": false
-  },
-  "properties": {
-    "isAggregate": false,
-    "canBeAggregated": true
-  },
-  "itemFormats": {
+  "services": {
     "gcs": {
-      "variables": {
+      "platform": "gcp",
+      "properties": {
+        "isAggregate": false,
+        "canBeAggregated": true
+      },
+      "serviceVariables": {
+        "roles": {
+          "type": "const",
+          "regexp": "^roles/.*$",
+          "ui": {
+            "label": "GCS Roles",
+            "description": "GCS standard or custom role name starting with 'roles/' prefix"
+          }
+        },
+        "scopes": {
+          "type": "const",
+          "optional": true,
+          "regexp": ".",
+          "ui": {
+            "label": "GCP Scopes",
+            "description": "An advanced GCP identifier to include in the 'scope' claim as part of the token permission model. Default: 'https://www.googleapis.com/auth/cloud-platform'"
+          }
+        }
+      },
+      "itemVariables": {
         "project": {
           "type": "const",
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
@@ -54,7 +68,31 @@
       }
     },
     "bigquery": {
-      "variables": {
+      "platform": "gcp",
+      "properties": {
+        "isAggregate": false,
+        "canBeAggregated": true
+      },
+      "serviceVariables": {
+        "roles": {
+          "type": "const",
+          "regexp": "^roles/.*$",
+          "ui": {
+            "label": "BigQuery Roles",
+            "description": "BigQuery standard or custom role name starting with 'roles/' prefix"
+          }
+        },
+        "scopes": {
+          "type": "const",
+          "optional": true,
+          "regexp": ".",
+          "ui": {
+            "label": "GCP Scopes",
+            "description": "An advanced GCP identifier to include in the 'scope' claim as part of the token permission model. Default: 'https://www.googleapis.com/auth/cloud-platform'"
+          }
+        }
+      },
+      "itemVariables": {
         "project": {
           "type": "const",
           "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
@@ -78,9 +116,5 @@
         "description": "Google BigQuery is an enterprise data warehouse that solves this problem by enabling super-fast SQL queries using the processing power of Google's infrastructure."
       }
     }
-  },
-  "ui": {
-    "description": "Generates down-scoped Service Account access tokens for use on Google Cloud Platform (GCP)",
-    "label": "GCP Service Account Token"
   }
 }

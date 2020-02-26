@@ -91,17 +91,19 @@ message Resource {
 
 message ServiceTemplate {
   string service_name = 1;
-  string item_format = 2;
-  map<string, string> interfaces = 3;
-  map<string, ServiceRole> service_roles = 4 [json_name = "roles"];
-  map<string, string> ui = 5;
+  map<string, string> interfaces = 2;
+  map<string, ServiceRole> service_roles = 3 [json_name = "roles"];
+  map<string, string> ui = 4;
 }
 
 message ServiceRole {
-  repeated string target_roles = 1;
-  repeated string target_scopes = 2;
-  repeated string dam_role_categories = 3;
-  map<string, string> ui = 4;
+  message ServiceArg {
+    repeated string values = 2;
+  }
+
+  map<string, ServiceArg> service_args = 1;
+  repeated string dam_role_categories = 2;
+  map<string, string> ui = 3;
 }
 
 message ViewRole {
@@ -130,26 +132,16 @@ message VisaType {
 }
 
 message ServiceDescriptor {
-  message Requirements {
-    bool target_role = 1;
-    bool target_scope = 2;
-    bool aud = 3;
-  }
   message Properties {
     bool is_aggregate = 1;
     bool can_be_aggregated = 2;
     bool single_item = 3;
   }
   string platform = 1;
-  Requirements requirements = 2;
-  Properties properties = 3;
-  map<string, ItemFormat> item_formats = 4;
-  map<string, string> ui = 5;
-}
-
-message ItemFormat {
-  map<string, VariableFormat> variables = 1;
-  map<string, string> ui = 2;
+  map<string, VariableFormat> service_variables = 2;
+  map<string, VariableFormat> item_variables = 3;
+  Properties properties = 4;
+  map<string, string> ui = 6;
 }
 
 message VariableFormat {
@@ -268,12 +260,21 @@ message GetTokenRequest {
 message GetTestResultsRequest {}
 
 message GetTestResultsResponse {
+  message RejectedVisa {
+    string reason = 1;
+    string field = 2;
+    string description = 3;
+    string visa_type = 4;
+    string source = 5;
+    string value = 6;
+    string by = 7;
+  }
   message TestResult {
     string name = 1;
     string result = 2;
     repeated string access = 3;
     map<string, string> no_access = 4;
-    map<string, string> rejected_visas = 5;
+    repeated RejectedVisa rejected_visas = 5;
     string error = 6;
   }
 

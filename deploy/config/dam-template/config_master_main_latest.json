@@ -163,14 +163,12 @@
   },
   "serviceTemplates": {
     "gcs": {
-      "serviceName": "token:gcp:sa",
-      "itemFormat": "gcs",
+      "serviceName": "gcs",
       "roles": {
         "viewer": {
-          "targetRoles": ["roles/storage.objectViewer"],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+          "serviceArgs": {
+            "roles": { "values": ["roles/storage.objectViewer"] }
+          },
           "damRoleCategories": ["metadata", "list", "read"],
           "ui": {
             "label": "File Viewer",
@@ -178,7 +176,9 @@
           }
         },
         "creator": {
-          "targetRoles": ["roles/storage.objectCreator"],
+          "serviceArgs": {
+            "roles": { "values": ["roles/storage.objectCreator"] }
+          },
           "damRoleCategories": ["write"],
           "ui": {
             "label": "File Creator",
@@ -186,13 +186,14 @@
           }
         },
         "editor": {
-          "targetRoles": [
-            "roles/storage.objectViewer",
-            "roles/storage.objectCreator"
-          ],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+          "serviceArgs": {
+            "roles": {
+              "values": [
+                "roles/storage.objectViewer",
+                "roles/storage.objectCreator"
+              ]
+            }
+          },
           "damRoleCategories": ["metadata", "list", "read", "write"],
           "ui": {
             "label": "File Editor",

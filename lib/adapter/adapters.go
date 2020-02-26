@@ -74,8 +74,8 @@ type ServiceAdapter interface {
 	// Platform returns the name identifier of the platform on which this adapter operates.
 	Platform() string
 
-	// Descriptor returns a service descriptor.
-	Descriptor() *pb.ServiceDescriptor
+	// Descriptors returns a map of service descriptors.
+	Descriptors() map[string]*pb.ServiceDescriptor
 
 	// IsAggregator returns true if this adapter requires TokenAction.Aggregates.
 	IsAggregator() bool
@@ -89,18 +89,20 @@ type ServiceAdapter interface {
 
 // ServiceAdapters includes all adapters that are registered with the system.
 type ServiceAdapters struct {
-	ByName      map[string]ServiceAdapter
-	Descriptors map[string]*pb.ServiceDescriptor
-	VariableREs map[string]map[string]map[string]*regexp.Regexp // adapterName.itemFormat.variableName.regexp
-	errors      []error
+	ByAdapterName map[string]ServiceAdapter
+	ByServiceName map[string]ServiceAdapter
+	Descriptors   map[string]*pb.ServiceDescriptor
+	VariableREs   map[string]map[string]*regexp.Regexp // serviceName.variableName.regexp
+	errors        []error
 }
 
 // CreateAdapters registers and collects all adapters with the system.
 func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets) (*ServiceAdapters, error) {
 	adapters := &ServiceAdapters{
-		ByName:      make(map[string]ServiceAdapter),
-		Descriptors: make(map[string]*pb.ServiceDescriptor),
-		errors:      []error{},
+		ByAdapterName: make(map[string]ServiceAdapter),
+		ByServiceName: make(map[string]ServiceAdapter),
+		Descriptors:   make(map[string]*pb.ServiceDescriptor),
+		errors:        []error{},
 	}
 	registerAdapter(adapters, store, warehouse, secrets, NewSawAdapter)
 	registerAdapter(adapters, store, warehouse, secrets, NewGatekeeperAdapter)
@@ -116,34 +118,30 @@ func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, 
 }
 
 // GetItemVariables returns a map of variables and their values for a given view item.
-func GetItemVariables(adapters *ServiceAdapters, ServiceAdapter, itemFormat string, item *pb.View_Item) (map[string]string, string, error) {
-	adapter, ok := adapters.Descriptors[ServiceAdapter]
+func GetItemVariables(adapters *ServiceAdapters, adapterName string, item *pb.View_Item) (map[string]string, string, error) {
+	desc, ok := adapters.Descriptors[adapterName]
 	if !ok {
-		return nil, httputil.StatusPath("ServiceAdapter"), fmt.Errorf("target adapter %q is undefined", ServiceAdapter)
-	}
-	format, ok := adapter.ItemFormats[itemFormat]
-	if !ok {
-		return nil, httputil.StatusPath("itemFormats", itemFormat), fmt.Errorf("target adapter %q item format %q is undefined", ServiceAdapter, itemFormat)
+		return nil, httputil.StatusPath("ServiceAdapter"), fmt.Errorf("target adapter %q is undefined", adapterName)
 	}
 	for varname, val := range item.Args {
-		v, ok := format.Variables[varname]
+		v, ok := desc.ItemVariables[varname]
 		if !ok {
-			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q is undefined", ServiceAdapter, itemFormat, varname)
+			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target service %q variable %q is undefined", adapterName, varname)
 		}
 		if !globalflags.Experimental && v.Experimental {
-			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q is for experimental use only, not for use in this environment", ServiceAdapter, itemFormat, varname)
+			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target service %q variable %q is for experimental use only, not for use in this environment", adapterName, varname)
 		}
 		if len(val) == 0 {
 			// Treat empty input the same as not provided so long as the variable name is valid.
 			delete(item.Args, varname)
 			continue
 		}
-		re, ok := adapters.VariableREs[ServiceAdapter][itemFormat][varname]
+		re, ok := adapters.VariableREs[adapterName][varname]
 		if !ok {
 			continue
 		}
 		if !re.Match([]byte(val)) {
-			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q item format %q variable %q value %q does not match expected regexp", ServiceAdapter, itemFormat, varname, val)
+			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q variable %q value %q does not match expected regexp", adapterName, varname, val)
 		}
 	}
 	return item.Args, "", nil
@@ -163,37 +161,33 @@ func ResolveServiceRole(roleName string, view *pb.View, res *pb.Resource, cfg *p
 }
 
 func registerAdapter(adapters *ServiceAdapters, store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, init func(storage.Store, clouds.ResourceTokenCreator, *pb.DamSecrets, *ServiceAdapters) (ServiceAdapter, error)) {
-	adapter, err := init(store, warehouse, secrets, adapters)
+	adapt, err := init(store, warehouse, secrets, adapters)
 	if err != nil {
 		adapters.errors = append(adapters.errors, err)
 		return
 	}
-	name := adapter.Name()
-	adapters.ByName[name] = adapter
-	adapters.Descriptors[name] = adapter.Descriptor()
+	adapters.ByAdapterName[adapt.Name()] = adapt
+	for k, v := range adapt.Descriptors() {
+		adapters.ByServiceName[k] = adapt
+		adapters.Descriptors[k] = v
+	}
 }
 
-func createVariableREs(descriptors map[string]*pb.ServiceDescriptor) map[string]map[string]map[string]*regexp.Regexp {
-	// Create a compiled set of regular expressions for adapter variable formats
-	// of the form: map[<adapterName>]map[<itemFormat>]map[<variableName>]*regexp.Regexp.
-	varRE := make(map[string]map[string]map[string]*regexp.Regexp)
+func createVariableREs(descriptors map[string]*pb.ServiceDescriptor) map[string]map[string]*regexp.Regexp {
+	// Create a compiled set of regular expressions for service variable formats
+	// of the form: map[<serviceName>]map[<variableName>]*regexp.Regexp.
+	varRE := make(map[string]map[string]*regexp.Regexp)
 	for k, v := range descriptors {
-		if len(v.ItemFormats) > 0 {
-			fEntry := make(map[string]map[string]*regexp.Regexp)
-			varRE[k] = fEntry
-			for fk, fv := range v.ItemFormats {
-				vEntry := make(map[string]*regexp.Regexp)
-				fEntry[fk] = vEntry
-				for vk, vv := range fv.Variables {
-					if len(vv.Regexp) > 0 {
-						restr := vv.Regexp
-						if vv.Type == "split_pattern" {
-							frag := stripAnchors(restr)
-							restr = "^" + frag + "(;" + frag + ")*$"
-						}
-						vEntry[vk] = regexp.MustCompile(restr)
-					}
+		vEntry := make(map[string]*regexp.Regexp)
+		varRE[k] = vEntry
+		for vk, vv := range v.ItemVariables {
+			if len(vv.Regexp) > 0 {
+				restr := vv.Regexp
+				if vv.Type == "split_pattern" {
+					frag := stripAnchors(restr)
+					restr = "^" + frag + "(;" + frag + ")*$"
 				}
+				vEntry[vk] = regexp.MustCompile(restr)
 			}
 		}
 	}
@@ -208,4 +202,8 @@ func stripAnchors(restr string) string {
 		restr = restr[0 : len(restr)-1]
 	}
 	return restr
+}
+
+func adapterFilePath(name string) string {
+	return "deploy/metadata/adapter_" + name + ".json"
 }

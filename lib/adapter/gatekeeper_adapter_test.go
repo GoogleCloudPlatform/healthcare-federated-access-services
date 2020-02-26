@@ -36,8 +36,9 @@ func TestGatekeeperAdapter(t *testing.T) {
 		t.Fatalf("reading secrets file: %v", err)
 	}
 	adapters := &adapter.ServiceAdapters{
-		ByName:      make(map[string]adapter.ServiceAdapter),
-		Descriptors: make(map[string]*pb.ServiceDescriptor),
+		ByAdapterName: make(map[string]adapter.ServiceAdapter),
+		ByServiceName: make(map[string]adapter.ServiceAdapter),
+		Descriptors:   make(map[string]*pb.ServiceDescriptor),
 	}
 	adapt, err := adapter.NewGatekeeperAdapter(store, warehouse, secrets, adapters)
 	if err != nil {

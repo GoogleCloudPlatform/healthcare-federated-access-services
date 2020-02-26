@@ -17,6 +17,9 @@ package srcutil
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/golang/protobuf/proto" /* copybara-comment */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 const testfileContent string = `This is a text file for testing.
@@ -69,5 +72,20 @@ func TestLoadFile(t *testing.T) {
 
 	if want := testfileContent; got != want {
 		t.Fatalf("LoadFile(%v) doesn't match the contents of the file.", path)
+	}
+}
+
+func TestLoadProto(t *testing.T) {
+	path := "lib/srcutil/testproto.json"
+	got := &cpb.Descriptor{}
+	if err := LoadProto(path, got); err != nil {
+		t.Fatalf("LoadProto(%q, _) failed: %v", path, err)
+	}
+	want := &cpb.Descriptor{
+		Label:       "hi",
+		Description: "there",
+	}
+	if !proto.Equal(want, got) {
+		t.Errorf("LoadProto(%q, _) mismatch: got %+v, want %+v", path, got, want)
 	}
 }

@@ -124,7 +124,7 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 								Metadata:        meta,
 								ServiceName:     st.ServiceName,
 								Platform:        desc.Platform,
-								PlatformService: st.ItemFormat,
+								PlatformService: st.ServiceName, // for now it is the same name as ServiceName
 								MaxTokenTtl:     res.MaxTokenTtl,
 								ResourceUi:      res.Ui,
 								ViewUi:          v.Ui,
@@ -287,8 +287,8 @@ func (s *Service) GetViewRole(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteProtoResp(w, proto.Message(&resp))
 }
 
-// GetTargetAdapters implements the corresponding REST API endpoint.
-func (s *Service) GetTargetAdapters(w http.ResponseWriter, r *http.Request) {
+// GetServiceDescriptors implements the corresponding REST API endpoint.
+func (s *Service) GetServiceDescriptors(w http.ResponseWriter, r *http.Request) {
 	out := &pb.ServicesResponse{
 		Services: s.adapters.Descriptors,
 	}

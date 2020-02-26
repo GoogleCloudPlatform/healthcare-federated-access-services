@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -304,30 +305,22 @@ func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.Dam
 	if len(template.ServiceName) == 0 {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "serviceName"), "service is not specified")
 	}
-	service, ok := vopts.Services.ByName[template.ServiceName]
+	service, ok := vopts.Services.ByServiceName[template.ServiceName]
 	if !ok {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "serviceName", template.ServiceName), "service is not a recognized by this DAM")
 	}
 	if path, err := service.CheckConfig(name, template, "", "", nil, cfg, vopts.Services); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
-	if len(template.ItemFormat) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "itemFormat"), "item format is not specified")
-	}
-	if _, ok = service.Descriptor().ItemFormats[template.ItemFormat]; !ok {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "itemFormat"), fmt.Sprintf("item format %q is invalid", template.ItemFormat))
-	}
-	if path, err := checkServiceRoles(template.ServiceRoles, name, template.ServiceName, template.ItemFormat, cfg, vopts); err != nil {
+	if path, err := checkServiceRoles(template.ServiceRoles, name, template.ServiceName, cfg, vopts); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	varNames := make(map[string]bool)
 	desc := vopts.Services.Descriptors[template.ServiceName]
-	for _, v := range desc.ItemFormats {
-		for varName, v := range v.Variables {
-			varNames[varName] = true
-			if v.Type != "const" && v.Type != "split_pattern" {
-				return httputil.NewInfoStatus(codes.Internal, httputil.StatusPath(cfgServiceTemplates, name, "itemFormats", template.ItemFormat, "variables", varName, "type"), fmt.Sprintf("variable type %q must be %q or %q", v.Type, "const", "split_pattern"))
-			}
+	for varName, v := range desc.ItemVariables {
+		varNames[varName] = true
+		if v.Type != "const" && v.Type != "split_pattern" {
+			return httputil.NewInfoStatus(codes.Internal, httputil.StatusPath("serviceDescriptors", template.ServiceName, "itemVariables", varName, "type"), fmt.Sprintf("variable type %q must be %q or %q", v.Type, "const", "split_pattern"))
 		}
 	}
 	for k, v := range template.Interfaces {
@@ -347,37 +340,28 @@ func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.Dam
 }
 
 func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
-	adapt, ok := vopts.Services.ByName[template.ServiceName]
+	adapt, ok := vopts.Services.ByServiceName[template.ServiceName]
 	if !ok {
 		return httputil.StatusPath("services"), fmt.Errorf("service template %q service %q is not a recognized by this DAM", templateName, template.ServiceName)
 	}
 	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, vopts.Services); err != nil {
 		return path, err
 	}
-	if path, err := checkAccessRoles(view.Roles, templateName, template.ServiceName, template.ItemFormat, cfg, vopts); err != nil {
+	if path, err := checkAccessRoles(view.Roles, templateName, template.ServiceName, cfg, vopts); err != nil {
 		return httputil.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
-	desc := adapt.Descriptor()
-	if desc.Requirements.Aud {
-		found := false
-		for _, item := range view.Items {
-			if item.Args["aud"] != "" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return httputil.StatusPath("views", viewName, "aud"), fmt.Errorf("view %q does not provide an audience", viewName)
-		}
+	desc, ok := vopts.Services.Descriptors[template.ServiceName]
+	if !ok {
+		return httputil.StatusPath("services", template.ServiceName), fmt.Errorf("internal error: service %q does not have a service descriptor", template.ServiceName)
 	}
-	if len(desc.ItemFormats) > 0 && len(view.Items) == 0 {
+	if len(desc.ItemVariables) > 0 && len(view.Items) == 0 {
 		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q does not provide any target items", viewName)
 	}
-	if len(desc.ItemFormats) > 0 && desc.Properties != nil && desc.Properties.SingleItem && len(view.Items) > 1 {
+	if len(desc.ItemVariables) > 0 && desc.Properties != nil && desc.Properties.SingleItem && len(view.Items) > 1 {
 		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q provides more than one item when only one was expected for service %q", viewName, template.ServiceName)
 	}
 	for idx, item := range view.Items {
-		vars, path, err := adapter.GetItemVariables(vopts.Services, template.ServiceName, template.ItemFormat, item)
+		vars, path, err := adapter.GetItemVariables(vopts.Services, template.ServiceName, item)
 		if err != nil {
 			return httputil.StatusPath("views", viewName, "items", strconv.Itoa(idx), path), err
 		}
@@ -388,7 +372,7 @@ func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, 
 	return "", nil
 }
 
-func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
+func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
 		return "", fmt.Errorf("does not provide any roles")
 	}
@@ -424,7 +408,7 @@ func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName, 
 	return "", nil
 }
 
-func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, serviceName, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
+func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, serviceName string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
 		return httputil.StatusPath(cfgServiceTemplates, templateName, "roles"), fmt.Errorf("no roles provided")
 	}
@@ -444,16 +428,31 @@ func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, serviceNa
 						strings.Join(roleCategorySet(vopts.RoleCategories), ", "))
 			}
 		}
-		if desc.Requirements.TargetRole && len(role.TargetRoles) == 0 {
-			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetRoles"), fmt.Errorf("role %q does not provide any target role assignments", rname)
-		}
-		for ri, rv := range role.TargetRoles {
-			if len(rv) == 0 {
-				return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetRoles", strconv.Itoa(ri)), fmt.Errorf("target role is empty")
+		for vname, def := range desc.ServiceVariables {
+			arg, ok := role.ServiceArgs[vname]
+			if !ok {
+				if def.Optional {
+					continue
+				}
+				return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname), fmt.Errorf("missing required service argument %q", vname)
+			}
+			re, err := regexp.Compile(def.Regexp)
+			if err != nil {
+				return httputil.StatusPath("services", templateName, "serviceArgs", vname), fmt.Errorf("variable format regexp %q is not a valid regular expression", def.Regexp)
+			}
+			for ival, val := range arg.Values {
+				if len(val) == 0 {
+					return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname, "values", strconv.Itoa(ival)), fmt.Errorf("service argument value %d is empty", ival)
+				}
+				if !re.MatchString(val) {
+					return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname, "values", strconv.Itoa(ival)), fmt.Errorf("service argument value %q is not valid", val)
+				}
 			}
 		}
-		if desc.Requirements.TargetScope && len(role.TargetScopes) == 0 {
-			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "targetScopes"), fmt.Errorf("role %q does not provide any target scopes assignments", rname)
+		for aname := range role.ServiceArgs {
+			if _, ok := desc.ServiceVariables[aname]; !ok {
+				return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", aname), fmt.Errorf("service argument name %q is not a known input for service %q", aname, serviceName)
+			}
 		}
 		if path, err := check.CheckUI(role.Ui, true); err != nil {
 			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, path), fmt.Errorf("role %q: %v", rname, err)
@@ -593,7 +592,7 @@ func runTests(ctx context.Context, cfg *pb.DamConfig, resources []string, vopts 
 			Passport: p.Passport,
 			Access:   p.Access,
 		}
-		status, got, err := testPersona(ctx, pname, resources, cfg, vopts)
+		status, got, rejectedVisas, err := testPersona(ctx, pname, resources, cfg, vopts)
 		e := ""
 		if err == nil {
 			passed++
@@ -601,10 +600,11 @@ func runTests(ctx context.Context, cfg *pb.DamConfig, resources []string, vopts 
 			e = err.Error()
 		}
 		results = append(results, &pb.GetTestResultsResponse_TestResult{
-			Name:   pname,
-			Result: status,
-			Access: got,
-			Error:  e,
+			Name:          pname,
+			Result:        status,
+			Access:        got,
+			RejectedVisas: makeRejectedVisas(rejectedVisas),
+			Error:         e,
 		})
 		calculateModification(pname, p.Access, got, modification, vopts)
 	}
@@ -624,6 +624,25 @@ func runTests(ctx context.Context, cfg *pb.DamConfig, resources []string, vopts 
 		Modification: modification,
 		Error:        e,
 	}
+}
+
+func makeRejectedVisas(rejected []*ga4gh.RejectedVisa) []*pb.GetTestResultsResponse_RejectedVisa {
+	if len(rejected) == 0 {
+		return nil
+	}
+	out := []*pb.GetTestResultsResponse_RejectedVisa{}
+	for _, reject := range rejected {
+		out = append(out, &pb.GetTestResultsResponse_RejectedVisa{
+			Reason:      reject.Rejection.Reason,
+			Field:       reject.Rejection.Field,
+			Description: reject.Rejection.Description,
+			VisaType:    string(reject.Assertion.Type),
+			Source:      string(reject.Assertion.Source),
+			Value:       string(reject.Assertion.Value),
+			By:          string(reject.Assertion.By),
+		})
+	}
+	return out
 }
 
 func hasTestError(tr *pb.GetTestResultsResponse) bool {

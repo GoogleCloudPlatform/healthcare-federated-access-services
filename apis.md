@@ -270,14 +270,14 @@ DAM configuration. They filter out sensitive parts of the configuration.
 They require valid "client_id" and "client_secret" parameters on the request.
 
 *  /dam/v1alpha/{realm}/client/{name}
+*  /dam/v1alpha/{realm}/damRoleCategories
 *  /dam/v1alpha/{realm}/resources
 *  /dam/v1alpha/{realm}/resources/{name}
 *  /dam/v1alpha/{realm}/flatViews
+*  /dam/v1alpha/{realm}/passportTranslators
 *  /dam/v1alpha/{realm}/resources/{name}/views
 *  /dam/v1alpha/{realm}/resources/{name}/views/{view}
 *  /dam/v1alpha/{realm}/resources/{name}/views/{view}/roles
 *  /dam/v1alpha/{realm}/resources/{name}/views/{view}/roles/{role}
-*  /dam/v1alpha/{realm}/targetAdapters
-*  /dam/v1alpha/{realm}/passportTranslators
-*  /dam/v1alpha/{realm}/damRoleCategories
+*  /dam/v1alpha/{realm}/services
 *  /dam/v1alpha/{realm}/testPersonas

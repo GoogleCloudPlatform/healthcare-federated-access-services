@@ -599,7 +599,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/dam/v1alpha/test/config/serviceTemplates/gcs",
 			Persona: "admin",
-			Output:  `*"serviceName":"token:gcp:sa"*`,
+			Output:  `*"serviceName":"gcs"*`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -623,10 +623,9 @@ func TestHandlers(t *testing.T) {
 			Persona: "admin",
 			Input: `{"item":{"interfaces":{"gcp:gs":"gs://${bucket}"},"ui":{"label":"foo","description":"bar"}, "roles": {
         "viewer": {
-          "targetRoles": ["roles/storage.objectViewer"],
-          "targetScopes": [
-            "https://www.googleapis.com/auth/cloud-platform"
-          ],
+				  "serviceArgs": {
+					  "roles": {"values": ["roles/storage.objectViewer"]}
+					},
           "damRoleCategories": ["metadata", "list", "read"],
           "ui": {
             "label": "File Viewer",
