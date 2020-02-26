@@ -17,9 +17,9 @@ package serviceinfo
 
 var (
 	// Project the GCP project that the service is running in.
-	Project = "unknown"
+	Project = "unset-serviceinfo-Project"
 	// Type ic, dam, persona, to identity the binary.
-	Type = "unknown"
+	Type = "unset-serviceinfo-Type"
 	// Name the GAE runtime service name, to identity the service.
-	Name = "unknown"
+	Name = "unset-serviceinfo-Name"
 )
