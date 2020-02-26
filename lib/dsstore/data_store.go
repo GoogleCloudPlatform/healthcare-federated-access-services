@@ -131,7 +131,7 @@ func (s *DatastoreStorage) Info() map[string]string {
 func (s *DatastoreStorage) Exists(datatype, realm, user, id string, rev int64) (bool, error) {
 	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
 	e := new(DatastoreEntity)
-	err := s.client.Get(context.TODO, k, e)
+	err := s.client.Get(context.Background() /* TODO: pass ctx from request */, k, e)
 	if err == nil {
 		return true, nil
 	} else if err == datastore.ErrNoSuchEntity {
@@ -204,7 +204,7 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][
 		offset = 0
 	}
 
-	it := s.client.Run(context.TODO, q)
+	it := s.client.Run(context.Background() /* TODO: pass ctx from request */, q)
 	count := 0
 	for {
 		var e DatastoreEntity
@@ -261,7 +261,7 @@ func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, conte
 	// TODO: handle pagination.
 	q := datastore.NewQuery(historyKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("user_id =", user).Filter("id =", id).Order("rev").Limit(storage.MaxPageSize)
 	results := make([]DatastoreHistory, storage.MaxPageSize)
-	if _, err := s.client.GetAll(context.TODO, q, &results); err != nil {
+	if _, err := s.client.GetAll(context.Background() /* TODO: pass ctx from request */, q, &results); err != nil {
 		return err
 	}
 	for _, e := range results {
@@ -389,7 +389,7 @@ func (s *DatastoreStorage) Wipe(realm string) error {
 }
 
 func (s *DatastoreStorage) multiDelete(q *datastore.Query) (int, error) {
-	keys, err := s.client.GetAll(context.TODO, q.KeysOnly(), nil)
+	keys, err := s.client.GetAll(context.Background() /* TODO: pass ctx from request */, q.KeysOnly(), nil)
 	if err != nil {
 		return 0, err
 	}
@@ -400,7 +400,7 @@ func (s *DatastoreStorage) multiDelete(q *datastore.Query) (int, error) {
 			end = total
 		}
 		chunk := keys[i:end]
-		if err := s.client.DeleteMulti(context.TODO, chunk); err != nil {
+		if err := s.client.DeleteMulti(context.Background() /* TODO: pass ctx from request */, chunk); err != nil {
 			return total, err
 		}
 	}
@@ -411,9 +411,9 @@ func (s *DatastoreStorage) Tx(update bool) (storage.Tx, error) {
 	var err error
 	var dstx *datastore.Transaction
 	if update {
-		dstx, err = s.client.NewTransaction(context.TODO)
+		dstx, err = s.client.NewTransaction(context.Background() /* TODO: pass ctx from request */)
 	} else {
-		dstx, err = s.client.NewTransaction(context.TODO, datastore.ReadOnly)
+		dstx, err = s.client.NewTransaction(context.Background() /* TODO: pass ctx from request */, datastore.ReadOnly)
 	}
 	if err != nil {
 		return nil, err
@@ -469,13 +469,13 @@ func (s *DatastoreStorage) LockTx(lockName string, minFrequency time.Duration, t
 func (s *DatastoreStorage) Init() error {
 	k := datastore.NameKey(metaKind, s.metaKey(metaVersion), nil)
 	meta := new(DatastoreMeta)
-	if err := s.client.Get(context.TODO, k, meta); err == datastore.ErrNoSuchEntity {
+	if err := s.client.Get(context.Background() /* TODO: pass ctx from request */, k, meta); err == datastore.ErrNoSuchEntity {
 		meta = &DatastoreMeta{
 			Key:   k,
 			Name:  metaVersion,
 			Value: storageVersion,
 		}
-		_, err := s.client.Put(context.TODO, k, meta)
+		_, err := s.client.Put(context.Background() /* TODO: pass ctx from request */, k, meta)
 		if err != nil {
 			return fmt.Errorf("cannot write datastore metadata: %v", err)
 		}
