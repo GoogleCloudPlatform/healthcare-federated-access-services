@@ -435,12 +435,6 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 
 func (s *Service) idpAuthorize(in loginIn, idp *cpb.IdentityProvider, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
 	scope := strings.Join(in.scope, " ")
-
-	// TODO: Remove after all idp use passport visa.
-	if len(idp.PassportVersions) > 0 {
-		scope = strings.Join(idp.Scopes, " ")
-	}
-
 	stateID, err := s.buildState(in.idpName, in.realm, scope, in.challenge, tx)
 	if err != nil {
 		return nil, "", err
