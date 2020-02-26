@@ -54,11 +54,13 @@ var (
 )
 
 type DatastoreStorage struct {
+	client *datastore.Client
+
+	// TODO: these fileds are only used for Info and are not related to the store.
+	// Move them to lib/serviceinfo.
 	project string
 	service string
 	path    string
-	client  *datastore.Client
-	ctx     context.Context
 }
 
 type DatastoreEntity struct {
@@ -93,23 +95,28 @@ type DatastoreMeta struct {
 	Value string         `datastore:"value,noindex"`
 }
 
+// NewDatastoreStorage creates a new datastore storace and initilizes it.
+// TODO: create the client for datastore in the main and inject it.
 func NewDatastoreStorage(ctx context.Context, project, service, path string) *DatastoreStorage {
 	client, err := datastore.NewClient(ctx, project)
 	if err != nil {
 		glog.Fatalf("cannot initialize datastore: %v", err)
 	}
-	s := &DatastoreStorage{
+	s := New(client, project, service, path)
+	if err := s.Init(); err != nil {
+		glog.Fatalf("Datastore failed to initialize: %v", err)
+	}
+	return s
+}
+
+// New creates a new storage.
+func New(client *datastore.Client, project, service, path string) *DatastoreStorage {
+	return &DatastoreStorage{
 		project: project,
 		service: service,
 		path:    path,
 		client:  client,
-		ctx:     ctx,
 	}
-	if err = s.init(); err != nil {
-		glog.Fatalf("Datastore failed to initialize: %v", err)
-	}
-
-	return s
 }
 
 func (s *DatastoreStorage) Info() map[string]string {
@@ -124,7 +131,7 @@ func (s *DatastoreStorage) Info() map[string]string {
 func (s *DatastoreStorage) Exists(datatype, realm, user, id string, rev int64) (bool, error) {
 	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
 	e := new(DatastoreEntity)
-	err := s.client.Get(s.ctx, k, e)
+	err := s.client.Get(context.TODO, k, e)
 	if err == nil {
 		return true, nil
 	} else if err == datastore.ErrNoSuchEntity {
@@ -197,7 +204,7 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][
 		offset = 0
 	}
 
-	it := s.client.Run(s.ctx, q)
+	it := s.client.Run(context.TODO, q)
 	count := 0
 	for {
 		var e DatastoreEntity
@@ -254,7 +261,7 @@ func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, conte
 	// TODO: handle pagination.
 	q := datastore.NewQuery(historyKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm).Filter("user_id =", user).Filter("id =", id).Order("rev").Limit(storage.MaxPageSize)
 	results := make([]DatastoreHistory, storage.MaxPageSize)
-	if _, err := s.client.GetAll(s.ctx, q, &results); err != nil {
+	if _, err := s.client.GetAll(context.TODO, q, &results); err != nil {
 		return err
 	}
 	for _, e := range results {
@@ -382,7 +389,7 @@ func (s *DatastoreStorage) Wipe(realm string) error {
 }
 
 func (s *DatastoreStorage) multiDelete(q *datastore.Query) (int, error) {
-	keys, err := s.client.GetAll(s.ctx, q.KeysOnly(), nil)
+	keys, err := s.client.GetAll(context.TODO, q.KeysOnly(), nil)
 	if err != nil {
 		return 0, err
 	}
@@ -393,7 +400,7 @@ func (s *DatastoreStorage) multiDelete(q *datastore.Query) (int, error) {
 			end = total
 		}
 		chunk := keys[i:end]
-		if err := s.client.DeleteMulti(s.ctx, chunk); err != nil {
+		if err := s.client.DeleteMulti(context.TODO, chunk); err != nil {
 			return total, err
 		}
 	}
@@ -404,9 +411,9 @@ func (s *DatastoreStorage) Tx(update bool) (storage.Tx, error) {
 	var err error
 	var dstx *datastore.Transaction
 	if update {
-		dstx, err = s.client.NewTransaction(s.ctx)
+		dstx, err = s.client.NewTransaction(context.TODO)
 	} else {
-		dstx, err = s.client.NewTransaction(s.ctx, datastore.ReadOnly)
+		dstx, err = s.client.NewTransaction(context.TODO, datastore.ReadOnly)
 	}
 	if err != nil {
 		return nil, err
@@ -458,16 +465,17 @@ func (s *DatastoreStorage) LockTx(lockName string, minFrequency time.Duration, t
 	return tx
 }
 
-func (s *DatastoreStorage) init() error {
+// Init initilizes the storage.
+func (s *DatastoreStorage) Init() error {
 	k := datastore.NameKey(metaKind, s.metaKey(metaVersion), nil)
 	meta := new(DatastoreMeta)
-	if err := s.client.Get(s.ctx, k, meta); err == datastore.ErrNoSuchEntity {
+	if err := s.client.Get(context.TODO, k, meta); err == datastore.ErrNoSuchEntity {
 		meta = &DatastoreMeta{
 			Key:   k,
 			Name:  metaVersion,
 			Value: storageVersion,
 		}
-		_, err := s.client.Put(s.ctx, k, meta)
+		_, err := s.client.Put(context.TODO, k, meta)
 		if err != nil {
 			return fmt.Errorf("cannot write datastore metadata: %v", err)
 		}
