@@ -37,17 +37,6 @@ message IcConfig {
 }
 
 message ConfigOptions {
-  message Descriptor {
-    string label = 1;
-    string description = 2;
-    string regexp = 3;
-    string type = 4;
-    bool is_list = 5;
-    repeated string enum_values = 6;
-    string min = 7;
-    string max = 8;
-    string default_value = 9;
-  }
   int32 account_name_length = 1;
   bool read_only_master_realm = 2;
   repeated string whitelisted_realms = 3;
@@ -57,7 +46,8 @@ message ConfigOptions {
   string access_token_ttl = 7;
   string refresh_token_ttl = 8;
   string claim_ttl_cap = 9;
-  map<string, Descriptor> computed_descriptors = 10 [json_name = "descriptors"];
+  map<string, common.Descriptor> computed_descriptors = 10
+      [json_name = "descriptors"];
 }
 
 message IcSecrets {

@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	cfgClaimDefinitions      = "claimDefinitions"
+	cfgVisaTypes             = "VisaTypes"
 	cfgClients               = "clients"
 	cfgOptions               = "options"
 	cfgPolicies              = "policies"
@@ -63,7 +63,7 @@ func (s *Service) CheckIntegrity(cfg *pb.DamConfig) *status.Status {
 // ValidateCfgOpts returns the options for checking validity of configuration.
 func (s *Service) ValidateCfgOpts() ValidateCfgOpts {
 	return ValidateCfgOpts{
-		Adapters:         s.adapters,
+		Services:         s.adapters,
 		DefaultBroker:    s.defaultBroker,
 		RoleCategories:   s.roleCategories,
 		HidePolicyBasis:  s.hidePolicyBasis,
@@ -73,7 +73,7 @@ func (s *Service) ValidateCfgOpts() ValidateCfgOpts {
 
 // ValidateCfgOpts contains options for ValidateDAMConfig.
 type ValidateCfgOpts struct {
-	Adapters         *adapter.TargetAdapters
+	Services         *adapter.ServiceAdapters
 	DefaultBroker    string
 	RoleCategories   map[string]*pb.RoleCategory
 	HidePolicyBasis  bool
@@ -82,8 +82,8 @@ type ValidateCfgOpts struct {
 
 // ValidateDAMConfig checks that the provided config is valid.
 func ValidateDAMConfig(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
-	if vopts.Adapters == nil {
-		return httputil.NewStatus(codes.Unavailable, "target adapters not loaded")
+	if vopts.Services == nil {
+		return httputil.NewStatus(codes.Unavailable, "services not loaded")
 	}
 	if st := checkBasicIntegrity(cfg, vopts); st != nil {
 		return st
@@ -95,7 +95,7 @@ func ValidateDAMConfig(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status 
 }
 
 func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
-	for n, ti := range cfg.TrustedPassportIssuers {
+	for n, ti := range cfg.TrustedIssuers {
 		if err := checkName(n); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n), err.Error())
 		}
@@ -122,8 +122,8 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "sources", strconv.Itoa(i)), "trusted source URL must be HTTPS")
 			}
 		}
-		for i, visa := range ts.Claims {
-			if _, ok := cfg.ClaimDefinitions[visa]; !ok {
+		for i, visa := range ts.VisaTypes {
+			if _, ok := cfg.VisaTypes[visa]; !ok {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("visa name %q not found in visa type definitions", visa))
 			}
 		}
@@ -136,7 +136,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 		if err := checkName(n); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n), err.Error())
 		}
-		if path, err := validator.ValidatePolicy(policy, cfg.ClaimDefinitions, cfg.TrustedSources, nil); err != nil {
+		if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, nil); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, path), err.Error())
 		}
 		if path, err := check.CheckUI(policy.Ui, true); err != nil {
@@ -178,9 +178,9 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 		}
 	}
 
-	for n, def := range cfg.ClaimDefinitions {
+	for n, def := range cfg.VisaTypes {
 		if path, err := check.CheckUI(def.Ui, true); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClaimDefinitions, n, path), fmt.Sprintf("claim definitions UI settings: %v", err))
+			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgVisaTypes, n, path), fmt.Sprintf("claim definitions UI settings: %v", err))
 		}
 	}
 
@@ -210,7 +210,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 			policy := &pb.Policy{
 				AnyOf: a.AnyOfConditions,
 			}
-			if path, err := validator.ValidatePolicy(policy, cfg.ClaimDefinitions, cfg.TrustedSources, nil); err != nil {
+			if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, nil); err != nil {
 				path = strings.Replace(path, "anyOf/", "anyOfConditions/", 1)
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "passport", "ga4ghAssertions", strconv.Itoa(i), path), err.Error())
 			}
@@ -252,11 +252,11 @@ func checkExtraIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 			if !ok {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "view"), fmt.Sprintf("access entry view %q not found", vn))
 			}
-			roleView := makeView(vn, view, res, cfg, vopts.HidePolicyBasis, vopts.Adapters)
-			if roleView.AccessRoles == nil {
+			roleView := makeView(vn, view, res, cfg, vopts.HidePolicyBasis, vopts.Services)
+			if roleView.Roles == nil {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry no roles defined for view %q", vn))
 			}
-			if _, ok := roleView.AccessRoles[rolename]; !ok {
+			if _, ok := roleView.Roles[rolename]; !ok {
 				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry role %q not found on view %q", rolename, vn))
 			}
 		}
@@ -275,8 +275,8 @@ func checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Reso
 	if !ok {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), fmt.Sprintf("service template %q not found", view.ServiceTemplate))
 	}
-	if len(view.Version) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "version"), "version is empty")
+	if len(view.Metadata) == 0 || view.Metadata["version"] == "" {
+		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "metadata", "version"), "version is empty")
 	}
 	if path, err := checkAccessRequirements(view.ServiceTemplate, st, resName, name, view, cfg, vopts); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, path), fmt.Sprintf("access requirements: %v", err))
@@ -284,7 +284,7 @@ func checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Reso
 	if len(view.DefaultRole) == 0 {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is empty")
 	}
-	if _, ok := view.AccessRoles[view.DefaultRole]; !ok {
+	if _, ok := view.Roles[view.DefaultRole]; !ok {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is not defined within the view")
 	}
 	if len(view.ComputedInterfaces) > 0 {
@@ -301,27 +301,27 @@ func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.Dam
 	if err := checkName(name); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name), err.Error())
 	}
-	if len(template.TargetAdapter) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "targetAdapter"), "target adapter is not specified")
+	if len(template.ServiceName) == 0 {
+		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "serviceName"), "service is not specified")
 	}
-	adapt, ok := vopts.Adapters.ByName[template.TargetAdapter]
+	service, ok := vopts.Services.ByName[template.ServiceName]
 	if !ok {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "targetAdapter"), "target adapter is not a recognized adapter within this service")
+		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "serviceName", template.ServiceName), "service is not a recognized by this DAM")
 	}
-	if path, err := adapt.CheckConfig(name, template, "", "", nil, cfg, vopts.Adapters); err != nil {
+	if path, err := service.CheckConfig(name, template, "", "", nil, cfg, vopts.Services); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	if len(template.ItemFormat) == 0 {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "itemFormat"), "item format is not specified")
 	}
-	if _, ok = adapt.Descriptor().ItemFormats[template.ItemFormat]; !ok {
+	if _, ok = service.Descriptor().ItemFormats[template.ItemFormat]; !ok {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "itemFormat"), fmt.Sprintf("item format %q is invalid", template.ItemFormat))
 	}
-	if path, err := checkServiceRoles(template.ServiceRoles, name, template.TargetAdapter, template.ItemFormat, cfg, vopts); err != nil {
+	if path, err := checkServiceRoles(template.ServiceRoles, name, template.ServiceName, template.ItemFormat, cfg, vopts); err != nil {
 		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	varNames := make(map[string]bool)
-	desc := vopts.Adapters.Descriptors[template.TargetAdapter]
+	desc := vopts.Services.Descriptors[template.ServiceName]
 	for _, v := range desc.ItemFormats {
 		for varName, v := range v.Variables {
 			varNames[varName] = true
@@ -336,7 +336,7 @@ func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.Dam
 			// Remove the `${` prefix and `}` suffix.
 			varName := varMatch[2 : len(varMatch)-1]
 			if _, ok := varNames[varName]; !ok {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "interfaces", k), fmt.Sprintf("interface %q variable %q not defined for this target adapter", k, varName))
+				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "interfaces", k), fmt.Sprintf("interface %q variable %q not defined for this service", k, varName))
 			}
 		}
 	}
@@ -347,28 +347,37 @@ func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.Dam
 }
 
 func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
-	adapt, ok := vopts.Adapters.ByName[template.TargetAdapter]
+	adapt, ok := vopts.Services.ByName[template.ServiceName]
 	if !ok {
-		return httputil.StatusPath("targetAdapter"), fmt.Errorf("service template %q adapter %q is not a recognized adapter within this service", templateName, template.TargetAdapter)
+		return httputil.StatusPath("services"), fmt.Errorf("service template %q service %q is not a recognized by this DAM", templateName, template.ServiceName)
 	}
-	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, vopts.Adapters); err != nil {
+	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, vopts.Services); err != nil {
 		return path, err
 	}
-	if path, err := checkAccessRoles(view.AccessRoles, templateName, template.TargetAdapter, template.ItemFormat, cfg, vopts); err != nil {
+	if path, err := checkAccessRoles(view.Roles, templateName, template.ServiceName, template.ItemFormat, cfg, vopts); err != nil {
 		return httputil.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
 	desc := adapt.Descriptor()
-	if desc.Requirements.Aud && len(view.Aud) == 0 {
-		return httputil.StatusPath("views", viewName, "aud"), fmt.Errorf("view %q does not provide an audience", viewName)
+	if desc.Requirements.Aud {
+		found := false
+		for _, item := range view.Items {
+			if item.Args["aud"] != "" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return httputil.StatusPath("views", viewName, "aud"), fmt.Errorf("view %q does not provide an audience", viewName)
+		}
 	}
 	if len(desc.ItemFormats) > 0 && len(view.Items) == 0 {
 		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q does not provide any target items", viewName)
 	}
 	if len(desc.ItemFormats) > 0 && desc.Properties != nil && desc.Properties.SingleItem && len(view.Items) > 1 {
-		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q provides more than one item when only one was expected for adapter %q", viewName, template.TargetAdapter)
+		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q provides more than one item when only one was expected for service %q", viewName, template.ServiceName)
 	}
 	for idx, item := range view.Items {
-		vars, path, err := adapter.GetItemVariables(vopts.Adapters, template.TargetAdapter, template.ItemFormat, item)
+		vars, path, err := adapter.GetItemVariables(vopts.Services, template.ServiceName, template.ItemFormat, item)
 		if err != nil {
 			return httputil.StatusPath("views", viewName, "items", strconv.Itoa(idx), path), err
 		}
@@ -379,11 +388,11 @@ func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, 
 	return "", nil
 }
 
-func checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
+func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
 		return "", fmt.Errorf("does not provide any roles")
 	}
-	desc := vopts.Adapters.Descriptors[targetAdapter]
+	desc := vopts.Services.Descriptors[serviceName]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
 			return httputil.StatusPath(rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
@@ -403,7 +412,7 @@ func checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapt
 				if !ok {
 					return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("policy %q is not defined", p.Name)
 				}
-				if path, err := validator.ValidatePolicy(policy, cfg.ClaimDefinitions, cfg.TrustedSources, p.Vars); err != nil {
+				if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, p.Args); err != nil {
 					return httputil.StatusPath(rname, "policies", strconv.Itoa(i), path), err
 				}
 			}
@@ -415,11 +424,11 @@ func checkAccessRoles(roles map[string]*pb.AccessRole, templateName, targetAdapt
 	return "", nil
 }
 
-func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, targetAdapter, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
+func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, serviceName, itemFormat string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
 		return httputil.StatusPath(cfgServiceTemplates, templateName, "roles"), fmt.Errorf("no roles provided")
 	}
-	desc := vopts.Adapters.Descriptors[targetAdapter]
+	desc := vopts.Services.Descriptors[serviceName]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
 			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
@@ -504,7 +513,7 @@ func configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http
 	return nil
 }
 
-func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.TrustedPassportIssuer, vopts ValidateCfgOpts) *status.Status {
+func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.TrustedIssuer, vopts ValidateCfgOpts) *status.Status {
 	if name != defaultBroker {
 		return nil
 	}
@@ -522,8 +531,8 @@ func checkTrustedIssuer(iss string, cfg *pb.DamConfig, vopts ValidateCfgOpts) *s
 		return httputil.NewStatus(codes.PermissionDenied, "unauthorized missing passport issuer")
 	}
 	foundIssuer := false
-	for _, tpi := range cfg.TrustedPassportIssuers {
-		if iss == tpi.Issuer {
+	for _, ti := range cfg.TrustedIssuers {
+		if iss == ti.Issuer {
 			foundIssuer = true
 			break
 		}

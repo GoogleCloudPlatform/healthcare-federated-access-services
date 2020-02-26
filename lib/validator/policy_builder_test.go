@@ -92,8 +92,8 @@ func TestValidatePolicy(t *testing.T) {
 			},
 		},
 	}
-	defs := map[string]*pb.ClaimDefinition{
-		"VisaType1": &pb.ClaimDefinition{},
+	defs := map[string]*pb.VisaType{
+		"VisaType1": &pb.VisaType{},
 	}
 	sources := map[string]*pb.TrustedSource{
 		"SourceGroup1": &pb.TrustedSource{
@@ -261,8 +261,8 @@ func TestValidatePolicyErrors(t *testing.T) {
 			},
 		},
 	}
-	defs := map[string]*pb.ClaimDefinition{
-		"VisaType1": &pb.ClaimDefinition{},
+	defs := map[string]*pb.VisaType{
+		"VisaType1": &pb.VisaType{},
 	}
 	sources := map[string]*pb.TrustedSource{
 		"SourceGroup1": &pb.TrustedSource{

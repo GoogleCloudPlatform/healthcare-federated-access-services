@@ -6,7 +6,7 @@
     "label": "Test Dataset Repository A",
     "description": "Test Dataset Repository A"
   },
-  "trustedPassportIssuers": {
+  "trustedIssuers": {
     "default_ic": {
       "issuer": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/",
       "clientId": "05c14eaf-c762-4dbf-b7aa-c7bab5dd41b2",
@@ -108,17 +108,19 @@
       "views": {
         "gcs_read": {
           "serviceTemplate": "gcs",
-          "version": "1.0",
-          "topic": "variants",
-          "partition": "all",
-          "fidelity": "normalized",
-          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "metadata": {
+            "version": "1.0",
+            "topic": "variants",
+            "partition": "all",
+            "fidelity": "normalized",
+            "geoLocation": "gcp:na/us/us-central1/us-central1-a"
+          },
           "contentTypes": [
             "application/bam"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
                 "project": "${YOUR_PROJECT_ID}",
                 "bucket": "${YOUR_PROJECT_ID}-test-dataset"
               }
@@ -129,7 +131,7 @@
               "policies": [
                 {
                   "name": "nih_dac",
-                  "vars": {
+                  "args": {
                     "DATASET": "phs000710"
                   }
                 }
@@ -161,7 +163,7 @@
   },
   "serviceTemplates": {
     "gcs": {
-      "targetAdapter": "token:gcp:sa",
+      "serviceName": "token:gcp:sa",
       "itemFormat": "gcs",
       "roles": {
         "viewer": {
@@ -208,7 +210,7 @@
       }
     }
   },
-  "claimDefinitions": {
+  "visaTypes": {
     "AffiliationAndRole": {
       "ui": {
         "label": "Affiliation and Role",

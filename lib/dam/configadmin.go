@@ -416,7 +416,8 @@ func (h *configViewHandler) Put(name string) error {
 func (h *configViewHandler) Patch(name string) error {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Items = h.input.Item.Items
-	h.item.AccessRoles = h.input.Item.AccessRoles
+	h.item.Metadata = h.input.Item.Metadata
+	h.item.Roles = h.input.Item.Roles
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
 	return nil
@@ -438,8 +439,8 @@ func (h *configViewHandler) Save(tx storage.Tx, name string, vars map[string]str
 
 func (s *Service) configIssuerFactory() *handlerfactory.HandlerFactory {
 	return &handlerfactory.HandlerFactory{
-		TypeName:            "configTrustedPassportIssuer",
-		PathPrefix:          configTrustedPassportIssuerPath,
+		TypeName:            "configTrustedIssuer",
+		PathPrefix:          configTrustedIssuerPath,
 		HasNamedIdentifiers: true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
 			return NewConfigIssuerHandler(s, w, r)
@@ -451,9 +452,9 @@ type configIssuerHandler struct {
 	s     *Service
 	w     http.ResponseWriter
 	r     *http.Request
-	input *pb.ConfigTrustedPassportIssuerRequest
-	item  *pb.TrustedPassportIssuer
-	save  *pb.TrustedPassportIssuer
+	input *pb.ConfigTrustedIssuerRequest
+	item  *pb.TrustedIssuer
+	save  *pb.TrustedIssuer
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
@@ -464,7 +465,7 @@ func NewConfigIssuerHandler(s *Service, w http.ResponseWriter, r *http.Request) 
 		s:     s,
 		w:     w,
 		r:     r,
-		input: &pb.ConfigTrustedPassportIssuerRequest{},
+		input: &pb.ConfigTrustedIssuerRequest{},
 	}
 }
 func (h *configIssuerHandler) Setup(tx storage.Tx) (int, error) {
@@ -475,7 +476,7 @@ func (h *configIssuerHandler) Setup(tx storage.Tx) (int, error) {
 	return status, err
 }
 func (h *configIssuerHandler) LookupItem(name string, vars map[string]string) bool {
-	item, ok := h.cfg.TrustedPassportIssuers[name]
+	item, ok := h.cfg.TrustedIssuers[name]
 	if !ok {
 		return false
 	}
@@ -487,7 +488,7 @@ func (h *configIssuerHandler) NormalizeInput(name string, vars map[string]string
 		return err
 	}
 	if h.input.Item == nil {
-		h.input.Item = &pb.TrustedPassportIssuer{}
+		h.input.Item = &pb.TrustedIssuer{}
 	}
 	if h.input.Item.Ui == nil {
 		h.input.Item.Ui = make(map[string]string)
@@ -499,12 +500,12 @@ func (h *configIssuerHandler) Get(name string) error {
 	return nil
 }
 func (h *configIssuerHandler) Post(name string) error {
-	h.cfg.TrustedPassportIssuers[name] = h.input.Item
+	h.cfg.TrustedIssuers[name] = h.input.Item
 	h.save = h.input.Item
 	return nil
 }
 func (h *configIssuerHandler) Put(name string) error {
-	h.cfg.TrustedPassportIssuers[name] = h.input.Item
+	h.cfg.TrustedIssuers[name] = h.input.Item
 	h.save = h.input.Item
 	return nil
 }
@@ -515,8 +516,8 @@ func (h *configIssuerHandler) Patch(name string) error {
 	return nil
 }
 func (h *configIssuerHandler) Remove(name string) error {
-	delete(h.cfg.TrustedPassportIssuers, name)
-	h.save = &pb.TrustedPassportIssuer{}
+	delete(h.cfg.TrustedIssuers, name)
+	h.save = &pb.TrustedIssuer{}
 	return nil
 }
 func (h *configIssuerHandler) CheckIntegrity() *status.Status {
@@ -603,7 +604,7 @@ func (h *configSourceHandler) Put(name string) error {
 func (h *configSourceHandler) Patch(name string) error {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Sources = h.input.Item.Sources
-	h.item.Claims = h.input.Item.Claims
+	h.item.VisaTypes = h.input.Item.VisaTypes
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
 	return nil
@@ -715,93 +716,93 @@ func (h *configPolicyHandler) Save(tx storage.Tx, name string, vars map[string]s
 
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) configClaimDefinitionFactory() *handlerfactory.HandlerFactory {
+func (s *Service) configVisaTypeFactory() *handlerfactory.HandlerFactory {
 	return &handlerfactory.HandlerFactory{
-		TypeName:            "configClaimDefinition",
+		TypeName:            "configVisaType",
 		PathPrefix:          configClaimDefPath,
 		HasNamedIdentifiers: true,
 		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigClaimDefinitionHandler(s, w, r)
+			return NewConfigVisaTypeHandler(s, w, r)
 		},
 	}
 }
 
-type configClaimDefinitionHandler struct {
+type configVisaTypeHandler struct {
 	s     *Service
 	w     http.ResponseWriter
 	r     *http.Request
-	input *pb.ConfigClaimDefinitionRequest
-	item  *pb.ClaimDefinition
-	save  *pb.ClaimDefinition
+	input *pb.ConfigVisaTypeRequest
+	item  *pb.VisaType
+	save  *pb.VisaType
 	cfg   *pb.DamConfig
 	id    *ga4gh.Identity
 	tx    storage.Tx
 }
 
-func NewConfigClaimDefinitionHandler(s *Service, w http.ResponseWriter, r *http.Request) *configClaimDefinitionHandler {
-	return &configClaimDefinitionHandler{
+func NewConfigVisaTypeHandler(s *Service, w http.ResponseWriter, r *http.Request) *configVisaTypeHandler {
+	return &configVisaTypeHandler{
 		s:     s,
 		w:     w,
 		r:     r,
-		input: &pb.ConfigClaimDefinitionRequest{},
+		input: &pb.ConfigVisaTypeRequest{},
 	}
 }
-func (h *configClaimDefinitionHandler) Setup(tx storage.Tx) (int, error) {
+func (h *configVisaTypeHandler) Setup(tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
 	return status, err
 }
-func (h *configClaimDefinitionHandler) LookupItem(name string, vars map[string]string) bool {
-	item, ok := h.cfg.ClaimDefinitions[name]
+func (h *configVisaTypeHandler) LookupItem(name string, vars map[string]string) bool {
+	item, ok := h.cfg.VisaTypes[name]
 	if !ok {
 		return false
 	}
 	h.item = item
 	return true
 }
-func (h *configClaimDefinitionHandler) NormalizeInput(name string, vars map[string]string) error {
+func (h *configVisaTypeHandler) NormalizeInput(name string, vars map[string]string) error {
 	if err := httputil.DecodeProtoReq(h.input, h.r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
-		h.input.Item = &pb.ClaimDefinition{}
+		h.input.Item = &pb.VisaType{}
 	}
 	if h.input.Item.Ui == nil {
 		h.input.Item.Ui = make(map[string]string)
 	}
 	return nil
 }
-func (h *configClaimDefinitionHandler) Get(name string) error {
+func (h *configVisaTypeHandler) Get(name string) error {
 	httputil.WriteProtoResp(h.w, h.item)
 	return nil
 }
-func (h *configClaimDefinitionHandler) Post(name string) error {
-	h.cfg.ClaimDefinitions[name] = h.input.Item
+func (h *configVisaTypeHandler) Post(name string) error {
+	h.cfg.VisaTypes[name] = h.input.Item
 	h.save = h.input.Item
 	return nil
 }
-func (h *configClaimDefinitionHandler) Put(name string) error {
-	h.cfg.ClaimDefinitions[name] = h.input.Item
+func (h *configVisaTypeHandler) Put(name string) error {
+	h.cfg.VisaTypes[name] = h.input.Item
 	h.save = h.input.Item
 	return nil
 }
-func (h *configClaimDefinitionHandler) Patch(name string) error {
+func (h *configVisaTypeHandler) Patch(name string) error {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
 	return nil
 }
-func (h *configClaimDefinitionHandler) Remove(name string) error {
-	delete(h.cfg.ClaimDefinitions, name)
-	h.save = &pb.ClaimDefinition{}
+func (h *configVisaTypeHandler) Remove(name string) error {
+	delete(h.cfg.VisaTypes, name)
+	h.save = &pb.VisaType{}
 	return nil
 }
-func (h *configClaimDefinitionHandler) CheckIntegrity() *status.Status {
+func (h *configVisaTypeHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
 }
-func (h *configClaimDefinitionHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (h *configVisaTypeHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, h.r, h.id, h.item, h.save, h.input.Modification, h.tx)
 }
 

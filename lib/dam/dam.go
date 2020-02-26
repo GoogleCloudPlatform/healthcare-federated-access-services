@@ -80,7 +80,7 @@ var (
 )
 
 type Service struct {
-	adapters         *adapter.TargetAdapters
+	adapters         *adapter.ServiceAdapters
 	roleCategories   map[string]*pb.RoleCategory
 	domainURL        string
 	defaultBroker    string
@@ -192,11 +192,11 @@ func NewService(params *Options) *Service {
 	if err != nil {
 		glog.Fatalf("cannot load client secrets: %v", err)
 	}
-	adapters, err := adapter.CreateAdapters(fs, params.Warehouse, secrets)
+	services, err := adapter.CreateAdapters(fs, params.Warehouse, secrets)
 	if err != nil {
 		glog.Fatalf("cannot load adapters: %v", err)
 	}
-	s.adapters = adapters
+	s.adapters = services
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -217,7 +217,7 @@ func NewService(params *Options) *Service {
 		glog.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
 	}
 
-	for name, cfgTpi := range cfg.TrustedPassportIssuers {
+	for name, cfgTpi := range cfg.TrustedIssuers {
 		_, err = s.getIssuerTranslator(ctx, cfgTpi.Issuer, cfg, secrets, nil)
 		if err != nil {
 			glog.Infof("failed to create translator for issuer %q: %v", name, err)
@@ -402,7 +402,7 @@ func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.D
 
 func (s *Service) populateIdentityVisas(ctx context.Context, id *ga4gh.Identity, cfg *pb.DamConfig) (*ga4gh.Identity, error) {
 	// Filter visas by trusted issuers.
-	trusted := trustedIssuers(cfg.TrustedPassportIssuers)
+	trusted := trustedIssuers(cfg.TrustedIssuers)
 	vs := []ga4gh.VisaJWT{}
 	for i, v := range id.VisaJWTs {
 		jwt := ga4gh.VisaJWT(v)
@@ -426,7 +426,7 @@ func (s *Service) populateIdentityVisas(ctx context.Context, id *ga4gh.Identity,
 	return id, nil
 }
 
-func trustedIssuers(trustedIssuers map[string]*pb.TrustedPassportIssuer) map[string]bool {
+func trustedIssuers(trustedIssuers map[string]*pb.TrustedIssuer) map[string]bool {
 	trusted := make(map[string]bool)
 	for _, tpi := range trustedIssuers {
 		trusted[tpi.Issuer] = true
@@ -513,10 +513,10 @@ func resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views
 			if len(views) > 0 && !stringset.Contains(views, vn) {
 				continue
 			}
-			if len(v.AccessRoles) == 0 {
+			if len(v.Roles) == 0 {
 				return "INVALID", nil, fmt.Errorf("resource %q view %q has no roles defined", rn, vn)
 			}
-			for rname := range v.AccessRoles {
+			for rname := range v.Roles {
 				if len(roles) > 0 && !stringset.Contains(roles, rname) {
 					continue
 				}
@@ -560,7 +560,7 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 	if !ok {
 		return http.StatusNotFound, fmt.Errorf("resource %q view %q not found", resourceName, viewName)
 	}
-	entries, err := resolveAggregates(srcRes, srcView, cfg, vopts.Adapters)
+	entries, err := resolveAggregates(srcRes, srcView, cfg, vopts.Services)
 	if err != nil {
 		return http.StatusForbidden, err
 	}
@@ -568,7 +568,7 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 	for _, entry := range entries {
 		view := entry.View
 		res := entry.Res
-		vRole, ok := view.AccessRoles[roleName]
+		vRole, ok := view.Roles[roleName]
 		if !ok {
 			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (role not available on this view)", resourceName, viewName, roleName)
 		}
@@ -591,7 +591,7 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 				return http.StatusInternalServerError, fmt.Errorf("cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer)
 			}
 			if !ok {
-				rejected := rejectedPolicyString(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Adapters), vopts)
+				rejected := rejectedPolicyString(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Services), vopts)
 				return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, rejected)
 			}
 			active = true
@@ -603,13 +603,13 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 	return http.StatusOK, nil
 }
 
-func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig, tas *adapter.TargetAdapters) ([]*adapter.AggregateView, error) {
+func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig, tas *adapter.ServiceAdapters) ([]*adapter.AggregateView, error) {
 	out := []*adapter.AggregateView{}
 	st, ok := cfg.ServiceTemplates[srcView.ServiceTemplate]
 	if !ok {
 		return nil, fmt.Errorf("service template %q not found", srcView.ServiceTemplate)
 	}
-	if !isAggregate(st.TargetAdapter, tas) {
+	if !isAggregate(st.ServiceName, tas) {
 		out = append(out, &adapter.AggregateView{
 			Index: 0,
 			Res:   srcRes,
@@ -617,9 +617,9 @@ func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig,
 		})
 		return out, nil
 	}
-	targetAdapter := ""
+	serviceName := ""
 	for index, item := range srcView.Items {
-		vars, _, err := adapter.GetItemVariables(tas, st.TargetAdapter, st.ItemFormat, item)
+		vars, _, err := adapter.GetItemVariables(tas, st.ServiceName, st.ItemFormat, item)
 		if err != nil {
 			return nil, fmt.Errorf("item %d: %v", index+1, err)
 		}
@@ -637,13 +637,13 @@ func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig,
 		if !ok {
 			return nil, fmt.Errorf("item %d: service template %q on the view is undefined", index+1, view.ServiceTemplate)
 		}
-		if isAggregate(vst.TargetAdapter, tas) {
-			return nil, fmt.Errorf("item %d: view uses aggregate service template %q and nesting aggregates is not permitted", index+1, vst.TargetAdapter)
+		if isAggregate(vst.ServiceName, tas) {
+			return nil, fmt.Errorf("item %d: view uses aggregate service template %q and nesting aggregates is not permitted", index+1, vst.ServiceName)
 		}
-		if targetAdapter == "" {
-			targetAdapter = vst.TargetAdapter
-		} else if targetAdapter != vst.TargetAdapter {
-			return nil, fmt.Errorf("item %d: service template %q uses a different target adapter %q than previous items (%q)", index+1, view.ServiceTemplate, vst.TargetAdapter, targetAdapter)
+		if serviceName == "" {
+			serviceName = vst.ServiceName
+		} else if serviceName != vst.ServiceName {
+			return nil, fmt.Errorf("item %d: service template %q uses a different target adapter %q than previous items (%q)", index+1, view.ServiceTemplate, vst.ServiceName, serviceName)
 		}
 		out = append(out, &adapter.AggregateView{
 			Index: index,
@@ -654,8 +654,8 @@ func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig,
 	return out, nil
 }
 
-func isAggregate(targetAdapter string, tas *adapter.TargetAdapters) bool {
-	desc, ok := tas.Descriptors[targetAdapter]
+func isAggregate(serviceName string, tas *adapter.ServiceAdapters) bool {
+	desc, ok := tas.Descriptors[serviceName]
 	if !ok {
 		return false
 	}
@@ -682,10 +682,10 @@ func configRevision(mod *pb.ConfigModification, cfg *pb.DamConfig) error {
 }
 
 func viewHasRole(view *pb.View, role string) bool {
-	if view.AccessRoles == nil {
+	if view.Roles == nil {
 		return false
 	}
-	if _, ok := view.AccessRoles[role]; ok {
+	if _, ok := view.Roles[role]; ok {
 		return true
 	}
 	return false
@@ -748,7 +748,7 @@ func (s *Service) GetStore() storage.Store {
 
 /////////////////////////////////////////////////////////
 
-func makeViews(r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) map[string]*pb.View {
+func makeViews(r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) map[string]*pb.View {
 	out := make(map[string]*pb.View)
 	for n, v := range r.Views {
 		out[n] = makeView(n, v, r, cfg, hidePolicyBasis, tas)
@@ -756,22 +756,18 @@ func makeViews(r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *ada
 	return out
 }
 
-func makeView(viewName string, v *pb.View, r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) *pb.View {
+func makeView(viewName string, v *pb.View, r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) *pb.View {
 	return &pb.View{
 		ServiceTemplate:    v.ServiceTemplate,
-		Version:            v.Version,
-		Topic:              v.Topic,
-		Partition:          v.Partition,
-		Fidelity:           v.Fidelity,
-		GeoLocation:        v.GeoLocation,
+		Metadata:           v.Metadata,
 		ContentTypes:       v.ContentTypes,
 		ComputedInterfaces: makeViewInterfaces(v, r, cfg, tas),
-		AccessRoles:        makeViewRoles(v, r, cfg, hidePolicyBasis, tas),
+		Roles:              makeViewRoles(v, r, cfg, hidePolicyBasis, tas),
 		Ui:                 v.Ui,
 	}
 }
 
-func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, tas *adapter.TargetAdapters) map[string]*pb.Interface {
+func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, tas *adapter.ServiceAdapters) map[string]*pb.Interface {
 	out := make(map[string]*pb.Interface)
 	entries, err := resolveAggregates(srcRes, srcView, cfg, tas)
 	if err != nil {
@@ -784,7 +780,7 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 			return out
 		}
 		for _, item := range entry.View.Items {
-			vars, _, err := adapter.GetItemVariables(tas, st.TargetAdapter, st.ItemFormat, item)
+			vars, _, err := adapter.GetItemVariables(tas, st.ServiceName, st.ItemFormat, item)
 			if err != nil {
 				return out
 			}
@@ -868,7 +864,7 @@ func rejectedPolicyString(rejected []*ga4gh.RejectedVisa, policyBasis map[string
 	return string(b)
 }
 
-func makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) map[string]bool {
+func makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) map[string]bool {
 	if hidePolicyBasis {
 		return nil
 	}
@@ -878,7 +874,7 @@ func makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg
 		return nil
 	}
 	for _, entry := range entries {
-		if role, ok := entry.View.AccessRoles[roleName]; ok {
+		if role, ok := entry.View.Roles[roleName]; ok {
 			for _, p := range role.Policies {
 				policies[p.Name] = true
 			}
@@ -905,10 +901,10 @@ func addPolicyBasis(p *pb.Policy, basis map[string]bool) {
 	}
 }
 
-func makeViewRoles(view *pb.View, res *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) map[string]*pb.AccessRole {
-	out := make(map[string]*pb.AccessRole)
-	for rname := range view.AccessRoles {
-		out[rname] = &pb.AccessRole{
+func makeViewRoles(view *pb.View, res *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) map[string]*pb.ViewRole {
+	out := make(map[string]*pb.ViewRole)
+	for rname := range view.Roles {
+		out[rname] = &pb.ViewRole{
 			ComputedRoleCategories: makeRoleCategories(view, rname, cfg),
 			ComputedPolicyBasis:    makePolicyBasis(rname, view, res, cfg, hidePolicyBasis, tas),
 		}
@@ -931,7 +927,7 @@ func receiveConfig(cfg, origCfg *pb.DamConfig) *pb.DamConfig {
 	return cfg
 }
 
-func makeResource(name string, in *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.TargetAdapters) *pb.Resource {
+func makeResource(name string, in *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) *pb.Resource {
 	return &pb.Resource{
 		Umbrella:    in.Umbrella,
 		Views:       makeViews(in, cfg, hidePolicyBasis, tas),
@@ -955,8 +951,8 @@ func receiveView(in *pb.View) *pb.View {
 	// TODO: deep copy
 	out := *in
 	out.ComputedInterfaces = nil
-	if out.AccessRoles != nil {
-		for _, r := range out.AccessRoles {
+	if out.Roles != nil {
+		for _, r := range out.Roles {
 			r.ComputedPolicyBasis = nil
 		}
 	}
@@ -968,7 +964,7 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 	if opts != nil {
 		proto.Merge(out, opts)
 	}
-	out.ComputedDescriptors = map[string]*pb.ConfigOptions_Descriptor{
+	out.ComputedDescriptors = map[string]*cpb.Descriptor{
 		"readOnlyMasterRealm": {
 			Label:        "Read Only Master Realm",
 			Description:  "When 'true', the master realm becomes read-only and updates to the configuration must be performed via updating a config file",
@@ -1054,12 +1050,12 @@ func (s *Service) loadConfig(tx storage.Tx, realm string) (*pb.DamConfig, error)
 	return cfg, nil
 }
 
-func buildValidator(ctx context.Context, ap *pb.AccessRole_AccessPolicy, accessRole *pb.AccessRole, cfg *pb.DamConfig) (*validator.Policy, error) {
-	policy, ok := cfg.Policies[ap.Name]
+func buildValidator(ctx context.Context, vp *pb.ViewRole_ViewPolicy, viewRole *pb.ViewRole, cfg *pb.DamConfig) (*validator.Policy, error) {
+	policy, ok := cfg.Policies[vp.Name]
 	if !ok {
-		return nil, fmt.Errorf("access policy name %q does not match any policy names", ap.Name)
+		return nil, fmt.Errorf("view policy name %q does not match any policy names", vp.Name)
 	}
-	return validator.BuildPolicyValidator(ctx, policy, cfg.ClaimDefinitions, cfg.TrustedSources, ap.Vars)
+	return validator.BuildPolicyValidator(ctx, policy, cfg.VisaTypes, cfg.TrustedSources, vp.Args)
 }
 
 func (s *Service) saveConfig(cfg *pb.DamConfig, desc, resType string, r *http.Request, id *ga4gh.Identity, orig, update proto.Message, modification *pb.ConfigModification, tx storage.Tx) error {
@@ -1274,10 +1270,10 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configOptionsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configOptionsFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configResourcePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configResourceFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configViewPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configViewFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configTrustedPassportIssuerPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configIssuerFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configTrustedIssuerPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configIssuerFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configTrustedSourcePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configSourceFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configPolicyPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPolicyFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClaimDefPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClaimDefinitionFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configClaimDefPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configVisaTypeFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPersonaFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configClientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientFactory()), checker, auth.RequireAdminToken))

@@ -49,13 +49,13 @@ type GatekeeperToken struct {
 
 // GatekeeperAdapter generates downstream access tokens.
 type GatekeeperAdapter struct {
-	desc       *pb.TargetAdapter
+	desc       *pb.ServiceDescriptor
 	privateKey string
 }
 
 // NewGatekeeperAdapter creates a GatekeeperAdapter.
-func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
-	var desc pb.TargetAdapter
+func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *ServiceAdapters) (ServiceAdapter, error) {
+	var desc pb.ServiceDescriptor
 	if err := store.Read(AdapterDataType, storage.DefaultRealm, storage.DefaultUser, gatekeeperName, storage.LatestRev, &desc); err != nil {
 		return nil, fmt.Errorf("reading %q descriptor: %v", gatekeeperName, err)
 	}
@@ -80,8 +80,8 @@ func (a *GatekeeperAdapter) Platform() string {
 	return gatekeeperPlatform
 }
 
-// Descriptor returns a TargetAdapter descriptor.
-func (a *GatekeeperAdapter) Descriptor() *pb.TargetAdapter {
+// Descriptor returns a ServiceAdapter descriptor.
+func (a *GatekeeperAdapter) Descriptor() *pb.ServiceDescriptor {
 	return a.desc
 }
 
@@ -91,7 +91,7 @@ func (a *GatekeeperAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *GatekeeperAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error) {
+func (a *GatekeeperAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *ServiceAdapters) (string, error) {
 	if view != nil && len(view.Items) > 1 {
 		return httputil.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("view %q has more than one target item defined", viewName)
 	}
@@ -109,12 +109,21 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 		return nil, fmt.Errorf("parsing private key: %v", err)
 	}
 	now := time.Now()
+	aud := ""
+	for _, item := range input.View.Items {
+		if a, ok := item.Args["aud"]; ok {
+			if aud == "" {
+				aud += " "
+			}
+			aud += a
+		}
+	}
 
 	claims := &GatekeeperToken{
 		StandardClaims: &jwt.StandardClaims{
 			Issuer:    input.Issuer,
 			Subject:   input.Identity.Subject,
-			Audience:  input.View.Aud,
+			Audience:  aud,
 			ExpiresAt: now.Add(input.TTL).Unix(),
 			NotBefore: now.Add(-1 * time.Minute).Unix(),
 			IssuedAt:  now.Unix(),

@@ -27,28 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
-	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
-	icpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
 )
-
-// TODO: remove this by making the proto common.
-func ToCommonDescriptors(input map[string]*icpb.ConfigOptions_Descriptor) map[string]*pb.ConfigOptions_Descriptor {
-	out := make(map[string]*pb.ConfigOptions_Descriptor)
-	for k, v := range input {
-		out[k] = &pb.ConfigOptions_Descriptor{
-			Label:        v.Label,
-			Description:  v.Description,
-			Regexp:       v.Regexp,
-			Type:         v.Type,
-			IsList:       v.IsList,
-			EnumValues:   v.EnumValues,
-			Min:          v.Min,
-			Max:          v.Max,
-			DefaultValue: v.DefaultValue,
-		}
-	}
-	return out
-}
 
 func CheckReadOnly(realm string, readOnlyMaster bool, whitelistedRealms []string) error {
 	if realm == storage.DefaultRealm {
@@ -61,7 +40,7 @@ func CheckReadOnly(realm string, readOnlyMaster bool, whitelistedRealms []string
 	return nil
 }
 
-func CheckStringOption(opt, optName string, descriptors map[string]*pb.ConfigOptions_Descriptor) error {
+func CheckStringOption(opt, optName string, descriptors map[string]*cpb.Descriptor) error {
 	desc, ok := descriptors[optName]
 	if !ok {
 		return fmt.Errorf("internal error: option descriptor %q not defined", optName)
@@ -110,7 +89,7 @@ func CheckStringOption(opt, optName string, descriptors map[string]*pb.ConfigOpt
 	return nil
 }
 
-func CheckStringListOption(values []string, optName string, descriptors map[string]*pb.ConfigOptions_Descriptor) error {
+func CheckStringListOption(values []string, optName string, descriptors map[string]*cpb.Descriptor) error {
 	for _, v := range values {
 		if err := CheckStringOption(v, optName, descriptors); err != nil {
 			return err
@@ -119,7 +98,7 @@ func CheckStringListOption(values []string, optName string, descriptors map[stri
 	return nil
 }
 
-func CheckIntOption(opt int32, optName string, descriptors map[string]*pb.ConfigOptions_Descriptor) error {
+func CheckIntOption(opt int32, optName string, descriptors map[string]*cpb.Descriptor) error {
 	desc, ok := descriptors[optName]
 	if !ok {
 		return fmt.Errorf("internal error: option descriptor %q not defined", optName)

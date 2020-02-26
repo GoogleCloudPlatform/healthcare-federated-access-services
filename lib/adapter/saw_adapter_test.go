@@ -36,9 +36,9 @@ func TestSawAdapter(t *testing.T) {
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
 	}
-	adapters := &adapter.TargetAdapters{
-		ByName:      make(map[string]adapter.Adapter),
-		Descriptors: make(map[string]*pb.TargetAdapter),
+	adapters := &adapter.ServiceAdapters{
+		ByName:      make(map[string]adapter.ServiceAdapter),
+		Descriptors: make(map[string]*pb.ServiceDescriptor),
 	}
 	adapt, err := adapter.NewSawAdapter(store, warehouse, secrets, adapters)
 	if err != nil {

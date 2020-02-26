@@ -13,6 +13,14 @@
   "itemFormats": {
     "url": {
       "variables": {
+        "aud": {
+          "type": "const",
+          "regexp": ".",
+          "ui": {
+            "label": "Audience",
+            "description": "A unique JWT audience for the token to distiguish this resource or view from all others"
+          }
+        },
         "url": {
           "type": "const",
           "regexp": "^(http://|https://).*$",

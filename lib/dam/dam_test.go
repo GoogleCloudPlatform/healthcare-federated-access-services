@@ -344,10 +344,12 @@ func TestHandlers(t *testing.T) {
 			Input: `{
 									"item": {
 										"serviceTemplate":"gcs",
-										"version":"Phase 3",
+										"metadata": {
+										  "version":"Phase 3"
+										},
 										"items": [
 											{
-												"vars": {
+												"args": {
 													"project": "ga4gh-apis",
 													"bad-var-name": "ga4gh-apis-controlled-access"
 												}
@@ -369,7 +371,7 @@ func TestHandlers(t *testing.T) {
 									"modification": {
 									}
 								}`,
-			Output: `{"code":3,"message":"access requirements: target adapter \"token:gcp:sa\" item format \"gcs\" variable \"bad-var-name\" is undefined","details":[{"@type":"type.googleapis.com/google.rpc.ResourceInfo","resourceName":"resources/ga4gh-apis/views/gcs_read2/items/0/vars/bad-var-name","description":"access requirements: target adapter \"token:gcp:sa\" item format \"gcs\" variable \"bad-var-name\" is undefined"}]}`,
+			Output: `*"code":3,*resources/ga4gh-apis/views/gcs_read2/items/0/vars/bad-var-name*`,
 			Status: http.StatusBadRequest,
 		},
 		{
@@ -379,10 +381,12 @@ func TestHandlers(t *testing.T) {
 			Input: `{
 									"item": {
 										"serviceTemplate":"gcs",
-										"version":"Phase 3",
+										"metadata": {
+											"version":"Phase 3"
+										},
 										"items": [
 											{
-												"vars": {
+												"args": {
 													"project": "ga4gh-apis",
 													"bucket": "ga4gh-apis-controlled-access"
 												}
@@ -412,9 +416,12 @@ func TestHandlers(t *testing.T) {
 			Persona: "admin",
 			Input: `{
 									"item": {
+									  "metadata": {
+										  "version": "v4"
+										},
 										"items": [
 											{
-												"vars": {
+												"args": {
 													"project": "ga4gh-apis",
 													"bucket": "ga4gh-apis-controlled-access"
 												}
@@ -446,14 +453,14 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "GET",
-			Path:    "/dam/v1alpha/test/config/trustedPassportIssuers/elixir",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/elixir",
 			Persona: "admin",
 			Output:  `^.*"issuer"`,
 			Status:  http.StatusOK,
 		},
 		{
 			Method:  "POST",
-			Path:    "/dam/v1alpha/test/config/trustedPassportIssuers/new-issuer",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
 			Persona: "admin",
 			Input:   `{"item":{"issuer":"https://test.org","ui":{"label":"foo","description":"bar"}}}`,
 			Output:  ``,
@@ -461,21 +468,21 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "PUT",
-			Path:    "/dam/v1alpha/test/config/trustedPassportIssuers/new-issuer",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
 			Persona: "admin",
 			Input:   `{"item":{"issuer":"https://test.org","ui":{"label":"foo","description":"bar"}}}`,
 			Status:  http.StatusOK,
 		},
 		{
 			Method:  "PATCH",
-			Path:    "/dam/v1alpha/test/config/trustedPassportIssuers/new-issuer",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
 			Persona: "admin",
 			Input:   `{"item":{"issuer":"https://test2.org","ui":{"label":"foo","description":"bar"}}}`,
 			Status:  http.StatusOK,
 		},
 		{
 			Method:  "DELETE",
-			Path:    "/dam/v1alpha/test/config/trustedPassportIssuers/new-issuer",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
 			Persona: "admin",
 			Output:  ``,
 			Status:  http.StatusOK,
@@ -592,7 +599,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/dam/v1alpha/test/config/serviceTemplates/gcs",
 			Persona: "admin",
-			Output:  `^.*"targetAdapter"`,
+			Output:  `*"serviceName":"token:gcp:sa"*`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -1019,8 +1026,8 @@ func TestCheckAuthorization(t *testing.T) {
 func TestCheckAuthorization_Untrusted(t *testing.T) {
 	// Perform exactly the same call as TestCheckAuthorization() except remove trust of the visa issuer string
 	auth := setupAuthorizationTest(t)
-	delete(auth.cfg.TrustedPassportIssuers, "test")
-	delete(auth.cfg.TrustedPassportIssuers, "testBroker")
+	delete(auth.cfg.TrustedIssuers, "test")
+	delete(auth.cfg.TrustedIssuers, "testBroker")
 
 	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
 	if err != nil {
@@ -1145,7 +1152,7 @@ func TestLogin_Hydra_Success(t *testing.T) {
 				t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 			}
 
-			idpc := cfg.TrustedPassportIssuers[s.defaultBroker]
+			idpc := cfg.TrustedIssuers[s.defaultBroker]
 
 			l := resp.Header.Get("Location")
 			loc, err := url.Parse(l)
@@ -1301,7 +1308,7 @@ func TestLogin_LoginHint_Hydra_Success(t *testing.T) {
 		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 	}
 
-	idpc := cfg.TrustedPassportIssuers[s.defaultBroker]
+	idpc := cfg.TrustedIssuers[s.defaultBroker]
 
 	l := resp.Header.Get("Location")
 	loc, err := url.Parse(l)
@@ -1341,7 +1348,7 @@ func TestLogin_Endpoint_Hydra_Success(t *testing.T) {
 		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 	}
 
-	idpc := cfg.TrustedPassportIssuers[s.defaultBroker]
+	idpc := cfg.TrustedIssuers[s.defaultBroker]
 
 	l := resp.Header.Get("Location")
 	loc, err := url.Parse(l)

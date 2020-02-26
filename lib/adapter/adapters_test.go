@@ -108,7 +108,7 @@ func TestGetItemVariables(t *testing.T) {
 		{
 			name: "empty vars",
 			item: &pb.View_Item{
-				Vars: map[string]string{},
+				Args: map[string]string{},
 			},
 			expect: map[string]string{},
 			fail:   false,
@@ -116,7 +116,7 @@ func TestGetItemVariables(t *testing.T) {
 		{
 			name: "bad variable name",
 			item: &pb.View_Item{
-				Vars: map[string]string{
+				Args: map[string]string{
 					"foo": "bar",
 				},
 			},
@@ -125,7 +125,7 @@ func TestGetItemVariables(t *testing.T) {
 		{
 			name: "bad variable format",
 			item: &pb.View_Item{
-				Vars: map[string]string{
+				Args: map[string]string{
 					"bucket": "#$%#$%#$#",
 				},
 			},
@@ -134,7 +134,7 @@ func TestGetItemVariables(t *testing.T) {
 		{
 			name: "good project and bucket",
 			item: &pb.View_Item{
-				Vars: map[string]string{
+				Args: map[string]string{
 					"project": "foo",
 					"bucket":  "bar",
 				},
@@ -208,7 +208,7 @@ func TestExperimentalVarsCheck(t *testing.T) {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}
 	desc := adapters.Descriptors[adapter.SawAdapterName]
-	d := pb.TargetAdapter{}
+	d := pb.ServiceDescriptor{}
 	proto.Merge(&d, desc)
 
 	fakeDesc := "fake"
@@ -231,7 +231,7 @@ func TestExperimentalVarsCheck(t *testing.T) {
 	defer func() { globalflags.Experimental = original }()
 	globalflags.Experimental = true
 
-	item := &pb.View_Item{Vars: map[string]string{fakeVar: fakeVarValue}}
+	item := &pb.View_Item{Args: map[string]string{fakeVar: fakeVarValue}}
 	vars, path, err := adapter.GetItemVariables(adapters, fakeDesc, fakeFormat, item)
 	if err != nil {
 		t.Fatalf("GetItemVariables(adapters, %q, %q, %+v) failed at path %q: %v", fakeDesc, fakeFormat, item, path, err)

@@ -38,7 +38,7 @@ var (
 )
 
 // BuildPolicyValidator creates a new policy validator.
-func BuildPolicyValidator(ctx context.Context, policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (*Policy, error) {
+func BuildPolicyValidator(ctx context.Context, policy *pb.Policy, defs map[string]*pb.VisaType, sources map[string]*pb.TrustedSource, args map[string]string) (*Policy, error) {
 	allow, err := policyValidator(ctx, policy.AnyOf, defs, sources, args)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func BuildPolicyValidator(ctx context.Context, policy *pb.Policy, defs map[strin
 	return NewPolicy(allow, nil), nil
 }
 
-func policyValidator(ctx context.Context, anyOf []*cpb.ConditionSet, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (Validator, error) {
+func policyValidator(ctx context.Context, anyOf []*cpb.ConditionSet, defs map[string]*pb.VisaType, sources map[string]*pb.TrustedSource, args map[string]string) (Validator, error) {
 	if len(anyOf) == 0 {
 		return nil, nil
 	}
@@ -80,7 +80,7 @@ func policyValidator(ctx context.Context, anyOf []*cpb.ConditionSet, defs map[st
 	return Or(vor), nil
 }
 
-func expandSources(claim string, src string, sources map[string]*pb.TrustedSource) (map[string]bool, error) {
+func expandSources(visaType string, src string, sources map[string]*pb.TrustedSource) (map[string]bool, error) {
 	from, err := expandField(src)
 	if err != nil {
 		return nil, err
@@ -102,21 +102,21 @@ func expandSources(claim string, src string, sources map[string]*pb.TrustedSourc
 	if len(from) == 0 {
 		for sname, source := range sources {
 			incl := false
-			if len(source.Claims) == 0 {
+			if len(source.VisaTypes) == 0 {
 				incl = true
 			} else {
-				for cidx, c := range source.Claims {
-					if len(c) > 1 && c[0] == '^' {
+				for vidx, v := range source.VisaTypes {
+					if len(v) > 1 && v[0] == '^' {
 						// Regexp
-						re, err := regexp.Compile(c)
+						re, err := regexp.Compile(v)
 						if err != nil {
-							return nil, fmt.Errorf("source %q claim %d invalid regular expression %q: %v", sname, cidx, c, err)
+							return nil, fmt.Errorf("source %q visa %d invalid regular expression %q: %v", sname, vidx, v, err)
 						}
-						if re.Match([]byte(claim)) {
+						if re.Match([]byte(visaType)) {
 							incl = true
 							break
 						}
-					} else if c == claim {
+					} else if v == visaType {
 						incl = true
 						break
 					}
@@ -211,7 +211,7 @@ func toPattern(input string) string {
 	return q
 }
 
-func validateVisaType(typ string, defs map[string]*pb.ClaimDefinition) error {
+func validateVisaType(typ string, defs map[string]*pb.VisaType) error {
 	if _, ok := defs[typ]; !ok {
 		return fmt.Errorf("visa type %q is undefined", typ)
 	}
@@ -219,7 +219,7 @@ func validateVisaType(typ string, defs map[string]*pb.ClaimDefinition) error {
 }
 
 // ValidatePolicy does basic validation for a policy and (optionally) the variable "args" that a policy instantiation uses.
-func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.ClaimDefinition, sources map[string]*pb.TrustedSource, args map[string]string) (string, error) {
+func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.VisaType, sources map[string]*pb.TrustedSource, args map[string]string) (string, error) {
 	usedArgs := make(map[string]bool)
 	valArgs := args
 	if valArgs == nil {

@@ -89,12 +89,16 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 				httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("resource %q view %q service template %q is undefined", resname, vname, v.ServiceTemplate))
 				return
 			}
-			desc, ok := s.adapters.Descriptors[st.TargetAdapter]
+			desc, ok := s.adapters.Descriptors[st.ServiceName]
 			if !ok {
-				httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("resource %q view %q service template %q target adapter %q is undefined", resname, vname, v.ServiceTemplate, st.TargetAdapter))
+				httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("resource %q view %q service template %q service name %q is undefined", resname, vname, v.ServiceTemplate, st.ServiceName))
 				return
 			}
-			for rolename := range v.AccessRoles {
+			meta := v.Metadata
+			if meta == nil {
+				meta = map[string]string{}
+			}
+			for rolename := range v.Roles {
 				var roleCat []string
 				if sr := st.ServiceRoles[rolename]; sr != nil {
 					roleCat = sr.DamRoleCategories
@@ -117,12 +121,8 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 								InterfaceName:   interfaceName,
 								InterfaceUri:    interfaceURI,
 								ContentType:     mime,
-								Version:         v.Version,
-								Topic:           v.Topic,
-								Partition:       v.Partition,
-								Fidelity:        v.Fidelity,
-								GeoLocation:     v.GeoLocation,
-								TargetAdapter:   st.TargetAdapter,
+								Metadata:        meta,
+								ServiceName:     st.ServiceName,
 								Platform:        desc.Platform,
 								PlatformService: st.ItemFormat,
 								MaxTokenTtl:     res.MaxTokenTtl,
@@ -289,8 +289,8 @@ func (s *Service) GetViewRole(w http.ResponseWriter, r *http.Request) {
 
 // GetTargetAdapters implements the corresponding REST API endpoint.
 func (s *Service) GetTargetAdapters(w http.ResponseWriter, r *http.Request) {
-	out := &pb.TargetAdaptersResponse{
-		TargetAdapters: s.adapters.Descriptors,
+	out := &pb.ServicesResponse{
+		Services: s.adapters.Descriptors,
 	}
 	httputil.WriteProtoResp(w, out)
 }
@@ -306,8 +306,8 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 		}
 		return t, nil
 	}
-	var cfgTpi *pb.TrustedPassportIssuer
-	for _, tpi := range cfg.TrustedPassportIssuers {
+	var cfgTpi *pb.TrustedIssuer
+	for _, tpi := range cfg.TrustedIssuers {
 		if tpi.Issuer == issuer {
 			cfgTpi = tpi
 			break
@@ -332,7 +332,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 	return t, err
 }
 
-func (s *Service) createIssuerTranslator(ctx context.Context, cfgTpi *pb.TrustedPassportIssuer, secrets *pb.DamSecrets) (translator.Translator, error) {
+func (s *Service) createIssuerTranslator(ctx context.Context, cfgTpi *pb.TrustedIssuer, secrets *pb.DamSecrets) (translator.Translator, error) {
 	return translator.CreateTranslator(ctx, cfgTpi.Issuer, cfgTpi.TranslateUsing, cfgTpi.ClientId, secrets.PublicTokenKeys[cfgTpi.Issuer], "", "")
 }
 

@@ -28,30 +28,30 @@ message DamConfig {
   string version = 1;
   int64 revision = 2;
   double commit_time = 3;
-  map<string, TrustedPassportIssuer> trusted_passport_issuers = 4;
+  map<string, TrustedIssuer> trusted_issuers = 4;
   map<string, TrustedSource> trusted_sources = 5;
   map<string, Policy> policies = 6;
   map<string, Resource> resources = 7;
   map<string, common.Client> clients = 8;
   map<string, ServiceTemplate> service_templates = 9;
-  map<string, ClaimDefinition> claim_definitions = 10;
+  map<string, VisaType> visa_types = 10;
   map<string, common.TestPersona> test_personas = 11;
   ConfigOptions options = 12;
   map<string, string> ui = 13;
 }
 
-message TrustedPassportIssuer {
+message TrustedIssuer {
   string issuer = 1;
   string translate_using = 2;
-  map<string, string> ui = 3;
-  string client_id = 4;
-  string auth_url = 5;
-  string token_url = 6;
+  string client_id = 3;
+  string auth_url = 4;
+  string token_url = 5;
+  map<string, string> ui = 6;
 }
 
 message TrustedSource {
   repeated string sources = 1;
-  repeated string claims = 2;
+  repeated string visa_types = 2;
   map<string, string> ui = 3;
 }
 
@@ -63,23 +63,18 @@ message Policy {
 
 message View {
   message Item {
-    map<string, string> vars = 1;
+    map<string, string> args = 1;
   }
 
   string service_template = 1;
-  string version = 2;
-  string topic = 3;
-  string partition = 4;
-  string fidelity = 5;
-  string geo_location = 6;
-  repeated string content_types = 7;
-  map<string, AccessRole> access_roles = 8 [json_name = "roles"];
-  repeated Item items = 9;
-  string aud = 10;
-  string default_role = 11;
-  map<string, string> ui = 12;
+  map<string, string> metadata = 2;
+  repeated string content_types = 3;
+  map<string, ViewRole> roles = 4;
+  string default_role = 5;
+  repeated Item items = 6;
+  map<string, string> ui = 7;
   // Computed fields.
-  map<string, Interface> computed_interfaces = 13 [json_name = "interfaces"];
+  map<string, Interface> computed_interfaces = 8 [json_name = "interfaces"];
 }
 
 message Interface {
@@ -95,7 +90,7 @@ message Resource {
 }
 
 message ServiceTemplate {
-  string target_adapter = 1;
+  string service_name = 1;
   string item_format = 2;
   map<string, string> interfaces = 3;
   map<string, ServiceRole> service_roles = 4 [json_name = "roles"];
@@ -109,42 +104,32 @@ message ServiceRole {
   map<string, string> ui = 4;
 }
 
-message AccessRole {
-  message AccessPolicy {
+message ViewRole {
+  message ViewPolicy {
     string name = 1;
-    map<string, string> vars = 2;
+    map<string, string> args = 2;
   }
-  repeated AccessPolicy policies = 1;
+  repeated ViewPolicy policies = 1;
   repeated string computed_role_categories = 2 [json_name = "roleCategories"];
   map<string, bool> computed_policy_basis = 3 [json_name = "policyBasis"];
 }
 
 message ConfigOptions {
-  message Descriptor {
-    string label = 1;
-    string description = 2;
-    string regexp = 3;
-    string type = 4;
-    bool is_list = 5;
-    repeated string enum_values = 6;
-    string min = 7;
-    string max = 8;
-    string default_value = 9;
-  }
   bool read_only_master_realm = 1;
   repeated string whitelisted_realms = 2;
   string gcp_managed_keys_max_requested_ttl = 3;
   int32 gcp_managed_keys_per_account = 4;
   string gcp_service_account_project = 5;
-  map<string, Descriptor> computed_descriptors = 6 [json_name = "descriptors"];
+  map<string, common.Descriptor> computed_descriptors = 6
+      [json_name = "descriptors"];
   string gcp_iam_billing_project = 7;
 }
 
-message ClaimDefinition {
+message VisaType {
   map<string, string> ui = 2;
 }
 
-message TargetAdapter {
+message ServiceDescriptor {
   message Requirements {
     bool target_role = 1;
     bool target_scope = 2;
@@ -226,19 +211,15 @@ message GetFlatViewsResponse {
     string interface_name = 6;
     string interface_uri = 7;
     string content_type = 8;
-    string version = 9;
-    string topic = 10;
-    string partition = 11;
-    string fidelity = 12;
-    string geo_location = 13;
-    string target_adapter = 14;
-    string platform = 15;
-    string platform_service = 16;
-    string max_token_ttl = 17;
-    map<string, string> resource_ui = 18;
-    map<string, string> view_ui = 19;
-    map<string, string> role_ui = 20;
-    repeated string role_categories = 21;
+    map<string, string> metadata = 9;
+    string service_name = 10;
+    string platform = 11;
+    string platform_service = 12;
+    string max_token_ttl = 13;
+    map<string, string> resource_ui = 14;
+    map<string, string> view_ui = 15;
+    map<string, string> role_ui = 16;
+    repeated string role_categories = 17;
   }
   map<string, FlatView> views = 1;
 }
@@ -267,14 +248,14 @@ message GetViewResponse {
 message GetViewRolesRequest {}
 
 message GetViewRolesResponse {
-  map<string, AccessRole> roles = 1;
+  map<string, ViewRole> roles = 1;
   repeated string access = 2;
 }
 
 message GetViewRoleRequest {}
 
 message GetViewRoleResponse {
-  AccessRole role = 1;
+  ViewRole role = 1;
   repeated string access = 2;
 }
 
@@ -307,10 +288,10 @@ message GetTestResultsResponse {
   string error = 9;
 }
 
-message TargetAdaptersRequest {}
+message ServicesRequest {}
 
-message TargetAdaptersResponse {
-  map<string, TargetAdapter> target_adapters = 1;
+message ServicesResponse {
+  map<string, ServiceDescriptor> services = 1;
 }
 
 message PassportTranslatorsRequest {}
@@ -395,8 +376,8 @@ message ConfigViewRequest {
   ConfigModification modification = 2;
 }
 
-message ConfigTrustedPassportIssuerRequest {
-  TrustedPassportIssuer item = 1;
+message ConfigTrustedIssuerRequest {
+  TrustedIssuer item = 1;
   ConfigModification modification = 2;
 }
 
@@ -415,8 +396,8 @@ message ConfigOptionsRequest {
   ConfigModification modification = 2;
 }
 
-message ConfigClaimDefinitionRequest {
-  ClaimDefinition item = 1;
+message ConfigVisaTypeRequest {
+  VisaType item = 1;
   ConfigModification modification = 2;
 }
 

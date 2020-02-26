@@ -32,23 +32,23 @@ const (
 
 // AggregatorAdapter combines views from other adapters.
 type AggregatorAdapter struct {
-	desc       *pb.TargetAdapter
-	sawAdapter Adapter
+	desc       *pb.ServiceDescriptor
+	sawAdapter ServiceAdapter
 }
 
 // NewAggregatorAdapter creates a AggregatorAdapter.
-func NewAggregatorAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
-	var desc pb.TargetAdapter
+func NewAggregatorAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *ServiceAdapters) (ServiceAdapter, error) {
+	var desc pb.ServiceDescriptor
 	if err := store.Read(AdapterDataType, storage.DefaultRealm, storage.DefaultUser, aggregatorName, storage.LatestRev, &desc); err != nil {
 		return nil, fmt.Errorf("reading %q descriptor: %v", aggregatorName, err)
 	}
-	sawAdapter, ok := adapters.ByName[SawAdapterName]
+	sawService, ok := adapters.ByName[SawAdapterName]
 	if !ok {
 		return nil, fmt.Errorf("SAW adapter %q not available at time of view aggregator adapter initialization", SawAdapterName)
 	}
 	return &AggregatorAdapter{
 		desc:       &desc,
-		sawAdapter: sawAdapter,
+		sawAdapter: sawService,
 	}, nil
 }
 
@@ -62,8 +62,8 @@ func (a *AggregatorAdapter) Platform() string {
 	return a.sawAdapter.Platform()
 }
 
-// Descriptor returns a TargetAdapter descriptor.
-func (a *AggregatorAdapter) Descriptor() *pb.TargetAdapter {
+// Descriptor returns a Service descriptor.
+func (a *AggregatorAdapter) Descriptor() *pb.ServiceDescriptor {
 	return a.desc
 }
 
@@ -73,7 +73,7 @@ func (a *AggregatorAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error) {
+func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *ServiceAdapters) (string, error) {
 	if view == nil {
 		return "", nil
 	}
@@ -83,7 +83,7 @@ func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.Servic
 	adapterName := ""
 	adapterST := ""
 	for iIdx, item := range view.Items {
-		vars, path, err := GetItemVariables(adapters, template.TargetAdapter, template.ItemFormat, item)
+		vars, path, err := GetItemVariables(adapters, template.ServiceName, template.ItemFormat, item)
 		if err != nil {
 			return httputil.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), path), err
 		}
@@ -102,21 +102,21 @@ func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.Servic
 			return httputil.StatusPath("resources", refResName, "views", refViewName, "serviceTemplate"), fmt.Errorf("view service template %q not found", refView.ServiceTemplate)
 		}
 		if len(adapterName) == 0 {
-			adapterName = refSt.TargetAdapter
+			adapterName = refSt.ServiceName
 			adapterST = refView.ServiceTemplate
-		} else if adapterName != refSt.TargetAdapter {
-			return httputil.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view service template %q target adapter %q does not match other items using target adapter %q", refView.ServiceTemplate, refSt.TargetAdapter, adapterName)
+		} else if adapterName != refSt.ServiceName {
+			return httputil.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view service template %q target adapter %q does not match other items using target adapter %q", refView.ServiceTemplate, refSt.ServiceName, adapterName)
 		}
 	}
 	if adapterName == "" {
 		return httputil.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("included views offer no items to aggregate")
 	}
-	destAdapter, ok := adapters.Descriptors[adapterName]
+	destService, ok := adapters.Descriptors[adapterName]
 	if !ok {
-		return httputil.StatusPath("serviceTemplates", adapterST, "targetAdapter"), fmt.Errorf("target adapter %q not found", adapterName)
+		return httputil.StatusPath("serviceTemplates", adapterST, "targetService"), fmt.Errorf("target adapter %q not found", adapterName)
 	}
-	if !destAdapter.Properties.CanBeAggregated {
-		return httputil.StatusPath("serviceTemplates", adapterST, "targetAdapter", "properties", "canBeAggregated"), fmt.Errorf("aggregation on target adapter %q not supported", adapterName)
+	if !destService.Properties.CanBeAggregated {
+		return httputil.StatusPath("serviceTemplates", adapterST, "targetService", "properties", "canBeAggregated"), fmt.Errorf("aggregation on target adapter %q not supported", adapterName)
 	}
 	return "", nil
 }

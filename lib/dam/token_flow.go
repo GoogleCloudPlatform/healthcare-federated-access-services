@@ -117,9 +117,9 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 	if !ok {
 		return nil, http.StatusInternalServerError, fmt.Errorf("view %q service template %q is not defined", viewName, view.ServiceTemplate)
 	}
-	adapt := s.adapters.ByName[st.TargetAdapter]
+	service := s.adapters.ByName[st.ServiceName]
 	var aggregates []*adapter.AggregateView
-	if adapt.IsAggregator() {
+	if service.IsAggregator() {
 		aggregates, err = resolveAggregates(res, view, cfg, s.adapters)
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
@@ -144,7 +144,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 		View:            view,
 		TokenFormat:     tokenFormat,
 	}
-	result, err := adapt.MintToken(ctx, adapterAction)
+	result, err := service.MintToken(ctx, adapterAction)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
 	}
@@ -154,7 +154,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 			Account:     result.Account,
 			AccessToken: result.Token,
 			ExpiresIn:   uint32(ttl.Seconds()),
-			Platform:    adapt.Platform(),
+			Platform:    service.Platform(),
 			// TODO: remove these older fields
 			Name: resourceName,
 			View: makeView(viewName, view, res, cfg, s.hidePolicyBasis, s.adapters),
@@ -168,7 +168,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 	return nil, http.StatusBadRequest, fmt.Errorf("adapter cannot create key file format")
 }
 
-func (s *Service) oauthConf(brokerName string, broker *pb.TrustedPassportIssuer, clientSecret string, scopes []string) *oauth2.Config {
+func (s *Service) oauthConf(brokerName string, broker *pb.TrustedIssuer, clientSecret string, scopes []string) *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     broker.ClientId,
 		ClientSecret: clientSecret,
@@ -264,7 +264,7 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (*authHandlerOut, 
 		return nil, http.StatusServiceUnavailable, err
 	}
 
-	broker, ok := cfg.TrustedPassportIssuers[s.defaultBroker]
+	broker, ok := cfg.TrustedIssuers[s.defaultBroker]
 	if !ok {
 		return nil, http.StatusBadRequest, fmt.Errorf("broker %q is not defined", s.defaultBroker)
 	}
@@ -402,7 +402,7 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 		return nil, http.StatusServiceUnavailable, err
 	}
 
-	broker, ok := cfg.TrustedPassportIssuers[state.Broker]
+	broker, ok := cfg.TrustedIssuers[state.Broker]
 	if !ok {
 		return nil, http.StatusBadRequest, fmt.Errorf("unknown identity broker %q", state.Broker)
 	}

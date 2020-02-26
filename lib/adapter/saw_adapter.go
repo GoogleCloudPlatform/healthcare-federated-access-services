@@ -40,13 +40,13 @@ const (
 
 // SawAdapter is a Service Account Warehouse (SAW) adapter.
 type SawAdapter struct {
-	desc      *pb.TargetAdapter
+	desc      *pb.ServiceDescriptor
 	warehouse clouds.ResourceTokenCreator
 }
 
 // NewSawAdapter creates a Service Account Warehouse (SAW) adapter.
-func NewSawAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *TargetAdapters) (Adapter, error) {
-	var desc pb.TargetAdapter
+func NewSawAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *ServiceAdapters) (ServiceAdapter, error) {
+	var desc pb.ServiceDescriptor
 	if err := store.Read(AdapterDataType, storage.DefaultRealm, storage.DefaultUser, sawName, storage.LatestRev, &desc); err != nil {
 		return nil, fmt.Errorf("reading %q descriptor: %v", sawName, err)
 	}
@@ -66,8 +66,8 @@ func (a *SawAdapter) Platform() string {
 	return sawPlatform
 }
 
-// Descriptor returns a TargetAdapter descriptor.
-func (a *SawAdapter) Descriptor() *pb.TargetAdapter {
+// Descriptor returns a ServiceDescriptor descriptor.
+func (a *SawAdapter) Descriptor() *pb.ServiceDescriptor {
 	return a.desc
 }
 
@@ -77,7 +77,7 @@ func (a *SawAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *TargetAdapters) (string, error) {
+func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *ServiceAdapters) (string, error) {
 	if cfg.Options == nil || len(cfg.Options.GcpServiceAccountProject) == 0 {
 		return httputil.StatusPath("serviceTemplates", templateName, "targetAdapter"), fmt.Errorf("target adapter uses service accounts but options.gcpServiceAccountProject is not defined")
 	}
@@ -119,7 +119,7 @@ func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRol
 	}
 	items := make([]map[string]string, len(view.Items))
 	for index, item := range view.Items {
-		items[index] = scrubVars(item.Vars)
+		items[index] = scrubVars(item.Args)
 	}
 	billingProject := cfg.Options.GcpIamBillingProject
 	if len(billingProject) == 0 {

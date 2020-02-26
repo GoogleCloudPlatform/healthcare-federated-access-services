@@ -19,6 +19,18 @@ package common;
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
 
+message Descriptor {
+  string label = 1;
+  string description = 2;
+  string regexp = 3;
+  string type = 4;
+  bool is_list = 5;
+  repeated string enum_values = 6;
+  string min = 7;
+  string max = 8;
+  string default_value = 9;
+}
+
 message Condition {
   string type = 1;
   string source = 2;

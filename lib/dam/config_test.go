@@ -47,8 +47,8 @@ func TestConfigHandlers(t *testing.T) {
 
 	role := `{"roleCategories":["metadata"],"policyBasis":{"AcceptedTermsAndPolicies":true,"ResearcherStatus":true}}`
 	roles := `{"discovery":` + role + `}`
-	beacon := `{"serviceTemplate":"beacon","version":"Phase 3","topic":"variants","partition":"all","fidelity":"discovery","geoLocation":"gcp:na/us/us-central1/us-central1-a","contentTypes":["application/bam"],"roles":` + roles + `,"ui":{"description":"Search data from Beacon Discovery","label":"Beacon Discovery"},"interfaces":{"http:beacon":{"uri":["https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"]}}}`
-	views := `{"beacon":` + beacon + `,"gcs_read":{"serviceTemplate":"gcs","version":"Phase 3","topic":"variants","partition":"all","fidelity":"normalized","geoLocation":"gcp:na/us/us-central1/us-central1-a","contentTypes":["application/bam"],"roles":{"viewer":{"roleCategories":["list","metadata","read"],"policyBasis":{"AcceptedTermsAndPolicies":true,"ResearcherStatus":true}}},"ui":{"description":"GCS File Read","label":"File Read"},"interfaces":{"gcp:gs":{"uri":["gs://ga4gh-apis-controlled-access"]},"http:gcp:gs":{"uri":["https://www.googleapis.com/storage/v1/b/ga4gh-apis-controlled-access"]}}}}`
+	beacon := `{"serviceTemplate":"beacon",*,"contentTypes":["application/bam"],"roles":` + roles + `,"ui":{"description":"Search data from Beacon Discovery","label":"Beacon Discovery"},"interfaces":{"http:beacon":{"uri":["https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"]}}}`
+	views := `{"beacon":` + beacon + `,"gcs_read":{"serviceTemplate":"gcs",*,"contentTypes":["application/bam"],"roles":{"viewer":{"roleCategories":["list","metadata","read"],"policyBasis":{"AcceptedTermsAndPolicies":true,"ResearcherStatus":true}}},"ui":{"description":"GCS File Read","label":"File Read"},"interfaces":{"gcp:gs":{"uri":["gs://ga4gh-apis-controlled-access"]},"http:gcp:gs":{"uri":["https://www.googleapis.com/storage/v1/b/ga4gh-apis-controlled-access"]}}}}`
 	resource := `{"views":` + views + `,"maxTokenTtl":"1h","ui":{"applyUrl":"http://apply.ga4gh-apis.org","description":"Google demo of GA4GH APIs","imageUrl":"https://info.ga4gh-apis.org/images/image.jpg","infoUrl":"http://info.ga4gh-apis.org","label":"GA4GH APIs","troubleshootUrl":"http://troubleshoot.ga4gh-apis.org"}}`
 
 	tests := []test.HandlerTest{
@@ -61,19 +61,19 @@ func TestConfigHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/resources/ga4gh-apis",
-			Output: `{"resource":` + resource + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer"]}`,
+			Output: `*{"resource":` + resource + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer"]}*`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views",
-			Output: `{"views":` + views + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer"]}`,
+			Output: `*{"views":` + views + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer"]}*`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views/beacon",
-			Output: `{"view":` + beacon + `,"access":["ga4gh-apis/beacon/discovery"]}`,
+			Output: `*{"view":` + beacon + `,"access":["ga4gh-apis/beacon/discovery"]}*`,
 			Status: http.StatusOK,
 		},
 		{
@@ -91,13 +91,13 @@ func TestConfigHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/flatViews",
-			Output: `*"views":{"/dataset_example/bq_read/viewer/http:gcp:bq/text/csv":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/bq_read/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"bq_read","roleName":"viewer","interfaceName":"http:gcp:bq","interfaceUri":"https://www.googleapis.com/bigquery/v1/projects/dataset-example-project","contentType":"*","version":"*","topic":"*","partition":"*","fidelity":"*","geoLocation":"gcp:na/us/us-central1/us-central1-b","targetAdapter":"token:gcp:sa","platform":"gcp","platformService":"bigquery","maxTokenTtl":"3h","resourceUi":{*},"viewUi":{*},"roleUi":{*},"roleCategories":["list","metadata","read"]},"/dataset_example/gcp/viewer/gcp:gs/application/bam":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/gcp/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"gcp","roleName":"viewer","interfaceName":"gcp:gs","interfaceUri":"gs://dataset-example-bucket2","contentType":"application/bam"*`,
+			Output: `*"views":{"/dataset_example/bq_read/viewer/http:gcp:bq/text/csv":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/bq_read/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"bq_read","roleName":"viewer","interfaceName":"http:gcp:bq","interfaceUri":"https://www.googleapis.com/bigquery/v1/projects/dataset-example-project","contentType":"*","metadata":{*},"serviceName":"token:gcp:sa","platform":"gcp","platformService":"bigquery","maxTokenTtl":"3h","resourceUi":{*},"viewUi":{*},"roleUi":{*},"roleCategories":["list","metadata","read"]},"/dataset_example/gcp/viewer/gcp:gs/application/bam":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/gcp/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"gcp","roleName":"viewer","interfaceName":"gcp:gs","interfaceUri":"gs://dataset-example-bucket2","contentType":"application/bam"*`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/master/targetAdapters",
-			Output: `*"token:gcp:sa":{"platform":"gcp","requirements":{"targetRole":true},"properties":{"canBeAggregated":true},"itemFormats":{"bigquery":{"variables":{"dataset":*,"project":*},"ui":*},"gcs":{"variables":{"bucket":*,"paths":*,"project":*,"type":*}*`,
+			Output: `*"token:gcp:sa":{"platform":"gcp",*,*"properties":{"canBeAggregated":true},"itemFormats":{"bigquery":{"variables":{"dataset":*,"project":*},"ui":*},"gcs":{"variables":{"bucket":*,"paths":*,"project":*,"type":*}*`,
 			Status: http.StatusOK,
 		},
 		{

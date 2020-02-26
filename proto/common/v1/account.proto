@@ -83,5 +83,5 @@ message IdentityProvider {
   string translate_using = 6;
   string client_id = 7;
   map<string, string> ui = 8;
-  bool use_passport_visa = 9;
+  repeated string passport_versions = 9;
 }

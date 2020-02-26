@@ -6,7 +6,7 @@
     "label": "Minimum Test DAM",
     "description": "Minimum Test DAM"
   },
-  "trustedPassportIssuers": {
+  "trustedIssuers": {
     "test": {
       "issuer": "https://hydra.example.com/",
       "clientId": "00000000-0000-0000-0000-000000000000",
@@ -30,7 +30,7 @@
       ],
       "ui": {
         "label": "the broad",
-        "description": "the broad claim source"
+        "description": "the broad visa source"
       }
     }
   },
@@ -58,17 +58,19 @@
       "views": {
         "files": {
           "serviceTemplate": "gcs",
-          "version": "Phase 3",
-          "topic": "variants",
-          "partition": "all",
-          "fidelity": "normalized",
-          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "metadata": {
+            "version": "Phase 3",
+            "topic": "variants",
+            "partition": "all",
+            "fidelity": "normalized",
+            "geoLocation": "gcp:na/us/us-central1/us-central1-a"
+          },
           "contentTypes": [
             "application/bam"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
                 "project": "ga4gh-apis",
                 "bucket": "ga4gh-apis-controlled-access"
               }
@@ -101,7 +103,7 @@
   },
   "serviceTemplates": {
     "gcs": {
-      "targetAdapter": "token:gcp:sa",
+      "serviceName": "token:gcp:sa",
       "itemFormat": "gcs",
       "roles": {
         "viewer": {
@@ -122,11 +124,11 @@
       },
       "ui": {
         "label": "Google Cloud Storage",
-        "description": "GCS file read"
+        "description": "Offers Google Cloud Storage access"
       }
     }
   },
-  "claimDefinitions": {
+  "visaTypes": {
     "ResearcherStatus": {
       "ui": {
         "label": "Bona Fide Researcher Status",

@@ -36,16 +36,16 @@ func TestAggregatorAdapter(t *testing.T) {
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
 	}
-	adapters := &adapter.TargetAdapters{
-		ByName:      make(map[string]adapter.Adapter),
-		Descriptors: make(map[string]*pb.TargetAdapter),
+	adapters := &adapter.ServiceAdapters{
+		ByName:      make(map[string]adapter.ServiceAdapter),
+		Descriptors: make(map[string]*pb.ServiceDescriptor),
 	}
-	sawAdapt, err := adapter.NewSawAdapter(store, warehouse, secrets, adapters)
+	saws, err := adapter.NewSawAdapter(store, warehouse, secrets, adapters)
 	if err != nil {
 		t.Fatalf("error creating SAW adapter: %v", err)
 	}
-	adapters.ByName[sawAdapt.Name()] = sawAdapt
-	adapters.Descriptors[sawAdapt.Name()] = sawAdapt.Descriptor()
+	adapters.ByName[saws.Name()] = saws
+	adapters.Descriptors[saws.Name()] = saws.Descriptor()
 
 	adapt, err := adapter.NewAggregatorAdapter(store, warehouse, secrets, adapters)
 	if err != nil {

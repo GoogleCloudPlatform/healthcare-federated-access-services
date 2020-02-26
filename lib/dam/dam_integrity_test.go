@@ -49,14 +49,14 @@ func TestCheckIntegrity_BadCfg(t *testing.T) {
 		{
 			desc: "invalid bucket name",
 			mutation: func(cfg *pb.DamConfig) {
-				cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = "!@@@@"
+				cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Args["bucket"] = "!@@@@"
 			},
 			want: codes.InvalidArgument,
 		},
 		{
 			desc: "empty bucket name",
 			mutation: func(cfg *pb.DamConfig) {
-				cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Vars["bucket"] = ""
+				cfg.Resources["ga4gh-apis"].Views["gcs_read"].Items[0].Args["bucket"] = ""
 			},
 			want: codes.OK,
 		},

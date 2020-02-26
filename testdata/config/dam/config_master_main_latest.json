@@ -6,7 +6,7 @@
     "label": "Test DAM",
     "description": "Test DAM"
   },
-  "trustedPassportIssuers": {
+  "trustedIssuers": {
     "test": {
       "issuer": "https://hydra.example.com/",
       "clientId": "00000000-0000-0000-0000-000000000000",
@@ -84,7 +84,7 @@
       ],
       "ui": {
         "label": "nih institutes",
-        "description": "nih institutes claim source"
+        "description": "nih institutes visa source"
       }
     },
     "the_broad": {
@@ -94,21 +94,21 @@
       ],
       "ui": {
         "label": "the broad",
-        "description": "the broad claim source"
+        "description": "the broad visa source"
       }
     },
     "elixir_institutes": {
       "sources": [
         "https://example.org/oidc",
-        "https://ga4gh.elixir-czech.org/claims"
+        "https://ga4gh.elixir-czech.org/visas"
       ],
-      "claims": [
+      "visaTypes": [
         "ResearcherStatus",
         "LinkedIdentities"
       ],
       "ui": {
         "label": "elixir institutes",
-        "description": "elixir institutes claim source"
+        "description": "elixir institutes visa source"
       }
     },
     "eu_universities": {
@@ -116,43 +116,43 @@
         "https://example.org/oidc",
         "https://example.edu"
       ],
-      "claims": [
+      "visaTypes": [
         "AcceptedTermsAndPolicies",
         "AffiliationAndRole",
         "ResearcherStatus"
       ],
       "ui": {
         "label": "eu universities",
-        "description": "eu universities claim source"
+        "description": "eu universities visa source"
       }
     },
     "us_universities": {
       "sources": [
         "https://example.org/oidc",
-        "https://ga4gh.stanford.edu/claims"
+        "https://ga4gh.stanford.edu/visas"
       ],
-      "claims": [
+      "visaTypes": [
         "AcceptedTermsAndPolicies",
         "ResearcherStatus"
       ],
       "ui": {
         "label": "us universities",
-        "description": "us universities claim source"
+        "description": "us universities visa source"
       }
     },
     "research_companies": {
       "sources": [
         "https://example.org/oidc",
-        "https://ga4gh.google.com/claims",
-        "https://ga4gh.dnastack.com/claims"
+        "https://ga4gh.google.com/visas",
+        "https://ga4gh.dnastack.com/visas"
       ],
-      "claims": [
+      "visaTypes": [
         "AcceptedTermsAndPolicies",
         "ResearcherStatus"
       ],
       "ui": {
         "label": "research companies",
-        "description": "research companies claim source"
+        "description": "research companies visa source"
       }
     }
   },
@@ -235,22 +235,24 @@
       "views": {
         "bq_read": {
           "serviceTemplate": "bigquery",
-          "version": "dataset v1",
-          "topic": "FHIR",
-          "partition": "all",
-          "fidelity": "normalized",
-          "geoLocation": "gcp:na/us/us-central1/us-central1-b",
+          "metadata": {
+            "version": "dataset v1",
+            "topic": "FHIR",
+            "partition": "all",
+            "fidelity": "normalized",
+            "geoLocation": "gcp:na/us/us-central1/us-central1-b"
+          },
           "contentTypes": [
             "text/csv"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
                 "project": "dataset-example-project",
                 "dataset": "dataset-example-view1"
               }
             }, {
-              "vars": {
+              "args": {
                 "project": "dataset-example-project",
                 "dataset": "dataset-example-view2"
               }
@@ -261,7 +263,7 @@
               "policies": [
                 {
                   "name":"dac",
-                  "vars": {
+                  "args": {
                     "DATASET": "phs000710"
                   }
                 }
@@ -276,22 +278,24 @@
         },
         "gcs_read": {
           "serviceTemplate": "gcs",
-          "version": "dataset v1",
-          "topic": "FHIR",
-          "partition": "all",
-          "fidelity": "normalized",
-          "geoLocation": "gcp:na/us/us-central1/us-central1-b",
+          "metadata": {
+            "version": "dataset v1",
+            "topic": "FHIR",
+            "partition": "all",
+            "fidelity": "normalized",
+            "geoLocation": "gcp:na/us/us-central1/us-central1-b"
+          },
           "contentTypes": [
             "application/bam"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
                 "project": "dataset-example-project",
                 "bucket": "dataset-example-bucket1"
               }
             }, {
-              "vars": {
+              "args": {
                 "project": "dataset-example-project",
                 "bucket": "dataset-example-bucket2"
               }
@@ -302,7 +306,7 @@
               "policies": [
                 {
                   "name": "dac",
-                  "vars": {
+                  "args": {
                     "DATASET": "phs000710"
                   }
                 }
@@ -317,23 +321,25 @@
         },
         "gcs_payer": {
           "serviceTemplate": "gcs",
-          "version": "dataset v1",
-          "topic": "FHIR",
-          "partition": "all",
-          "fidelity": "normalized",
-          "geoLocation": "gcp:na/us/us-central1/us-central1-b",
+          "metadata": {
+            "version": "dataset v1",
+            "topic": "FHIR",
+            "partition": "all",
+            "fidelity": "normalized",
+            "geoLocation": "gcp:na/us/us-central1/us-central1-b"
+          },
           "contentTypes": [
             "application/bam"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
                 "project": "dataset-example-project",
                 "bucket": "dataset-example-payer-bucket1",
                 "type": "requester-pays"
               }
             }, {
-              "vars": {
+              "args": {
                 "project": "dataset-example-project",
                 "bucket": "dataset-example-payer-bucket2",
                 "type": "requester-pays",
@@ -346,7 +352,7 @@
               "policies": [
                 {
                   "name": "dac",
-                  "vars": {
+                  "args": {
                     "DATASET": "phs000710"
                   }
                 }
@@ -361,22 +367,24 @@
         },
         "gcp": {
           "serviceTemplate": "views",
-          "version": "dataset v1",
-          "topic": "FHIR",
-          "partition": "all",
-          "fidelity": "normalized",
-          "geoLocation": "gcp:na/us/us-central1",
+          "metadata": {
+            "version": "dataset v1",
+            "topic": "FHIR",
+            "partition": "all",
+            "fidelity": "normalized",
+            "geoLocation": "gcp:na/us/us-central1"
+          },
           "contentTypes": [
             "application/bam"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
                 "resource": "dataset_example",
                 "view": "bq_read"
               }
             }, {
-              "vars": {
+              "args": {
                 "resource": "dataset_example",
                 "view": "gcs_read"
               }
@@ -387,7 +395,7 @@
               "policies": [
                 {
                   "name": "dac",
-                  "vars": {
+                  "args": {
                     "DATASET": "phs000711"
                   }
                 }
@@ -415,22 +423,24 @@
       "views": {
         "beacon": {
           "serviceTemplate": "beacon",
-          "version": "Phase 3",
-          "topic": "variants",
-          "partition": "all",
-          "fidelity": "discovery",
-          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "metadata": {
+            "version": "Phase 3",
+            "topic": "variants",
+            "partition": "all",
+            "fidelity": "discovery",
+            "geoLocation": "gcp:na/us/us-central1/us-central1-a"
+          },
           "contentTypes": [
             "application/bam"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
+                "aud": "https://ga4gh-apis-beacon.dnastack.com",
                 "url": "https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"
               }
             }
           ],
-          "aud": "https://ga4gh-apis-beacon.dnastack.com",
           "roles": {
             "discovery": {
               "policies": [
@@ -446,17 +456,19 @@
         },
         "gcs_read": {
           "serviceTemplate": "gcs",
-          "version": "Phase 3",
-          "topic": "variants",
-          "partition": "all",
-          "fidelity": "normalized",
-          "geoLocation": "gcp:na/us/us-central1/us-central1-a",
+          "metadata": {
+            "version": "Phase 3",
+            "topic": "variants",
+            "partition": "all",
+            "fidelity": "normalized",
+            "geoLocation": "gcp:na/us/us-central1/us-central1-a"
+          },
           "contentTypes": [
             "application/bam"
           ],
           "items": [
             {
-              "vars": {
+              "args": {
                 "project": "ga4gh-apis",
                 "bucket": "ga4gh-apis-controlled-access"
               }
@@ -489,7 +501,7 @@
   },
   "serviceTemplates": {
     "beacon": {
-      "targetAdapter": "token:jwt:gatekeeper",
+      "serviceName": "token:jwt:gatekeeper",
       "itemFormat": "url",
       "roles" : {
         "basic_discovery": {
@@ -519,11 +531,11 @@
       },
       "ui": {
         "label": "Beacon Discovery Search",
-        "description": "Search data from Beacon Discovery"
+        "description": "Query genome data from Beacon Discovery"
       }
     },
     "gcs": {
-      "targetAdapter": "token:gcp:sa",
+      "serviceName": "token:gcp:sa",
       "itemFormat": "gcs",
       "roles": {
         "viewer": {
@@ -566,11 +578,11 @@
       },
       "ui": {
         "label": "Google Cloud Storage",
-        "description": "Google Cloud Storage"
+        "description": "Offers Google Cloud Storage access"
       }
     },
     "bigquery": {
-      "targetAdapter": "token:gcp:sa",
+      "serviceName": "token:gcp:sa",
       "itemFormat": "bigquery",
       "roles": {
         "viewer": {
@@ -601,12 +613,11 @@
       },
       "ui": {
         "label": "Google BigQuery",
-        "description": "Google BigQuery"
-
+        "description": "Offers Google BigQuery access"
       }
     },
     "views": {
-      "targetAdapter": "token:aggregate:view",
+      "serviceName": "token:aggregate:view",
       "itemFormat": "view",
       "roles": {
         "viewer": {
@@ -619,11 +630,11 @@
       },
       "ui": {
         "label": "Multiple Resource Views",
-        "description": "Offers access across multiple views"
+        "description": "Offers Resource Viewer access across multiple views"
       }
     }
   },
-  "claimDefinitions": {
+  "visaTypes": {
     "AffiliationAndRole": {
       "ui": {
         "label": "Affiliation and Role",
