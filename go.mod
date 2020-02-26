@@ -3,6 +3,7 @@ module github.com/GoogleCloudPlatform/healthcare-federated-access-services
 go 1.13
 
 require (
+  bitbucket.org/creachadair/stringset v0.0.8
   cloud.google.com/go v0.44.3
   cloud.google.com/go/bigquery v1.0.1 // indirect
   cloud.google.com/go/datastore v1.0.0
@@ -13,7 +14,7 @@ require (
   github.com/go-openapi/strfmt v0.19.3
   github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
   github.com/golang/mock v1.3.1
-  github.com/golang/protobuf v1.3.2
+  github.com/golang/protobuf v1.3.3
   github.com/google/go-cmp v0.3.1
   github.com/gorilla/mux v1.7.3
   github.com/hashicorp/golang-lru v0.5.3 // indirect
@@ -31,8 +32,8 @@ require (
   golang.org/x/text v0.3.2
   golang.org/x/tools v0.0.0-20191115202509-3a792d9c32b2 // indirect
   google.golang.org/api v0.9.0
-  google.golang.org/genproto v0.0.0-20190927181202-20e1ac93f88c
-  google.golang.org/grpc v1.24.0
+  google.golang.org/genproto v0.0.0-20200225123651-fc8f55426688
+  google.golang.org/grpc v1.27.1
   google.golang.org/protobuf v0.0.0-20191114094919-1c31032e00bd
   gopkg.in/square/go-jose.v2 v2.3.1
   gopkg.in/yaml.v2 v2.2.5 // indirect
