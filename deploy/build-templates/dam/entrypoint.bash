@@ -43,11 +43,6 @@ function start_dam() {
   # DEFAULT_BROKER is the default identity broker.
   export DEFAULT_BROKER="default_ic"
 
-  # Reset clients in hydra.
-  cd /hcls-fa
-  go run gcp/hydra_reset/main.go -alsologtostderr
-  echo Reseted clients in HYDRA
-
   echo Starting DAM
   cd /hcls-fa
   ./dam -alsologtostderr &

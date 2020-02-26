@@ -44,11 +44,6 @@ function start_ic() {
   # ACCOUNT_DOMAIN determines the URL domain for accounts (user@domain).
   export ACCOUNT_DOMAIN="${SERVICE_NAME?}-dot-${PROJECT}.appspot.com"
 
-  # Reset clients in hydra.
-  cd /hcls-fa
-  go run gcp/hydra_reset/main.go -alsologtostderr
-  echo Reseted clients in HYDRA
-
   echo Starting IC
   cd /hcls-fa
   ./ic -alsologtostderr &
