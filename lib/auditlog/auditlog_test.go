@@ -100,6 +100,58 @@ func TestWriteAccessLog(t *testing.T) {
 	}
 }
 
+func TestWritePolicyDecisionLog(t *testing.T) {
+	server, close := fakesdl.New()
+	defer close()
+
+	serviceinfo.Project = "p1"
+	serviceinfo.Type = "t1"
+	serviceinfo.Name = "n1"
+
+	pl := &PolicyDecisionLog{
+		TokenID:       "tid",
+		TokenSubject:  "sub",
+		TokenIssuer:   "http://issuer.example.com",
+		Resource:      "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
+		TTL:           "1d",
+		PassAuthCheck: false,
+		ErrorType:     "untrusted_issuer",
+		Message:       `{"error": "This is a json err"}`,
+	}
+
+	WritePolicyDecisionLog(server.Client, pl)
+	server.Client.Close()
+
+	want := []*lpb.WriteLogEntriesRequest{{
+		LogName: "projects/fake-project-id/logs/federated-access-audit",
+		Entries: []*lepb.LogEntry{{
+			Severity: lspb.LogSeverity_DEFAULT,
+			Payload:  &lepb.LogEntry_TextPayload{TextPayload: pl.Message},
+			Labels: map[string]string{
+				"type":            "policy_decision_log",
+				"token_id":        "tid",
+				"token_subject":   "sub",
+				"token_issuer":    "http://issuer.example.com",
+				"pass_auth_check": "false",
+				"error_type":      "untrusted_issuer",
+				"resource":        "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
+				"ttl":             "1d",
+				"project_id":      "p1",
+				"service_type":    "t1",
+				"service_name":    "n1",
+			},
+		}},
+	}}
+
+	got := server.Server.Logs
+
+	got[0].Entries[0].Timestamp = nil
+	got[0].Resource = nil
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+	}
+}
+
 func TestWriteAccessLog_Disable_nil(t *testing.T) {
 	writeLog(nil, logging.Entry{Payload: "this is a log"})
 

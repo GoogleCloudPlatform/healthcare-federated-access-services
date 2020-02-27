@@ -86,6 +86,50 @@ func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog)
 	writeLog(client, entry)
 }
 
+// PolicyDecisionLog logs the dataset access request be granted or denied and the reason.
+type PolicyDecisionLog struct {
+	// TokenID is the id of the token, maybe "jti".
+	TokenID string
+	// TokenSubject is the "sub" of the token.
+	TokenSubject string
+	// TokenIssuer is the iss of the token.
+	TokenIssuer string
+	// Resource identifies the dataset.
+	Resource string
+	// TTL that user requested to grant.
+	TTL string
+	// PassAuthCheck if the request pass the auth checker.
+	PassAuthCheck bool
+	// ErrorType of deny.
+	ErrorType string
+	// Message of deny.
+	Message string
+}
+
+// WritePolicyDecisionLog puts the policy decision log to StackDriver.
+func WritePolicyDecisionLog(client *logging.Client, log *PolicyDecisionLog) {
+	labels := map[string]string{
+		"type":            "policy_decision_log",
+		"token_id":        log.TokenID,
+		"token_subject":   log.TokenSubject,
+		"token_issuer":    log.TokenIssuer,
+		"pass_auth_check": strconv.FormatBool(log.PassAuthCheck),
+		"error_type":      log.ErrorType,
+		"resource":        log.Resource,
+		"ttl":             log.TTL,
+		"project_id":      serviceinfo.Project,
+		"service_type":    serviceinfo.Type,
+		"service_name":    serviceinfo.Name,
+	}
+
+	entry := logging.Entry{
+		Labels:  labels,
+		Payload: log.Message,
+	}
+
+	writeLog(client, entry)
+}
+
 func writeLog(client *logging.Client, e logging.Entry) {
 	if globalflags.DisableAuditLog {
 		return
