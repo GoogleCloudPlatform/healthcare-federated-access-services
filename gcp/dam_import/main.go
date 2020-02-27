@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
@@ -108,17 +110,23 @@ func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, 
 	}
 
 	for _, email := range emails {
-		if err := wh.RemoveServiceAccount(ctx, project, email); err != nil {
-			if errors < 3 {
-				glog.Errorf("deleting service account %q on project %q failed: %v", email, project, err)
-			}
+		err := wh.RemoveServiceAccount(ctx, project, email)
+		switch status.Code(err) {
+		case codes.OK:
+			removed++
+
+		case codes.NotFound:
+			glog.Infof("deleting service account %q on project %q: acccount does not exist.", email, project)
+
+		default:
 			errors++
 			if errors >= maxErrors {
 				aborted = "+ (aborted early)"
 				break
 			}
-		} else {
-			removed++
+			if errors < 3 {
+				glog.Errorf("deleting service account %q on project %q failed: %v", email, project, err)
+			}
 		}
 	}
 	glog.Infof("status of removing service accounts: project %q, prefix %q, matched %d, removed %d, skipped %d, errors %d%s", project, accountPrefix, len(emails), removed, skipped, errors, aborted)
