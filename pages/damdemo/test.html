@@ -318,20 +318,23 @@
           var res = cart.resources[name];
           var paths = [];
           var btnClass = "";
-          for (var i in res.interfaces) {
-            for (var uri in res.interfaces[i].uri) {
-              var p = res.interfaces[i].uri[uri];
-              if (i == "http:gcp:gs") {
+          for (var interName in res.interfaces) {
+            var list = res.interfaces[interName].items
+            for (var idx = 0; idx < list.length; idx++) {
+              var inter = list[idx];
+              var path = inter.uri
+              if (interName == "http:gcp:gs") {
                 var num = browsePaths.length;
                 browsePaths.push({
-                  url: p,
+                  url: path,
+                  labels: inter.labels,
                   access: res.access
                 });
-                p = `<span class="browse" onclick="browseDataset(${num})">${escapeHTML(p)}</span>`;
+                path = `<span class="browse" onclick="browseDataset(${num})">${escapeHTML(path)}</span>`;
               } else {
-                p = escapeHTML(p);
+                path = escapeHTML(path);
               }
-              paths.push(p);
+              paths.push(path);
             }
           }
           html += `<tr><td>${escapeHTML(name)}</td><td>${paths.join(", ")}</td><td>${escapeHTML(res.permissions.join(", "))}</td></tr>`;
@@ -355,7 +358,12 @@
       }
       function browseDataset(index) {
         var entry = browsePaths[index];
-        var token = cart.access[entry.access].access_token;
+        var creds = cart.access[entry.access] && cart.access[entry.access].credentials;
+        if (!creds) {
+          displayError("missing credentials", "", JSON.stringify(cart.access[entry.access], undefined, 2));
+          return;
+        }
+        var token = creds.access_token;
         var url = entry.url.length ? entry.url+"/o/" + "?access_token=" + token : "";
         if (!url) {
           return;

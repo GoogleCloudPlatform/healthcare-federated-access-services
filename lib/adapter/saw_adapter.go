@@ -101,8 +101,10 @@ func (a *SawAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenRe
 		return nil, fmt.Errorf("SAW minting token: %v", err)
 	}
 	return &MintTokenResult{
-		Account:     result.Account,
-		Token:       result.Token,
+		Credentials: map[string]string{
+			"account":      result.Account,
+			"access_token": result.Token,
+		},
 		TokenFormat: result.Format,
 	}, nil
 }

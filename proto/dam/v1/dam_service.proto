@@ -80,6 +80,7 @@ message View {
 
 message Interface {
   repeated string uri = 1;
+  map<string, string> labels = 2;
 }
 
 message Resource {
@@ -449,29 +450,58 @@ message AuthCode {
   int64 epoch_seconds = 3;
 }
 
-message ResourceTokens {
-  message Descriptor {
-    map<string, Interface> interfaces = 1;
+// ResourceResults is the output from a ResourceTokens request.
+message ResourceResults {
+  // ResourceDescriptor contains metadata about resource, not specific to the
+  // user's request execept for an "access" key to link how to access the
+  // resource.
+  message ResourceDescriptor {
+    // Maps an interface name (example: "http:gcp:gs") to metadata about the
+    // resource.
+    map<string, InterfaceEntry> interfaces = 1;
+    // Returns the access key into ResourceResults.Access map for how to access
+    // this resource.
     string access = 2;
+    // A list of DAM Role Categories related to the access level that has been
+    // granted.
     repeated string permissions = 3;
   }
-  // Extends:
-  // https://openid.net/specs/openid-connect-core-1_0.html#TokenResponse
-  message ResourceToken {
-    string account = 1;
-    string access_token = 2 [json_name = "access_token"];
-    string token_type = 3 [json_name = "token_type"];
-    string refresh_token = 4 [json_name = "access_token"];
-    uint32 expires_in = 5 [json_name = "expires_in"];
-    string id_token = 6 [json_name = "id_token"];
-    string key_file = 7 [json_name = "key_file"];
-    string platform = 8;
-    string name = 9 [deprecated = true];
-    View view = 10 [deprecated = true];
-    string ttl = 11 [deprecated = true];
-    string token = 12 [deprecated = true];
+  // A map placeholder to store a list of ResourceInterface items.
+  message InterfaceEntry {
+    // Metadata about the resource item, including a URI to the resource item.
+    // A single resource can be consisted of multiple resource items.
+    repeated ResourceInterface items = 1;
   }
-  map<string, Descriptor> resources = 1;
-  map<string, ResourceToken> access = 2;
+  // ResourceInterface contains metadata about a resource's interface, such as
+  // what bucket the data lives in by URL.
+  message ResourceInterface {
+    // An identifier or locator for the resource.
+    string uri = 1;
+    // A map of metadata key/value pairs about the resource, taken from the view
+    // and item config.
+    map<string, string> labels = 2;
+  }
+  // ResourceAccess contains access tokens or other user-specific or
+  // request-specific results.
+  message ResourceAccess {
+    // Maps of credentials. Example: {"account": "user1@example.com",
+    // "access_token": "ya..."}.
+    map<string, string> credentials = 1;
+    // A map of metadata key/value pairs about the resource, taken from the view
+    // and item config.
+    map<string, string> labels = 2;
+    // Based on the OIDC /token response spec, this is the number of seconds
+    // until access expires.
+    uint32 expires_in = 3 [json_name = "expires_in"];
+  }
+
+  // Maps a key (fully-qualified resource/view/role/interface URL) to
+  // descriptors.
+  map<string, ResourceDescriptor> resources = 1;
+  // Maps an access key name from the resource descriptor to access information
+  // for the user.
+  map<string, ResourceAccess> access = 2;
+  // Time of the request to map OIDC "expires_in" or other credential info to a
+  // time-of-request value.
   uint32 epoch_seconds = 3;
 }

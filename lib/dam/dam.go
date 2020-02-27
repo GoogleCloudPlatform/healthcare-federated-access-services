@@ -779,7 +779,8 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 	if err != nil {
 		return out
 	}
-	cliMap := make(map[string]map[string]bool)
+	// Map of <client_interface_name>.<interface_uri>.<label_name>.<label_value>.
+	cliMap := make(map[string]map[string]map[string]string)
 	for _, entry := range entries {
 		st, ok := cfg.ServiceTemplates[entry.View.ServiceTemplate]
 		if !ok {
@@ -793,7 +794,7 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 			for client, uriFmt := range st.Interfaces {
 				uriMap, ok := cliMap[client]
 				if !ok {
-					uriMap = make(map[string]bool)
+					uriMap = make(map[string]map[string]string)
 					cliMap[client] = uriMap
 				}
 				for k, v := range vars {
@@ -801,7 +802,17 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 				}
 				if !hasItemVariable(uriFmt) {
 					// Accept this string that has no more variables to replace.
-					uriMap[uriFmt] = true
+					uriMap[uriFmt] = srcView.Labels
+					if len(item.Labels) > 0 {
+						// Merge label lists for this item, with item.Labels overriding any view.Labels.
+						labels := make(map[string]string)
+						for k, v := range srcView.Labels {
+							labels[k] = v
+						}
+						for k, v := range item.Labels {
+							labels[k] = v
+						}
+					}
 				}
 			}
 		}
@@ -810,8 +821,11 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 		vi := &pb.Interface{
 			Uri: []string{},
 		}
-		for uri := range v {
+		for uri, labels := range v {
 			vi.Uri = append(vi.Uri, uri)
+			if len(labels) > 0 {
+				vi.Labels = labels
+			}
 		}
 		sort.Strings(vi.Uri)
 		out[k] = vi

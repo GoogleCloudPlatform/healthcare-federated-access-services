@@ -152,8 +152,10 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 		return nil, err
 	}
 	return &MintTokenResult{
-		Account:     input.Identity.Subject,
-		Token:       token,
+		Credentials: map[string]string{
+			"account":      input.Identity.Subject,
+			"access_token": token,
+		},
 		TokenFormat: "base64",
 	}, nil
 }

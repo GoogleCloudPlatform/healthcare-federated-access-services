@@ -113,7 +113,7 @@ func TestGatekeeperAdapter(t *testing.T) {
 		if test.fail != (err != nil) {
 			t.Fatalf("test %q error mismatch: want error %v, got error %v", test.name, test.fail, err)
 		}
-		if err == nil && len(result.Token) == 0 {
+		if err == nil && (len(result.Credentials) == 0 || len(result.Credentials["access_token"]) == 0) {
 			t.Errorf("test %q token mismatch: want non-empty, got empty", test.name)
 		}
 	}

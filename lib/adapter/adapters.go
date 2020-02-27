@@ -61,8 +61,13 @@ type Action struct {
 
 // MintTokenResult is returned by the MintToken() method.
 type MintTokenResult struct {
-	Account     string
-	Token       string
+	// A set of credential information like "account" and "access_token", or whatever
+	// may apply for the given target service.
+	Credentials map[string]string
+	// A set of metadata labels about the result to provide context to the client application.
+	Labels map[string]string
+	// The type of token, if applicable, that was able to be generated, which may vary from
+	// the TokenFormat requested in the Action depending on service requirements.
 	TokenFormat string
 }
 
