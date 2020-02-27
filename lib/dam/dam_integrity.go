@@ -276,7 +276,7 @@ func checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Reso
 	if !ok {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), fmt.Sprintf("service template %q not found", view.ServiceTemplate))
 	}
-	if len(view.Metadata) == 0 || view.Metadata["version"] == "" {
+	if len(view.Labels) == 0 || view.Labels["version"] == "" {
 		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "metadata", "version"), "version is empty")
 	}
 	if path, err := checkAccessRequirements(view.ServiceTemplate, st, resName, name, view, cfg, vopts); err != nil {

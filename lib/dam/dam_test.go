@@ -344,7 +344,7 @@ func TestHandlers(t *testing.T) {
 			Input: `{
 									"item": {
 										"serviceTemplate":"gcs",
-										"metadata": {
+										"labels": {
 										  "version":"Phase 3"
 										},
 										"items": [
@@ -381,7 +381,7 @@ func TestHandlers(t *testing.T) {
 			Input: `{
 									"item": {
 										"serviceTemplate":"gcs",
-										"metadata": {
+										"labels": {
 											"version":"Phase 3"
 										},
 										"items": [
@@ -416,7 +416,7 @@ func TestHandlers(t *testing.T) {
 			Persona: "admin",
 			Input: `{
 									"item": {
-									  "metadata": {
+									  "labels": {
 										  "version": "v4"
 										},
 										"items": [

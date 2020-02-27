@@ -64,10 +64,11 @@ message Policy {
 message View {
   message Item {
     map<string, string> args = 1;
+    map<string, string> labels = 2;
   }
 
   string service_template = 1;
-  map<string, string> metadata = 2;
+  map<string, string> labels = 2;
   repeated string content_types = 3;
   map<string, ViewRole> roles = 4;
   string default_role = 5;
@@ -203,7 +204,7 @@ message GetFlatViewsResponse {
     string interface_name = 6;
     string interface_uri = 7;
     string content_type = 8;
-    map<string, string> metadata = 9;
+    map<string, string> labels = 9;
     string service_name = 10;
     string platform = 11;
     string platform_service = 12;

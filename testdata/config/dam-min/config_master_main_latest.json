@@ -58,7 +58,7 @@
       "views": {
         "files": {
           "serviceTemplate": "gcs",
-          "metadata": {
+          "labels": {
             "version": "Phase 3",
             "topic": "variants",
             "partition": "all",

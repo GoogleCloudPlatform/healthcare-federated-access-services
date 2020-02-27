@@ -235,7 +235,7 @@
       "views": {
         "bq_read": {
           "serviceTemplate": "bigquery",
-          "metadata": {
+          "labels": {
             "version": "dataset v1",
             "topic": "FHIR",
             "partition": "all",
@@ -278,7 +278,7 @@
         },
         "gcs_read": {
           "serviceTemplate": "gcs",
-          "metadata": {
+          "labels": {
             "version": "dataset v1",
             "topic": "FHIR",
             "partition": "all",
@@ -321,7 +321,7 @@
         },
         "gcs_payer": {
           "serviceTemplate": "gcs",
-          "metadata": {
+          "labels": {
             "version": "dataset v1",
             "topic": "FHIR",
             "partition": "all",
@@ -366,7 +366,7 @@
         },
         "gcp": {
           "serviceTemplate": "views",
-          "metadata": {
+          "labels": {
             "version": "dataset v1",
             "topic": "FHIR",
             "partition": "all",
@@ -422,7 +422,7 @@
       "views": {
         "beacon": {
           "serviceTemplate": "beacon",
-          "metadata": {
+          "labels": {
             "version": "Phase 3",
             "topic": "variants",
             "partition": "all",
@@ -455,7 +455,7 @@
         },
         "gcs_read": {
           "serviceTemplate": "gcs",
-          "metadata": {
+          "labels": {
             "version": "Phase 3",
             "topic": "variants",
             "partition": "all",

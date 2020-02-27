@@ -765,7 +765,7 @@ func makeViews(r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *ada
 func makeView(viewName string, v *pb.View, r *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) *pb.View {
 	return &pb.View{
 		ServiceTemplate:    v.ServiceTemplate,
-		Metadata:           v.Metadata,
+		Labels:             v.Labels,
 		ContentTypes:       v.ContentTypes,
 		ComputedInterfaces: makeViewInterfaces(v, r, cfg, tas),
 		Roles:              makeViewRoles(v, r, cfg, hidePolicyBasis, tas),

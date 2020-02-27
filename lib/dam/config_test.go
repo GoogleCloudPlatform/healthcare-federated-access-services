@@ -91,7 +91,7 @@ func TestConfigHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/flatViews",
-			Output: `*"views":{"/dataset_example/bq_read/viewer/http:gcp:bq/text/csv":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/bq_read/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"bq_read","roleName":"viewer","interfaceName":"http:gcp:bq","interfaceUri":"https://www.googleapis.com/bigquery/v1/projects/dataset-example-project","contentType":"*","metadata":{*},"serviceName":"bigquery","platform":"gcp","platformService":"bigquery","maxTokenTtl":"3h","resourceUi":{*},"viewUi":{*},"roleUi":{*},"roleCategories":["list","metadata","read"]*`,
+			Output: `*"views":{"/dataset_example/bq_read/viewer/http:gcp:bq/text/csv":{"resourcePath":"/dam/v1alpha/test/resources/dataset_example/views/bq_read/roles/viewer","umbrella":"dataset_example","resourceName":"dataset_example","viewName":"bq_read","roleName":"viewer","interfaceName":"http:gcp:bq","interfaceUri":"https://www.googleapis.com/bigquery/v1/projects/dataset-example-project","contentType":"*","labels":{*},"serviceName":"bigquery","platform":"gcp","platformService":"bigquery","maxTokenTtl":"3h","resourceUi":{*},"viewUi":{*},"roleUi":{*},"roleCategories":["list","metadata","read"]*`,
 			Status: http.StatusOK,
 		},
 		{

@@ -416,7 +416,7 @@ func (h *configViewHandler) Put(name string) error {
 func (h *configViewHandler) Patch(name string) error {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Items = h.input.Item.Items
-	h.item.Metadata = h.input.Item.Metadata
+	h.item.Labels = h.input.Item.Labels
 	h.item.Roles = h.input.Item.Roles
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item

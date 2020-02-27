@@ -94,9 +94,9 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 				httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("resource %q view %q service template %q service name %q is undefined", resname, vname, v.ServiceTemplate, st.ServiceName))
 				return
 			}
-			meta := v.Metadata
-			if meta == nil {
-				meta = map[string]string{}
+			labels := v.Labels
+			if labels == nil {
+				labels = map[string]string{}
 			}
 			for rolename := range v.Roles {
 				var roleCat []string
@@ -121,7 +121,7 @@ func (s *Service) GetFlatViews(w http.ResponseWriter, r *http.Request) {
 								InterfaceName:   interfaceName,
 								InterfaceUri:    interfaceURI,
 								ContentType:     mime,
-								Metadata:        meta,
+								Labels:          labels,
 								ServiceName:     st.ServiceName,
 								Platform:        desc.Platform,
 								PlatformService: st.ServiceName, // for now it is the same name as ServiceName
