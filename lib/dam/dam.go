@@ -803,7 +803,7 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 				if !hasItemVariable(uriFmt) {
 					// Accept this string that has no more variables to replace.
 					uriMap[uriFmt] = srcView.Labels
-					if len(item.Labels) > 0 {
+					if srcView.Labels == nil || srcView.Labels["platform"] == "" || len(item.Labels) > 0 {
 						// Merge label lists for this item, with item.Labels overriding any view.Labels.
 						labels := make(map[string]string)
 						for k, v := range srcView.Labels {
@@ -812,6 +812,10 @@ func makeViewInterfaces(srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig
 						for k, v := range item.Labels {
 							labels[k] = v
 						}
+						if desc := tas.Descriptors[st.ServiceName]; desc != nil {
+							labels["platform"] = desc.Platform
+						}
+						uriMap[uriFmt] = labels
 					}
 				}
 			}

@@ -47,7 +47,7 @@ func TestConfigHandlers(t *testing.T) {
 
 	role := `{"roleCategories":["metadata"],"policyBasis":{"AcceptedTermsAndPolicies":true,"ResearcherStatus":true}}`
 	roles := `{"discovery":` + role + `}`
-	beacon := `{"serviceTemplate":"beacon",*,"contentTypes":["application/bam"],"roles":` + roles + `,"ui":{"description":"Search data from Beacon Discovery","label":"Beacon Discovery"},"interfaces":{"http:beacon":{"uri":["https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"],"labels":{*}}}}`
+	beacon := `{"serviceTemplate":"beacon",*,"contentTypes":["application/bam"],"roles":` + roles + `,"ui":{"description":"Search data from Beacon Discovery","label":"Beacon Discovery"},"interfaces":{"http:beacon":{"uri":["https://gatekeeper-cafe-variome.staging.dnastack.com/beacon/query"],"labels":{*"platform":"oauth"*}}}}`
 	views := `{"beacon":` + beacon + `,"gcs_read":{"serviceTemplate":"gcs",*,"contentTypes":["application/bam"],"roles":{"viewer":{"roleCategories":["list","metadata","read"],"policyBasis":{"AcceptedTermsAndPolicies":true,"ResearcherStatus":true}}},"ui":{"description":"GCS File Read","label":"File Read"},"interfaces":{"gcp:gs":{"uri":["gs://ga4gh-apis-controlled-access"],"labels":{*}},"http:gcp:gs":{"uri":["https://www.googleapis.com/storage/v1/b/ga4gh-apis-controlled-access"],"labels":{*}}}}}`
 	resource := `{"views":` + views + `,"maxTokenTtl":"1h","ui":{"applyUrl":"http://apply.ga4gh-apis.org","description":"Google demo of GA4GH APIs","imageUrl":"https://info.ga4gh-apis.org/images/image.jpg","infoUrl":"http://info.ga4gh-apis.org","label":"GA4GH APIs","troubleshootUrl":"http://troubleshoot.ga4gh-apis.org"}}`
 
