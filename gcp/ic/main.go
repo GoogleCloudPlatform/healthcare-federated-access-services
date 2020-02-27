@@ -26,7 +26,9 @@ import (
 
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
+	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
@@ -111,7 +113,9 @@ func main() {
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
 	}
 
-	s := ic.NewService(&ic.Options{
+	r := mux.NewRouter()
+
+	s := ic.New(r, &ic.Options{
 		Domain:         srvAddr,
 		ServiceName:    srvName,
 		AccountDomain:  acctDomain,
@@ -122,6 +126,8 @@ func main() {
 		HydraAdminURL:  hydraAdminAddr,
 		HydraPublicURL: hydraPublicAddr,
 	})
+
+	r.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
 
 	srv := server.New("ic", port, s.Handler)
 	srv.ServeUnblock()

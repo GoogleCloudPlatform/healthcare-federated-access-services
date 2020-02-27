@@ -25,8 +25,10 @@ import (
 	"strings"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
+	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/server" /* copybara-comment: server */
@@ -103,7 +105,10 @@ func main() {
 		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
 	}
-	s := dam.NewService(&dam.Options{
+
+	r := mux.NewRouter()
+
+	s := dam.New(r, &dam.Options{
 		Domain:           srvAddr,
 		ServiceName:      srvName,
 		DefaultBroker:    defaultBroker,
@@ -116,6 +121,8 @@ func main() {
 		HydraAdminURL:    hydraAdminAddr,
 		HydraPublicURL:   hydraPublicAddr,
 	})
+
+	r.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
 
 	srv := server.New("dam", port, s.Handler)
 	srv.ServeUnblock()

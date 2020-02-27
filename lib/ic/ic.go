@@ -266,6 +266,12 @@ type Options struct {
 
 // NewService create new IC service.
 func NewService(params *Options) *Service {
+	r := mux.NewRouter()
+	return New(r, params)
+}
+
+// New creats a new IC and registers it on r.
+func New(r *mux.Router, params *Options) *Service {
 	sh := &ServiceHandler{}
 	lp, err := srcutil.LoadFile(loginPageFile)
 	if err != nil {
@@ -355,8 +361,8 @@ func NewService(params *Options) *Service {
 	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
 
 	sh.s = s
-	sh.Handler = mux.NewRouter()
-	registerHandlers(sh.Handler, s)
+	sh.Handler = r
+	registerHandlers(r, s)
 	return s
 }
 

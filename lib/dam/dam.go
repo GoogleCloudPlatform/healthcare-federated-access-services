@@ -140,6 +140,12 @@ type Options struct {
 
 // NewService create DAM service
 func NewService(params *Options) *Service {
+	r := mux.NewRouter()
+	return New(r, params)
+}
+
+// New creates a DAM and registers it on r.
+func New(r *mux.Router, params *Options) *Service {
 	var roleCat pb.DamRoleCategoriesResponse
 	if err := srcutil.LoadProto("deploy/metadata/dam_roles.json", &roleCat); err != nil {
 		glog.Fatalf("cannot load role categories file %q: %v", "deploy/metadata/dam_roles.json", err)
@@ -227,8 +233,8 @@ func NewService(params *Options) *Service {
 	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
 
 	sh.s = s
-	sh.Handler = mux.NewRouter()
-	registerHandlers(sh.Handler, s)
+	sh.Handler = r
+	registerHandlers(r, s)
 	return s
 }
 
