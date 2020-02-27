@@ -28,3 +28,18 @@ env_variables:
 beta_settings:
   # Pass CloudSQL instance to GAE
   cloud_sql_instances: ${YOUR_PROJECT_ID}:us-central1:hydra=tcp:1234
+
+liveness_check:
+  path: "/liveness_check"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+readiness_check:
+  path: "/liveness_check"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+  app_start_timeout_sec: 300
