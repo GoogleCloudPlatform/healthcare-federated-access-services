@@ -23,11 +23,13 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -427,6 +429,28 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedIn
 	return s.loggedInForEndpointToken(id, state, in.stateID, tx)
 }
 
+func resourceToString(res *pb.ResourceTokenRequestState_Resource) string {
+	return fmt.Sprintf("%s/%s/%s/%s", res.Realm, res.Resource, res.View, res.Role)
+}
+
+func writePolicyDeccisionLog(logger *logging.Client, id *ga4gh.Identity, res *pb.ResourceTokenRequestState_Resource, ttl time.Duration, err error) {
+	log := &auditlog.PolicyDecisionLog{
+		TokenID:       id.ID,
+		TokenSubject:  id.Subject,
+		TokenIssuer:   id.Issuer,
+		Resource:      resourceToString(res),
+		TTL:           timeutil.TTLString(ttl),
+		PassAuthCheck: true,
+	}
+
+	if err != nil {
+		log.PassAuthCheck = false
+		log.Message = err.Error()
+	}
+
+	auditlog.WritePolicyDecisionLog(logger, log)
+}
+
 func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identity, state *pb.ResourceTokenRequestState, cfg *pb.DamConfig, stateID, realm string, tx storage.Tx) (*loggedInHandlerOut, int, error) {
 	ttl := time.Duration(state.Ttl)
 
@@ -438,7 +462,9 @@ func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identit
 		if r.Realm != realm {
 			return nil, http.StatusConflict, fmt.Errorf("cannot authorize resources using different realms")
 		}
+
 		status, err := checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, s.ValidateCfgOpts())
+		writePolicyDeccisionLog(s.logger, id, r, ttl, err)
 		if err != nil {
 			return nil, status, err
 		}

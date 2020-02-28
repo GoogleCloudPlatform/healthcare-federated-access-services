@@ -41,15 +41,19 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra" /* copybara-comment: fakehydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient" /* copybara-comment: httptestclient */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/testhttp" /* copybara-comment: testhttp */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 
+	lspb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: log_severity_go_proto */
+	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -1476,6 +1480,50 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 	}
 }
 
+func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+	logs, close := fakesdl.New()
+	defer close()
+	s.logger = logs.Client
+
+	serviceinfo.Project = "p1"
+	serviceinfo.Type = "t1"
+	serviceinfo.Name = "n1"
+
+	pname := "dr_joe_elixir"
+
+	sendLoggedIn(t, s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_DATASET)
+
+	logs.Client.Close()
+	got := logs.Server.Logs[0].Entries[0]
+
+	want := &lepb.LogEntry{
+		Payload:  &lepb.LogEntry_TextPayload{TextPayload: ""},
+		Severity: lspb.LogSeverity_DEFAULT,
+		Labels: map[string]string{
+			"type":            "policy_decision_log",
+			"token_id":        "token-id-dr_joe_elixir",
+			"token_subject":   "dr_joe_elixir",
+			"token_issuer":    "https://hydra.example.com/",
+			"pass_auth_check": "true",
+			"error_type":      "",
+			"resource":        "master/ga4gh-apis/gcs_read/viewer",
+			"ttl":             "1h",
+			"project_id":      "p1",
+			"service_type":    "t1",
+			"service_name":    "n1",
+		},
+	}
+
+	got.Timestamp = nil
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+	}
+}
+
 func TestLoggedIn_Hydra_Errors(t *testing.T) {
 	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
@@ -1518,6 +1566,27 @@ func TestLoggedIn_Hydra_Errors(t *testing.T) {
 				t.Errorf("resp.StatusCode wants %d got %d", tc.respStatus, resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestLoggedIn_Hydra_Error_Log(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+	logs, close := fakesdl.New()
+	defer close()
+	s.logger = logs.Client
+
+	pname := "dr_joe_era_commons"
+
+	sendLoggedIn(t, s, cfg, h, pname, loginStateID, pb.ResourceTokenRequestState_DATASET)
+
+	logs.Client.Close()
+
+	got := logs.Server.Logs[0].Entries[0]
+	if got.Labels["pass_auth_check"] == "true" {
+		t.Errorf("Labels[pass_auth_check] want false")
 	}
 }
 
