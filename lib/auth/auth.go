@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
@@ -116,6 +117,9 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		log, err := checker.check(r, require)
+		if err != nil {
+			log.ErrorType = errutil.ErrorType(err)
+		}
 		writeAccessLog(checker.Logger, log, err, r)
 		if err != nil {
 			httputil.WriteRPCResp(w, nil, err)
@@ -130,7 +134,7 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 func checkRequest(r *http.Request) error {
 	// TODO: maybe should also cover content-length = -1
 	if r.ContentLength > maxHTTPBody {
-		return withErrorType(errBodyTooLarge, status.Error(codes.FailedPrecondition, "body too large"))
+		return errutil.WithErrorType(errBodyTooLarge, status.Error(codes.FailedPrecondition, "body too large"))
 	}
 
 	return nil
@@ -141,7 +145,7 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 	log := &auditlog.AccessLog{}
 
 	if err := checkRequest(r); err != nil {
-		log.ErrorType = errorType(err)
+
 		return log, err
 	}
 
@@ -152,7 +156,6 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 		cSec := oathclients.ExtractClientSecret(r)
 
 		if err := s.verifyClientCredentials(cID, cSec, require); err != nil {
-			log.ErrorType = errorType(err)
 			return log, err
 		}
 	}
@@ -161,7 +164,6 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 	log.TokenID = id.ID
 	log.TokenSubject = id.Subject
 	log.TokenIssuer = id.Issuer
-	log.ErrorType = errorType(err)
 	return log, err
 }
 
@@ -171,17 +173,17 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 func (s *Checker) verifyClientCredentials(client, secret string, require Require) error {
 	secrets, err := s.FetchClientSecrets()
 	if err != nil {
-		return withErrorType(errClientUnavailable, err)
+		return errutil.WithErrorType(errClientUnavailable, err)
 	}
 
 	// Check that the client ID exists and it is a known.
 	if len(client) == 0 {
-		return withErrorType(errClientMissing, status.Error(codes.Unauthenticated, "requires a valid client ID"))
+		return errutil.WithErrorType(errClientMissing, status.Error(codes.Unauthenticated, "requires a valid client ID"))
 	}
 
 	want, ok := secrets[client]
 	if !ok {
-		return withErrorType(errClientInvalid, status.Errorf(codes.Unauthenticated, "client ID %q is unrecognized", client))
+		return errutil.WithErrorType(errClientInvalid, status.Errorf(codes.Unauthenticated, "client ID %q is unrecognized", client))
 	}
 
 	if !require.ClientSecret {
@@ -190,7 +192,7 @@ func (s *Checker) verifyClientCredentials(client, secret string, require Require
 
 	// Check that the client secret match the client ID.
 	if want != secret {
-		return withErrorType(errSecretMismatch, status.Error(codes.Unauthenticated, "requires a valid client secret"))
+		return errutil.WithErrorType(errSecretMismatch, status.Error(codes.Unauthenticated, "requires a valid client secret"))
 	}
 
 	return nil
@@ -212,7 +214,7 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 
 		if err := s.IsAdmin(id); err != nil {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return id, withErrorType(errNotAdmin, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err))
+			return id, errutil.WithErrorType(errNotAdmin, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err))
 		}
 		return id, nil
 
@@ -227,12 +229,12 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 		}
 		if user := mux.Vars(r)["user"]; len(user) != 0 && user != id.Subject {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return id, withErrorType(errUserMismatch, status.Errorf(codes.Unauthenticated, "user in path does not match token"))
+			return id, errutil.WithErrorType(errUserMismatch, status.Errorf(codes.Unauthenticated, "user in path does not match token"))
 		}
 		return id, nil
 
 	default:
-		return &ga4gh.Identity{}, withErrorType(errUnknownRole, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role))
+		return &ga4gh.Identity{}, errutil.WithErrorType(errUnknownRole, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role))
 	}
 }
 
@@ -241,7 +243,7 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 func (s *Checker) verifiedBrearerToken(r *http.Request, clientID string) (*ga4gh.Identity, error) {
 	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return nil, withErrorType(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "invalid brearer token"))
+		return nil, errutil.WithErrorType(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "invalid brearer token"))
 	}
 	tok := parts[1]
 
@@ -266,7 +268,7 @@ func (s *Checker) verifiedBrearerToken(r *http.Request, clientID string) (*ga4gh
 func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identity, error) {
 	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
-		return nil, withErrorType(errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err))
+		return nil, errutil.WithErrorType(errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err))
 	}
 	id.Issuer = normalize(id.Issuer)
 	return s.TransformIdentity(id), nil
@@ -281,20 +283,20 @@ func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) error {
 	iss := normalize(issuer)
 	if id.Issuer != iss {
 		// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-		return withErrorType(errIssMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: for issuer %s", id.Issuer))
+		return errutil.WithErrorType(errIssMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: for issuer %s", id.Issuer))
 	}
 
 	if len(id.Subject) == 0 {
-		return withErrorType(errSubMissing, status.Error(codes.Unauthenticated, "token unauthorized: no subject"))
+		return errutil.WithErrorType(errSubMissing, status.Error(codes.Unauthenticated, "token unauthorized: no subject"))
 	}
 
 	if !ga4gh.IsAudience(id, clientID, iss) {
 		// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-		return withErrorType(errAudMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: unauthorized party"))
+		return errutil.WithErrorType(errAudMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: unauthorized party"))
 	}
 
 	if err := id.Valid(); err != nil {
-		return withErrorType(errIDInvalid, status.Errorf(codes.Unauthenticated, "token unauthorized: %v", err))
+		return errutil.WithErrorType(errIDInvalid, status.Errorf(codes.Unauthenticated, "token unauthorized: %v", err))
 	}
 
 	return nil
@@ -304,10 +306,10 @@ func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) error {
 func verifyToken(ctx context.Context, tok, iss, clientID string) error {
 	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, iss)
 	if err != nil {
-		return withErrorType(errVerifierUnavailable, status.Errorf(codes.Unauthenticated, "GetOIDCTokenVerifier failed: %v", err))
+		return errutil.WithErrorType(errVerifierUnavailable, status.Errorf(codes.Unauthenticated, "GetOIDCTokenVerifier failed: %v", err))
 	}
 	if _, err = v.Verify(ctx, tok); err != nil {
-		return withErrorType(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
+		return errutil.WithErrorType(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
 	}
 	return nil
 }
