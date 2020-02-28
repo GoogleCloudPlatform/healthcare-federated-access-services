@@ -221,8 +221,9 @@ func (tx *FileTx) Finish() error {
 	return nil
 }
 
-func (tx *FileTx) Rollback() {
-	// NOT SUPPORTED
+// Rollback attempts to rollback a transaction.
+func (tx *FileTx) Rollback() error {
+	return nil
 }
 
 func (tx *FileTx) IsUpdate() bool {

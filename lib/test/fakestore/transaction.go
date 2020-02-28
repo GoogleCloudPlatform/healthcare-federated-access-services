@@ -71,7 +71,7 @@ func NewTx(source chan State, update bool) *Tx {
 	return tx
 }
 
-// Finish finished a transaction.
+// Finish attempts to commit a transaction.
 // Returns error if the transaction
 // is an update, is not rolled back, and cannot be committed because of conflict.
 func (tx *Tx) Finish() error {
@@ -95,12 +95,14 @@ func (tx *Tx) Finish() error {
 	return nil
 }
 
-// Rollback rolls back the transaction.
-func (tx *Tx) Rollback() {
+// Rollback attempts to rollback the transaction.
+func (tx *Tx) Rollback() error {
 	tx.mu.Lock()
 	defer tx.mu.Unlock()
 
 	tx.rolledBack = true
+
+	return nil
 }
 
 // IsUpdate stated if the transaction is a mutation or read-only.

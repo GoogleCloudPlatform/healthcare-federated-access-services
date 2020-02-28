@@ -89,7 +89,7 @@ type Store interface {
 
 type Tx interface {
 	Finish() error
-	Rollback()
+	Rollback() error
 	IsUpdate() bool
 }
 

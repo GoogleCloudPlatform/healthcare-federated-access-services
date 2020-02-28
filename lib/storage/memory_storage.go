@@ -367,9 +367,11 @@ func (tx *MemTx) Finish() error {
 	return nil
 }
 
-func (tx *MemTx) Rollback() {
+// Rollback attempts to rollback a transaction.
+func (tx *MemTx) Rollback() error {
 	tx.ms.cache.Restore()
 	tx.ms.fs = NewFileStorage(tx.ms.service, tx.ms.path)
+	return nil
 }
 
 func (tx *MemTx) IsUpdate() bool {

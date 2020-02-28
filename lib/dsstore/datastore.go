@@ -28,6 +28,8 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"cloud.google.com/go/datastore" /* copybara-comment: datastore */
 	"google.golang.org/api/iterator" /* copybara-comment: iterator */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -53,14 +55,18 @@ var (
 	wipeKinds = []string{historyKind, entityKind}
 )
 
+// DatastoreStorage is a datastore based implementation of storage.
 type DatastoreStorage struct {
 	client *datastore.Client
 
 	// TODO: these fileds are only used for Info and are not related to the store.
 	// Move them to lib/serviceinfo.
+	//   project: the GCP project in which the datastore resides.
 	project string
+	//   service: the name of the service (e.g. "dam" or "ic").
 	service string
-	path    string
+	//   path:    the path to the config file.
+	path string
 }
 
 type DatastoreEntity struct {
@@ -112,10 +118,10 @@ func NewDatastoreStorage(ctx context.Context, project, service, path string) *Da
 // New creates a new storage.
 func New(client *datastore.Client, project, service, path string) *DatastoreStorage {
 	return &DatastoreStorage{
+		client:  client,
 		project: project,
 		service: service,
 		path:    path,
-		client:  client,
 	}
 }
 
@@ -155,7 +161,7 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, c
 	}
 	dstx, ok := tx.(*DatastoreTx)
 	if !ok {
-		return fmt.Errorf("invalid transaction")
+		return status.Errorf(codes.InvalidArgument, "invalid transaction")
 	}
 
 	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
@@ -165,7 +171,7 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, c
 	}
 	if err = dstx.Tx.Get(k, e); err != nil {
 		if err == datastore.ErrNoSuchEntity {
-			return fmt.Errorf("not found: %q", k)
+			return status.Errorf(codes.NotFound, "not found: %q", k)
 		}
 		return err
 	}
@@ -292,7 +298,7 @@ func (s *DatastoreStorage) WriteTx(datatype, realm, user, id string, rev int64, 
 	}
 	dstx, ok := tx.(*DatastoreTx)
 	if !ok {
-		return fmt.Errorf("invalid transaction")
+		return status.Errorf(codes.InvalidArgument, "invalid transaction")
 	}
 
 	if rev != storage.LatestRev {
@@ -348,7 +354,7 @@ func (s *DatastoreStorage) DeleteTx(datatype, realm, user, id string, rev int64,
 	}
 	dstx, ok := tx.(*DatastoreTx)
 	if !ok {
-		return fmt.Errorf("invalid transaction")
+		return status.Errorf(codes.InvalidArgument, "invalid transaction")
 	}
 
 	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
@@ -477,14 +483,14 @@ func (s *DatastoreStorage) Init() error {
 		}
 		_, err := s.client.Put(context.Background() /* TODO: pass ctx from request */, k, meta)
 		if err != nil {
-			return fmt.Errorf("cannot write datastore metadata: %v", err)
+			return status.Errorf(codes.Internal, "cannot write datastore metadata: %v", err)
 		}
 	} else if err != nil {
-		return fmt.Errorf("cannot access datastore metadata: %v", err)
+		return status.Errorf(codes.Internal, "cannot access datastore metadata: %v", err)
 	}
 	glog.Infof("Datastore service %q version: %s", s.service, meta.Value)
 	if meta.Value != storageVersion {
-		return fmt.Errorf("datastore version not compatible: expected %q, got %q", storageVersion, meta.Value)
+		return status.Errorf(codes.FailedPrecondition, "datastore version not compatible: expected %q, got %q", storageVersion, meta.Value)
 	}
 	return nil
 }
@@ -560,6 +566,11 @@ type DatastoreTx struct {
 	Tx     *datastore.Transaction
 }
 
+// IsUpdate tells if the transaction is an update or read-only.
+func (tx *DatastoreTx) IsUpdate() bool {
+	return tx.writer
+}
+
 // Finish attempts to commit a transaction.
 func (tx *DatastoreTx) Finish() error {
 	if tx.Tx == nil {
@@ -574,17 +585,17 @@ func (tx *DatastoreTx) Finish() error {
 	return nil
 }
 
-func (tx *DatastoreTx) IsUpdate() bool {
-	return tx.writer
-}
-
-func (tx *DatastoreTx) Rollback() {
-	if tx.Tx != nil {
-		err := tx.Tx.Rollback()
-		if err != nil {
-			glog.Infof("datastore error during rollback of transaction: %v", err)
-		}
-		// Transaction cannot be used after a rollback.
-		tx.Tx = nil
+// Rollback attempts to rollback a transaction.
+func (tx *DatastoreTx) Rollback() error {
+	if tx.Tx == nil {
+		return nil
 	}
+	err := tx.Tx.Rollback()
+	if err != nil {
+		glog.Infof("datastore error during rollback of transaction: %v", err)
+		return err
+	}
+	// Transaction cannot be used after a rollback.
+	tx.Tx = nil
+	return nil
 }
