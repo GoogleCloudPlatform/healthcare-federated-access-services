@@ -34,6 +34,7 @@ import (
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
@@ -1018,9 +1019,9 @@ func setupAuthorizationTest(t *testing.T) *authTestContext {
 
 func TestCheckAuthorization(t *testing.T) {
 	auth := setupAuthorizationTest(t)
-	status, err := checkAuthorization(auth.ctx, auth.id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
-	if status != http.StatusOK || err != nil {
-		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got %d: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusOK, status, err)
+	err := checkAuthorization(auth.ctx, auth.id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if err != nil {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusOK, err)
 	}
 
 	// TODO: we need more tests for other condition in checkAuthorization()
@@ -1037,9 +1038,9 @@ func TestCheckAuthorization_Untrusted(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	status, err := checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
-	if status != http.StatusForbidden || err == nil {
-		t.Errorf("using untrusted issuer: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got %d: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusForbidden, status, err)
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("using untrusted issuer: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusForbidden, err)
 	}
 }
 

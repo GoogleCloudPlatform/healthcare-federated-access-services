@@ -526,7 +526,7 @@ func resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views
 				if len(roles) > 0 && !stringset.Contains(roles, rname) {
 					continue
 				}
-				if _, err := checkAuthorization(ctx, id, 0, rn, vn, rname, cfg, noClientID, vopts); err != nil {
+				if err := checkAuthorization(ctx, id, 0, rn, vn, rname, cfg, noClientID, vopts); err != nil {
 					continue
 				}
 				got = append(got, rn+"/"+vn+"/"+rname)
@@ -554,21 +554,21 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 	return got
 }
 
-func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vopts ValidateCfgOpts) (int, error) {
+func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vopts ValidateCfgOpts) error {
 	if stat := checkTrustedIssuer(id.Issuer, cfg, vopts); stat != nil {
-		return httputil.HTTPStatus(stat.Code()), stat.Err()
+		return stat.Err()
 	}
 	srcRes, ok := cfg.Resources[resourceName]
 	if !ok {
-		return http.StatusNotFound, fmt.Errorf("resource %q not found", resourceName)
+		return status.Errorf(codes.NotFound, "resource %q not found", resourceName)
 	}
 	srcView, ok := srcRes.Views[viewName]
 	if !ok {
-		return http.StatusNotFound, fmt.Errorf("resource %q view %q not found", resourceName, viewName)
+		return status.Errorf(codes.NotFound, "resource %q view %q not found", resourceName, viewName)
 	}
 	entries, err := resolveAggregates(srcRes, srcView, cfg, vopts.Services)
 	if err != nil {
-		return http.StatusForbidden, err
+		return status.Error(codes.PermissionDenied, err.Error())
 	}
 	active := false
 	for _, entry := range entries {
@@ -576,37 +576,37 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 		res := entry.Res
 		vRole, ok := view.Roles[roleName]
 		if !ok {
-			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (role not available on this view)", resourceName, viewName, roleName)
+			return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not available on this view)", resourceName, viewName, roleName)
 		}
 		_, err := adapter.ResolveServiceRole(roleName, view, res, cfg)
 		if err != nil {
-			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (cannot resolve service role)", resourceName, viewName, roleName)
+			return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (cannot resolve service role)", resourceName, viewName, roleName)
 		}
 		if len(vRole.Policies) == 0 {
-			return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName)
+			return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName)
 		}
 		ctxWithTTL := context.WithValue(ctx, validator.RequestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
 		for _, p := range vRole.Policies {
 			v, err := buildValidator(ctxWithTTL, p, vRole, cfg)
 			if err != nil {
-				return http.StatusInternalServerError, fmt.Errorf("cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err)
+				return status.Errorf(codes.PermissionDenied, "cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err)
 			}
 			ok, err = v.Validate(ctxWithTTL, id)
 			if err != nil {
 				// Strip internal error in case it contains any sensitive data.
-				return http.StatusInternalServerError, fmt.Errorf("cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer)
+				return status.Errorf(codes.PermissionDenied, "cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer)
 			}
 			if !ok {
 				rejected := rejectedPolicyString(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Services), vopts)
-				return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, rejected)
+				return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, rejected)
 			}
 			active = true
 		}
 	}
 	if !active {
-		return http.StatusForbidden, fmt.Errorf("unauthorized for resource %q view %q role %q (role not enabled)", resourceName, viewName, roleName)
+		return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not enabled)", resourceName, viewName, roleName)
 	}
-	return http.StatusOK, nil
+	return nil
 }
 
 func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig, tas *adapter.ServiceAdapters) ([]*adapter.AggregateView, error) {
