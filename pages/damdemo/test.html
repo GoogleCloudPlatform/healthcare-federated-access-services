@@ -121,7 +121,7 @@
         return pattern.replace(/_PATH_/g, encodeURI(path))
                       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
                       .replace(/_REALM_/g, encodeURIComponent(realm))
-                      .replace(/_MAX_AGE_/g, encodeURIComponent($("#max_age").val() || "3600"))
+                      .replace(/_MAX_AGE_/g, encodeURIComponent($("#ttl").val() || "3600"))
                       .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
                       .replace(/_VIEW_/g, encodeURIComponent($("#resource_view").val()))
                       .replace(/_ROLE_/g, encodeURIComponent($("#resource_role").val()))
@@ -423,7 +423,7 @@
       <textarea id="resources" style="width:100%" value="" rows="4" onkeyup="resourceListChanged()" onpaste="resourceListChanged()"></textarea>
       <div>
         <a id="auth-btn" class="btn white" class="btn blue" onclick="auth()">Auth for Resources</a>
-        <span><label>maxAge: </label><input id="max_age" style="width:100px" value="3600" placeholder="seconds TTL"></span>
+        <span><label>TTL: </label><input id="ttl" style="width:100px" value="3600" placeholder="seconds TTL"></span>
       </div>
     </div>
     <div class="box">

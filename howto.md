@@ -9,7 +9,7 @@ First use `base64` to encode `CLIENT_ID:CLIENT_SECRET` as `CLIENT`. Then call
 the revoke endpoint.
 
 ```
-export CLIENT=`echo ${CLIENT_ID?}:${CLIENT_SECRET?} | base64`
+export CLIENT=`echo ${CLIENT_ID?}:${CLIENT_SECRET?} | base64 -w 0`
 
 curl -X POST ${URL?}/oauth2/revoke \
      -H 'Content-Type: application/x-www-form-urlencoded' \
