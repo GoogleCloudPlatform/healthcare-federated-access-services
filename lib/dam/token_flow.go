@@ -30,6 +30,7 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -445,7 +446,13 @@ func writePolicyDeccisionLog(logger *logging.Client, id *ga4gh.Identity, res *pb
 
 	if err != nil {
 		log.PassAuthCheck = false
-		log.Message = err.Error()
+		log.ErrorType = errutil.ErrorType(err)
+
+		if reject := rejectedPolicy(err); reject != nil {
+			log.Message = reject
+		} else {
+			log.Message = err.Error()
+		}
 	}
 
 	auditlog.WritePolicyDecisionLog(logger, log)

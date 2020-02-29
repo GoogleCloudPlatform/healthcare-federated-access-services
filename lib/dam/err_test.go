@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package errutil
+package dam
 
 import (
 	"fmt"
@@ -23,13 +23,11 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 
-	edpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
-func TestWithErrorType(t *testing.T) {
-	errType := "type"
-
-	err := WithErrorType(errType, status.Error(codes.Internal, "this is a error"))
+func Test_withRejectedPolicy(t *testing.T) {
+	err := withRejectedPolicy(&cpb.RejectedPolicy{Rejections: 1}, status.Error(codes.Internal, "this is a error"))
 
 	s, ok := status.FromError(err)
 	if !ok {
@@ -37,7 +35,7 @@ func TestWithErrorType(t *testing.T) {
 	}
 
 	want := []interface{}{
-		&edpb.ErrorInfo{Type: errType},
+		&cpb.RejectedPolicy{Rejections: 1},
 	}
 
 	if d := cmp.Diff(want, s.Details(), protocmp.Transform()); len(d) > 0 {
@@ -45,24 +43,21 @@ func TestWithErrorType(t *testing.T) {
 	}
 }
 
-func TestErrorType(t *testing.T) {
-	errType := "type"
+func Test_rejectedPolicy(t *testing.T) {
+	want := &cpb.RejectedPolicy{Rejections: 1}
+	err := withRejectedPolicy(want, status.Error(codes.Internal, "this is a error"))
 
-	err := WithErrorType(errType, status.Error(codes.Internal, "this is a error"))
-
-	got := ErrorType(err)
-	if got != errType {
-		t.Errorf("ErrorType() =%s want %s", got, errType)
+	got := rejectedPolicy(err)
+	if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
+		t.Errorf("RejectedPolicy() (-want, +got): %v", d)
 	}
 }
 
-func TestErrorType_NotStatusErr(t *testing.T) {
-	errType := "type"
+func Test_rejectedPolicy_NotStatusErr(t *testing.T) {
+	err := withRejectedPolicy(&cpb.RejectedPolicy{Rejections: 1}, fmt.Errorf("this is a error"))
 
-	err := WithErrorType(errType, fmt.Errorf("this is a error"))
-
-	got := ErrorType(err)
-	if len(got) > 0 {
-		t.Errorf("ErrorType() = %s want \"\"", got)
+	got := rejectedPolicy(err)
+	if got != nil {
+		t.Errorf("RejectedPolicy() = %v want nil", got)
 	}
 }

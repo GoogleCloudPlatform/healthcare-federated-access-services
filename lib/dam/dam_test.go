@@ -39,6 +39,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -1027,7 +1028,7 @@ func TestCheckAuthorization(t *testing.T) {
 	// TODO: we need more tests for other condition in checkAuthorization()
 }
 
-func TestCheckAuthorization_Untrusted(t *testing.T) {
+func TestCheckAuthorization_UntrustedIssuer(t *testing.T) {
 	// Perform exactly the same call as TestCheckAuthorization() except remove trust of the visa issuer string
 	auth := setupAuthorizationTest(t)
 	delete(auth.cfg.TrustedIssuers, "test")
@@ -1040,7 +1041,155 @@ func TestCheckAuthorization_Untrusted(t *testing.T) {
 
 	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
 	if status.Code(err) != codes.PermissionDenied {
-		t.Errorf("using untrusted issuer: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusForbidden, err)
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errUntrustedIssuer {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errUntrustedIssuer)
+	}
+}
+
+func TestCheckAuthorization_ResourceNotFound(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.cfg.Resources = nil
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
+	}
+	if errutil.ErrorType(err) != errResourceNotFoound {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errResourceNotFoound)
+	}
+}
+
+func TestCheckAuthorization_ResourceViewNotFoound(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.cfg.Resources[auth.resource].Views = nil
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.NotFound {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
+	}
+	if errutil.ErrorType(err) != errResourceViewNotFoound {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errResourceViewNotFoound)
+	}
+}
+
+func TestCheckAuthorization_ResolveAggregatesFail(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.cfg.ServiceTemplates = nil
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errResolveAggregatesFail {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errResolveAggregatesFail)
+	}
+}
+
+func TestCheckAuthorization_RoleNotAvailable(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.role = "invalid"
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errRoleNotAvailable {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errRoleNotAvailable)
+	}
+}
+
+func TestCheckAuthorization_CannotResolveServiceRole(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.cfg.ServiceTemplates["gcs"].ServiceRoles = nil
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errCannotResolveServiceRole {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errCannotResolveServiceRole)
+	}
+}
+
+func TestCheckAuthorization_NoPolicyDefined(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.cfg.Resources[auth.resource].Views[auth.view].Roles[auth.role].Policies = nil
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errNoPolicyDefined {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errNoPolicyDefined)
+	}
+}
+
+func TestCheckAuthorization_CannotEnforcePolicies(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.resource = "dataset_example"
+	auth.cfg.Policies["dac"].AnyOf[0].AllOf[0].Value = "const:https://dac.nih.gov/datasets/${NOT_DATASET}"
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errCannotEnforcePolicies {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errCannotEnforcePolicies)
+	}
+}
+
+func TestCheckAuthorization_RejectedPolicy(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.resource = "dataset_example"
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errRejectedPolicy {
+		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errRejectedPolicy)
 	}
 }
 
@@ -1502,7 +1651,7 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 	got := logs.Server.Logs[0].Entries[0]
 
 	want := &lepb.LogEntry{
-		Payload:  &lepb.LogEntry_TextPayload{TextPayload: ""},
+		Payload:  &lepb.LogEntry_JsonPayload{},
 		Severity: lspb.LogSeverity_DEFAULT,
 		Labels: map[string]string{
 			"type":            "policy_decision_log",
@@ -1588,6 +1737,15 @@ func TestLoggedIn_Hydra_Error_Log(t *testing.T) {
 	got := logs.Server.Logs[0].Entries[0]
 	if got.Labels["pass_auth_check"] == "true" {
 		t.Errorf("Labels[pass_auth_check] want false")
+	}
+	if got.Labels["error_type"] != errRejectedPolicy {
+		t.Errorf("Labels[pass_auth_check] = %s want %s", got.Labels["error_type"], errRejectedPolicy)
+	}
+	if got.Labels["error_type"] != errRejectedPolicy {
+		t.Errorf("Labels[pass_auth_check] = %s want %s", got.Labels["error_type"], errRejectedPolicy)
+	}
+	if got.GetJsonPayload() == nil {
+		t.Errorf("got.GetJsonPayload() want not nil")
 	}
 }
 

@@ -57,6 +57,33 @@ message Assertion {
   int64 exp = 9;
 }
 
+// VisaRejection is filled in by a policy engine to understand why a visa was
+// rejected. Visas unrelated to the policy are not considered rejected unless
+// they are not trusted.
+message VisaRejection {
+  string reason = 1;
+  string field = 2;
+  string description = 3;
+}
+
+// RejectedVisa provides insight into why a policy engine is not making use of
+// visas that are present within the passport.
+message RejectedVisa {
+  string token_format = 1;
+  string issuer = 2;
+  string subject = 3;
+  Assertion assertion = 4;
+  VisaRejection rejection = 5;
+}
+
+// RejectedPolicy provides insight into why a policy engine is rejecct a
+// passport for a visa.
+message RejectedPolicy {
+  int32 rejections = 1;
+  repeated RejectedVisa rejected_visas = 2;
+  repeated string policy_basis = 3;
+}
+
 message Passport {
   map<string, string> standard_claims = 1;
   repeated Assertion ga4gh_assertions = 2;

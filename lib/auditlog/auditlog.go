@@ -103,7 +103,7 @@ type PolicyDecisionLog struct {
 	// ErrorType of deny.
 	ErrorType string
 	// Message of deny.
-	Message string
+	Message interface{}
 }
 
 // WritePolicyDecisionLog puts the policy decision log to StackDriver.

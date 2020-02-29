@@ -126,7 +126,7 @@ func TestWritePolicyDecisionLog(t *testing.T) {
 		LogName: "projects/fake-project-id/logs/federated-access-audit",
 		Entries: []*lepb.LogEntry{{
 			Severity: lspb.LogSeverity_DEFAULT,
-			Payload:  &lepb.LogEntry_TextPayload{TextPayload: pl.Message},
+			Payload:  &lepb.LogEntry_TextPayload{TextPayload: pl.Message.(string)},
 			Labels: map[string]string{
 				"type":            "policy_decision_log",
 				"token_id":        "tid",

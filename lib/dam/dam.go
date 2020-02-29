@@ -40,6 +40,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -556,19 +557,19 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 
 func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vopts ValidateCfgOpts) error {
 	if stat := checkTrustedIssuer(id.Issuer, cfg, vopts); stat != nil {
-		return stat.Err()
+		return errutil.WithErrorType(errUntrustedIssuer, stat.Err())
 	}
 	srcRes, ok := cfg.Resources[resourceName]
 	if !ok {
-		return status.Errorf(codes.NotFound, "resource %q not found", resourceName)
+		return errutil.WithErrorType(errResourceNotFoound, status.Errorf(codes.NotFound, "resource %q not found", resourceName))
 	}
 	srcView, ok := srcRes.Views[viewName]
 	if !ok {
-		return status.Errorf(codes.NotFound, "resource %q view %q not found", resourceName, viewName)
+		return errutil.WithErrorType(errResourceViewNotFoound, status.Errorf(codes.NotFound, "resource %q view %q not found", resourceName, viewName))
 	}
 	entries, err := resolveAggregates(srcRes, srcView, cfg, vopts.Services)
 	if err != nil {
-		return status.Error(codes.PermissionDenied, err.Error())
+		return errutil.WithErrorType(errResolveAggregatesFail, status.Error(codes.PermissionDenied, err.Error()))
 	}
 	active := false
 	for _, entry := range entries {
@@ -576,35 +577,35 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 		res := entry.Res
 		vRole, ok := view.Roles[roleName]
 		if !ok {
-			return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not available on this view)", resourceName, viewName, roleName)
+			return errutil.WithErrorType(errRoleNotAvailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not available on this view)", resourceName, viewName, roleName))
 		}
 		_, err := adapter.ResolveServiceRole(roleName, view, res, cfg)
 		if err != nil {
-			return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (cannot resolve service role)", resourceName, viewName, roleName)
+			return errutil.WithErrorType(errCannotResolveServiceRole, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (cannot resolve service role)", resourceName, viewName, roleName))
 		}
 		if len(vRole.Policies) == 0 {
-			return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName)
+			return errutil.WithErrorType(errNoPolicyDefined, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName))
 		}
 		ctxWithTTL := context.WithValue(ctx, validator.RequestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
 		for _, p := range vRole.Policies {
 			v, err := buildValidator(ctxWithTTL, p, vRole, cfg)
 			if err != nil {
-				return status.Errorf(codes.PermissionDenied, "cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err)
+				return errutil.WithErrorType(errCannotEnforcePolicies, status.Errorf(codes.PermissionDenied, "cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err))
 			}
 			ok, err = v.Validate(ctxWithTTL, id)
 			if err != nil {
 				// Strip internal error in case it contains any sensitive data.
-				return status.Errorf(codes.PermissionDenied, "cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer)
+				return errutil.WithErrorType(errCannotValidateIdentity, status.Errorf(codes.PermissionDenied, "cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer))
 			}
 			if !ok {
-				rejected := rejectedPolicyString(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Services), vopts)
-				return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, rejected)
+				details, s := buildRejectedPolicy(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Services), vopts)
+				return errutil.WithErrorType(errRejectedPolicy, withRejectedPolicy(details, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, s)))
 			}
 			active = true
 		}
 	}
 	if !active {
-		return status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not enabled)", resourceName, viewName, roleName)
+		return errutil.WithErrorType(errRoleNotEnabled, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not enabled)", resourceName, viewName, roleName))
 	}
 	return nil
 }
@@ -858,13 +859,8 @@ func isItemVariable(str string) bool {
 	return strings.HasPrefix(str, "${") && strings.HasSuffix(str, "}")
 }
 
-type rejectedPolicy struct {
-	Rejections    int                   `json:"rejections"`
-	RejectedVisas []*ga4gh.RejectedVisa `json:"rejectedVisas,omitempty"`
-	PolicyBasis   []string              `json:"policyBasis,omitempty"`
-}
-
-func rejectedPolicyString(rejected []*ga4gh.RejectedVisa, policyBasis map[string]bool, vopts ValidateCfgOpts) string {
+// buildRejectedPolicy combines the given information to build RejectedPolicy and the marshalled json.
+func buildRejectedPolicy(rejected []*ga4gh.RejectedVisa, policyBasis map[string]bool, vopts ValidateCfgOpts) (*cpb.RejectedPolicy, string) {
 	rejections := len(rejected)
 	if vopts.HideRejectDetail {
 		rejected = nil
@@ -875,17 +871,23 @@ func rejectedPolicyString(rejected []*ga4gh.RejectedVisa, policyBasis map[string
 			basis = append(basis, k)
 		}
 	}
-	detail := &rejectedPolicy{
-		Rejections:    rejections,
-		RejectedVisas: rejected,
-		PolicyBasis:   basis,
+	detail := &cpb.RejectedPolicy{
+		Rejections:  int32(rejections),
+		PolicyBasis: basis,
 	}
+	for _, rv := range rejected {
+		if rv == nil {
+			continue
+		}
+		detail.RejectedVisas = append(detail.RejectedVisas, ga4gh.ToRejectedVisaProto(rv))
+	}
+
 	b, err := json.Marshal(detail)
 	if err != nil {
 		// Already in the error state and this is optional detail, just return something.
-		return fmt.Sprintf(`{"rejections":%d}`, rejections)
+		return detail, fmt.Sprintf(`{"rejections":%d}`, rejections)
 	}
-	return string(b)
+	return detail, string(b)
 }
 
 func makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) map[string]bool {

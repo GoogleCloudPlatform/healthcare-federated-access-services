@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
+
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 const (
@@ -285,4 +287,26 @@ func toOldClaimConditions(conditions Conditions) (map[string]OldClaimCondition, 
 		out[ctyp] = oldCond
 	}
 	return out, nil
+}
+
+func toVisaRejectionProto(in VisaRejection) *cpb.VisaRejection {
+	return &cpb.VisaRejection{
+		Reason:      in.Reason,
+		Field:       in.Field,
+		Description: in.Description,
+	}
+}
+
+// ToRejectedVisaProto convert RejectedVisa to proto.
+func ToRejectedVisaProto(in *RejectedVisa) *cpb.RejectedVisa {
+	if in == nil {
+		return nil
+	}
+	return &cpb.RejectedVisa{
+		TokenFormat: in.TokenFormat,
+		Issuer:      in.Issuer,
+		Subject:     in.Subject,
+		Assertion:   toAssertionProto(in.Assertion),
+		Rejection:   toVisaRejectionProto(in.Rejection),
+	}
 }
