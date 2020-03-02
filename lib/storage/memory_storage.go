@@ -80,14 +80,20 @@ func (m *MemoryStorage) Read(datatype, realm, user, id string, rev int64, conten
 	return m.ReadTx(datatype, realm, user, id, rev, content, nil)
 }
 
-func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error {
+// ReadTx reads inside a transaction.
+func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(false)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	fname := m.fname(datatype, realm, user, id, rev)
@@ -110,14 +116,19 @@ func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, cont
 }
 
 // MultiReadTx reads a set of objects matching the input parameters and filters
-func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error) {
+func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (_ int, ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
 		if err != nil {
 			return 0, fmt.Errorf("file read lock error: %v", err)
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	if pageSize > MaxPageSize {
@@ -211,14 +222,20 @@ func (m *MemoryStorage) ReadHistory(datatype, realm, user, id string, content *[
 	return m.ReadHistoryTx(datatype, realm, user, id, content, nil)
 }
 
-func (m *MemoryStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) error {
+// ReadHistoryTx reads history inside a transaction.
+func (m *MemoryStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(false)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	hfname := m.historyName(datatype, realm, user, id)

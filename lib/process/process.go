@@ -127,7 +127,7 @@ func (p *Process) DefaultSettings() *pb.Process_Params {
 }
 
 // RegisterWork adds a work item to the state for workers to process.
-func (p *Process) RegisterWork(workName string, workParams *pb.Process_Params, tx storage.Tx) (*pb.Process_Work, error) {
+func (p *Process) RegisterWork(workName string, workParams *pb.Process_Params, tx storage.Tx) (_ *pb.Process_Work, ferr error) {
 	if len(workName) == 0 {
 		return nil, fmt.Errorf("process work item registration: cannot register an empty work item")
 	}
@@ -135,7 +135,12 @@ func (p *Process) RegisterWork(workName string, workParams *pb.Process_Params, t
 	if tx == nil {
 		return nil, fmt.Errorf("lock process registration failed: lock unavailable")
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	state, err := p.readState(tx)
 	if err != nil {
@@ -169,12 +174,17 @@ func (p *Process) RegisterWork(workName string, workParams *pb.Process_Params, t
 }
 
 // UnregisterWork (eventually) removes a work item from the active state, and allows cleanup work to be performed.
-func (p *Process) UnregisterWork(workName string, tx storage.Tx) error {
+func (p *Process) UnregisterWork(workName string, tx storage.Tx) (ferr error) {
 	tx = p.store.LockTx(p.name, 0, tx)
 	if tx == nil {
 		return fmt.Errorf("lock process registration failed: lock unavailable")
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	state, err := p.readState(tx)
 	if err != nil {
@@ -198,14 +208,19 @@ func (p *Process) UnregisterWork(workName string, tx storage.Tx) error {
 }
 
 // UpdateSettings alters resource management settings.
-func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.Process_Params, tx storage.Tx) error {
+func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.Process_Params, tx storage.Tx) (ferr error) {
 	p.defaultSettings = settings
 
 	tx = p.store.LockTx(p.name, 0, tx)
 	if tx == nil {
 		return fmt.Errorf("lock process to update settings failed: lock unavailable")
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	state, err := p.readState(tx)
 	if err != nil {
@@ -464,12 +479,17 @@ func (p *Process) writeState(state *pb.Process, tx storage.Tx) error {
 	return nil
 }
 
-func (p *Process) start() (*pb.Process, time.Duration, error) {
+func (p *Process) start() (_ *pb.Process, _ time.Duration, ferr error) {
 	tx := p.store.LockTx(p.name, 0, nil)
 	if tx == nil {
 		return nil, 0, nil
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	state, err := p.readState(tx)
 	if err != nil {
@@ -509,7 +529,7 @@ func (p *Process) start() (*pb.Process, time.Duration, error) {
 	return state, freq, nil
 }
 
-func (p *Process) update(state *pb.Process) (Progress, error) {
+func (p *Process) update(state *pb.Process) (_ Progress, ferr error) {
 	state.ProcessStatus.ProgressTime = state.ProcessStatus.FinishTime
 	if state.ProcessStatus.ProgressTime == nil {
 		state.ProcessStatus.ProgressTime = ptypes.TimestampNow()
@@ -522,7 +542,12 @@ func (p *Process) update(state *pb.Process) (Progress, error) {
 		p.AddError(err, nil, state)
 		return None, err
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	storeState := &pb.Process{}
 	if err := p.store.ReadTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, p.name, storage.LatestRev, storeState, tx); err != nil {

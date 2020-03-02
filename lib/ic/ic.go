@@ -1839,12 +1839,17 @@ type damArgs struct {
 }
 
 // ImportConfig ingests bootstrap configuration files to the IC's storage sytem.
-func ImportConfig(store storage.Store, service string, cfgVars map[string]string) error {
+func ImportConfig(store storage.Store, service string, cfgVars map[string]string) (ferr error) {
 	tx, err := store.Tx(true)
 	if err != nil {
 		return err
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	glog.Infof("import IC config into data store")
 	history := &cpb.HistoryEntry{

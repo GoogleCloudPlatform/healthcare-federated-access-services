@@ -239,12 +239,17 @@ type authHandlerOut struct {
 	stateID string
 }
 
-func (s *Service) auth(ctx context.Context, in authHandlerIn) (*authHandlerOut, int, error) {
+func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut, _ int, ferr error) {
 	tx, err := s.store.Tx(true)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	sec, err := s.loadSecrets(tx)
 	if err != nil {
@@ -378,12 +383,17 @@ type loggedInHandlerOut struct {
 	identities []string
 }
 
-func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (*loggedInHandlerOut, int, error) {
+func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (_ *loggedInHandlerOut, _ int, ferr error) {
 	tx, err := s.store.Tx(true)
 	if err != nil {
 		return nil, http.StatusServiceUnavailable, err
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	state := &pb.ResourceTokenRequestState{}
 	err = s.store.ReadTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, in.stateID, storage.LatestRev, state, tx)
@@ -511,41 +521,49 @@ func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.Resourc
 
 // ResourceTokens returns a set of access tokens for a set of resources.
 func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
-	tx, err := s.store.Tx(false)
+	out, err := s.fetchResourceTokens(r)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
+		httputil.WriteStatusError(w, err)
 		return
 	}
-	defer tx.Finish()
+	httputil.WriteRPCResp(w, out, nil)
+}
+
+func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, ferr error) {
+	tx, err := s.store.Tx(false)
+	if err != nil {
+		return nil, status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+	}
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	auth, err := extractBearerToken(r)
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err)
-		return
+		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "%v", err)
 	}
 
 	cart := ""
 	if s.useHydra {
 		cart, err = s.extractCartFromAccessToken(auth)
 		if err != nil {
-			httputil.WriteRPCResp(w, nil, err)
-			return
+			return nil, status.Errorf(codes.Unauthenticated, "%v", err)
 		}
 	}
 
 	state, id, err := s.resourceTokenState(cart, tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err)
-		return
+		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "%v", err)
 	}
 	if len(state.Resources) == 0 {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("empty resource list"))
-		return
+		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "empty resource list")
 	}
 	cfg, err := s.loadConfig(tx, state.Resources[0].Realm)
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err)
-		return
+		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "%v", err)
 	}
 
 	ctx := r.Context()
@@ -558,20 +576,17 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 	for i, r := range state.Resources {
 		res, ok := cfg.Resources[r.Resource]
 		if !ok {
-			httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("resource not found: %q", r.Resource))
-			return
+			return nil, status.Errorf(httputil.RPCCode(http.StatusNotFound), "resource not found: %q", r.Resource)
 		}
 
 		view, ok := res.Views[r.View]
 		if !ok {
-			httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", r.View, r.Resource))
-			return
+			return nil, status.Errorf(httputil.RPCCode(http.StatusNotFound), "view %q not found for resource %q", r.View, r.Resource)
 		}
 
-		result, status, err := s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, time.Duration(state.Ttl), keyFile, id, cfg, res, view)
+		result, st, err := s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, time.Duration(state.Ttl), keyFile, id, cfg, res, view)
 		if err != nil {
-			httputil.WriteError(w, status, err)
-			return
+			return nil, status.Errorf(httputil.RPCCode(st), "%v", err)
 		}
 		access := strconv.Itoa(i)
 
@@ -594,7 +609,7 @@ func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 			Labels:      result.Labels,
 		}
 	}
-	httputil.WriteRPCResp(w, out, nil)
+	return out, nil
 }
 
 func (s *Service) resourceTokenState(stateID string, tx storage.Tx) (*pb.ResourceTokenRequestState, *ga4gh.Identity, error) {

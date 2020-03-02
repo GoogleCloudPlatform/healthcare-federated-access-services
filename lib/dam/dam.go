@@ -1197,14 +1197,19 @@ func (s *Service) updateWarehouseOptions(opts *pb.ConfigOptions, realm string, t
 }
 
 // ImportConfig ingests bootstrap configuration files to the DAM's storage sytem.
-func ImportConfig(store storage.Store, service string, warehouse clouds.ResourceTokenCreator, cfgVars map[string]string) error {
+func ImportConfig(store storage.Store, service string, warehouse clouds.ResourceTokenCreator, cfgVars map[string]string) (ferr error) {
 	fs := getFileStore(store, service)
 	glog.Infof("import DAM config %q into data store", fs.Info()["service"])
 	tx, err := store.Tx(true)
 	if err != nil {
 		return err
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	history := &cpb.HistoryEntry{
 		Revision:   1,

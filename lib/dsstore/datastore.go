@@ -134,6 +134,7 @@ func (s *DatastoreStorage) Info() map[string]string {
 	}
 }
 
+// Exists checks if a data entity with the given name exists.
 func (s *DatastoreStorage) Exists(datatype, realm, user, id string, rev int64) (bool, error) {
 	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
 	e := new(DatastoreEntity)
@@ -146,18 +147,26 @@ func (s *DatastoreStorage) Exists(datatype, realm, user, id string, rev int64) (
 	return false, err
 }
 
+// Read reads a data entity.
 func (s *DatastoreStorage) Read(datatype, realm, user, id string, rev int64, content proto.Message) error {
 	return s.ReadTx(datatype, realm, user, id, rev, content, nil)
 }
 
-func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx storage.Tx) error {
+// ReadTx reads a data entity inside a transaction.
+// ReadTx will not see the writes inside the transaction.
+func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx storage.Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 	dstx, ok := tx.(*DatastoreTx)
 	if !ok {
@@ -181,15 +190,25 @@ func (s *DatastoreStorage) ReadTx(datatype, realm, user, id string, rev int64, c
 	return nil
 }
 
-// MultiReadTx reads a set of objects matching the input parameters and filters
-func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][]storage.Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) (int, error) {
+// MultiReadTx reads a set of data entities matching the filters.
+// MultiReadTx will not see the writes inside the transaction.
+// If realm is "" reads all realms.
+// if user is "" reads all users.
+// Returns the number of items matching the filter.
+// content is a map of user and id to values.
+func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][]storage.Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) (_ int, ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
 		if err != nil {
 			return 0, err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 	if pageSize > storage.MaxPageSize {
 		pageSize = storage.MaxPageSize
@@ -250,18 +269,25 @@ func (s *DatastoreStorage) MultiReadTx(datatype, realm, user string, filters [][
 	return count, nil
 }
 
+// ReadHistory reads the history.
 func (s *DatastoreStorage) ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error {
 	return s.ReadHistoryTx(datatype, realm, user, id, content, nil)
 }
 
-func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx storage.Tx) error {
+// ReadHistoryTx reads the history inside a transaction.
+func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx storage.Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	// TODO: handle pagination.
@@ -283,18 +309,25 @@ func (s *DatastoreStorage) ReadHistoryTx(datatype, realm, user, id string, conte
 	return nil
 }
 
+// Write writes a data entity.
 func (s *DatastoreStorage) Write(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message) error {
 	return s.WriteTx(datatype, realm, user, id, rev, content, history, nil)
 }
 
-func (s *DatastoreStorage) WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx storage.Tx) error {
+// WriteTx writes a data entity inside a transaction.
+func (s *DatastoreStorage) WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx storage.Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(true)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 	dstx, ok := tx.(*DatastoreTx)
 	if !ok {
@@ -337,20 +370,25 @@ func (s *DatastoreStorage) WriteTx(datatype, realm, user, id string, rev int64, 
 	return nil
 }
 
-// Delete a record.
+// Delete deletes a data entity.
 func (s *DatastoreStorage) Delete(datatype, realm, user, id string, rev int64) error {
 	return s.DeleteTx(datatype, realm, user, id, rev, nil)
 }
 
-// DeleteTx delete a record with transaction.
-func (s *DatastoreStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx storage.Tx) error {
+// DeleteTx deletes a data entity inside a transaction.
+func (s *DatastoreStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx storage.Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(true)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 	dstx, ok := tx.(*DatastoreTx)
 	if !ok {
@@ -366,6 +404,7 @@ func (s *DatastoreStorage) DeleteTx(datatype, realm, user, id string, rev int64,
 }
 
 // MultiDeleteTx deletes all records of a certain data type within a realm.
+// If user is "", deletes for all users.
 func (s *DatastoreStorage) MultiDeleteTx(datatype, realm, user string, tx storage.Tx) error {
 	q := datastore.NewQuery(entityKind).Filter("service =", s.service).Filter("type =", datatype).Filter("realm =", realm)
 	if user != storage.DefaultUser {
@@ -376,6 +415,8 @@ func (s *DatastoreStorage) MultiDeleteTx(datatype, realm, user string, tx storag
 	return err
 }
 
+// Wipe deletes all data and history within a realm.
+// If realm is "" deletes for all realms.
 func (s *DatastoreStorage) Wipe(realm string) error {
 	glog.Infof("Datastore wipe project %q service %q realm %q: started", s.project, s.service, realm)
 	results := make(map[string]int)

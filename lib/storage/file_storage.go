@@ -92,7 +92,8 @@ func (f *FileStorage) Read(datatype, realm, user, id string, rev int64, content 
 	return f.ReadTx(datatype, realm, user, id, rev, content, nil)
 }
 
-func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error {
+// ReadTx reads inside a transaction.
+func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) (ferr error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -111,7 +112,12 @@ func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, conten
 		if err != nil {
 			return fmt.Errorf("file read lock error: %v", err)
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	if err := checkFile(fname); err != nil {
@@ -140,14 +146,20 @@ func (f *FileStorage) ReadHistory(datatype, realm, user, id string, content *[]p
 	return f.ReadHistoryTx(datatype, realm, user, id, content, nil)
 }
 
-func (f *FileStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) error {
+// ReadHistoryTx reads hisotry inside a transaction.
+func (f *FileStorage) ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = f.Tx(false)
 		if err != nil {
 			return fmt.Errorf("history file read lock error: %v", err)
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	hfname := f.historyName(datatype, realm, user, id)
