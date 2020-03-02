@@ -1,13 +1,13 @@
 # How To Deploy a Federated Access Playground
 
-This document is the quick-start guide to deploying Federated Access components
+This document is the quick-start guide for deploying Federated Access components
 in a test environment and getting comfortable with how the system works. This
 is referred to as a "playground" environment for trying out the use of
 passports and access policies with [test personas](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/README.md#test-personas).
 
-**Note:** this environment is only for testing with synthetic and public
-datasets. [Productionization](productionization.md) considerations are
-documented separately for a later stage in the deployment process.
+**Note:** This environment is only for testing with synthetic and public
+datasets. For more information on best practices for production environments,
+see [Productionization Best Practices](productionization.md).
 
 ## Before you start
 
@@ -16,12 +16,12 @@ will include the following:
 
 *  A sample dataset hosted as a file in a GCS bucket
 *  An instantiation of the IC and DAM services
-
-*  A playground passport broker that issues test passports to predefined personas
+*  A playground passport broker that issues test passports to predefined
+   personas
 *  An IC login test page ("icdemo") and DAM resource request test page
    ("damdemo")
 
-## Install Google Cloud SDK
+### Install Google Cloud SDK
 
 If you haven't already done so on your machine, you will need to install
 the Google Cloud SDK to use the `deploy.bash` scripts.
@@ -38,20 +38,20 @@ gcloud config set account ${GCP_USERNAME?}
 
 For more information, see the [SDK documentation](https://cloud.google.com/sdk/docs).
 
-## Fetch the latest release from GitHub
+### Install the latest release from GitHub
 
 If you haven't already done so, install `git` and related tools as per the
 Github's [Set up Git](https://help.github.com/en/github/getting-started-with-github/set-up-git) documentation.
 
 If this is your first time installing Federated Access components, you will need
-to clone the repository:
+to clone the repository as follows:
 
 ```
 git clone https://github.com/GoogleCloudPlatform/healthcare-federated-access-services.git
 ```
 
-**Tip:** If you are less familiar with `git`, then [Git Basics](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository) is a good starting point
-to understanding the command line interface.
+**Tip:** If you are less familiar with `git`, then [Git Basics](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository)
+is a good starting point to understanding the command line interface.
 
 Then `checkout` the latest release:
 
@@ -88,7 +88,7 @@ To create a Google Cloud project, do the following:
         export PROJECT=<gcp-project-id>
         ./deploy.bash
         ```
-    **Note:** you may wish to run `./deploy.bash -i` the first time to have
+    **Note:** You can run `./deploy.bash -i` the first time to have
     the script pause between steps where you can look for recent errors and
     break the script (CTRL-C) if you do not wish to proceed.
 

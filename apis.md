@@ -2,15 +2,16 @@
 
 This file documents the endpoints of IC and DAM.
 
-Concepts used within the API endpoints include:
+Concepts used within the API endpoints include the following:
 
-*  **API Version:** `v1alpha` is the current API version of these components,
+*  **API Version:** `v1alpha` is the current API version of these components
    and is used as part of the resource path on most endpoints. Some standard
    OIDC endpoints, metadata endpoints, and other API integration endpoints do
    not include the API version.
-   *  **Note:** `v1alpha` APIs are subject to more rapid changes without
-      maintaining backwards compatibility. Integrations with this API can
-      therefore expect to need more maintenance.
+
+   **Note:** `v1alpha` APIs are subject to more rapid changes without
+   maintaining backwards compatibility. Integrations with this API can
+   therefore expect to need more maintenance.
 
 *  **Realms:** `realm` is a form of namespace that allows data to be partitioned
    within a single deployment of the service.
@@ -24,12 +25,12 @@ Concepts used within the API endpoints include:
       and administrators of any one realm may have the ability to access other
       realms if they choose to.
 
-*  **Experimental Features:** Some of the API is restricted to "experimental"
-   usage, and is not appropriate for production workloads and may not meet
+*  **Experimental Features:** Some of the API are restricted to "experimental"
+   usage, and are not appropriate for production workloads and may not meet
    security requirements in their current form. These are often newer features
    that are not yet ready for adoption.
-   *  Setting an environment variable enables these experimental features. They
-      are not enabled by default.
+   *  Setting the following environment variable enables these experimental
+      features. They are not enabled by default.
          ```
          export FEDERATED_ACCESS_ENABLE_EXPERIMENTAL=true
          ```
@@ -56,25 +57,25 @@ The following are the main IC endpoints:
 
 ### Service Info Endpoints
 
-The following are public endpoints for discovery and/or health check.
+The following are public endpoints for discovery and/or health check:
 
 *  "/identity": metadata about the service, like versions of various services.
-*  "/visas/jwks": signing keys for visas issued by the IC. Note that is is a
-   different set of keys than what are used for signing IC tokens authored by
+*  "/visas/jwks": signing keys for visas issued by the IC. Note that this is a
+   different set of keys than those used for signing IC tokens authored by
    OAuth2 endpoints.
 
 ### Admin Configuration Endpoints
 
 The following are used for managing IC's configuration.
-They require "admin" permission access token unless otherwise noted below.
+They require the "admin" permission access token unless otherwise noted below.
 
 *  "/identity/v1alpha/{realm}/clients:sync": syncs client information
    between the IC and Hydra where the IC's configuration is considered the
    source of truth.
-   *  Syncing generally happens as configurations change, but this endpoint
-      allows an administrator or tool to invoke it explicitly.
-   *  It does not require an admin access token, but does require the client
-      (indentified by the `client_id`) has the `sync` scope set in the
+   *  Syncing happens as configurations change. This endpoint allows an
+      administrator or tool to invoke it explicitly.
+   *  It does not require an admin access token, but does require that the
+      client (identified by the `client_id`) has the `sync` scope set in the
       configuration.
    *  Syncing is limited to once per minute.
 *  "/identity/v1alpha/{realm}/config" and sub-resources: managing configuration.
@@ -83,7 +84,7 @@ They require "admin" permission access token unless otherwise noted below.
 
 ### Users, Tokens, and Consents Management Endpoints
 
-The following implement a subset of [SCIM V2 API](https://tools.ietf.org/html/rfc7644#section-3.2).
+The following implements a subset of [SCIM V2 API](https://tools.ietf.org/html/rfc7644#section-3.2).
 
 *  "/identity/scim/v2/{realm}/Users": user management, based on the
    [SCIM V2 User Resource Schema](https://tools.ietf.org/html/rfc7643#section-4.1).
@@ -149,19 +150,19 @@ $.ajax({
 
 #### SCIM Filters
 
-**Note:** DAM and IC support only a subset of the SCIM V2 filter specification,
+**Note:** DAM and IC support only a subset of the SCIM V2 filter specification
 and only on supported user management endpoints where appropriate.
 
-SCIM-like filters that are supported by DAM and IC are generally of the form:
+SCIM-like filters that are supported by DAM and IC are defined as follows:
 
 ```
 <expr> = <attribute> <compare_op> "string" | <attribute> <compare_op> boolean
 ```
 
-*  **`attribute`:** an attribute path such as `active` or `name.formatted`
-*  **`compare_op`:** a comparison operator such as `eq` (equals), `co` (contains),
-   etc. See [SCIM V2 Filtering](https://tools.ietf.org/html/rfc7644#section-3.4.2.2)
-   documentation for the full list of filter operators.
+*  **`attribute`** - an attribute path such as `active` or `name.formatted`
+*  **`compare_op`** - a comparison operator such as `eq` (equals), `co` (contains),
+   etc. For documentation for the full list of filter operators, see
+   [SCIM V2 Filtering](https://tools.ietf.org/html/rfc7644#section-3.4.2.2).
 *  `string` or `boolean` is based on the `attribute` type.
 
 Multiple clauses within filter expressions are limited to the following:
@@ -174,7 +175,7 @@ Multiple clauses within filter expressions are limited to the following:
 (<expr> or <expr> or ...) and (<expr> or <expr> or ...) and <expr>
 ```
 
-That is, parentheses may be used to collect `or` clauses only, with `and` being
+Brackets may be used to nest `or` clauses only, with `and` being
 used between bracketed clauses to support expressions that are in
 [Conjunctive Normal Form](https://en.wikipedia.org/wiki/Conjunctive_normal_form).
 Brackets are not needed on sub-expressions between `and` clauses if each
@@ -231,7 +232,7 @@ resources they want using the following OIDC and DAM token checkout endpoints.
 
 ### Service Info Endpoints
 
-The following are public endpoints for discovery and/or health check.
+The following are public endpoints for discovery and/or health check:
 
 *  "/dam": metadata about the service, like versions of various services.
 
@@ -254,7 +255,7 @@ They require "admin" permission access token unless otherwise noted below.
    *  Syncing generally happens as configurations change, but this endpoint
       allows an administrator or tool to invoke it explicitly.
    *  It does not require an admin access token, but does require the client
-      (indentified by the `client_id`) has the `sync` scope set in the
+      (identified by the `client_id`) has the `sync` scope set in the
       configuration.
    *  Syncing is limited to once per minute.
 *  "/dam/v1alpha/{realm}": supports GET and DELETE of a realm.
