@@ -56,7 +56,7 @@ func TestConfigHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/identity/v1alpha/test/passportTranslators",
-			Output: `{"passportTranslators":{"dbgap_translator":{"compatibleIssuers":["https://dbgap.nlm.nih.gov/aa"],"ui":{"label":"dbGaP Passport Translator"}},"elixir_translator":{"compatibleIssuers":["https://login.elixir-czech.org/oidc","https://login.elixir-czech.org/oidc/"],"ui":{"label":"Elixir Passport Translator"}}}}`,
+			Output: `{"passportTranslators":{"dbgap_translator":{"compatibleIssuers":["https://dbgap.nlm.nih.gov/aa"],"ui":{"label":"dbGaP Passport Translator"}}}}`,
 			Status: http.StatusOK,
 		},
 	}

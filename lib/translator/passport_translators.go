@@ -22,23 +22,12 @@ import (
 )
 
 const (
-	// ElixirTranslatorName is the name of the Elixir passport translator.
-	ElixirTranslatorName = "elixir_translator"
 	// DbGapTranslatorName is the name of the DbGap passport translator.
 	DbGapTranslatorName = "dbgap_translator"
 )
 
 func PassportTranslators() map[string]*dampb.PassportTranslator {
 	return map[string]*dampb.PassportTranslator{
-		ElixirTranslatorName: {
-			CompatibleIssuers: []string{
-				"https://login.elixir-czech.org/oidc",
-				"https://login.elixir-czech.org/oidc/",
-			},
-			Ui: map[string]string{
-				"label": "Elixir Passport Translator",
-			},
-		},
 		DbGapTranslatorName: {
 			CompatibleIssuers: []string{
 				"https://dbgap.nlm.nih.gov/aa",
@@ -67,8 +56,6 @@ func CreateTranslator(ctx context.Context, iss, translateUsing, clientID, public
 		}
 	} else {
 		switch translateUsing {
-		case ElixirTranslatorName:
-			s, err = NewElixirTranslator(ctx, clientID)
 		case DbGapTranslatorName:
 			s, err = NewDbGapTranslator(publicKey, selfIssuer, selfSigningKey)
 		default:

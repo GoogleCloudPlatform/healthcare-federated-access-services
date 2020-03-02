@@ -46,7 +46,6 @@
     },
     "elixir": {
       "issuer": "https://login.elixir-czech.org/oidc/",
-      "translateUsing": "elixir_translator",
       "ui": {
         "label": "elixir passport issuer",
         "description": "elixir passport issuer"
