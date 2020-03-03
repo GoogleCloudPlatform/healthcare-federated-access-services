@@ -585,49 +585,42 @@ func (s *Service) getAndValidateStateRedirect(r *http.Request, cfg *pb.IcConfig)
 	return redirect, nil
 }
 
-func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request, w http.ResponseWriter) {
+func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request) (bool, string, error) {
 	realm := getRealm(r)
 	lookup, err := s.accountLookup(realm, id.Subject, tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
 	var subject string
 	if isLookupActive(lookup) {
 		subject = lookup.Subject
 		acct, _, err := s.loadAccount(subject, realm, tx)
 		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 		}
 		visas, err := s.accountLinkToVisas(r.Context(), acct, id.Subject, provider, cfg, secrets)
 		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 		}
 		if !visasAreEqual(visas, id.VisaJWTs) {
 			// Refresh the claims in the storage layer.
 			if err := s.populateAccountVisas(r.Context(), acct, id, provider); err != nil {
-				httputil.WriteError(w, http.StatusServiceUnavailable, err)
-				return
+				return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 			}
 			err := s.saveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
 			if err != nil {
-				httputil.WriteError(w, http.StatusServiceUnavailable, err)
-				return
+				return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 			}
 		}
 	} else {
 		// Create an account for the identity automatically.
 		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
 		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 		}
 
 		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 		}
 		subject = acct.Properties.Subject
 	}
@@ -650,15 +643,18 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 
 	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
 	}
 
 	if s.useHydra {
-		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID, nil)
-	} else {
-		s.sendInformationReleasePage(id, stateID, extractClientName(cfg, clientID), scope, realm, cfg, w)
+		addr, err := hydra.LoginSuccess(r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID, nil)
+		if err != nil {
+			return false, "", err
+		}
+		return true, addr, nil
 	}
+	page := s.informationReleasePage(id, stateID, extractClientName(cfg, clientID), scope, realm, cfg)
+	return false, page, nil
 }
 
 func extractClientName(cfg *pb.IcConfig, clientID string) string {
@@ -677,7 +673,7 @@ func extractClientName(cfg *pb.IcConfig, clientID string) string {
 	return clientName
 }
 
-func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, clientName, scope, realm string, cfg *pb.IcConfig, w http.ResponseWriter) {
+func (s *Service) informationReleasePage(id *ga4gh.Identity, stateID, clientName, scope, realm string, cfg *pb.IcConfig) string {
 	var info []string
 	scopes := strings.Split(scope, " ")
 
@@ -724,7 +720,7 @@ func (s *Service) sendInformationReleasePage(id *ga4gh.Identity, stateID, client
 	page = strings.ReplaceAll(page, "${STATE}", stateID)
 	page = strings.ReplaceAll(page, "${PATH}", strings.ReplaceAll(acceptInformationReleasePath, "{realm}", realm))
 
-	httputil.WriteHTMLResp(w, page)
+	return page
 }
 
 //////////////////////////////////////////////////////////////////

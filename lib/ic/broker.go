@@ -127,23 +127,38 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 // FinishLogin is the HTTP handler for ".../loggedin" endpoint.
 func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	redirect, out, err := s.doFinishLogin(r)
+	if err != nil {
+		httputil.WriteStatusError(w, err)
+	}
+	if redirect {
+		httputil.WriteRedirect(w, r, out)
+	}
+	httputil.WriteHTMLResp(w, out)
+}
+
+func (s *Service) doFinishLogin(r *http.Request) (_ bool, _ string, ferr error) {
+	r.ParseForm()
 
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	cfg, err := s.loadConfig(tx, getRealm(r))
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
 	idpName := getName(r)
 	idp, ok := cfg.IdentityProviders[idpName]
 	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid identity provider %q", idpName))
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "invalid identity provider %q", idpName)
 		return
 	}
 
@@ -168,51 +183,43 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 			page := s.clientLoginPage
 			page = strings.Replace(page, "${INSTRUCTIONS}", instructions, -1)
 			page = pageVariableRE.ReplaceAllString(page, `""`)
-			httputil.WriteHTMLResp(w, page)
-			return
+			return false, page, nil
 		}
 	} else {
 		// Experimental allows non OIDC auth code flow which code or stateParam can be empty.
 		if len(code) == 0 || len(stateParam) == 0 {
-			httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("query params code or state missing"))
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "query params code or state missing")
 		}
 	}
 
 	var loginState cpb.LoginState
 	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState, tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("read login state failed, %q", err))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "read login state failed, %q", err)
 	}
 	// state should be one time usage.
 	err = s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("delete login state failed, %q", err))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "delete login state failed, %q", err)
 	}
 
 	// TODO: add security checks here as per OIDC spec.
 	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "invalid login state parameter")
 	}
 
 	if s.useHydra {
 		if len(loginState.Challenge) == 0 {
-			httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"))
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "invalid login state parameter")
 		}
 	} else {
 		if len(loginState.ClientId) == 0 || len(loginState.Redirect) == 0 || len(loginState.Nonce) == 0 {
-			httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid login state parameter"))
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "invalid login state parameter")
 		}
 	}
 
 	if len(code) == 0 && len(idToken) == 0 && !s.idpUsesClientLoginPage(loginState.IdpName, loginState.Realm, cfg) {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("missing auth code"))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "missing auth code")
 	}
 
 	redirect := loginState.Redirect
@@ -222,36 +229,31 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	clientID := loginState.ClientId
 
 	if idpName != loginState.IdpName {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("request idp does not match login state, want %q, got %q", loginState.IdpName, idpName))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "request idp does not match login state, want %q, got %q", loginState.IdpName, idpName)
 	}
 
 	secrets, err := s.loadSecrets(tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
 	if len(accessToken) == 0 {
 		idpc := idpConfig(idp, s.getDomainURL(), secrets)
 		tok, err := idpc.Exchange(r.Context(), code)
 		if err != nil {
-			httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid code: %v", err))
-			return
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "invalid code: %v", err)
 		}
 		accessToken = tok.AccessToken
 		if len(idToken) == 0 {
 			idToken, ok = tok.Extra("id_token").(string)
 			if !ok && len(accessToken) == 0 {
-				httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("identity provider response does not contain an access_token nor id_token token"))
-				return
+				return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "identity provider response does not contain an access_token nor id_token token")
 			}
 		}
 	}
 
-	login, status, err := s.loginTokenToIdentity(accessToken, idToken, idp, r, cfg, secrets)
+	login, st, err := s.loginTokenToIdentity(accessToken, idToken, idp, r, cfg, secrets)
 	if err != nil {
-		httputil.WriteError(w, status, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(st), "%v", err)
 	}
 
 	// If Idp does not support nonce field, use nonce in state instead.
@@ -259,63 +261,78 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 		login.Nonce = nonce
 	}
 	if nonce != login.Nonce {
-		httputil.WriteError(w, status, fmt.Errorf("nonce in id token is not equal to nonce linked to auth code"))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(st), "nonce in id token is not equal to nonce linked to auth code")
 	}
 
-	s.finishLogin(login, idpName, redirect, scope, clientID, state, loginState.Challenge, tx, cfg, secrets, r, w)
+	return s.finishLogin(login, idpName, redirect, scope, clientID, state, loginState.Challenge, tx, cfg, secrets, r)
 }
 
 // AcceptInformationRelease is the HTTP handler for ".../inforelease" endpoint.
 func (s *Service) AcceptInformationRelease(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	redirect, out, err := s.acceptInformationRelease(r)
+	if err != nil {
+		httputil.WriteStatusError(w, err)
+	}
+	if redirect {
+		httputil.WriteRedirect(w, r, out)
+	}
+
+}
+
+func (s *Service) acceptInformationRelease(r *http.Request) (_ bool, _ string, ferr error) {
 	stateID := httputil.QueryParam(r, "state")
 	if len(stateID) == 0 {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("missing %q parameter", "state"))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusBadRequest), "missing %q parameter", "state")
 	}
 
 	agree := httputil.QueryParam(r, "agree")
 	if agree != "y" {
 		if s.useHydra {
-			s.hydraRejectConsent(w, r, stateID)
-			return
+			addr, err := s.hydraRejectConsent(r, stateID)
+			if err != nil {
+				return false, "", err
+			}
+			return true, addr, nil
 		}
-
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("no information release"))
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusUnauthorized), "no information release")
 	}
 
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
-	defer tx.Finish()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
 
 	state := &cpb.AuthTokenState{}
 	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
 	}
 
 	err = s.store.DeleteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
 	}
 
 	cfg, err := s.loadConfig(tx, state.Realm)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
-		return
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
 	}
 
 	if s.useHydra {
-		s.hydraAcceptConsent(w, r, state, cfg, tx)
+		addr, err := s.hydraAcceptConsent(r, state, cfg, tx)
+		if err != nil {
+			return false, "", err
+		}
+		return true, addr, nil
 		return
 	}
 
-	httputil.WriteStatus(w, status.New(codes.Unimplemented, "oidc service not supported"))
+	return false, "", status.Errorf(codes.Unimplemented, "oidc service not supported")
 }

@@ -258,14 +258,20 @@ func (m *MemoryStorage) Write(datatype, realm, user, id string, rev int64, conte
 	return m.WriteTx(datatype, realm, user, id, rev, content, history, nil)
 }
 
-func (m *MemoryStorage) WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx Tx) error {
+// WriteTx writes inside a transaction.
+func (m *MemoryStorage) WriteTx(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message, tx Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(true)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	hlist := make([]proto.Message, 0)
@@ -297,14 +303,19 @@ func (m *MemoryStorage) Delete(datatype, realm, user, id string, rev int64) erro
 }
 
 // DeleteTx delete a record with transaction.
-func (m *MemoryStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx Tx) error {
+func (m *MemoryStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = m.Tx(true)
 		if err != nil {
 			return err
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 	vname := m.fname(datatype, realm, user, id, rev)
 	m.cache.DeleteEntity(vname)
@@ -316,14 +327,19 @@ func (m *MemoryStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx
 }
 
 // MultiDeleteTx deletes all records of a certain data type within a realm.
-func (m *MemoryStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) error {
+func (m *MemoryStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) (ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
 		if err != nil {
 			return fmt.Errorf("file read lock error: %v", err)
 		}
-		defer tx.Finish()
+		defer func() {
+			err := tx.Finish()
+			if ferr == nil {
+				ferr = err
+			}
+		}()
 	}
 
 	return m.findPath(datatype, realm, user, func(path, userMatch, idMatch string) error {

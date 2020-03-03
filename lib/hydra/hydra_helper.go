@@ -110,9 +110,10 @@ func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, logi
 }
 
 // ConsentSkip if hydra was already able to consent the user, skip will be true and we do not need to re-consent the user.
-func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, consent *hydraapi.ConsentRequest, hydraAdminURL, challenge string) bool {
+// Returns whether a consent is required and redirect address for the conset page.
+func ConsentSkip(r *http.Request, client *http.Client, consent *hydraapi.ConsentRequest, hydraAdminURL, challenge string) (bool, string, error) {
 	if !consent.Skip {
-		return false
+		return false, "", nil
 	}
 
 	// You can apply logic here, for example update the number of times the user consent.
@@ -127,16 +128,23 @@ func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, co
 	}
 	resp, err := AcceptConsent(client, hydraAdminURL, challenge, consentReq)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return true
+		return false, "", err
 	}
 
-	httputil.WriteRedirect(w, r, resp.RedirectTo)
-	return true
+	return true, resp.RedirectTo, nil
 }
 
 // SendLoginSuccess sends login success to hydra.
 func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge, subject, stateID string, extra map[string]interface{}) {
+	addr, err := LoginSuccess(r, client, hydraAdminURL, challenge, subject, stateID, extra)
+	if err != nil {
+		httputil.WriteStatusError(w, err)
+	}
+	httputil.WriteRedirect(w, r, addr)
+}
+
+// LoginSuccess is the redirect for successful login.
+func LoginSuccess(r *http.Request, client *http.Client, hydraAdminURL, challenge, subject, stateID string, extra map[string]interface{}) (string, error) {
 	req := &hydraapi.HandledLoginRequest{
 		Subject: &subject,
 		Context: map[string]interface{}{},
@@ -152,9 +160,7 @@ func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Clien
 
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, req)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
-		return
+		return "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
-
-	httputil.WriteRedirect(w, r, resp.RedirectTo)
+	return resp.RedirectTo, nil
 }
