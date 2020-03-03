@@ -24,6 +24,7 @@ import (
 	"cloud.google.com/go/datastore" /* copybara-comment: datastore */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -52,13 +53,15 @@ func main() {
 	scenarioTransactionsConflictingLinearizable(ctx, c)
 	scenarioTransactionsConflictingNonLinearizable(ctx, c)
 	scenarioTransactionsReadAfterWrite(ctx, c)
+	scenarioLock(ctx, c)
+	scenarioLockConcurrency(ctx, c)
 
 	fmt.Println("All tests passed.")
 }
 
 func scenarioSimple(ctx context.Context, c *datastore.Client) {
 	// Scenario: write, read-check, read-modify-write, read-check, delete, read-check
-	id := "fake-id-simple"
+	id := "fake-id-simple-" + uuid.New()
 	s := dsstore.New(c, *fakeProjectID, fakeServiceName, fakeConfigPath)
 
 	{
@@ -145,7 +148,7 @@ func scenarioSimple(ctx context.Context, c *datastore.Client) {
 
 func scenarioTransactionsConflictingLinearizable(ctx context.Context, c *datastore.Client) {
 	// Scenario: two concurrent write transactions, the second to commit prevails.
-	id := "fake-id-TransactionsConflictingLinearizable"
+	id := "fake-id-TransactionsConflictingLinearizable-" + uuid.New()
 	s := dsstore.New(c, *fakeProjectID, fakeServiceName, fakeConfigPath)
 
 	tx1, err := s.Tx(true)
@@ -184,7 +187,7 @@ func scenarioTransactionsConflictingLinearizable(ctx context.Context, c *datasto
 
 func scenarioTransactionsConflictingNonLinearizable(ctx context.Context, c *datastore.Client) {
 	// Scenario: two concurrent RMW transactions, the second to commit fails.
-	id := "fake-id-TransactionsConflictingNonLinearizable"
+	id := "fake-id-TransactionsConflictingNonLinearizable-" + uuid.New()
 	s := dsstore.New(c, *fakeProjectID, fakeServiceName, fakeConfigPath)
 
 	tx1, err := s.Tx(true)
@@ -227,7 +230,7 @@ func scenarioTransactionsConflictingNonLinearizable(ctx context.Context, c *data
 
 func scenarioTransactionsReadAfterWrite(ctx context.Context, c *datastore.Client) {
 	// Scenario: one transaction, write followed by read, read doesn't see the write.
-	id := "fake-id-TransactionsReadAfterWrite"
+	id := "fake-id-TransactionsReadAfterWrite-" + uuid.New()
 	s := dsstore.New(c, *fakeProjectID, fakeServiceName, fakeConfigPath)
 
 	{
