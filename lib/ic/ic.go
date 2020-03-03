@@ -778,127 +778,12 @@ func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, ite
 	if err != nil {
 		return nil, nil, nil, http.StatusServiceUnavailable, status.Errorf(codes.Unavailable, "%v", err)
 	}
-	id, st, err := s.getIdentity(r, scope, getRealm(r), cfg, secrets, tx)
+	c, err := auth.FromContext(r.Context())
 	if err != nil {
-		return nil, nil, nil, st, status.Errorf(httputil.RPCCode(st), "%v", err)
+		return nil, nil, nil, httputil.FromError(err), err
 	}
 
-	return cfg, secrets, id, st, status.Errorf(httputil.RPCCode(st), "%v", err)
-}
-
-func (s *Service) getIdentity(r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	tok := getBearerToken(r)
-	if len(tok) == 0 {
-		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token not found")
-	}
-	return s.tokenToIdentity(tok, r, scope, realm, cfg, secrets, tx)
-}
-
-func (s *Service) tokenRealm(r *http.Request) (string, int, error) {
-	tok := getBearerToken(r)
-	if len(tok) == 0 {
-		return "", http.StatusUnauthorized, fmt.Errorf("bearer token not found")
-	}
-	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
-	if err != nil {
-		return "", http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
-	}
-	realm := id.Realm
-	if len(realm) == 0 {
-		return storage.DefaultRealm, http.StatusOK, nil
-	}
-	return realm, http.StatusOK, nil
-}
-
-func (s *Service) getTokenIdentity(ctx context.Context, tok, scope, clientID string, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
-	if err != nil {
-		return nil, http.StatusUnauthorized, fmt.Errorf("inspecting token: %v", err)
-	}
-
-	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("GetOIDCTokenVerifier failed: %v", err)
-	}
-
-	if _, err = v.Verify(ctx, tok); err != nil {
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("token unauthorized: %v", err)
-	}
-
-	if len(id.Scope) == 0 && len(id.Scp) > 0 {
-		// Hydra populates "scp" instead of "scope", so populate "scope" accordingly.
-		id.Scope = strutil.JoinNonEmpty(id.Scp, " ")
-	}
-
-	// TODO: add more checks here as appropriate.
-	iss := s.getIssuerString()
-	if err = id.Valid(); err != nil {
-		return nil, http.StatusUnauthorized, err
-	} else if id.Issuer != iss {
-		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for issuer %q", id.Issuer)
-	} else if len(scope) > 0 && !hasScopes(scope, id.Scope, matchFullScope) {
-		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized for scope %q", scope)
-	} else if !ga4gh.IsAudience(id, clientID, iss) {
-		return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized party")
-	}
-	return id, http.StatusOK, nil
-}
-
-func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Identity, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	acct, status, err := s.scim.LoadAccount(token.Subject, realm, false, tx)
-	if err != nil {
-		if status == http.StatusNotFound {
-			return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized account")
-		}
-		return nil, http.StatusServiceUnavailable, err
-	}
-	id, err := s.accountToIdentity(ctx, acct, cfg, secrets)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
-	}
-
-	id.ID = token.ID
-	id.Scope = token.Scope
-	id.Expiry = token.Expiry
-	id.IdentityProvider = token.IdentityProvider
-	id.Nonce = token.Nonce
-	return id, http.StatusOK, nil
-}
-
-func (s *Service) requestTokenToIdentity(tok, scope string, r *http.Request, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	realm := getRealm(r)
-	cfg, err := s.loadConfig(tx, realm)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
-	}
-	secrets, err := s.loadSecrets(tx)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
-	}
-	return s.tokenToIdentity(tok, r, scope, realm, cfg, secrets, tx)
-}
-
-func (s *Service) tokenToIdentity(tok string, r *http.Request, scope, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	token, status, err := s.getTokenIdentity(r.Context(), tok, scope, getClientID(r), tx)
-	if err != nil {
-		return token, status, err
-	}
-	return s.getTokenAccountIdentity(r.Context(), token, realm, cfg, secrets, tx)
-}
-
-func (s *Service) refreshTokenToIdentity(tok string, r *http.Request, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	id, status, err := s.getTokenIdentity(r.Context(), tok, "", getClientID(r), tx)
-	if err != nil {
-		return nil, status, fmt.Errorf("inspecting token: %v", err)
-	}
-	token := pb.TokenMetadata{}
-	if err := s.store.ReadTx(storage.TokensDatatype, getRealm(r), id.Subject, id.ID, storage.LatestRev, &token, tx); err != nil {
-		if storage.ErrNotFound(err) {
-			return nil, http.StatusBadRequest, fmt.Errorf("the incoming refresh token had already been revoked or is invalid")
-		}
-		return nil, http.StatusServiceUnavailable, err
-	}
-	return s.getTokenAccountIdentity(r.Context(), id, getRealm(r), cfg, secrets, tx)
+	return cfg, secrets, c.ID, st, status.Errorf(httputil.RPCCode(st), "%v", err)
 }
 
 func (s *Service) accountToIdentity(ctx context.Context, acct *cpb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
@@ -1115,14 +1000,6 @@ func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, lin
 	return nil
 }
 
-func getBearerToken(r *http.Request) string {
-	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-	if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-		return parts[1]
-	}
-	return ""
-}
-
 func getScope(r *http.Request) (string, error) {
 	s := httputil.QueryParam(r, "scope")
 	if !hasScopes(scopeOpenID, s, matchFullScope) {
@@ -1184,22 +1061,6 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 	}
 
 	return claims
-}
-
-type authToken struct {
-	ID       string `json:"jti,omitempty"`
-	IssuedAt int64  `json:"iat,omitempty"`
-	Expiry   int64  `json:"exp,omitempty"`
-}
-
-// Valid implements dgrijalva/jwt-go Claims interface. This will be called when using
-// dgrijalva/jwt-go parse. This validates only the exp timestamp.
-func (auth *authToken) Valid() error {
-	now := time.Now().Unix()
-	if now > auth.Expiry {
-		return fmt.Errorf("token is expired")
-	}
-	return nil
 }
 
 func (s *Service) visaIssuerJKU() string {

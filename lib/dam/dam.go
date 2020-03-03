@@ -288,11 +288,12 @@ func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, ite
 	if err != nil {
 		return nil, nil, status, err
 	}
-	id, status, err := s.getBearerTokenIdentity(cfg, r)
+
+	c, err := auth.FromContext(r.Context())
 	if err != nil {
-		return nil, nil, status, err
+		return nil, nil, httputil.FromError(err), err
 	}
-	return cfg, id, status, err
+	return cfg, c.ID, status, err
 }
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -318,63 +319,6 @@ func (s *Service) getIssuerString() string {
 	}
 
 	return ""
-}
-
-func (s *Service) damSignedBearerTokenToPassportIdentity(ctx context.Context, cfg *pb.DamConfig, tok, clientID string) (*ga4gh.Identity, error) {
-	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("inspecting token: %v", err))
-	}
-
-	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, id.Issuer)
-	if err != nil {
-		return nil, status.Errorf(codes.Unavailable, fmt.Sprintf("GetOIDCTokenVerifier failed: %v", err))
-	}
-
-	if _, err = v.Verify(ctx, tok); err != nil {
-		return nil, status.Errorf(codes.Unavailable, fmt.Sprintf("token unauthorized: %v", err))
-	}
-
-	// TODO: add more checks here as appropriate.
-	iss := s.getIssuerString()
-	if err = id.Valid(); err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("token invalid: %v", err))
-	}
-	if id.Issuer != iss {
-		return nil, status.Errorf(codes.Unauthenticated, fmt.Sprintf("bearer token unauthorized for issuer %q", id.Issuer))
-	}
-	if !ga4gh.IsAudience(id, clientID, iss) {
-		return nil, status.Errorf(codes.Unauthenticated, "bearer token unauthorized party")
-	}
-
-	if !s.useHydra {
-		return id, nil
-	}
-
-	l, ok := id.Extra["identities"]
-	if !ok {
-		return id, nil
-	}
-
-	list, ok := l.([]interface{})
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "id.Extra[identities] in wrong type")
-	}
-
-	if id.Identities == nil {
-		id.Identities = map[string][]string{}
-	}
-
-	for i, it := range list {
-		identity, ok := it.(string)
-		if !ok {
-			return nil, status.Errorf(codes.Internal, fmt.Sprintf("id.Extra[identities][%d] in wrong type", i))
-		}
-
-		id.Identities[identity] = nil
-	}
-
-	return id, nil
 }
 
 func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
@@ -439,19 +383,6 @@ func trustedIssuers(trustedIssuers map[string]*pb.TrustedIssuer) map[string]bool
 		trusted[tpi.Issuer] = true
 	}
 	return trusted
-}
-
-func (s *Service) getBearerTokenIdentity(cfg *pb.DamConfig, r *http.Request) (*ga4gh.Identity, int, error) {
-	tok, err := extractBearerToken(r)
-	if err != nil {
-		return nil, http.StatusBadRequest, err
-	}
-
-	id, err := s.damSignedBearerTokenToPassportIdentity(r.Context(), cfg, tok, getClientID(r))
-	if err != nil {
-		return nil, http.StatusUnauthorized, err
-	}
-	return id, http.StatusOK, nil
 }
 
 func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
