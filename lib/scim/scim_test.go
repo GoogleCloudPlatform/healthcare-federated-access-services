@@ -1,0 +1,154 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package scim
+
+import (
+	"net/http"
+	"testing"
+
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
+	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
+)
+
+func TestLoadAccount(t *testing.T) {
+	user := "dr_joe_elixir"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	acct, _, err := s.LoadAccount(user, realm, true, nil)
+	if err != nil {
+		t.Fatalf("LoadAccount(%q, %q, true, nil) failed: %v", user, realm, err)
+	}
+	if acct.Properties.Subject == "" {
+		t.Fatalf("LoadAccount(%q, %q, true, nil) = (%+v, _, _): expected subject content to load", user, realm, acct)
+	}
+}
+
+func TestLoadAccount_Error(t *testing.T) {
+	user := "dr_joe_elixir"
+	realm := "empty"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	_, st, err := s.LoadAccount(user, realm, true, nil)
+	if err == nil {
+		t.Fatalf("LoadAccount(%q, %q, true, nil) unexpected success: no account on realm %q", user, realm, realm)
+	}
+	if st == http.StatusOK {
+		t.Fatalf("LoadAccount(%q, %q, true, nil) status code mismatch: got %d, not want %d", user, realm, st, http.StatusOK)
+	}
+}
+
+func TestLoadAccountLookup(t *testing.T) {
+	user := "non-admin@example.org"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	lookup, err := s.LoadAccountLookup(realm, user, nil)
+	if err != nil {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) failed: %v", realm, user, err)
+	}
+	if lookup == nil {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) got nil lookup", realm, user)
+	}
+	want := "non-admin"
+	if lookup.Subject != want {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) = (%+v, _, _) subject mismatch: got %q, want %q", realm, user, lookup, lookup.Subject, want)
+	}
+}
+
+func TestLoadAccountLookup_Error(t *testing.T) {
+	user := "no_exists@example.org"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	got, err := s.LoadAccountLookup(realm, user, nil)
+	if err != nil {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) failed: %v", realm, user, err)
+	}
+	if got != nil {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) lookup mismatch: got %+v, want %v", realm, user, got, nil)
+	}
+}
+
+func TestSaveAccountLookup(t *testing.T) {
+	user := "non-admin@example.org"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	lookup := &cpb.AccountLookup{
+		Subject:  "non-admin",
+		Revision: 46,
+		State:    "ACTIVE",
+	}
+	err := s.SaveAccountLookup(lookup, realm, user, nil, &ga4gh.Identity{Subject: lookup.Subject}, nil)
+	if err != nil {
+		t.Fatalf("SaveAccountLookup(lookup, %q, %q, nil, id, nil) failed: %v", realm, user, err)
+	}
+	got, err := s.LoadAccountLookup(realm, user, nil)
+	if err != nil {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) failed: %v", realm, user, err)
+	}
+	if diff := cmp.Diff(lookup, got, protocmp.Transform(), cmpopts.EquateEmpty()); diff != "" {
+		t.Fatalf("SaveAccountLookup mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRemoveAccountLookup(t *testing.T) {
+	user := "non-admin@example.org"
+	realm := "test"
+	rev := int64(48)
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	err := s.RemoveAccountLookup(rev, realm, user, nil, &ga4gh.Identity{Subject: "non-admin"}, nil)
+	if err != nil {
+		t.Fatalf("RemoveAccountLookup(%d, %q, %q, nil, id, nil) failed: %v", rev, realm, user, err)
+	}
+	got, err := s.LoadAccountLookup(realm, user, nil)
+	if err != nil {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) failed: %v", realm, user, err)
+	}
+	if got == nil {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) failed to load deleted account", realm, user)
+	}
+	if got.State != storage.StateDeleted {
+		t.Fatalf("LoadAccountLookup(%q, %q, nil) state mismatch: got %q, want %q", realm, user, got.State, storage.StateDeleted)
+	}
+}
+
+func TestLookupAccount(t *testing.T) {
+	user := "non-admin@example.org"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	acct, _, err := s.LookupAccount(user, realm, true, nil)
+	if err != nil {
+		t.Fatalf("LookupAccount(%q, %q, true, nil) failed: %v", user, realm, err)
+	}
+	want := "non-admin"
+	if acct.Properties.Subject != want {
+		t.Fatalf("LoadAccount(%q, %q, true, nil) = (%+v, _, _) subject mismatch: got %q, want %q", user, realm, acct, acct.Properties.Subject, want)
+	}
+}
+
+func TestLookupAccount_Error(t *testing.T) {
+	user := "non-admin@example.org"
+	realm := "empty"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	_, st, err := s.LookupAccount(user, realm, true, nil)
+	if err == nil {
+		t.Fatalf("LookupAccount(%q, %q, true, nil) unexpected success: no account on realm %q", user, realm, realm)
+	}
+	if st == http.StatusOK {
+		t.Fatalf("LookupAccount(%q, %q, true, nil) status code mismatch: got %d, not want %d", user, realm, st, http.StatusOK)
+	}
+}
