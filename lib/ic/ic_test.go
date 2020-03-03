@@ -121,6 +121,103 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 		{
+			Name:    "Get SCIM group (not exists)",
+			Method:  "GET",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Output:  `*{"code":5,"message":"*"}*`,
+			Status:  http.StatusNotFound,
+		},
+		{
+			Name:    "Post SCIM group",
+			Method:  "POST",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Input: `{
+			  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+				"id": "group_1",
+				"displayName": "Group 1"
+			}`,
+			Output: ``,
+			Status: http.StatusOK,
+		},
+		{
+			Name:    "Put SCIM group",
+			Method:  "PUT",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Input: `{
+			  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+				"id": "group_1",
+				"displayName": "Group 1",
+				"members": [
+				  {
+						"type": "User",
+						"value": "mary@example.org",
+						"issuer": "https://example.org/oidc",
+						"subject": "1234"
+					},
+					{
+						"type": "User",
+						"value": "Mary Poppins HQ <poppins@example.org>"
+					}
+				]
+			}`,
+			Output: ``,
+			Status: http.StatusOK,
+		},
+		{
+			Name:    "Get SCIM group (exists)",
+			Method:  "GET",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:Group"],"id":"group_1","displayName":"Group 1","members":[{"type":"User","display":"mary@example.org","value":"mary@example.org","$ref":"mary@example.org","issuer":"https://example.org/oidc","subject":"1234"},{"type":"User","display":"Mary Poppins HQ","value":"poppins@example.org","$ref":"poppins@example.org"}]}`,
+			Status:  http.StatusOK,
+		},
+		{
+			Name:    "Patch SCIM group",
+			Method:  "PATCH",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"displayName","value":"Group 1 Edit"},{"op":"add","path":"members","object":{"value":"Mary Poppins <marypoppins@example.org>"}},{"op":"remove","path":"members[$ref eq \"poppins@example.org\"]"}]}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:Group"],"id":"group_1","displayName":"Group 1 Edit","members":[{"type":"User","display":"mary@example.org","value":"mary@example.org","$ref":"mary@example.org","issuer":"https://example.org/oidc","subject":"1234"},{"type":"User","display":"Mary Poppins","value":"marypoppins@example.org","$ref":"marypoppins@example.org"}]}`,
+			Status:  http.StatusOK,
+		},
+		{
+			Name:    "Patch SCIM group (bad email address)",
+			Method:  "PATCH",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"members","object":{"value":"mary@poppins@example.org"}}]}`,
+			Output:  `*{"code":3,"message":"*"}*`,
+			Status:  http.StatusBadRequest,
+		},
+		{
+			Name:    "Patch SCIM group (missing remove member)",
+			Method:  "PATCH",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"remove","path":"members[$ref eq \"foo@example.org\"]"}]}`,
+			Output:  `*{"code":3,"message":"*not a member*"}*`,
+			Status:  http.StatusBadRequest,
+		},
+		{
+			Name:    "Remove SCIM group",
+			Method:  "DELETE",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Output:  ``,
+			Status:  http.StatusOK,
+		},
+		{
+			Name:    "Get SCIM group (after delete)",
+			Method:  "GET",
+			Path:    "/identity/scim/v2/test/Groups/group_1",
+			Persona: "admin",
+			Output:  `*{"code":5,"message":"*"}*`,
+			Status:  http.StatusNotFound,
+		},
+		{
 			Name:    "Get SCIM users",
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Users",

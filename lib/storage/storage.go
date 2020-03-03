@@ -37,6 +37,8 @@ const (
 	AccountLookupDatatype  = "acct_lookup"
 	ClientDatatype         = "client"
 	ConfigDatatype         = "config"
+	GroupDatatype          = "group"
+	GroupMemberDatatype    = "member"
 	LockDatatype           = "lock"
 	LoginStateDatatype     = "login_state"
 	ProcessDataType        = "process"

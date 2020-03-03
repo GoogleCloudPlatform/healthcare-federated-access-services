@@ -1,0 +1,101 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package third_party.hcls_federated_access.proto.scim.v2;
+
+// import "proto/scim/v2/users.proto"; /* copybara-comment */
+
+// SCIM representation of a 'Group' as per
+// https://tools.ietf.org/html/rfc7643#section-4.2
+message Group {
+  // The schemas attribute is an array of Strings which allows introspection of
+  // the supported schema version for a SCIM representation as well any schema
+  // extensions supported by that representation. Each String value must be a
+  // unique URI. This specification defines URIs for User, Group, and a standard
+  // "enterprise" extension. All representations of SCIM schema MUST include a
+  // non-zero value array with value(s) of the URIs supported by that
+  // representation. Duplicate values MUST NOT be included. Value order is not
+  // specified and MUST not impact behavior. REQUIRED.
+  repeated string schemas = 1;
+
+  // Unique identifier for the SCIM Resource as defined by the Service Provider.
+  // This is returned when the resource is created.
+  // Each representation of the Resource MUST include a non-empty id value. This
+  // identifier MUST be unique across the Service Provider's entire set of
+  // Resources. It MUST be a stable, non-reassignable identifier that does not
+  // change when the same Resource is returned in subsequent requests. The value
+  // of the id attribute is always issued by the Service Provider and MUST never
+  // be specified by the Service Consumer. bulkId: is a reserved keyword and
+  // MUST NOT be used in the unique identifier. REQUIRED and READ-ONLY.
+  string id = 2;
+
+  // An identifier for the Resource as defined by the Service Consumer. The
+  // externalId may simplify identification of the Resource between Service
+  // Consumer and Service provider by allowing the Consumer to refer to the
+  // Resource with its own identifier, obviating the need to store a local
+  // mapping between the local identifier of the Resource and the identifier
+  // used by the Service Provider. Each Resource MAY include a non-empty
+  // externalId value. The value of the externalId attribute is always issued be
+  // the Service Consumer and can never be specified by the Service Provider.
+  // The Service Provider MUST always interpret the externalId as scoped to the
+  // Service Consumer's tenant.
+  string external_id = 3;
+
+  // A complex attribute containing resource metadata. All sub-attributes are
+  // OPTIONAL.
+  // ResourceMetadata meta = 4;
+
+  // A human-readable name for the Group.  REQUIRED.
+  string display_name = 5;
+
+  // A list of members of the Group.  While values MAY be added or removed,
+  // sub-attributes of members are "immutable".  The "value" sub-attribute
+  // contains the value of an "id" attribute of a SCIM resource, and the "$ref"
+  // sub-attribute must be the URI of a SCIM resource such as a "User", or a
+  // "Group" (if nesting groups is supported).
+  repeated Member members = 6;
+}
+
+// Member encodes https://tools.ietf.org/html/rfc7643#section-2.4 for the
+// purpose of group members.
+message Member {
+  // A label indicating the type of resource, e.g., 'User' or 'Group'.
+  string type = 1;
+
+  // A human-readable name, primarily used for display purposes and having a
+  // mutability of "immutable".
+  string display = 2;
+
+  // The members' email address. Identifier of the member of this Group.
+  string value = 3;
+
+  // The URI corresponding to a SCIM resource that is a member of this Group.
+  // URIs are canonicalized per Section 6.2 of [RFC3986]. While the
+  // representation of a resource may vary in different SCIM protocol API
+  // versions (see Section 3.13 of [RFC7644]), URIs for SCIM resources with an
+  // API version SHALL be considered comparable to URIs without a version or
+  // with a different version.  For example, "https://example.com/Users/12345"
+  // is equivalent to "https://example.com/v2/Users/12345".
+  string ref = 4 [json_name = "$ref"];
+
+  // CUSTOM EXTENSION. The issuer URL string of the identity, such as an
+  // OIDC "iss" or similar depending on the protocol used for the identity.
+  string extension_issuer = 5 [json_name = "issuer"];
+
+  // CUSTOM EXTENSION. The subject string of the identity, such as an
+  // OIDC "sub" or similar depending on the protocol used for the identity.
+  string extension_subject = 6 [json_name = "subject"];
+}

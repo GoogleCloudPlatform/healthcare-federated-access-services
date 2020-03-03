@@ -68,6 +68,8 @@ const (
 	configHistoryPath         = "/identity/v1alpha/{realm}/config/history"
 	configHistoryRevisionPath = "/identity/v1alpha/{realm}/config/history/{name}"
 
+	// Part of SCIM V2 for managing groups. See "proto/scim/v2/groups.proto"
+	scimGroupPath = "/identity/scim/v2/{realm}/Groups/{name}"
 	// Part of SCIM V2 for managing users. See "proto/scim/v2/users.proto"
 	scimUsersPath = "/identity/scim/v2/{realm}/Users"
 	scimUserPath  = "/identity/scim/v2/{realm}/Users/{name}"

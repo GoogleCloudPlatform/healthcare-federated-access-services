@@ -347,8 +347,9 @@ func (m *Assertion) GetExp() int64 {
 	return 0
 }
 
-// VisaRejection is filled in by a policy engine to understand why a visa was rejected.
-// Visas unrelated to the policy are not considered rejected unless they are not trusted.
+// VisaRejection is filled in by a policy engine to understand why a visa was
+// rejected. Visas unrelated to the policy are not considered rejected unless
+// they are not trusted.
 type VisaRejection struct {
 	Reason               string   `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
 	Field                string   `protobuf:"bytes,2,opt,name=field,proto3" json:"field,omitempty"`
@@ -404,8 +405,8 @@ func (m *VisaRejection) GetDescription() string {
 	return ""
 }
 
-// RejectedVisa provides insight into why a policy engine is not making use of visas that
-// are present within the passport.
+// RejectedVisa provides insight into why a policy engine is not making use of
+// visas that are present within the passport.
 type RejectedVisa struct {
 	TokenFormat          string         `protobuf:"bytes,1,opt,name=token_format,json=tokenFormat,proto3" json:"token_format,omitempty"`
 	Issuer               string         `protobuf:"bytes,2,opt,name=issuer,proto3" json:"issuer,omitempty"`
@@ -477,7 +478,8 @@ func (m *RejectedVisa) GetRejection() *VisaRejection {
 	return nil
 }
 
-// RejectedPolicy provides insight into why a policy engine is rejecct a passport for a visa.
+// RejectedPolicy provides insight into why a policy engine is rejecct a
+// passport for a visa.
 type RejectedPolicy struct {
 	Rejections           int32           `protobuf:"varint,1,opt,name=rejections,proto3" json:"rejections,omitempty"`
 	RejectedVisas        []*RejectedVisa `protobuf:"bytes,2,rep,name=rejected_visas,json=rejectedVisas,proto3" json:"rejected_visas,omitempty"`

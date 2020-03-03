@@ -419,9 +419,15 @@ message Patch {
     // operation is performed.
     string path = 2;
 
-    // The value to patch related to the given operation and path. Not supplied
-    // if operation is "remove".
+    // The value to patch related to the given operation and path when it is a
+    // string. Not supplied if operation is "remove".
     string value = 3;
+
+    // The value to patch related to the given operation and path when it is a
+    // complex object. Not supplied if operation is "remove". This maps to
+    // a "value" complex object, but cannot use proto "any" as "@type" is not
+    // provided, therefore this map needs to be mapped from JSON.
+    map<string, string> object = 4;
   }
 
   // The schemas attribute is an array of Strings which allows introspection of
