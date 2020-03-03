@@ -33,6 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 )
@@ -40,6 +41,10 @@ import (
 const (
 	// maxHTTPBody = 2M
 	maxHTTPBody = 2 * 1000 * 1000
+	// UserAuthorizationHeader is the standard user authorization request header as a bearer token.
+	UserAuthorizationHeader = "Authorization"
+	// LinkAuthorizationHeader is an additional auth token in the request header for linking accounts.
+	LinkAuthorizationHeader = "X-Link-Authorization"
 )
 
 // Role requirement of access.
@@ -60,7 +65,8 @@ type Require struct {
 	ClientSecret bool
 	// Roles current supports "user" and "admin". Check will check the role inside the bearer token.
 	// not requirement bearer token if "Role" is empty.
-	Role Role
+	Role       Role
+	EditScopes []string
 }
 
 var (
@@ -74,6 +80,8 @@ var (
 	RequireAdminToken = Require{ClientID: true, ClientSecret: true, Role: Admin}
 	// RequireUserToken -> require an user token, also the client id and secret
 	RequireUserToken = Require{ClientID: true, ClientSecret: true, Role: User}
+	// RequireAccountAdminUserToken -> require a user token, client id & secret, and non-admins require "account_admin" scope for edits methods
+	RequireAccountAdminUserToken = Require{ClientID: true, ClientSecret: true, Role: User, EditScopes: []string{"account_admin"}}
 )
 
 // Checker stores information and functions for authorization check.
@@ -91,6 +99,16 @@ type Checker struct {
 	// IsAdmin checks if the given identity has admin permission.
 	IsAdmin func(*ga4gh.Identity) error
 }
+
+// Context (i.e. auth.Context) is authorization information that is stored within the request context.
+type Context struct {
+	ID       *ga4gh.Identity
+	LinkedID *ga4gh.Identity
+	IsAdmin  bool
+}
+type authContextType struct{}
+
+var authContextKey = &authContextType{}
 
 // MustWithAuth wraps the handler func with authorization check includes client credentials, bearer token validation and role in token.
 // function will cause fatal if passed in invalid requirement. This is cleaner when calling in main.
@@ -116,7 +134,14 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		log, err := checker.check(r, require)
+		var linkedID *ga4gh.Identity
+		log, id, err := checker.check(r, require)
+		if err == nil && len(r.Header.Get(LinkAuthorizationHeader)) > 0 {
+			linkedID, err = checker.verifiedBearerToken(r, LinkAuthorizationHeader, oathclients.ExtractClientID(r))
+			if err == nil && !strutil.ContainsWord(linkedID.Scope, "link") {
+				err = errutil.WithErrorType(errScopeMissing, status.Errorf(codes.Unauthenticated, "linked auth bearer token missing required 'link' scope"))
+			}
+		}
 		if err != nil {
 			log.ErrorType = errutil.ErrorType(err)
 		}
@@ -126,8 +151,32 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 			return
 		}
 
+		isAdmin := false
+		if id != nil {
+			isAdmin = checker.IsAdmin(id) == nil
+		}
+		a := &Context{
+			ID:       id,
+			LinkedID: linkedID,
+			IsAdmin:  isAdmin,
+		}
+		r = r.WithContext(context.WithValue(r.Context(), authContextKey, a))
+
 		handler(w, r)
 	}, nil
+}
+
+// FromContext (i.e. auth.FromContext) returns auth information from the request context.
+// Example within a request handler: a, err := auth.FromContext(r.Context())
+func FromContext(ctx context.Context) (*Context, error) {
+	v := ctx.Value(authContextKey)
+	if v == nil {
+		return nil, status.Errorf(codes.PermissionDenied, "unauthorized: identity not provided")
+	}
+	if a, ok := v.(*Context); ok {
+		return a, nil
+	}
+	return nil, status.Errorf(codes.PermissionDenied, "unauthorized: invalid identity format")
 }
 
 // checkRequest need to validate the request before actually read data from it.
@@ -140,13 +189,12 @@ func checkRequest(r *http.Request) error {
 	return nil
 }
 
-// Check checks request meet all authorization requirements.
-func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, error) {
+// Check checks request meet all authorization requirements for this framework.
+func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, *ga4gh.Identity, error) {
 	log := &auditlog.AccessLog{}
 
 	if err := checkRequest(r); err != nil {
-
-		return log, err
+		return log, nil, err
 	}
 
 	r.ParseForm()
@@ -156,7 +204,7 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 		cSec := oathclients.ExtractClientSecret(r)
 
 		if err := s.verifyClientCredentials(cID, cSec, require); err != nil {
-			return log, err
+			return log, nil, err
 		}
 	}
 
@@ -164,7 +212,21 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 	log.TokenID = id.ID
 	log.TokenSubject = id.Subject
 	log.TokenIssuer = id.Issuer
-	return log, err
+
+	if err != nil {
+		return log, id, err
+	}
+
+	// EditScopes are required for some operations, unless the user is an administrator.
+	if len(require.EditScopes) > 0 && isEditMethod(r.Method) && s.IsAdmin(id) != nil {
+		for _, scope := range require.EditScopes {
+			if !strutil.ContainsWord(id.Scope, scope) {
+				return log, id, errutil.WithErrorType(errScopeMissing, status.Errorf(codes.Unauthenticated, "scope %q required for this method (%q)", scope, id.Scope))
+			}
+		}
+	}
+
+	return log, id, err
 }
 
 // verifyClientCredentials based on the provided requirement, the function
@@ -207,7 +269,7 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 		return &ga4gh.Identity{}, nil
 
 	case Admin:
-		id, err := s.verifiedBrearerToken(r, clientID)
+		id, err := s.verifiedBearerToken(r, UserAuthorizationHeader, clientID)
 		if err != nil {
 			return &ga4gh.Identity{}, err
 		}
@@ -219,7 +281,7 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 		return id, nil
 
 	case User:
-		id, err := s.verifiedBrearerToken(r, clientID)
+		id, err := s.verifiedBearerToken(r, UserAuthorizationHeader, clientID)
 		if err != nil {
 			return &ga4gh.Identity{}, err
 		}
@@ -238,10 +300,10 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 	}
 }
 
-// verifiedBrearerToken extracts the bearer token from the request and verifies it.
+// verifiedBearerToken extracts the bearer token from the request and verifies it.
 // Returns the identity for the token, token information, and error type, and error.
-func (s *Checker) verifiedBrearerToken(r *http.Request, clientID string) (*ga4gh.Identity, error) {
-	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID string) (*ga4gh.Identity, error) {
+	parts := strings.SplitN(r.Header.Get(authHeader), " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 		return nil, errutil.WithErrorType(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "invalid brearer token"))
 	}
@@ -317,6 +379,13 @@ func verifyToken(ctx context.Context, tok, iss, clientID string) error {
 // normalize ensure the issuer string and tailling slash.
 func normalize(issuer string) string {
 	return strings.TrimSuffix(issuer, "/")
+}
+
+func isEditMethod(method string) bool {
+	if method == http.MethodGet || method == http.MethodOptions {
+		return false
+	}
+	return true
 }
 
 func writeAccessLog(client *logging.Client, entry *auditlog.AccessLog, err error, r *http.Request) {

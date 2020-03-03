@@ -55,6 +55,7 @@ var (
 		"/usertoken/{user}": RequireUserToken,
 		"/admintoken":       RequireAdminToken,
 		"/auditlog/{name}":  RequireUserToken,
+		"/acctadmin/{name}": RequireAccountAdminUserToken,
 	}
 )
 
@@ -847,6 +848,219 @@ func Test_RequiresAdminToken_Error_Log(t *testing.T) {
 	}
 }
 
+func Test_RequiresAccountAdminUserToken(t *testing.T) {
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid account_admin offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	router, oidc, _, stub, _, close := setup(t)
+	defer close()
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	path := "/acctadmin/sub"
+	resp := sendRequest(http.MethodPost, path, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+	want := "POST " + path
+	if stub.message != want {
+		t.Errorf("stub.message=%q wants %q", stub.message, want)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func Test_RequiresAccountAdminUserToken_Log(t *testing.T) {
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid account_admin offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	router, oidc, _, _, logs, close := setup(t)
+	defer close()
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	path := "/acctadmin/sub"
+	sendRequest(http.MethodPost, path, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+
+	ets := errTypesFromLogs(logs)
+	wantErrType := []errType{""}
+	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+		t.Errorf("error_type (-want +got): %s", diff)
+	}
+}
+
+func Test_RequiresAccountAdminUserToken_Error(t *testing.T) {
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	resp := sendRequest(http.MethodPost, "/acctadmin/sub", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
+	}
+}
+
+func Test_RequiresAccountAdminUserToken_Error_Log(t *testing.T) {
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	router, oidc, _, _, logs, close := setup(t)
+	defer close()
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	sendRequest(http.MethodPost, "/acctadmin/sub", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+
+	ets := errTypesFromLogs(logs)
+	wantErrType := []errType{errScopeMissing}
+	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+		t.Errorf("error_type (-want +got): %s", diff)
+	}
+}
+
+func Test_UserAndLinkToken(t *testing.T) {
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid offline link",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	router, oidc, _, stub, _, close := setup(t)
+	defer close()
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	headers := map[string]string{
+		"Authorization":        "bearer " + tok,
+		"X-Link-Authorization": "bearer " + tok,
+	}
+
+	path := "/usertoken/sub"
+	resp := sendRequestWithHeaders(http.MethodPost, path, test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
+	want := "POST " + path
+	if stub.message != want {
+		t.Errorf("stub.message=%q wants %q", stub.message, want)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func Test_UserAndLinkToken_Error(t *testing.T) {
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	router, oidc, _, _, _, close := setup(t)
+	defer close()
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	headers := map[string]string{
+		"Authorization":        "bearer " + tok,
+		"X-Link-Authorization": "bearer " + tok,
+	}
+
+	resp := sendRequestWithHeaders(http.MethodPost, "/usertoken/sub", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+	}
+}
+
+func Test_UserAndLinkToken_Error_Log(t *testing.T) {
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	router, oidc, _, _, logs, close := setup(t)
+	defer close()
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	headers := map[string]string{
+		"Authorization":        "bearer " + tok,
+		"X-Link-Authorization": "bearer " + tok,
+	}
+
+	sendRequestWithHeaders(http.MethodPost, "/usertoken/sub", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
+
+	ets := errTypesFromLogs(logs)
+	wantErrType := []errType{errScopeMissing}
+	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+		t.Errorf("error_type (-want +got): %s", diff)
+	}
+}
+
 func Test_writeAccessLog_auth_pass(t *testing.T) {
 	router, oidc, _, _, logs, close := setup(t)
 	defer close()
@@ -999,6 +1213,17 @@ func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handle
 }
 
 func sendRequest(method, path, clientID, clientSecret, token, tracingID, body string, handler http.Handler, oidc *fakeoidcissuer.Server) *http.Response {
+	headers := make(map[string]string)
+	if len(token) != 0 {
+		headers["Authorization"] = "bearer " + token
+	}
+	if len(tracingID) != 0 {
+		headers["X-Cloud-Trace-Context"] = tracingID
+	}
+	return sendRequestWithHeaders(method, path, clientID, clientSecret, body, headers, handler, oidc)
+}
+
+func sendRequestWithHeaders(method, path, clientID, clientSecret, body string, headers map[string]string, handler http.Handler, oidc *fakeoidcissuer.Server) *http.Response {
 	var br io.Reader
 	if len(body) != 0 {
 		br = strings.NewReader(body)
@@ -1016,12 +1241,8 @@ func sendRequest(method, path, clientID, clientSecret, token, tracingID, body st
 
 	r.URL.RawQuery = q.Encode()
 
-	if len(token) != 0 {
-		r.Header.Add("Authorization", "bearer "+token)
-	}
-
-	if len(tracingID) != 0 {
-		r.Header.Add("X-Cloud-Trace-Context", tracingID)
+	for k, v := range headers {
+		r.Header.Add(k, v)
 	}
 
 	r = r.WithContext(context.WithValue(r.Context(), oauth2.HTTPClient, oidc.Client()))

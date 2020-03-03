@@ -546,9 +546,8 @@ func TestHandlers(t *testing.T) {
 			LinkPersona: "admin",
 			LinkScope:   persona.AccountScope,
 			Input:       `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"emails","value":"X-Link-Authorization"}]}`,
-			Output:      `{"code":3,"message":"bearer token unauthorized for scope \"link\""}`,
-
-			Status: http.StatusBadRequest,
+			Output:      `*link* scope*`,
+			Status:      http.StatusUnauthorized,
 		},
 		{
 			Name:        "Link SCIM account",

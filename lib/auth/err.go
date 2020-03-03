@@ -27,6 +27,7 @@ const (
 	errSubMissing          errType = "id:sub_missing"
 	errAudMismatch         errType = "id:aud_mismatch"
 	errIDInvalid           errType = "id:invalid"
+	errScopeMissing        errType = "id:scope_missing"
 	errVerifierUnavailable errType = "oidc:verifier_unavailable"
 	errIDVerifyFailed      errType = "id:verify_failed"
 	errNotAdmin            errType = "role:user_not_admin"
