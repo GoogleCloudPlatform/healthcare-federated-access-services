@@ -17,10 +17,10 @@
 package ic
 
 import (
-	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 )
 
 // authChecker provides helpers for auth.Checker.
@@ -48,31 +48,5 @@ func (s *authChecker) transformIdentity(id *ga4gh.Identity) *ga4gh.Identity {
 		return id
 	}
 
-	// move "identities" claim in "ext" claim to top level identities claim.
-	l, ok := id.Extra["identities"]
-	if !ok {
-		return id
-	}
-
-	list, ok := l.([]interface{})
-	if !ok {
-		glog.Warning("id.Extra[identities] in wrong type")
-		return id
-	}
-
-	if id.Identities == nil {
-		id.Identities = map[string][]string{}
-	}
-
-	for i, it := range list {
-		identity, ok := it.(string)
-		if !ok {
-			glog.Warningf("id.Extra[identities][%d] in wrong type", i)
-			continue
-		}
-
-		id.Identities[identity] = nil
-	}
-
-	return id
+	return hydra.NormalizeIdentity(id)
 }

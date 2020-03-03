@@ -25,28 +25,13 @@ func TestHasUserinfoClaims(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "no user info claim in scp",
-			id:   &Identity{Scp: []string{"aaa"}},
-			want: false,
-		},
-		{
 			name: "no user info claim in scope",
 			id:   &Identity{Scope: "aaa"},
 			want: false,
 		},
 		{
-			name: "ga4gh claim in scp",
-			id:   &Identity{Scp: []string{"ga4gh"}},
-			want: true,
-		},
-		{
 			name: "ga4gh claim in scope",
 			id:   &Identity{Scope: "ga4gh"},
-			want: true,
-		},
-		{
-			name: "ga4gh_passport_v1 claim in scp",
-			id:   &Identity{Scp: []string{"ga4gh_passport_v1"}},
 			want: true,
 		},
 		{

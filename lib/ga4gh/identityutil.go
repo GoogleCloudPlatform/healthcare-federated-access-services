@@ -105,13 +105,7 @@ func ConvertTokenToIdentityUnsafe(tok string) (*Identity, error) {
 // HasUserinfoClaims checks if /userinfo endpoint needs to be called to fetch additional claims for
 // a particular identity.
 func HasUserinfoClaims(id *Identity) bool {
-	var scopes []string
-	// Hydra is using "scp" claims in access token.
-	if len(id.Scp) > 0 {
-		scopes = id.Scp
-	} else {
-		scopes = strings.Split(id.Scope, " ")
-	}
+	scopes := strings.Split(id.Scope, " ")
 
 	for _, scope := range scopes {
 		if scope == "ga4gh" || scope == "ga4gh_passport_v1" || scope == "identities" {

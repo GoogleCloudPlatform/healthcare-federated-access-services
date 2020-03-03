@@ -17,11 +17,15 @@ package hydra
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 const (
@@ -163,4 +167,41 @@ func LoginSuccess(r *http.Request, client *http.Client, hydraAdminURL, challenge
 		return "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
 	return resp.RedirectTo, nil
+}
+
+// NormalizeIdentity converts hydra special format in access token to ga4gh.Identity
+// 1. move "scp" to "scope"
+// 2. move "extra.identities" to "identities"
+func NormalizeIdentity(id *ga4gh.Identity) *ga4gh.Identity {
+	if len(id.Scope) == 0 && len(id.Scp) > 0 {
+		id.Scope = strings.Join(id.Scp, " ")
+	}
+
+	// move "identities" claim in "ext" claim to top level identities claim.
+	l, ok := id.Extra["identities"]
+	if !ok {
+		return id
+	}
+
+	list, ok := l.([]interface{})
+	if !ok {
+		glog.Warning("id.Extra[identities] in wrong type")
+		return id
+	}
+
+	if id.Identities == nil {
+		id.Identities = map[string][]string{}
+	}
+
+	for i, it := range list {
+		identity, ok := it.(string)
+		if !ok {
+			glog.Warningf("id.Extra[identities][%d] in wrong type", i)
+			continue
+		}
+
+		id.Identities[identity] = nil
+	}
+
+	return id
 }
