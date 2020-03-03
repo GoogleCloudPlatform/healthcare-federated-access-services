@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -41,7 +42,7 @@ type HandlerFactory struct {
 	PathPrefix          string
 	HasNamedIdentifiers bool
 	NameChecker         map[string]*regexp.Regexp
-	NewHandler          func(w http.ResponseWriter, r *http.Request) HandlerInterface
+	NewHandler          func(r *http.Request) HandlerInterface
 }
 
 // HandlerInterface is the role interface for a service that will be wrapped.
@@ -51,11 +52,11 @@ type HandlerInterface interface {
 	// properly, e.g. permission denied error vs. lookup error.
 	LookupItem(name string, vars map[string]string) bool
 	NormalizeInput(name string, vars map[string]string) error
-	Get(name string) error
-	Post(name string) error
-	Put(name string) error
-	Patch(name string) error
-	Remove(name string) error
+	Get(name string) (proto.Message, error)
+	Post(name string) (proto.Message, error)
+	Put(name string) (proto.Message, error)
+	Patch(name string) (proto.Message, error)
+	Remove(name string) (proto.Message, error)
 	CheckIntegrity() *status.Status
 	Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error
 }
@@ -65,8 +66,8 @@ func MakeHandler(s storage.Store, hri *HandlerFactory) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// TODO: get rid of NewHandler and directly depend on service.
 		// Pass w and r explicitly to the service methods.
-		hi := hri.NewHandler(w, r)
-		var op func(string) error
+		hi := hri.NewHandler(r)
+		var op func(string) (proto.Message, error)
 		switch r.Method {
 		case http.MethodGet:
 			op = hi.Get
@@ -132,15 +133,22 @@ func MakeHandler(s storage.Store, hri *HandlerFactory) http.HandlerFunc {
 		}
 
 		if r.Method == http.MethodGet {
-			if err := op(name); err != nil {
+			resp, err := op(name)
+			if err != nil {
 				httputil.WriteError(w, http.StatusBadRequest, err)
 				return
 			}
+			httputil.WriteProtoResp(w, resp)
 			return
 		}
-		if err := RunRMWTx(tx, op, hi.CheckIntegrity, hi.Save, name, vars, typ, desc); err != nil {
+
+		resp, err := RunRMWTx(tx, op, hi.CheckIntegrity, hi.Save, name, vars, typ, desc)
+		if err != nil {
 			httputil.WriteStatusError(w, err)
 			return
+		}
+		if resp != nil {
+			httputil.WriteProtoResp(w, resp)
 		}
 	}
 }
@@ -169,24 +177,25 @@ func ValidateResourceName(r *http.Request, field string, nameRE map[string]*rege
 // TODO: move outside this package. Service handlers should call it.
 func RunRMWTx(
 	tx storage.Tx,
-	op func(string) error,
+	op func(string) (proto.Message, error),
 	check func() *status.Status,
 	save func(storage.Tx, string, map[string]string, string, string) error,
 	name string,
 	vars map[string]string,
 	typ string,
 	desc string,
-) error {
-	if err := op(name); err != nil {
-		return status.Errorf(codes.InvalidArgument, "%v", err)
+) (proto.Message, error) {
+	resp, err := op(name)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if st := check(); st != nil {
 		tx.Rollback()
-		return st.Err()
+		return nil, st.Err()
 	}
 	if err := save(tx, name, vars, desc, typ); err != nil {
 		tx.Rollback()
-		return status.Errorf(codes.Internal, "%v", err)
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
-	return nil
+	return resp, nil
 }

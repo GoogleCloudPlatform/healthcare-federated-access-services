@@ -57,8 +57,8 @@ func (s *Service) clientFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return oathclients.NewClientHandler(w, r, c)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return oathclients.NewClientHandler(r, c)
 		},
 	}
 }

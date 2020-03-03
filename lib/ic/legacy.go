@@ -46,10 +46,9 @@ func (s *Service) adminClaimsFactory() *handlerfactory.HandlerFactory {
 		NameChecker: map[string]*regexp.Regexp{
 			"name": regexp.MustCompile(`^[\w][^/\\]*@[\w][^/\\]*$`),
 		},
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &adminClaims{
 				s:     s,
-				w:     w,
 				r:     r,
 				input: &pb.SubjectClaimsRequest{},
 			}
@@ -59,7 +58,6 @@ func (s *Service) adminClaimsFactory() *handlerfactory.HandlerFactory {
 
 type adminClaims struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	item  *cpb.Account
 	input *pb.SubjectClaimsRequest
@@ -90,7 +88,7 @@ func (c *adminClaims) NormalizeInput(name string, vars map[string]string) error 
 	}
 	return nil
 }
-func (c *adminClaims) Get(name string) error {
+func (c *adminClaims) Get(name string) (proto.Message, error) {
 	// Collect all claims across linked accounts.
 	out := []*cpb.Assertion{}
 	for _, link := range c.item.ConnectedAccounts {
@@ -102,28 +100,27 @@ func (c *adminClaims) Get(name string) error {
 		}
 	}
 
-	httputil.WriteProtoResp(c.w, &pb.SubjectClaimsResponse{Assertions: out})
-	return nil
+	return &pb.SubjectClaimsResponse{Assertions: out}, nil
 }
-func (c *adminClaims) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (c *adminClaims) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
-func (c *adminClaims) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (c *adminClaims) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
-func (c *adminClaims) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (c *adminClaims) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
-func (c *adminClaims) Remove(name string) error {
+func (c *adminClaims) Remove(name string) (proto.Message, error) {
 	if c.input.Modification != nil && c.input.Modification.DryRun {
-		return nil
+		return nil, nil
 	}
 	c.save = &cpb.Account{}
 	proto.Merge(c.save, c.item)
 	for _, link := range c.save.ConnectedAccounts {
 		link.Passport = &cpb.Passport{}
 	}
-	return nil
+	return nil, nil
 }
 func (c *adminClaims) CheckIntegrity() *status.Status {
 	return nil
@@ -144,10 +141,9 @@ func (s *Service) adminTokenMetadataFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "tokens",
 		PathPrefix:          adminTokenMetadataPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &adminTokenMetadataHandler{
 				s:     s,
-				w:     w,
 				r:     r,
 				input: &pb.TokensMetadataRequest{},
 			}
@@ -157,7 +153,6 @@ func (s *Service) adminTokenMetadataFactory() *handlerfactory.HandlerFactory {
 
 type adminTokenMetadataHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.TokensMetadataRequest
 	item  map[string]*pb.TokenMetadata
@@ -191,29 +186,28 @@ func (h *adminTokenMetadataHandler) NormalizeInput(name string, vars map[string]
 	return httputil.DecodeProtoReq(h.input, h.r)
 }
 
-func (h *adminTokenMetadataHandler) Get(name string) error {
+func (h *adminTokenMetadataHandler) Get(name string) (proto.Message, error) {
 	item := h.item
 	if len(item) == 0 {
 		item = nil
 	}
-	httputil.WriteProtoResp(h.w, &pb.TokensMetadataResponse{TokensMetadata: item})
-	return nil
+	return &pb.TokensMetadataResponse{TokensMetadata: item}, nil
 }
 
-func (h *adminTokenMetadataHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (h *adminTokenMetadataHandler) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
 
-func (h *adminTokenMetadataHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (h *adminTokenMetadataHandler) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
 
-func (h *adminTokenMetadataHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (h *adminTokenMetadataHandler) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
 
-func (h *adminTokenMetadataHandler) Remove(name string) error {
-	return h.s.store.MultiDeleteTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, h.tx)
+func (h *adminTokenMetadataHandler) Remove(name string) (proto.Message, error) {
+	return nil, h.s.store.MultiDeleteTx(storage.TokensDatatype, getRealm(h.r), storage.DefaultUser, h.tx)
 }
 
 func (h *adminTokenMetadataHandler) CheckIntegrity() *status.Status {

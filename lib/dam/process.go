@@ -34,15 +34,14 @@ func (s *Service) processesFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "processes",
 		PathPrefix:          processesPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewProcessesHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewProcessesHandler(s, r)
 		},
 	}
 }
 
 type processesHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.BackgroundProcessesRequest
 	item  map[string]*ppb.Process
@@ -51,10 +50,9 @@ type processesHandler struct {
 	tx    storage.Tx
 }
 
-func NewProcessesHandler(s *Service, w http.ResponseWriter, r *http.Request) *processesHandler {
+func NewProcessesHandler(s *Service, r *http.Request) *processesHandler {
 	return &processesHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.BackgroundProcessesRequest{},
 	}
@@ -88,23 +86,23 @@ func (h *processesHandler) NormalizeInput(name string, vars map[string]string) e
 	}
 	return nil
 }
-func (h *processesHandler) Get(name string) error {
+func (h *processesHandler) Get(name string) (proto.Message, error) {
 	if h.item != nil {
-		httputil.WriteProtoResp(h.w, &pb.BackgroundProcessesResponse{Processes: h.item})
+		return &pb.BackgroundProcessesResponse{Processes: h.item}, nil
 	}
-	return nil
+	return nil, nil
 }
-func (h *processesHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (h *processesHandler) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
-func (h *processesHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (h *processesHandler) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
-func (h *processesHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (h *processesHandler) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
-func (h *processesHandler) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
+func (h *processesHandler) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
 }
 func (h *processesHandler) CheckIntegrity() *status.Status {
 	return nil
@@ -120,15 +118,14 @@ func (s *Service) processFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "process",
 		PathPrefix:          processPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewProcessHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewProcessHandler(s, r)
 		},
 	}
 }
 
 type processHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.BackgroundProcessRequest
 	item  *ppb.Process
@@ -137,10 +134,9 @@ type processHandler struct {
 	tx    storage.Tx
 }
 
-func NewProcessHandler(s *Service, w http.ResponseWriter, r *http.Request) *processHandler {
+func NewProcessHandler(s *Service, r *http.Request) *processHandler {
 	return &processHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.BackgroundProcessRequest{},
 	}
@@ -166,23 +162,23 @@ func (h *processHandler) NormalizeInput(name string, vars map[string]string) err
 	}
 	return nil
 }
-func (h *processHandler) Get(name string) error {
+func (h *processHandler) Get(name string) (proto.Message, error) {
 	if h.item != nil {
-		httputil.WriteProtoResp(h.w, &pb.BackgroundProcessResponse{Process: h.item})
+		return &pb.BackgroundProcessResponse{Process: h.item}, nil
 	}
-	return nil
+	return nil, nil
 }
-func (h *processHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (h *processHandler) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
-func (h *processHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (h *processHandler) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
-func (h *processHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (h *processHandler) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
-func (h *processHandler) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
+func (h *processHandler) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
 }
 func (h *processHandler) CheckIntegrity() *status.Status {
 	return nil

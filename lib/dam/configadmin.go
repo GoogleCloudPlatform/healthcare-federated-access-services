@@ -37,15 +37,14 @@ func (s *Service) configFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "config",
 		PathPrefix:          configPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigHandler(s, r)
 		},
 	}
 }
 
 type configHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigRequest
 	save  *pb.DamConfig
@@ -54,10 +53,9 @@ type configHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigHandler(s *Service, w http.ResponseWriter, r *http.Request) *configHandler {
+func NewConfigHandler(s *Service, r *http.Request) *configHandler {
 	return &configHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigRequest{},
 	}
@@ -93,28 +91,27 @@ func (h *configHandler) NormalizeInput(name string, vars map[string]string) erro
 	normalizeConfig(h.input.Item)
 	return nil
 }
-func (h *configHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, makeConfig(h.cfg))
-	return nil
+func (h *configHandler) Get(name string) (proto.Message, error) {
+	return makeConfig(h.cfg), nil
 }
-func (h *configHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (h *configHandler) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
-func (h *configHandler) Put(name string) error {
+func (h *configHandler) Put(name string) (proto.Message, error) {
 	if h.cfg.Version != h.input.Item.Version {
 		// TODO: consider upgrading older config versions automatically.
-		return fmt.Errorf("PUT of config version %q mismatched with existing config version %q", h.input.Item.Version, h.cfg.Version)
+		return nil, fmt.Errorf("PUT of config version %q mismatched with existing config version %q", h.input.Item.Version, h.cfg.Version)
 	}
 	h.save = receiveConfig(h.input.Item, h.cfg)
 	// Retain the revision number (it will be incremented upon saving).
 	h.save.Revision = h.cfg.Revision
-	return nil
+	return nil, nil
 }
-func (h *configHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (h *configHandler) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
-func (h *configHandler) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
+func (h *configHandler) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
 }
 func (h *configHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.save, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -147,15 +144,14 @@ func (s *Service) configOptionsFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configOptions",
 		PathPrefix:          configOptionsPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigOptionsHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigOptionsHandler(s, r)
 		},
 	}
 }
 
 type configOptionsHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigOptionsRequest
 	item  *pb.ConfigOptions
@@ -166,10 +162,9 @@ type configOptionsHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigOptionsHandler(s *Service, w http.ResponseWriter, r *http.Request) *configOptionsHandler {
+func NewConfigOptionsHandler(s *Service, r *http.Request) *configOptionsHandler {
 	return &configOptionsHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigOptionsRequest{},
 	}
@@ -195,30 +190,29 @@ func (h *configOptionsHandler) NormalizeInput(name string, vars map[string]strin
 	h.input.Item = receiveConfigOptions(h.input.Item, h.cfg)
 	return nil
 }
-func (h *configOptionsHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, makeConfigOptions(h.item))
-	return nil
+func (h *configOptionsHandler) Get(name string) (proto.Message, error) {
+	return makeConfigOptions(h.item), nil
 }
-func (h *configOptionsHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (h *configOptionsHandler) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
-func (h *configOptionsHandler) Put(name string) error {
+func (h *configOptionsHandler) Put(name string) (proto.Message, error) {
 	h.orig = &pb.ConfigOptions{}
 	proto.Merge(h.orig, h.item)
 	h.cfg.Options = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configOptionsHandler) Patch(name string) error {
+func (h *configOptionsHandler) Patch(name string) (proto.Message, error) {
 	h.orig = &pb.ConfigOptions{}
 	proto.Merge(h.orig, h.item)
 	proto.Merge(h.item, h.input.Item)
 	h.item.ReadOnlyMasterRealm = h.input.Item.ReadOnlyMasterRealm
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configOptionsHandler) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
+func (h *configOptionsHandler) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
 }
 func (h *configOptionsHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -241,15 +235,14 @@ func (s *Service) configResourceFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configResource",
 		PathPrefix:          configResourcePath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigResourceHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigResourceHandler(s, r)
 		},
 	}
 }
 
 type configResourceHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigResourceRequest
 	item  *pb.Resource
@@ -259,10 +252,9 @@ type configResourceHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigResourceHandler(s *Service, w http.ResponseWriter, r *http.Request) *configResourceHandler {
+func NewConfigResourceHandler(s *Service, r *http.Request) *configResourceHandler {
 	return &configResourceHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigResourceRequest{},
 	}
@@ -295,32 +287,31 @@ func (h *configResourceHandler) NormalizeInput(name string, vars map[string]stri
 	h.input.Item = receiveResource(h.input.Item)
 	return nil
 }
-func (h *configResourceHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configResourceHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configResourceHandler) Post(name string) error {
+func (h *configResourceHandler) Post(name string) (proto.Message, error) {
 	h.cfg.Resources[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configResourceHandler) Put(name string) error {
+func (h *configResourceHandler) Put(name string) (proto.Message, error) {
 	h.cfg.Resources[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configResourceHandler) Patch(name string) error {
+func (h *configResourceHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Views = h.input.Item.Views
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configResourceHandler) Remove(name string) error {
+func (h *configResourceHandler) Remove(name string) (proto.Message, error) {
 	rmTestResource(h.cfg, name)
 	delete(h.cfg.Resources, name)
 	h.save = &pb.Resource{}
-	return nil
+	return nil, nil
 }
 func (h *configResourceHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -336,15 +327,14 @@ func (s *Service) configViewFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configView",
 		PathPrefix:          configViewPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigViewHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigViewHandler(s, r)
 		},
 	}
 }
 
 type configViewHandler struct {
 	s       *Service
-	w       http.ResponseWriter
 	r       *http.Request
 	input   *pb.ConfigViewRequest
 	item    *pb.View
@@ -356,10 +346,9 @@ type configViewHandler struct {
 	tx      storage.Tx
 }
 
-func NewConfigViewHandler(s *Service, w http.ResponseWriter, r *http.Request) *configViewHandler {
+func NewConfigViewHandler(s *Service, r *http.Request) *configViewHandler {
 	return &configViewHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigViewRequest{},
 	}
@@ -399,34 +388,33 @@ func (h *configViewHandler) NormalizeInput(name string, vars map[string]string) 
 	h.input.Item = receiveView(h.input.Item)
 	return nil
 }
-func (h *configViewHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configViewHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configViewHandler) Post(name string) error {
+func (h *configViewHandler) Post(name string) (proto.Message, error) {
 	h.cfg.Resources[h.resName].Views[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configViewHandler) Put(name string) error {
+func (h *configViewHandler) Put(name string) (proto.Message, error) {
 	h.cfg.Resources[h.resName].Views[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configViewHandler) Patch(name string) error {
+func (h *configViewHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Items = h.input.Item.Items
 	h.item.Labels = h.input.Item.Labels
 	h.item.Roles = h.input.Item.Roles
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configViewHandler) Remove(name string) error {
+func (h *configViewHandler) Remove(name string) (proto.Message, error) {
 	rmTestView(h.cfg, h.resName, name)
 	delete(h.cfg.Resources[h.resName].Views, name)
 	h.save = &pb.View{}
-	return nil
+	return nil, nil
 }
 func (h *configViewHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -442,15 +430,14 @@ func (s *Service) configIssuerFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configTrustedIssuer",
 		PathPrefix:          configTrustedIssuerPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigIssuerHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigIssuerHandler(s, r)
 		},
 	}
 }
 
 type configIssuerHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigTrustedIssuerRequest
 	item  *pb.TrustedIssuer
@@ -460,10 +447,9 @@ type configIssuerHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigIssuerHandler(s *Service, w http.ResponseWriter, r *http.Request) *configIssuerHandler {
+func NewConfigIssuerHandler(s *Service, r *http.Request) *configIssuerHandler {
 	return &configIssuerHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigTrustedIssuerRequest{},
 	}
@@ -495,30 +481,29 @@ func (h *configIssuerHandler) NormalizeInput(name string, vars map[string]string
 	}
 	return nil
 }
-func (h *configIssuerHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configIssuerHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configIssuerHandler) Post(name string) error {
+func (h *configIssuerHandler) Post(name string) (proto.Message, error) {
 	h.cfg.TrustedIssuers[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configIssuerHandler) Put(name string) error {
+func (h *configIssuerHandler) Put(name string) (proto.Message, error) {
 	h.cfg.TrustedIssuers[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configIssuerHandler) Patch(name string) error {
+func (h *configIssuerHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configIssuerHandler) Remove(name string) error {
+func (h *configIssuerHandler) Remove(name string) (proto.Message, error) {
 	delete(h.cfg.TrustedIssuers, name)
 	h.save = &pb.TrustedIssuer{}
-	return nil
+	return nil, nil
 }
 func (h *configIssuerHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -534,15 +519,14 @@ func (s *Service) configSourceFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configTrustedSource",
 		PathPrefix:          configTrustedSourcePath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigSourceHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigSourceHandler(s, r)
 		},
 	}
 }
 
 type configSourceHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigTrustedSourceRequest
 	item  *pb.TrustedSource
@@ -552,10 +536,9 @@ type configSourceHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigSourceHandler(s *Service, w http.ResponseWriter, r *http.Request) *configSourceHandler {
+func NewConfigSourceHandler(s *Service, r *http.Request) *configSourceHandler {
 	return &configSourceHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigTrustedSourceRequest{},
 	}
@@ -587,32 +570,31 @@ func (h *configSourceHandler) NormalizeInput(name string, vars map[string]string
 	}
 	return nil
 }
-func (h *configSourceHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configSourceHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configSourceHandler) Post(name string) error {
+func (h *configSourceHandler) Post(name string) (proto.Message, error) {
 	h.cfg.TrustedSources[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configSourceHandler) Put(name string) error {
+func (h *configSourceHandler) Put(name string) (proto.Message, error) {
 	h.cfg.TrustedSources[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configSourceHandler) Patch(name string) error {
+func (h *configSourceHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Sources = h.input.Item.Sources
 	h.item.VisaTypes = h.input.Item.VisaTypes
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configSourceHandler) Remove(name string) error {
+func (h *configSourceHandler) Remove(name string) (proto.Message, error) {
 	delete(h.cfg.TrustedSources, name)
 	h.save = &pb.TrustedSource{}
-	return nil
+	return nil, nil
 }
 func (h *configSourceHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -628,15 +610,14 @@ func (s *Service) configPolicyFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configPolicy",
 		PathPrefix:          configPolicyPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigPolicyHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigPolicyHandler(s, r)
 		},
 	}
 }
 
 type configPolicyHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigPolicyRequest
 	item  *pb.Policy
@@ -646,10 +627,9 @@ type configPolicyHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigPolicyHandler(s *Service, w http.ResponseWriter, r *http.Request) *configPolicyHandler {
+func NewConfigPolicyHandler(s *Service, r *http.Request) *configPolicyHandler {
 	return &configPolicyHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigPolicyRequest{},
 	}
@@ -681,31 +661,30 @@ func (h *configPolicyHandler) NormalizeInput(name string, vars map[string]string
 	}
 	return nil
 }
-func (h *configPolicyHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configPolicyHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configPolicyHandler) Post(name string) error {
+func (h *configPolicyHandler) Post(name string) (proto.Message, error) {
 	h.cfg.Policies[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configPolicyHandler) Put(name string) error {
+func (h *configPolicyHandler) Put(name string) (proto.Message, error) {
 	h.cfg.Policies[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configPolicyHandler) Patch(name string) error {
+func (h *configPolicyHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.AnyOf = h.input.Item.AnyOf
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configPolicyHandler) Remove(name string) error {
+func (h *configPolicyHandler) Remove(name string) (proto.Message, error) {
 	delete(h.cfg.Policies, name)
 	h.save = &pb.Policy{}
-	return nil
+	return nil, nil
 }
 func (h *configPolicyHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -721,15 +700,14 @@ func (s *Service) configVisaTypeFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configVisaType",
 		PathPrefix:          configClaimDefPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigVisaTypeHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigVisaTypeHandler(s, r)
 		},
 	}
 }
 
 type configVisaTypeHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigVisaTypeRequest
 	item  *pb.VisaType
@@ -739,10 +717,9 @@ type configVisaTypeHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigVisaTypeHandler(s *Service, w http.ResponseWriter, r *http.Request) *configVisaTypeHandler {
+func NewConfigVisaTypeHandler(s *Service, r *http.Request) *configVisaTypeHandler {
 	return &configVisaTypeHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigVisaTypeRequest{},
 	}
@@ -774,30 +751,29 @@ func (h *configVisaTypeHandler) NormalizeInput(name string, vars map[string]stri
 	}
 	return nil
 }
-func (h *configVisaTypeHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configVisaTypeHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configVisaTypeHandler) Post(name string) error {
+func (h *configVisaTypeHandler) Post(name string) (proto.Message, error) {
 	h.cfg.VisaTypes[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configVisaTypeHandler) Put(name string) error {
+func (h *configVisaTypeHandler) Put(name string) (proto.Message, error) {
 	h.cfg.VisaTypes[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configVisaTypeHandler) Patch(name string) error {
+func (h *configVisaTypeHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configVisaTypeHandler) Remove(name string) error {
+func (h *configVisaTypeHandler) Remove(name string) (proto.Message, error) {
 	delete(h.cfg.VisaTypes, name)
 	h.save = &pb.VisaType{}
-	return nil
+	return nil, nil
 }
 func (h *configVisaTypeHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -813,15 +789,14 @@ func (s *Service) configServiceTemplateFactory() *handlerfactory.HandlerFactory 
 		TypeName:            "configServiceTemplate",
 		PathPrefix:          configServiceTemplatePath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigServiceTemplateHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigServiceTemplateHandler(s, r)
 		},
 	}
 }
 
 type configServiceTemplateHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigServiceTemplateRequest
 	item  *pb.ServiceTemplate
@@ -831,10 +806,9 @@ type configServiceTemplateHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigServiceTemplateHandler(s *Service, w http.ResponseWriter, r *http.Request) *configServiceTemplateHandler {
+func NewConfigServiceTemplateHandler(s *Service, r *http.Request) *configServiceTemplateHandler {
 	return &configServiceTemplateHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigServiceTemplateRequest{},
 	}
@@ -872,32 +846,31 @@ func (h *configServiceTemplateHandler) NormalizeInput(name string, vars map[stri
 	}
 	return nil
 }
-func (h *configServiceTemplateHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configServiceTemplateHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configServiceTemplateHandler) Post(name string) error {
+func (h *configServiceTemplateHandler) Post(name string) (proto.Message, error) {
 	h.cfg.ServiceTemplates[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configServiceTemplateHandler) Put(name string) error {
+func (h *configServiceTemplateHandler) Put(name string) (proto.Message, error) {
 	h.cfg.ServiceTemplates[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configServiceTemplateHandler) Patch(name string) error {
+func (h *configServiceTemplateHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Interfaces = h.input.Item.Interfaces
 	h.item.ServiceRoles = h.input.Item.ServiceRoles
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configServiceTemplateHandler) Remove(name string) error {
+func (h *configServiceTemplateHandler) Remove(name string) (proto.Message, error) {
 	delete(h.cfg.ServiceTemplates, name)
 	h.save = &pb.ServiceTemplate{}
-	return nil
+	return nil, nil
 }
 func (h *configServiceTemplateHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())
@@ -913,15 +886,14 @@ func (s *Service) configPersonaFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configTestPersona",
 		PathPrefix:          configTestPersonaPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
-			return NewConfigPersonaHandler(s, w, r)
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
+			return NewConfigPersonaHandler(s, r)
 		},
 	}
 }
 
 type configPersonaHandler struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigTestPersonaRequest
 	item  *cpb.TestPersona
@@ -931,10 +903,9 @@ type configPersonaHandler struct {
 	tx    storage.Tx
 }
 
-func NewConfigPersonaHandler(s *Service, w http.ResponseWriter, r *http.Request) *configPersonaHandler {
+func NewConfigPersonaHandler(s *Service, r *http.Request) *configPersonaHandler {
 	return &configPersonaHandler{
 		s:     s,
-		w:     w,
 		r:     r,
 		input: &pb.ConfigTestPersonaRequest{},
 	}
@@ -975,32 +946,31 @@ func (h *configPersonaHandler) NormalizeInput(name string, vars map[string]strin
 	}
 	return nil
 }
-func (h *configPersonaHandler) Get(name string) error {
-	httputil.WriteProtoResp(h.w, h.item)
-	return nil
+func (h *configPersonaHandler) Get(name string) (proto.Message, error) {
+	return h.item, nil
 }
-func (h *configPersonaHandler) Post(name string) error {
+func (h *configPersonaHandler) Post(name string) (proto.Message, error) {
 	h.cfg.TestPersonas[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configPersonaHandler) Put(name string) error {
+func (h *configPersonaHandler) Put(name string) (proto.Message, error) {
 	h.cfg.TestPersonas[name] = h.input.Item
 	h.save = h.input.Item
-	return nil
+	return nil, nil
 }
-func (h *configPersonaHandler) Patch(name string) error {
+func (h *configPersonaHandler) Patch(name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Passport = h.input.Item.Passport
 	h.item.Access = h.input.Item.Access
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
-	return nil
+	return nil, nil
 }
-func (h *configPersonaHandler) Remove(name string) error {
+func (h *configPersonaHandler) Remove(name string) (proto.Message, error) {
 	delete(h.cfg.TestPersonas, name)
 	h.save = &cpb.TestPersona{}
-	return nil
+	return nil, nil
 }
 func (h *configPersonaHandler) CheckIntegrity() *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, h.r, h.s.ValidateCfgOpts())

@@ -56,7 +56,6 @@ type ClientService interface {
 //////////////////////////////////////////////////////////////////
 
 type clientHandler struct {
-	w        http.ResponseWriter
 	r        *http.Request
 	s        ClientService
 	clientID string
@@ -65,8 +64,8 @@ type clientHandler struct {
 }
 
 // NewClientHandler returns clientHandler.
-func NewClientHandler(w http.ResponseWriter, r *http.Request, s ClientService) handlerfactory.HandlerInterface {
-	return &clientHandler{w: w, r: r, s: s}
+func NewClientHandler(r *http.Request, s ClientService) handlerfactory.HandlerInterface {
+	return &clientHandler{r: r, s: s}
 }
 
 func (c *clientHandler) Setup(tx storage.Tx) (int, error) {
@@ -96,25 +95,24 @@ func (c *clientHandler) NormalizeInput(name string, vars map[string]string) erro
 	return nil
 }
 
-func (c *clientHandler) Get(name string) error {
-	httputil.WriteProtoResp(c.w, &pb.ClientResponse{Client: c.item})
-	return nil
+func (c *clientHandler) Get(name string) (proto.Message, error) {
+	return &pb.ClientResponse{Client: c.item}, nil
 }
 
-func (c *clientHandler) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (c *clientHandler) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
 
-func (c *clientHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (c *clientHandler) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
 
-func (c *clientHandler) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (c *clientHandler) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
 
-func (c *clientHandler) Remove(name string) error {
-	return fmt.Errorf("REMOVE not allowed")
+func (c *clientHandler) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("REMOVE not allowed")
 }
 
 func (c *clientHandler) CheckIntegrity() *status.Status {
@@ -152,7 +150,6 @@ func (c *clientHandler) Save(tx storage.Tx, name string, vars map[string]string,
 //////////////////////////////////////////////////////////////////
 
 type adminClientHandler struct {
-	w             http.ResponseWriter
 	r             *http.Request
 	s             ClientService
 	useHydra      bool
@@ -165,8 +162,8 @@ type adminClientHandler struct {
 }
 
 // NewAdminClientHandler returns adminClientHandler
-func NewAdminClientHandler(w http.ResponseWriter, r *http.Request, s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) handlerfactory.HandlerInterface {
-	return &adminClientHandler{w: w, r: r, s: s, useHydra: useHydra, httpClient: httpClient, hydraAdminURL: hydraAdminURL}
+func NewAdminClientHandler(r *http.Request, s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) handlerfactory.HandlerInterface {
+	return &adminClientHandler{r: r, s: s, useHydra: useHydra, httpClient: httpClient, hydraAdminURL: hydraAdminURL}
 }
 
 func (c *adminClientHandler) Setup(tx storage.Tx) (int, error) {
@@ -199,12 +196,11 @@ func (c *adminClientHandler) NormalizeInput(name string, vars map[string]string)
 	return nil
 }
 
-func (c *adminClientHandler) Get(name string) error {
-	httputil.WriteProtoResp(c.w, &pb.ConfigClientResponse{Client: c.item})
-	return nil
+func (c *adminClientHandler) Get(name string) (proto.Message, error) {
+	return &pb.ConfigClientResponse{Client: c.item}, nil
 }
 
-func (c *adminClientHandler) Post(name string) error {
+func (c *adminClientHandler) Post(name string) (proto.Message, error) {
 	input := c.input.Item
 
 	if len(input.ClientId) == 0 {
@@ -221,7 +217,7 @@ func (c *adminClientHandler) Post(name string) error {
 	}
 
 	if err := CheckClientIntegrity(name, input); err != nil {
-		return err
+		return nil, err
 	}
 
 	out := proto.Clone(input).(*pb.Client)
@@ -232,7 +228,7 @@ func (c *adminClientHandler) Post(name string) error {
 		hyCli := toHydraClient(c.input.Item, name, sec, strfmt.NewDateTime())
 		resp, err := hydra.CreateClient(c.httpClient, c.hydraAdminURL, hyCli)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		out, sec = fromHydraClient(resp)
 		out.Ui = input.Ui
@@ -241,18 +237,17 @@ func (c *adminClientHandler) Post(name string) error {
 	c.s.SaveClient(name, sec, out)
 
 	// Return the created client.
-	httputil.WriteProtoResp(c.w, &pb.ConfigClientResponse{
+	return &pb.ConfigClientResponse{
 		Client:       out,
 		ClientSecret: sec,
-	})
-	return nil
+	}, nil
 }
 
-func (c *adminClientHandler) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (c *adminClientHandler) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
 
-func (c *adminClientHandler) Patch(name string) error {
+func (c *adminClientHandler) Patch(name string) (proto.Message, error) {
 	// TODO should use field mask for update.
 
 	input := c.input.Item
@@ -260,7 +255,7 @@ func (c *adminClientHandler) Patch(name string) error {
 		input.ClientId = c.item.ClientId
 	}
 	if input.ClientId != c.item.ClientId {
-		return fmt.Errorf("invalid client_id")
+		return nil, fmt.Errorf("invalid client_id")
 	}
 	if len(input.Scope) == 0 {
 		input.Scope = c.item.Scope
@@ -279,7 +274,7 @@ func (c *adminClientHandler) Patch(name string) error {
 	}
 
 	if err := CheckClientIntegrity(name, input); err != nil {
-		return err
+		return nil, err
 	}
 
 	out := proto.Clone(input).(*pb.Client)
@@ -289,7 +284,7 @@ func (c *adminClientHandler) Patch(name string) error {
 		hyCli := toHydraClient(input, name, sec, strfmt.NewDateTime())
 		resp, err := hydra.UpdateClient(c.httpClient, c.hydraAdminURL, hyCli.ClientID, hyCli)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		out, sec = fromHydraClient(resp)
 		out.Ui = input.Ui
@@ -298,24 +293,23 @@ func (c *adminClientHandler) Patch(name string) error {
 	c.s.SaveClient(name, sec, out)
 
 	// Return the updated client.
-	httputil.WriteProtoResp(c.w, &pb.ConfigClientResponse{
+	return &pb.ConfigClientResponse{
 		Client:       out,
 		ClientSecret: sec,
-	})
-	return nil
+	}, nil
 }
 
-func (c *adminClientHandler) Remove(name string) error {
+func (c *adminClientHandler) Remove(name string) (proto.Message, error) {
 	if c.useHydra {
 		err := hydra.DeleteClient(c.httpClient, c.hydraAdminURL, c.item.ClientId)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	c.s.RemoveClient(name, c.item)
 
-	return nil
+	return nil, nil
 }
 
 func (c *adminClientHandler) CheckIntegrity() *status.Status {

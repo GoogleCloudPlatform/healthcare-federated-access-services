@@ -136,13 +136,12 @@ func MeFactory(store storage.Store, domainURL, path string) *handlerfactory.Hand
 		TypeName:            "user",
 		PathPrefix:          path,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &scimMe{
 				s:         New(store),
 				store:     store,
 				domainURL: domainURL,
 				userPath:  userPath(path),
-				w:         w,
 				r:         r,
 			}
 		},
@@ -154,7 +153,6 @@ type scimMe struct {
 	store     storage.Store
 	domainURL string
 	userPath  string
-	w         http.ResponseWriter
 	r         *http.Request
 	user      *scimUser
 }
@@ -167,7 +165,6 @@ func (h *scimMe) Setup(tx storage.Tx) (int, error) {
 		store:     h.store,
 		domainURL: h.domainURL,
 		userPath:  userPath(h.userPath),
-		w:         h.w,
 		r:         h.r,
 		input:     &spb.Patch{},
 	}
@@ -185,27 +182,27 @@ func (h *scimMe) NormalizeInput(name string, vars map[string]string) error {
 }
 
 // Get sends a GET method response
-func (h *scimMe) Get(name string) error {
+func (h *scimMe) Get(name string) (proto.Message, error) {
 	return h.user.Get(name)
 }
 
 // Post receives a POST method request
-func (h *scimMe) Post(name string) error {
+func (h *scimMe) Post(name string) (proto.Message, error) {
 	return h.user.Post(name)
 }
 
 // Put receives a PUT method request
-func (h *scimMe) Put(name string) error {
+func (h *scimMe) Put(name string) (proto.Message, error) {
 	return h.user.Put(name)
 }
 
 // Patch receives a PATCH method request
-func (h *scimMe) Patch(name string) error {
+func (h *scimMe) Patch(name string) (proto.Message, error) {
 	return h.user.Patch(name)
 }
 
 // Remove receives a DELETE method request
-func (h *scimMe) Remove(name string) error {
+func (h *scimMe) Remove(name string) (proto.Message, error) {
 	return h.user.Remove(name)
 }
 
@@ -227,13 +224,12 @@ func UserFactory(store storage.Store, domainURL, path string) *handlerfactory.Ha
 		TypeName:            "user",
 		PathPrefix:          path,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &scimUser{
 				s:         New(store),
 				store:     store,
 				domainURL: domainURL,
 				userPath:  userPath(path),
-				w:         w,
 				r:         r,
 				input:     &spb.Patch{},
 			}
@@ -246,7 +242,6 @@ type scimUser struct {
 	store     storage.Store
 	domainURL string
 	userPath  string
-	w         http.ResponseWriter
 	r         *http.Request
 	item      *cpb.Account
 	input     *spb.Patch
@@ -299,23 +294,22 @@ func (h *scimUser) NormalizeInput(name string, vars map[string]string) error {
 }
 
 // Get sends a GET method response
-func (h *scimUser) Get(name string) error {
-	httputil.WriteProtoResp(h.w, newScimUser(h.item, getRealm(h.r), h.domainURL, h.userPath))
-	return nil
+func (h *scimUser) Get(name string) (proto.Message, error) {
+	return newScimUser(h.item, getRealm(h.r), h.domainURL, h.userPath), nil
 }
 
 // Post receives a POST method request
-func (h *scimUser) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (h *scimUser) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
 
 // Put receives a PUT method request
-func (h *scimUser) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (h *scimUser) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
 
 // Patch receives a PATCH method request
-func (h *scimUser) Patch(name string) error {
+func (h *scimUser) Patch(name string) (proto.Message, error) {
 	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for i, patch := range h.input.Operations {
@@ -339,13 +333,13 @@ func (h *scimUser) Patch(name string) error {
 				h.save.State = storage.StateActive
 
 			default:
-				return fmt.Errorf("invalid active operation %q or value %q", patch.Op, patch.Value)
+				return nil, fmt.Errorf("invalid active operation %q or value %q", patch.Op, patch.Value)
 			}
 
 		case "name.formatted":
 			dst = &h.save.Profile.FormattedName
 			if patch.Op == "remove" || len(src) == 0 {
-				return fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
+				return nil, fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
 			}
 
 		case "name.familyName":
@@ -360,7 +354,7 @@ func (h *scimUser) Patch(name string) error {
 		case "displayName":
 			dst = &h.save.Profile.Name
 			if patch.Op == "remove" || len(src) == 0 {
-				return fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
+				return nil, fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
 			}
 
 		case "profileUrl":
@@ -369,30 +363,30 @@ func (h *scimUser) Patch(name string) error {
 		case "locale":
 			dst = &h.save.Profile.Locale
 			if len(src) > 0 && !timeutil.IsLocale(src) {
-				return fmt.Errorf("operation %d: %q is not a recognized locale", i, path)
+				return nil, fmt.Errorf("operation %d: %q is not a recognized locale", i, path)
 			}
 
 		case "timezone":
 			dst = &h.save.Profile.ZoneInfo
 			if len(src) > 0 && !timeutil.IsTimeZone(src) {
-				return fmt.Errorf("operation %d: %q is not a recognized time zone", i, src)
+				return nil, fmt.Errorf("operation %d: %q is not a recognized time zone", i, src)
 			}
 
 		case "emails":
 			if patch.Op == "add" {
 				// SCIM extension for linking accounts.
 				if src != auth.LinkAuthorizationHeader {
-					return fmt.Errorf("operation %d: %q must be set to %q", i, src, auth.LinkAuthorizationHeader)
+					return nil, fmt.Errorf("operation %d: %q must be set to %q", i, src, auth.LinkAuthorizationHeader)
 				}
 				if err := h.linkEmail(); err != nil {
-					return err
+					return nil, err
 				}
 				break
 			}
 			// Standard SCIM email functionality.
 			link, match, err := selectLink(patch.Path, emailPathRE, scimEmailFilterMap, h.save)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			dst = nil // operation can be skipped by logic after this switch block (i.e. no destination to write)
 			if link == nil {
@@ -401,17 +395,17 @@ func (h *scimUser) Patch(name string) error {
 			if len(match[2]) == 0 {
 				// When match[2] is empty, the operation applies to the entire email object.
 				if patch.Op != "remove" {
-					return fmt.Errorf("operation %d: path %q only supported for remove", i, path)
+					return nil, fmt.Errorf("operation %d: path %q only supported for remove", i, path)
 				}
 				if len(h.save.ConnectedAccounts) < 2 {
-					return fmt.Errorf("operation %d: cannot unlink the only email address for a given account", i)
+					return nil, fmt.Errorf("operation %d: cannot unlink the only email address for a given account", i)
 				}
 				// Unlink account
 				for idx, connect := range h.save.ConnectedAccounts {
 					if connect.Properties.Subject == link.Properties.Subject {
 						h.save.ConnectedAccounts = append(h.save.ConnectedAccounts[:idx], h.save.ConnectedAccounts[idx+1:]...)
 						if err := h.s.RemoveAccountLookup(link.LinkRevision, getRealm(h.r), link.Properties.Subject, h.r, h.auth.ID, h.tx); err != nil {
-							return fmt.Errorf("service dependencies not available; try again later")
+							return nil, fmt.Errorf("service dependencies not available; try again later")
 						}
 						break
 					}
@@ -431,14 +425,14 @@ func (h *scimUser) Patch(name string) error {
 		case "photo":
 			dst = &h.save.Profile.Picture
 			if !strutil.IsImageURL(src) {
-				return fmt.Errorf("invalid photo URL %q", src)
+				return nil, fmt.Errorf("invalid photo URL %q", src)
 			}
 
 		default:
-			return fmt.Errorf("operation %d: invalid path %q", i, path)
+			return nil, fmt.Errorf("operation %d: invalid path %q", i, path)
 		}
 		if patch.Op != "remove" && len(src) == 0 {
-			return fmt.Errorf("operation %d: cannot set an empty value", i)
+			return nil, fmt.Errorf("operation %d: cannot set an empty value", i)
 		}
 		if dst == nil {
 			continue
@@ -451,15 +445,14 @@ func (h *scimUser) Patch(name string) error {
 		case "remove":
 			*dst = ""
 		default:
-			return fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
+			return nil, fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
 		}
 	}
-	httputil.WriteProtoResp(h.w, newScimUser(h.save, getRealm(h.r), h.domainURL, h.userPath))
-	return nil
+	return newScimUser(h.save, getRealm(h.r), h.domainURL, h.userPath), nil
 }
 
 // Remove receives a DELETE method request
-func (h *scimUser) Remove(name string) error {
+func (h *scimUser) Remove(name string) (proto.Message, error) {
 	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for _, link := range h.save.ConnectedAccounts {
@@ -467,12 +460,12 @@ func (h *scimUser) Remove(name string) error {
 			continue
 		}
 		if err := h.s.RemoveAccountLookup(link.LinkRevision, getRealm(h.r), link.Properties.Subject, h.r, h.auth.ID, h.tx); err != nil {
-			return fmt.Errorf("service dependencies not available; try again later")
+			return nil, fmt.Errorf("service dependencies not available; try again later")
 		}
 	}
 	h.save.ConnectedAccounts = []*cpb.ConnectedAccount{}
 	h.save.State = "DELETED"
-	return nil
+	return nil, nil
 }
 
 // CheckIntegrity provides an opportunity to check the result of any changes
@@ -542,13 +535,12 @@ func UsersFactory(store storage.Store, domainURL, path string) *handlerfactory.H
 		TypeName:            "users",
 		PathPrefix:          path,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &scimUsers{
 				s:         New(store),
 				store:     store,
 				domainURL: domainURL,
 				userPath:  userPath(path),
-				w:         w,
 				r:         r,
 			}
 		},
@@ -560,7 +552,6 @@ type scimUsers struct {
 	store     storage.Store
 	domainURL string
 	userPath  string
-	w         http.ResponseWriter
 	r         *http.Request
 	id        *ga4gh.Identity
 	tx        storage.Tx
@@ -588,10 +579,10 @@ func (h *scimUsers) NormalizeInput(name string, vars map[string]string) error {
 }
 
 // Get sends a GET method response
-func (h *scimUsers) Get(name string) error {
+func (h *scimUsers) Get(name string) (proto.Message, error) {
 	filters, err := storage.BuildFilters(httputil.QueryParam(h.r, "filter"), scimUserFilterMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
 	start := httputil.QueryParamInt(h.r, "startIndex")
@@ -608,7 +599,7 @@ func (h *scimUsers) Get(name string) error {
 	m := make(map[string]map[string]proto.Message)
 	count, err := h.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, offset, max, m, &cpb.Account{}, h.tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	accts := make(map[string]*cpb.Account)
 	subjects := []string{}
@@ -637,28 +628,27 @@ func (h *scimUsers) Get(name string) error {
 		StartIndex:   uint32(start),
 		Resources:    list,
 	}
-	httputil.WriteProtoResp(h.w, resp)
-	return nil
+	return resp, nil
 }
 
 // Post receives a POST method request
-func (h *scimUsers) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (h *scimUsers) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
 
 // Put receives a PUT method request
-func (h *scimUsers) Put(name string) error {
-	return fmt.Errorf("PUT not allowed")
+func (h *scimUsers) Put(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
 }
 
 // Patch receives a PATCH method request
-func (h *scimUsers) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (h *scimUsers) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
 
 // Remove receives a DELETE method request
-func (h *scimUsers) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
+func (h *scimUsers) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
 }
 
 // CheckIntegrity provides an opportunity to check the result of any changes

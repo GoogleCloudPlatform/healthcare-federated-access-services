@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -51,10 +52,9 @@ func Test_HTTPHandler_Get(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(w http.ResponseWriter, r *http.Request) HandlerInterface {
+	f := func(r *http.Request) HandlerInterface {
 		glog.Infof("request: %+v", r)
 		return &fakeService{
-			w:     w,
 			r:     r,
 			store: s,
 		}
@@ -96,9 +96,8 @@ func Test_HTTPHandler_Get_NotFound(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(w http.ResponseWriter, r *http.Request) HandlerInterface {
+	f := func(r *http.Request) HandlerInterface {
 		return &fakeService{
-			w:     w,
 			r:     r,
 			store: s,
 		}
@@ -136,10 +135,9 @@ func Test_HTTPHandler_Post(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(w http.ResponseWriter, r *http.Request) HandlerInterface {
+	f := func(r *http.Request) HandlerInterface {
 		glog.Infof("request: %+v", r)
 		return &fakeService{
-			w:     w,
 			r:     r,
 			store: s,
 		}
@@ -186,10 +184,9 @@ func Test_HTTPHandler_Delete(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(w http.ResponseWriter, r *http.Request) HandlerInterface {
+	f := func(r *http.Request) HandlerInterface {
 		glog.Infof("request: %+v", r)
 		return &fakeService{
-			w:     w,
 			r:     r,
 			store: s,
 		}
@@ -225,7 +222,6 @@ type fakeService struct {
 	store *fakestore.Store
 
 	// TODO: cleanup these and pass them explicitly to the methods.
-	w  http.ResponseWriter
 	r  *http.Request
 	tx *fakestore.Tx
 }
@@ -255,54 +251,52 @@ func (s *fakeService) LookupItem(name string, vars map[string]string) bool {
 	return ok
 }
 
-func (s *fakeService) Get(name string) error {
+func (s *fakeService) Get(name string) (proto.Message, error) {
 	vars := extractVars(s.r)
 	glog.Infof("Get: name = %v vars = %+v", name, vars)
 	d := &dpb.Duration{}
 	err := s.store.ReadTx("resource", "master", "user", vars["duration"], storage.LatestRev, d, s.tx)
 	glog.Infof("ReadTx() = %+v, %v", d, err)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	httputil.WriteProtoResp(s.w, d)
-	return nil
+	return d, nil
 }
 
-func (s *fakeService) Post(name string) error {
+func (s *fakeService) Post(name string) (proto.Message, error) {
 	vars := extractVars(s.r)
 	glog.Infof("Post: name = %v vars = %+v", name, vars)
 	d := &dpb.Duration{}
 	if err := httputil.DecodeProtoReq(d, s.r); err != nil {
-		return err
+		return nil, err
 	}
 	err := s.store.WriteTx("resource", "master", "user", vars["duration"], storage.LatestRev, d, nil, s.tx)
 	glog.Infof("WriteTx() = %+v", err)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	httputil.WriteProtoResp(s.w, d)
-	return nil
+	return d, nil
 }
 
-func (s *fakeService) Put(name string) error {
+func (s *fakeService) Put(name string) (proto.Message, error) {
 	// TODO
-	return nil
+	return nil, nil
 }
 
-func (s *fakeService) Patch(name string) error {
+func (s *fakeService) Patch(name string) (proto.Message, error) {
 	// TODO
-	return nil
+	return nil, nil
 }
 
-func (s *fakeService) Remove(name string) error {
+func (s *fakeService) Remove(name string) (proto.Message, error) {
 	vars := extractVars(s.r)
 	glog.Infof("Remove: name = %v vars = %+v", name, vars)
 	err := s.store.DeleteTx("resource", "master", "user", vars["duration"], storage.LatestRev, s.tx)
 	glog.Infof("DeleteTx() = %+v", err)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 func (s *fakeService) CheckIntegrity() *status.Status {

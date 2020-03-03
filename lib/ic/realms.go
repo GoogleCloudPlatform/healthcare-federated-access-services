@@ -17,6 +17,7 @@ package ic
 import (
 	"net/http"
 
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
@@ -32,10 +33,9 @@ func (s *Service) realmFactory() *handlerfactory.HandlerFactory {
 		NameField:           "realm",
 		PathPrefix:          realmPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &realm{
 				s:     s,
-				w:     w,
 				r:     r,
 				input: &pb.RealmRequest{},
 			}
@@ -45,7 +45,6 @@ func (s *Service) realmFactory() *handlerfactory.HandlerFactory {
 
 type realm struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.RealmRequest
 	item  *pb.Realm
@@ -79,36 +78,36 @@ func (c *realm) NormalizeInput(name string, vars map[string]string) error {
 	return nil
 }
 
-func (c *realm) Get(name string) error {
+func (c *realm) Get(name string) (proto.Message, error) {
 	if c.item != nil {
-		httputil.WriteProtoResp(c.w, c.item)
+		return c.item, nil
 	}
-	return nil
+	return nil, nil
 }
 
-func (c *realm) Post(name string) error {
+func (c *realm) Post(name string) (proto.Message, error) {
 	// Accept, but do nothing.
-	return nil
+	return nil, nil
 }
 
-func (c *realm) Put(name string) error {
+func (c *realm) Put(name string) (proto.Message, error) {
 	// Accept, but do nothing.
-	return nil
+	return nil, nil
 }
 
-func (c *realm) Patch(name string) error {
+func (c *realm) Patch(name string) (proto.Message, error) {
 	// Accept, but do nothing.
-	return nil
+	return nil, nil
 }
 
-func (c *realm) Remove(name string) error {
+func (c *realm) Remove(name string) (proto.Message, error) {
 	if err := c.s.store.Wipe(name); err != nil {
-		return err
+		return nil, err
 	}
 	if name == storage.DefaultRealm {
-		return ImportConfig(c.s.store, c.s.serviceName, nil)
+		return nil, ImportConfig(c.s.store, c.s.serviceName, nil)
 	}
-	return nil
+	return nil, nil
 }
 
 func (c *realm) CheckIntegrity() *status.Status {

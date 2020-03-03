@@ -37,10 +37,9 @@ func (s *Service) configFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "config",
 		PathPrefix:          configPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &config{
 				s:     s,
-				w:     w,
 				r:     r,
 				input: &pb.ConfigRequest{},
 			}
@@ -50,7 +49,6 @@ func (s *Service) configFactory() *handlerfactory.HandlerFactory {
 
 type config struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigRequest
 	cfg   *pb.IcConfig
@@ -89,27 +87,26 @@ func (c *config) NormalizeInput(name string, vars map[string]string) error {
 	c.input.Item.Options = receiveConfigOptions(c.input.Item.Options)
 	return nil
 }
-func (c *config) Get(name string) error {
-	httputil.WriteProtoResp(c.w, makeConfig(c.cfg))
-	return nil
+func (c *config) Get(name string) (proto.Message, error) {
+	return makeConfig(c.cfg), nil
 }
-func (c *config) Post(name string) error {
-	return fmt.Errorf("POST not allowed")
+func (c *config) Post(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
 }
-func (c *config) Put(name string) error {
+func (c *config) Put(name string) (proto.Message, error) {
 	if c.cfg.Version != c.input.Item.Version {
 		// TODO: consider upgrading older config versions automatically.
-		return fmt.Errorf("PUT of config version %q mismatched with existing config version %q", c.input.Item.Version, c.cfg.Version)
+		return nil, fmt.Errorf("PUT of config version %q mismatched with existing config version %q", c.input.Item.Version, c.cfg.Version)
 	}
 	// Retain the revision number (it will be incremented upon saving).
 	c.input.Item.Revision = c.cfg.Revision
-	return nil
+	return nil, nil
 }
-func (c *config) Patch(name string) error {
-	return fmt.Errorf("PATCH not allowed")
+func (c *config) Patch(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
 }
-func (c *config) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
+func (c *config) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
 }
 func (c *config) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
@@ -153,10 +150,9 @@ func (s *Service) configIdpFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configIDP",
 		PathPrefix:          configIdentityProvidersPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &configIDP{
 				s:     s,
-				w:     w,
 				r:     r,
 				input: &pb.ConfigIdentityProviderRequest{},
 			}
@@ -166,7 +162,6 @@ func (s *Service) configIdpFactory() *handlerfactory.HandlerFactory {
 
 type configIDP struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigIdentityProviderRequest
 	item  *cpb.IdentityProvider
@@ -205,33 +200,32 @@ func (c *configIDP) NormalizeInput(name string, vars map[string]string) error {
 	}
 	return nil
 }
-func (c *configIDP) Get(name string) error {
-	httputil.WriteProtoResp(c.w, c.item)
-	return nil
+func (c *configIDP) Get(name string) (proto.Message, error) {
+	return c.item, nil
 }
-func (c *configIDP) Post(name string) error {
+func (c *configIDP) Post(name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.IdentityProviders[name] = c.save
-	return nil
+	return nil, nil
 }
-func (c *configIDP) Put(name string) error {
+func (c *configIDP) Put(name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.IdentityProviders[name] = c.save
-	return nil
+	return nil, nil
 }
-func (c *configIDP) Patch(name string) error {
+func (c *configIDP) Patch(name string) (proto.Message, error) {
 	c.save = &cpb.IdentityProvider{}
 	proto.Merge(c.save, c.item)
 	proto.Merge(c.save, c.input.Item)
 	c.save.Scopes = c.input.Item.Scopes
 	c.save.Ui = c.input.Item.Ui
 	c.cfg.IdentityProviders[name] = c.save
-	return nil
+	return nil, nil
 }
-func (c *configIDP) Remove(name string) error {
+func (c *configIDP) Remove(name string) (proto.Message, error) {
 	delete(c.cfg.IdentityProviders, name)
 	c.save = &cpb.IdentityProvider{}
-	return nil
+	return nil, nil
 }
 func (c *configIDP) CheckIntegrity() *status.Status {
 	bad := codes.InvalidArgument
@@ -262,10 +256,9 @@ func (s *Service) configOptionsFactory() *handlerfactory.HandlerFactory {
 		TypeName:            "configOptions",
 		PathPrefix:          configOptionsPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(w http.ResponseWriter, r *http.Request) handlerfactory.HandlerInterface {
+		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
 			return &configOptions{
 				s:     s,
-				w:     w,
 				r:     r,
 				input: &pb.ConfigOptionsRequest{},
 			}
@@ -275,7 +268,6 @@ func (s *Service) configOptionsFactory() *handlerfactory.HandlerFactory {
 
 type configOptions struct {
 	s     *Service
-	w     http.ResponseWriter
 	r     *http.Request
 	input *pb.ConfigOptionsRequest
 	item  *pb.ConfigOptions
@@ -309,34 +301,33 @@ func (c *configOptions) NormalizeInput(name string, vars map[string]string) erro
 	return nil
 }
 
-func (c *configOptions) Get(name string) error {
-	httputil.WriteProtoResp(c.w, makeConfigOptions(c.item))
-	return nil
+func (c *configOptions) Get(name string) (proto.Message, error) {
+	return makeConfigOptions(c.item), nil
 }
 
-func (c *configOptions) Post(name string) error {
+func (c *configOptions) Post(name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.Options = c.save
-	return nil
+	return nil, nil
 }
 
-func (c *configOptions) Put(name string) error {
+func (c *configOptions) Put(name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.Options = c.save
-	return nil
+	return nil, nil
 }
 
-func (c *configOptions) Patch(name string) error {
+func (c *configOptions) Patch(name string) (proto.Message, error) {
 	c.save = &pb.ConfigOptions{}
 	proto.Merge(c.save, c.item)
 	proto.Merge(c.save, c.input.Item)
 	c.save.ReadOnlyMasterRealm = c.input.Item.ReadOnlyMasterRealm
 	c.cfg.Options = c.save
-	return nil
+	return nil, nil
 }
 
-func (c *configOptions) Remove(name string) error {
-	return fmt.Errorf("DELETE not allowed")
+func (c *configOptions) Remove(name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
 }
 
 func (c *configOptions) CheckIntegrity() *status.Status {
