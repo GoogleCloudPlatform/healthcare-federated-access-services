@@ -24,6 +24,7 @@ import (
 
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -213,8 +214,12 @@ func (s *Service) hydraConsent(r *http.Request) (_ bool, _ string, ferr error) {
 	if err != nil {
 		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
 	}
+	a, err := auth.FromContext(r.Context())
+	if err != nil {
+		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
+	}
 
-	acct, st, err := s.loadAccount(sub, state.Realm, tx)
+	acct, st, err := s.scim.LoadAccount(sub, state.Realm, a.IsAdmin, tx)
 	if err != nil {
 		return false, "", status.Errorf(httputil.RPCCode(st), "%v", err)
 	}
@@ -304,8 +309,12 @@ func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.AuthTokenState,
 	if err != nil {
 		return "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
+	a, err := auth.FromContext(r.Context())
+	if err != nil {
+		return "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
+	}
 
-	acct, st, err := s.loadAccount(state.Subject, state.Realm, tx)
+	acct, st, err := s.scim.LoadAccount(state.Subject, state.Realm, a.IsAdmin, tx)
 	if err != nil {
 		return "", status.Errorf(httputil.RPCCode(st), "%v", err)
 	}

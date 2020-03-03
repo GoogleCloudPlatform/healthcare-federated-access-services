@@ -50,6 +50,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
@@ -225,6 +226,7 @@ type Service struct {
 	logger                *logging.Client
 	useHydra              bool
 	hydraSyncFreq         time.Duration
+	scim                  *scim.Scim
 }
 
 type ServiceHandler struct {
@@ -317,6 +319,7 @@ func New(r *mux.Router, params *Options) *Service {
 		logger:                params.Logger,
 		useHydra:              params.UseHydra,
 		hydraSyncFreq:         syncFreq,
+		scim:                  scim.New(params.Store),
 	}
 
 	if s.httpClient == nil {
@@ -587,16 +590,20 @@ func (s *Service) getAndValidateStateRedirect(r *http.Request, cfg *pb.IcConfig)
 
 func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request) (bool, string, error) {
 	realm := getRealm(r)
-	lookup, err := s.accountLookup(realm, id.Subject, tx)
+	lookup, err := s.scim.LoadAccountLookup(realm, id.Subject, tx)
 	if err != nil {
 		return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 	}
 	var subject string
 	if isLookupActive(lookup) {
 		subject = lookup.Subject
-		acct, _, err := s.loadAccount(subject, realm, tx)
+		acct, _, err := s.scim.LoadAccount(subject, realm, true, tx)
 		if err != nil {
 			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+		}
+		if acct.State == storage.StateDisabled {
+			// Reject using a DISABLED account.
+			return false, "", status.Errorf(httputil.RPCCode(http.StatusForbidden), "this account has been disabled, please contact the system administrator")
 		}
 		visas, err := s.accountLinkToVisas(r.Context(), acct, id.Subject, provider, cfg, secrets)
 		if err != nil {
@@ -607,7 +614,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 			if err := s.populateAccountVisas(r.Context(), acct, id, provider); err != nil {
 				return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 			}
-			err := s.saveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
+			err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
 			if err != nil {
 				return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
 			}
@@ -838,7 +845,7 @@ func (s *Service) getTokenIdentity(ctx context.Context, tok, scope, clientID str
 }
 
 func (s *Service) getTokenAccountIdentity(ctx context.Context, token *ga4gh.Identity, realm string, cfg *pb.IcConfig, secrets *pb.IcSecrets, tx storage.Tx) (*ga4gh.Identity, int, error) {
-	acct, status, err := s.loadAccount(token.Subject, realm, tx)
+	acct, status, err := s.scim.LoadAccount(token.Subject, realm, false, tx)
 	if err != nil {
 		if status == http.StatusNotFound {
 			return nil, http.StatusUnauthorized, fmt.Errorf("bearer token unauthorized account")
@@ -1603,31 +1610,8 @@ func makeLoginHint(provider, subject string) string {
 	return provider + ":" + subject
 }
 
-func (s *Service) loadAccount(name, realm string, tx storage.Tx) (*cpb.Account, int, error) {
-	acct := &cpb.Account{}
-	status, err := s.singleRealmReadTx(storage.AccountDatatype, realm, storage.DefaultUser, name, storage.LatestRev, acct, tx)
-	if err != nil {
-		return nil, status, err
-	}
-	if acct.State != storage.StateActive {
-		return nil, http.StatusNotFound, fmt.Errorf("not found")
-	}
-	return acct, http.StatusOK, nil
-}
-
-func (s *Service) lookupAccount(fedAcct, realm string, tx storage.Tx) (*cpb.Account, int, error) {
-	lookup, err := s.accountLookup(realm, fedAcct, tx)
-	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
-	}
-	if lookup == nil {
-		return nil, http.StatusNotFound, fmt.Errorf("subject not found")
-	}
-	return s.loadAccount(lookup.Subject, realm, tx)
-}
-
 func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity, desc string, r *http.Request, tx storage.Tx, lookup *cpb.AccountLookup) error {
-	if err := s.saveAccount(nil, newAcct, desc, r, id.Subject, tx); err != nil {
+	if err := s.scim.SaveAccount(nil, newAcct, desc, r, id.Subject, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
 	}
 	rev := int64(0)
@@ -1639,7 +1623,7 @@ func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity,
 		Revision: rev,
 		State:    storage.StateActive,
 	}
-	if err := s.saveAccountLookup(lookup, getRealm(r), id.Subject, r, id, tx); err != nil {
+	if err := s.scim.SaveAccountLookup(lookup, getRealm(r), id.Subject, r, id, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
 	}
 	return nil
@@ -1734,53 +1718,6 @@ func (s *Service) saveSecrets(secrets *pb.IcSecrets, desc, resType string, r *ht
 	secrets.Revision++
 	secrets.CommitTime = float64(time.Now().UnixNano()) / 1e9
 	if err := s.store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, storage.MakeConfigHistory(desc, resType, secrets.Revision, secrets.CommitTime, r, id.Subject, nil, nil), tx); err != nil {
-		return fmt.Errorf("service storage unavailable: %v, retry later", err)
-	}
-	return nil
-}
-
-func (s *Service) accountLookup(realm, acct string, tx storage.Tx) (*cpb.AccountLookup, error) {
-	lookup := &cpb.AccountLookup{}
-	status, err := s.singleRealmReadTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, acct, storage.LatestRev, lookup, tx)
-	if err != nil && status == http.StatusNotFound {
-		return nil, nil
-	}
-	return lookup, err
-}
-
-func (s *Service) saveAccountLookup(lookup *cpb.AccountLookup, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
-	lookup.Revision++
-	lookup.CommitTime = float64(time.Now().UnixNano()) / 1e9
-	if err := s.store.WriteTx(storage.AccountLookupDatatype, realm, storage.DefaultUser, fedAcct, lookup.Revision, lookup, storage.MakeConfigHistory("link account", storage.AccountLookupDatatype, lookup.Revision, lookup.CommitTime, r, id.Subject, nil, lookup), tx); err != nil {
-		return fmt.Errorf("service storage unavailable: %v, retry later", err)
-	}
-	return nil
-}
-
-func (s *Service) removeAccountLookup(rev int64, realm, fedAcct string, r *http.Request, id *ga4gh.Identity, tx storage.Tx) error {
-	lookup := &cpb.AccountLookup{
-		Subject:  "",
-		Revision: rev,
-		State:    "DELETED",
-	}
-	if err := s.saveAccountLookup(lookup, realm, fedAcct, r, id, tx); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Service) saveAccount(oldAcct, newAcct *cpb.Account, desc string, r *http.Request, subject string, tx storage.Tx) error {
-	newAcct.Revision++
-	newAcct.Properties.Modified = float64(time.Now().UnixNano()) / 1e9
-	if newAcct.Properties.Created == 0 {
-		if oldAcct != nil && oldAcct.Properties.Created != 0 {
-			newAcct.Properties.Created = oldAcct.Properties.Created
-		} else {
-			newAcct.Properties.Created = newAcct.Properties.Modified
-		}
-	}
-
-	if err := s.store.WriteTx(storage.AccountDatatype, getRealm(r), storage.DefaultUser, newAcct.Properties.Subject, newAcct.Revision, newAcct, storage.MakeConfigHistory(desc, storage.AccountDatatype, newAcct.Revision, newAcct.Properties.Modified, r, subject, oldAcct, newAcct), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
@@ -1938,9 +1875,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(clientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.clientFactory()), checker, auth.RequireClientIDAndSecret))
 
 	// scim service endpoints
-	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.scimMeFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.scimUserFactory()), checker, auth.RequireUserToken))
-	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.scimUsersFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.MeFactory(s.GetStore(), s.getDomainURL(), scimMePath)), checker, auth.RequireAccountAdminUserToken))
+	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UserFactory(s.GetStore(), s.getDomainURL(), scimUserPath)), checker, auth.RequireAccountAdminUserToken))
+	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.getDomainURL(), scimUsersPath)), checker, auth.RequireAdminToken))
 
 	// token service endpoints
 	tokens := &stubTokens{token: fakeToken}

@@ -313,7 +313,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"name.formatted","value":"Non-Administrator"},{"op":"replace","path":"active","value":"false"}]}`,
-			Output:  `^.*unauthorized.*`,
+			Output:  `^.*account_admin.*`,
 			Status:  http.StatusUnauthorized,
 		},
 		{
@@ -381,7 +381,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users/non-admin",
 			Persona: "non-admin",
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"remove","path":"emails[$ref eq \"email/persona/non-admin-1\"]","value":"foo"}]}`,
-			Output:  `^.*unauthorized.*`,
+			Output:  `^.*account_admin.*`,
 			Status:  http.StatusUnauthorized,
 		},
 		{
@@ -409,7 +409,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "DELETE",
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
-			Output:  `^.*unauthorized.*`,
+			Output:  `^.*account_admin.*`,
 			Status:  http.StatusUnauthorized,
 		},
 		{
@@ -421,13 +421,13 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 		{
-			Name:    "Get SCIM me",
+			Name:    "Get SCIM me (after account deleted)",
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Me",
 			Persona: "non-admin",
 			Scope:   persona.AccountScope,
-			Output:  `^.*unauthorized.*`,
-			Status:  http.StatusUnauthorized,
+			Output:  `*{"code":5,"message":"*"}*`,
+			Status:  http.StatusNotFound,
 		},
 		{
 			Name:    "Get SCIM account (admin)",
@@ -470,7 +470,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"name.formatted","value":"The good doc"},{"op":"replace","path":"name.givenName","value":"Joesph"},{"op":"replace","path":"name.familyName","value":"Doctor"}]}`,
-			Output:  `^.*unauthorized.*`,
+			Output:  `^.*account_admin.*`,
 			Status:  http.StatusUnauthorized,
 		},
 		{
@@ -478,7 +478,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "DELETE",
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
-			Output:  `^.*unauthorized.*`,
+			Output:  `^.*account_admin.*`,
 			Status:  http.StatusUnauthorized,
 		},
 		{
@@ -495,8 +495,8 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
 			Scope:   persona.AccountScope,
-			Output:  `^.*unauthorized.*`,
-			Status:  http.StatusUnauthorized,
+			Output:  `*{"code":5,"message":"*"}*`,
+			Status:  http.StatusNotFound,
 		},
 		{
 			Name:    "Get deleted SCIM account (admin)",

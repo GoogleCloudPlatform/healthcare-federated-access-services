@@ -7,11 +7,6 @@
       "roles": {
         "admin": -1
       }
-    },
-    "dr_joe@faculty.example.edu": {
-      "roles": {
-        "admin": -1
-      }
     }
   }
 }

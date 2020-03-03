@@ -77,7 +77,7 @@ func (c *adminClaims) Setup(tx storage.Tx) (int, error) {
 	return status, err
 }
 func (c *adminClaims) LookupItem(name string, vars map[string]string) bool {
-	acct, _, err := c.s.lookupAccount(name, getRealm(c.r), c.tx)
+	acct, _, err := c.s.scim.LookupAccount(name, getRealm(c.r), true, c.tx)
 	if err != nil {
 		return false
 	}
@@ -132,7 +132,7 @@ func (c *adminClaims) Save(tx storage.Tx, name string, vars map[string]string, d
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
 		return nil
 	}
-	if err := c.s.saveAccount(c.item, c.save, desc, c.r, c.id.Subject, c.tx); err != nil {
+	if err := c.s.scim.SaveAccount(c.item, c.save, desc, c.r, c.id.Subject, c.tx); err != nil {
 		return err
 	}
 	return nil
