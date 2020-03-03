@@ -22,9 +22,10 @@ import (
 	"regexp"
 	"time"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 )
 
 const (
@@ -135,18 +136,9 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Fi
 		pageSize = MaxPageSize
 	}
 	count := 0
-	err := m.findPath(datatype, realm, user, func(path, userMatch, idMatch string) error {
+	err := m.findPath(datatype, realm, user, typ, func(path, userMatch, idMatch string, p proto.Message) error {
 		if m.deleted[m.fname(datatype, realm, userMatch, idMatch, LatestRev)] {
 			return nil
-		}
-		file, err := os.Open(path)
-		if err != nil {
-			return fmt.Errorf("file %q I/O error: %v", path, err)
-		}
-		defer file.Close()
-		p := proto.Clone(typ)
-		if err := jsonpb.Unmarshal(file, p); err != nil && err != io.EOF {
-			return fmt.Errorf("file %q invalid JSON: %v", path, err)
 		}
 		if !MatchProtoFilters(filters, p) {
 			return nil
@@ -169,7 +161,7 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Fi
 	return count, err
 }
 
-func (m *MemoryStorage) findPath(datatype, realm, user string, fn func(string, string, string) error) error {
+func (m *MemoryStorage) findPath(datatype, realm, user string, typ proto.Message, fn func(string, string, string, proto.Message) error) error {
 	searchUser := user
 	if user == DefaultUser {
 		searchUser = "(.*)"
@@ -190,32 +182,73 @@ func (m *MemoryStorage) findPath(datatype, realm, user string, fn func(string, s
 	if err != nil {
 		return fmt.Errorf("file extract ID %q regexp error: %v", defaultUserID, err)
 	}
-	return filepath.Walk(m.fs.path, func(path string, info os.FileInfo, err error) error {
+	cached := m.cache.Entities()
+	fileMatcher := func(path string, info os.FileInfo, err error) error {
+		return extractFromPath(re, dure, user, path, info, err, typ, cached, fn)
+	}
+	if err = filepath.Walk(m.fs.path, fileMatcher); err != nil {
+		return err
+	}
+	return extractFromCache(re, dure, user, cached, fn)
+}
+
+func extractFromPath(re, dure *regexp.Regexp, user, path string, info os.FileInfo, err error, typ proto.Message, cached map[string]proto.Message, fn func(string, string, string, proto.Message) error) error {
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return nil
+	}
+	if _, ok := cached[path]; ok {
+		return nil
+	}
+	userMatch, idMatch := extractUserAndID(re, dure, user, path)
+	if userMatch == "" && idMatch == "" {
+		return nil
+	}
+	var p proto.Message
+	if typ != nil {
+		file, err := os.Open(path)
 		if err != nil {
+			return fmt.Errorf("file %q I/O error: %v", path, err)
+		}
+		defer file.Close()
+		p = proto.Clone(typ)
+		if err := jsonpb.Unmarshal(file, p); err != nil && err != io.EOF {
+			return fmt.Errorf("file %q invalid JSON: %v", path, err)
+		}
+	}
+	return fn(path, userMatch, idMatch, p)
+}
+
+func extractUserAndID(re, dure *regexp.Regexp, user, path string) (string, string) {
+	matches := re.FindStringSubmatch(path)
+	if len(matches) == 3 {
+		return matches[1], matches[2]
+	}
+	if user == DefaultUser {
+		matches = dure.FindStringSubmatch(path)
+		if len(matches) == 2 {
+			return DefaultUser, matches[1]
+		}
+	}
+	return "", ""
+}
+
+func extractFromCache(re, dure *regexp.Regexp, user string, cached map[string]proto.Message, fn func(string, string, string, proto.Message) error) error {
+	for path, content := range cached {
+		if !re.MatchString(path) && !dure.MatchString(path) {
+			continue
+		}
+		userMatch, idMatch := extractUserAndID(re, dure, user, path)
+		if userMatch == "" && idMatch == "" {
+			continue
+		}
+		if err := fn(path, userMatch, idMatch, content); err != nil {
 			return err
 		}
-		if info.IsDir() {
-			return nil
-		}
-		matches := re.FindStringSubmatch(path)
-		var userMatch string
-		var idMatch string
-		if len(matches) == 3 {
-			userMatch = matches[1]
-			idMatch = matches[2]
-		} else if user == DefaultUser {
-			matches = dure.FindStringSubmatch(path)
-			if len(matches) == 2 {
-				userMatch = "default"
-				idMatch = matches[1]
-			} else {
-				return nil
-			}
-		} else {
-			return nil
-		}
-		return fn(path, userMatch, idMatch)
-	})
+	}
+	return nil
 }
 
 func (m *MemoryStorage) ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error {
@@ -317,9 +350,16 @@ func (m *MemoryStorage) DeleteTx(datatype, realm, user, id string, rev int64, tx
 			}
 		}()
 	}
+	exists, err := m.Exists(datatype, realm, user, id, rev)
+	if err != nil {
+		return err
+	}
+	lname := m.fname(datatype, realm, user, id, LatestRev)
+	if !exists {
+		return status.Errorf(codes.NotFound, "not found: %q", lname)
+	}
 	vname := m.fname(datatype, realm, user, id, rev)
 	m.cache.DeleteEntity(vname)
-	lname := m.fname(datatype, realm, user, id, LatestRev)
 	m.cache.DeleteEntity(lname)
 	m.deleted[vname] = true
 	m.deleted[lname] = true
@@ -342,7 +382,7 @@ func (m *MemoryStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) (ferr
 		}()
 	}
 
-	return m.findPath(datatype, realm, user, func(path, userMatch, idMatch string) error {
+	return m.findPath(datatype, realm, user, nil, func(path, userMatch, idMatch string, p proto.Message) error {
 		return m.DeleteTx(datatype, realm, userMatch, idMatch, LatestRev, tx)
 	})
 }
@@ -412,19 +452,9 @@ func (tx *MemTx) IsUpdate() bool {
 }
 
 func (m *MemoryStorage) fname(datatype, realm, user, id string, rev int64) string {
-	r := LatestRevName
-	if rev > 0 {
-		r = fmt.Sprintf("%06d", rev)
-	}
-	name := fmt.Sprintf("%s_%s%s_%s_%s.json", datatype, realm, UserFragment(user), id, r)
-	p := filepath.Join(m.path, m.service, name)
-	glog.Infof("p=%q", p)
-	return p
+	return m.fs.fname(datatype, realm, user, id, rev)
 }
 
 func (m *MemoryStorage) historyName(datatype, realm, user, id string) string {
-	name := fmt.Sprintf("%s_%s%s_%s_%s.json", datatype, realm, UserFragment(user), id, HistoryRevName)
-	p := filepath.Join(m.path, m.service, name)
-	glog.Infof("p=%q", p)
-	return p
+	return m.fs.historyName(datatype, realm, user, id)
 }

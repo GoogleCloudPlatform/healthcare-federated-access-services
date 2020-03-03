@@ -90,3 +90,8 @@ func (s *StorageCache) Restore() {
 	s.historyCache = s.backup.historyCache
 	s.backup = nil
 }
+
+// Entities returns the map of entity names to content.
+func (s *StorageCache) Entities() map[string]proto.Message {
+	return s.entityCache
+}

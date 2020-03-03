@@ -398,6 +398,9 @@ func (s *DatastoreStorage) DeleteTx(datatype, realm, user, id string, rev int64,
 	k := datastore.NameKey(entityKind, s.entityKey(datatype, realm, user, id, rev), nil)
 	if err := dstx.Tx.Delete(k); err != nil {
 		dstx.Rollback()
+		if err == datastore.ErrNoSuchEntity {
+			return status.Errorf(codes.NotFound, "not found: %q", k)
+		}
 		return err
 	}
 	return nil

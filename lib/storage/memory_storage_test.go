@@ -17,6 +17,7 @@ package storage
 import (
 	"testing"
 
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -36,5 +37,34 @@ func TestMemoryStorageDelete(t *testing.T) {
 	}
 	if err := store.Read(testStoreFileType, DefaultRealm, DefaultUser, testFileID, LatestRev, content); err == nil {
 		t.Errorf("reading deleted file: want error, got success")
+	}
+}
+
+func TestMemoryStorageMultiRead(t *testing.T) {
+	store := NewMemoryStorage("ic-min", "testdata/config")
+	// content is map[<user>]map[<key>]*cpb.Account.
+	content := make(map[string]map[string]proto.Message)
+	count, err := store.MultiReadTx(AccountDatatype, "test", DefaultUser, nil, 0, 100, content, &cpb.Account{}, nil)
+	if err != nil {
+		t.Fatalf("MultiReadTx() failed: %v", err)
+	}
+	want := 4
+	if count != want {
+		t.Errorf("MultiReadTx() count results mismatch: got %d, want %d", count, want)
+	}
+	got := 0
+	for user, ucontent := range content {
+		for key, acct := range ucontent {
+			if acct == nil {
+				t.Fatalf("MultiReadTx() invalid results for user %q: key %q content is nil", user, key)
+			}
+			if _, ok := acct.(*cpb.Account); !ok {
+				t.Fatalf("MultiReadTx() invalid results for user %q: key %q content is not an account", user, key)
+			}
+			got++
+		}
+	}
+	if got != want {
+		t.Errorf("MultiReadTx() count results mismatch with count %d: got %d, want %d", count, got, want)
 	}
 }
