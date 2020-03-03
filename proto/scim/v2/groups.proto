@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-package third_party.hcls_federated_access.proto.scim.v2;
+package scim.v2;
 
-// import "proto/scim/v2/users.proto"; /* copybara-comment */
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2";
 
 // SCIM representation of a 'Group' as per
 // https://tools.ietf.org/html/rfc7643#section-4.2
