@@ -66,7 +66,7 @@ func WriteError(w http.ResponseWriter, err error) {
 	if err == nil {
 		return
 	}
-	glog.InfoDepthf(1, "WriteError: %v", err)
+	glog.InfoDepth(1, err)
 	st := status.Convert(err)
 	w.WriteHeader(HTTPStatus(st.Code()))
 	WriteResp(w, st.Proto())
