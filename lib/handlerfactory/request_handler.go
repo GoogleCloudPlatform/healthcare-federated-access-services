@@ -16,7 +16,6 @@
 package handlerfactory
 
 import (
-	"fmt"
 	"net/http"
 	"regexp"
 
@@ -64,85 +63,7 @@ type HandlerInterface interface {
 // MakeHandler created a HTTP handler wrapper around a given service.
 func MakeHandler(s storage.Store, hri *HandlerFactory) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: get rid of NewHandler and directly depend on service.
-		// Pass w and r explicitly to the service methods.
-		hi := hri.NewHandler(r)
-		var op func(string) (proto.Message, error)
-		switch r.Method {
-		case http.MethodGet:
-			op = hi.Get
-		case http.MethodPost:
-			op = hi.Post
-		case http.MethodPut:
-			op = hi.Put
-		case http.MethodPatch:
-			op = hi.Patch
-		case http.MethodDelete:
-			op = hi.Remove
-		default:
-			httputil.WriteStatusError(w, status.Errorf(codes.InvalidArgument, "request method not supported: %q", r.Method))
-			return
-		}
-
-		// TODO: move inside each service and don't pass NameChecker here.
-		name, vars, err := ValidateResourceName(r, hri.NameField, hri.NameChecker)
-		if err != nil {
-			httputil.WriteError(w, http.StatusBadRequest, err)
-		}
-		typ := hri.TypeName
-		desc := r.Method + " " + typ
-
-		tx, err := s.Tx(r.Method != http.MethodGet)
-		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, fmt.Errorf("service dependencies not available; try again later"))
-			return
-		}
-		defer tx.Finish()
-
-		// Get rid of Setup and move creation of transaction inside service methods.
-		//
-		if _, err = hi.Setup(tx); err != nil {
-			httputil.WriteStatusError(w, err)
-			return
-		}
-
-		// TODO: Replace NormalizeInput with a ParseReq that returns a request proto message.
-		// TODO: Explicitly pass the message to the service methods.
-		if err := hi.NormalizeInput(name, vars); err != nil {
-			httputil.WriteStatusError(w, status.Errorf(codes.InvalidArgument, "%v", err))
-			return
-		}
-
-		// TODO: get rid of LookupItem and move this inside the service methods.
-		exists := hi.LookupItem(name, vars)
-		switch r.Method {
-		case http.MethodPost:
-			if exists {
-				httputil.WriteError(w, http.StatusConflict, fmt.Errorf("%s already exists: %q", typ, name))
-				return
-			}
-		case http.MethodGet, http.MethodPatch, http.MethodPut, http.MethodDelete:
-			if !exists {
-				if hri.HasNamedIdentifiers {
-					httputil.WriteStatusError(w, status.Errorf(codes.NotFound, "%s not found: %q", typ, name))
-					return
-				}
-				httputil.WriteStatusError(w, status.Errorf(codes.NotFound, "%s not found", typ))
-				return
-			}
-		}
-
-		if r.Method == http.MethodGet {
-			resp, err := op(name)
-			if err != nil {
-				httputil.WriteError(w, http.StatusBadRequest, err)
-				return
-			}
-			httputil.WriteProtoResp(w, resp)
-			return
-		}
-
-		resp, err := RunRMWTx(tx, op, hi.CheckIntegrity, hi.Save, name, vars, typ, desc)
+		resp, err := Process(s, hri, r)
 		if err != nil {
 			httputil.WriteStatusError(w, err)
 			return
@@ -151,6 +72,89 @@ func MakeHandler(s storage.Store, hri *HandlerFactory) http.HandlerFunc {
 			httputil.WriteProtoResp(w, resp)
 		}
 	}
+}
+
+// Process computes the response for a request.
+func Process(s storage.Store, hri *HandlerFactory, r *http.Request) (_ proto.Message, ferr error) {
+	// TODO: get rid of NewHandler and directly depend on service.
+	// Pass r explicitly to the service methods.
+	hi := hri.NewHandler(r)
+	var op func(string) (proto.Message, error)
+	switch r.Method {
+	case http.MethodGet:
+		op = hi.Get
+	case http.MethodPost:
+		op = hi.Post
+	case http.MethodPut:
+		op = hi.Put
+	case http.MethodPatch:
+		op = hi.Patch
+	case http.MethodDelete:
+		op = hi.Remove
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "request method not supported: %q", r.Method)
+	}
+
+	// TODO: move inside each service and don't pass NameChecker here.
+	name, vars, err := ValidateResourceName(r, hri.NameField, hri.NameChecker)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	typ := hri.TypeName
+	desc := r.Method + " " + typ
+
+	tx, err := s.Tx(r.Method != http.MethodGet)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "service dependencies not available; try again later")
+	}
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil {
+			ferr = err
+		}
+	}()
+
+	// Get rid of Setup and move creation of transaction inside service methods.
+	//
+	if _, err = hi.Setup(tx); err != nil {
+		return nil, err
+	}
+
+	// TODO: Replace NormalizeInput with a ParseReq that returns a request proto message.
+	// TODO: Explicitly pass the message to the service methods.
+	if err := hi.NormalizeInput(name, vars); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	// TODO: get rid of LookupItem and move this inside the service methods.
+	exists := hi.LookupItem(name, vars)
+	switch r.Method {
+	case http.MethodPost:
+		if exists {
+			return nil, status.Errorf(codes.AlreadyExists, "%s already exists: %q", typ, name)
+		}
+	case http.MethodGet, http.MethodPatch, http.MethodPut, http.MethodDelete:
+		if !exists {
+			if hri.HasNamedIdentifiers {
+				return nil, status.Errorf(codes.NotFound, "%s not found: %q", typ, name)
+			}
+			return nil, status.Errorf(codes.NotFound, "%s not found", typ)
+		}
+	}
+
+	if r.Method == http.MethodGet {
+		resp, err := op(name)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
+		return resp, nil
+	}
+
+	resp, err := RunRMWTx(tx, op, hi.CheckIntegrity, hi.Save, name, vars, typ, desc)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // ValidateResourceName checks if the resource name is valid.
