@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/http"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -254,7 +253,6 @@ func (h *SyncClientsHandler) Get(name string) (proto.Message, error) {
 	}
 
 	state, err := oathclients.SyncState(h.s.httpClient, h.s.hydraAdminURL, h.cfg.Clients, secrets.ClientSecrets)
-	glog.Infof("state: %v, err: %v")
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, "getting client sync state failed: %v", err)
 	}
