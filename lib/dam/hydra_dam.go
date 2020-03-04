@@ -38,15 +38,15 @@ const (
 func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	// Use login_challenge fetch information from hydra.
-	challenge, status := hydra.ExtractLoginChallenge(r)
-	if status != nil {
-		httputil.WriteStatus(w, status)
+	challenge, sts := hydra.ExtractLoginChallenge(r)
+	if sts != nil {
+		httputil.WriteError(w, sts.Err())
 		return
 	}
 
 	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
+		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
+		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
@@ -75,14 +75,14 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		in.tokenType = pb.ResourceTokenRequestState_DATASET
 		in.ttl, err = extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
 		if err != nil {
-			httputil.WriteError(w, http.StatusBadRequest, err)
+			httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
 			return
 		}
 
 		list := u.Query()["resource"]
 		in.resources, err = s.resourceViewRoleFromRequest(list)
 		if err != nil {
-			httputil.WriteError(w, http.StatusBadRequest, err)
+			httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
 			return
 		}
 
@@ -91,7 +91,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	out, st, err := s.auth(r.Context(), in)
 	if err != nil {
-		httputil.WriteError(w, st, err)
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(st), "%v", err))
 		return
 	}
 
@@ -111,29 +111,29 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	// Use consent_challenge fetch information from hydra.
-	challenge, status := hydra.ExtractConsentChallenge(r)
-	if status != nil {
-		httputil.WriteStatus(w, status)
+	challenge, st := hydra.ExtractConsentChallenge(r)
+	if st != nil {
+		httputil.WriteError(w, st.Err())
 		return
 	}
 
 	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
+		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
-	identities, status := hydra.ExtractIdentitiesInConsent(consent)
-	if status != nil {
-		httputil.WriteStatus(w, status)
+	identities, sts := hydra.ExtractIdentitiesInConsent(consent)
+	if sts != nil {
+		httputil.WriteError(w, sts.Err())
 		return
 	}
 
 	var stateID string
 	if len(identities) == 0 {
-		stateID, status = hydra.ExtractStateIDInConsent(consent)
-		if status != nil {
-			httputil.WriteStatus(w, status)
+		stateID, sts = hydra.ExtractStateIDInConsent(consent)
+		if sts != nil {
+			httputil.WriteError(w, sts.Err())
 			return
 		}
 	}
@@ -154,7 +154,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
+		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 

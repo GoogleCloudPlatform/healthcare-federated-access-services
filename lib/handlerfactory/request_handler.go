@@ -65,11 +65,11 @@ func MakeHandler(s storage.Store, opts *Options) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := Process(s, opts, r)
 		if err != nil {
-			httputil.WriteStatusError(w, err)
+			httputil.WriteError(w, err)
 			return
 		}
 		if resp != nil {
-			httputil.WriteProtoResp(w, resp)
+			httputil.WriteResp(w, resp)
 		}
 	}
 }

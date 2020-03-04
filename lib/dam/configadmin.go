@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -943,11 +944,11 @@ func (h *configPersonaHandler) Save(r *http.Request, tx storage.Tx, name string,
 
 // ConfigHistory implements the HistoryConfig RPC method.
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
-	h, status, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
+	h, sts, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
-		httputil.WriteError(w, status, err)
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 	}
-	httputil.WriteProtoResp(w, h)
+	httputil.WriteResp(w, h)
 }
 
 // ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
@@ -955,25 +956,25 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 	name := getName(r)
 	rev, err := strconv.ParseInt(name, 10, 64)
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid history revision: %q (must be a positive integer)", name))
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "invalid history revision: %q (must be a positive integer)", name))
 		return
 	}
 	cfg := &pb.DamConfig{}
-	if status, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
-		httputil.WriteError(w, status, err)
+	if sts, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 		return
 	}
-	httputil.WriteProtoResp(w, cfg)
+	httputil.WriteResp(w, cfg)
 }
 
 // ConfigReset implements the corresponding method in the DAM API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.Wipe(storage.AllRealms); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
+		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 	if err := ImportConfig(s.store, s.serviceName, s.warehouse, nil); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
+		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 
@@ -981,18 +982,18 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if s.useHydra {
 		conf, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
+			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		secrets, err := s.loadSecrets(nil)
 		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
+			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		if _, err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0, nil); err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
+			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 	}
@@ -1002,11 +1003,11 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 func (s *Service) ConfigTestPersonas(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
+		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 	out := &pb.GetTestPersonasResponse{
 		Personas: cfg.TestPersonas,
 	}
-	httputil.WriteProtoResp(w, out)
+	httputil.WriteResp(w, out)
 }

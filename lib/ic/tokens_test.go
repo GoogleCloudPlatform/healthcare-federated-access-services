@@ -43,7 +43,7 @@ func TestGetToken(t *testing.T) {
 	}
 
 	got := &tpb.Token{}
-	httputil.MustDecodeRPCResp(t, resp, got)
+	httputil.MustDecodeJSONPBResp(t, resp, got)
 
 	want := fakeToken
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
@@ -66,7 +66,7 @@ func TestListTokens(t *testing.T) {
 	}
 
 	got := &tpb.ListTokensResponse{}
-	httputil.MustDecodeRPCResp(t, resp, got)
+	httputil.MustDecodeJSONPBResp(t, resp, got)
 
 	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{fakeToken}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {

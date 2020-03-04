@@ -41,7 +41,7 @@ func TestListConsents(t *testing.T) {
 	}
 
 	got := &cpb.ListConsentsResponse{}
-	httputil.MustDecodeRPCResp(t, resp, got)
+	httputil.MustDecodeJSONPBResp(t, resp, got)
 
 	want := &cpb.ListConsentsResponse{Consents: []*cpb.Consent{fakeConsent}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {

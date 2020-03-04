@@ -18,7 +18,6 @@ package persona
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,6 +25,8 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
@@ -146,14 +147,14 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("missing or invalid Authorization header"))
+		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "missing or invalid Authorization header"))
 		return
 	}
 	token := parts[1]
 
 	src, err := ga4gh.ConvertTokenToIdentityUnsafe(token)
 	if err != nil {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("invalid Authorization token"))
+		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid Authorization token"))
 		return
 	}
 	sub := src.Subject
@@ -167,17 +168,17 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if persona == nil {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("persona %q not found", sub))
+		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "persona %q not found", sub))
 		return
 	}
 	id, err := ToIdentity(pname, persona, "openid profile identities ga4gh_passport_v1 email", s.issuerURL)
 	if err != nil {
-		httputil.WriteError(w, http.StatusUnauthorized, fmt.Errorf("preparing persona %q: %v", sub, err))
+		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "preparing persona %q: %v", sub, err))
 		return
 	}
 	data, err := json.Marshal(id)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("cannot encode user identity %q into JSON: %v", sub, err))
+		httputil.WriteError(w, status.Errorf(codes.Internal, "cannot encode user identity %q into JSON: %v", sub, err))
 		return
 	}
 
@@ -190,22 +191,22 @@ func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	typ := httputil.QueryParam(r, "response_type")
 	if typ != "code" {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("response type must be %q", "code"))
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "response type must be %q", "code"))
 		return
 	}
 
 	redirect, err := url.QueryUnescape(r.URL.Query().Get("redirect_uri"))
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("redirect_uri must be a valid URL: %v", err))
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "redirect_uri must be a valid URL: %v", err))
 		return
 	}
 	if redirect == "" {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("redirect_uri must be specified"))
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "redirect_uri must be specified"))
 		return
 	}
 	u, err := url.Parse(redirect)
 	if err != nil {
-		httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("invalid redirect_uri URL format: %v", err))
+		httputil.WriteError(w, status.Errorf(codes.NotFound, "invalid redirect_uri URL format: %v", err))
 		return
 	}
 
@@ -223,7 +224,7 @@ func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
 	pname := loginHint
 	_, ok := s.cfg.TestPersonas[pname]
 	if !ok {
-		httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("persona %q not found", pname))
+		httputil.WriteError(w, status.Errorf(codes.NotFound, "persona %q not found", pname))
 		return
 	}
 
@@ -264,7 +265,7 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 
 		u, err := url.Parse(r.URL.String())
 		if err != nil {
-			httputil.WriteError(w, http.StatusInternalServerError, err)
+			httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 			return
 		}
 		u.RawQuery = params.Encode()
@@ -277,7 +278,7 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 
 	json, err := (&jsonpb.Marshaler{}).MarshalToString(list)
 	if err != nil {
-		httputil.WriteError(w, http.StatusServiceUnavailable, err)
+		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
@@ -318,12 +319,12 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 	}
 	persona, ok := s.cfg.TestPersonas[pname]
 	if !ok {
-		httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("persona %q not found", pname))
+		httputil.WriteError(w, status.Errorf(codes.NotFound, "persona %q not found", pname))
 		return
 	}
 	acTok, _, err := NewAccessToken(pname, s.issuerURL, clientID, httputil.QueryParam(r, "scope"), persona)
 	if err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error creating access token for persona %q: %v", pname, err))
+		httputil.WriteError(w, status.Errorf(codes.Internal, "error creating access token for persona %q: %v", pname, err))
 		return
 	}
 	resp := &cpb.OidcTokenResponse{
@@ -332,7 +333,7 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		ExpiresIn:   60 * 60 * 24 * 365,
 		Uid:         uuid.New(),
 	}
-	httputil.WriteProtoResp(w, resp)
+	httputil.WriteResp(w, resp)
 }
 
 // TODO: move registeration of endpoints to main package.

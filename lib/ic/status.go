@@ -36,5 +36,5 @@ func (s *Service) Status(w http.ResponseWriter, r *http.Request) {
 	if cfg, err := s.loadConfig(nil, realm); err == nil {
 		out.Ui = cfg.Ui
 	}
-	httputil.WriteProtoResp(w, out)
+	httputil.WriteResp(w, out)
 }

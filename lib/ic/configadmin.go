@@ -352,16 +352,16 @@ func (c *configOptions) Save(r *http.Request, tx storage.Tx, name string, vars m
 // ConfigHistory implements the HistoryConfig RPC method.
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 	// TODO: consider requiring an "admin" scope (modify all admin handlerSetup calls).
-	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
+	_, _, _, sts, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		httputil.WriteError(w, status, err)
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 		return
 	}
-	h, status, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
+	h, sts, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
-		httputil.WriteError(w, status, err)
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 	}
-	httputil.WriteProtoResp(w, h)
+	httputil.WriteResp(w, h)
 }
 
 // ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
@@ -369,35 +369,35 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 	name := getName(r)
 	rev, err := strconv.ParseInt(name, 10, 64)
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid history revision: %q (must be a positive integer)", name))
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "invalid history revision: %q (must be a positive integer)", name))
 		return
 	}
-	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
+	_, _, _, sts, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		httputil.WriteError(w, status, err)
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 		return
 	}
 	cfg := &pb.IcConfig{}
-	if status, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
-		httputil.WriteError(w, status, err)
+	if sts, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 		return
 	}
-	httputil.WriteProtoResp(w, cfg)
+	httputil.WriteResp(w, cfg)
 }
 
 // ConfigReset implements the corresponding method in the IC API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
-	_, _, _, status, err := s.handlerSetup(nil, r, noScope, nil)
+	_, _, _, sts, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		httputil.WriteError(w, status, err)
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 		return
 	}
 	if err = s.store.Wipe(storage.AllRealms); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
+		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 	if err = ImportConfig(s.store, s.serviceName, nil); err != nil {
-		httputil.WriteError(w, http.StatusInternalServerError, err)
+		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 
@@ -405,18 +405,18 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if s.useHydra {
 		conf, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
+			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		secrets, err := s.loadSecrets(nil)
 		if err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
+			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		if _, err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0, nil); err != nil {
-			httputil.WriteError(w, http.StatusServiceUnavailable, err)
+			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 	}

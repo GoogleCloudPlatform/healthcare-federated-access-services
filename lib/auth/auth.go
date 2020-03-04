@@ -147,7 +147,7 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 		}
 		writeAccessLog(checker.Logger, log, err, r)
 		if err != nil {
-			httputil.WriteRPCResp(w, nil, err)
+			httputil.WriteError(w, err)
 			return
 		}
 

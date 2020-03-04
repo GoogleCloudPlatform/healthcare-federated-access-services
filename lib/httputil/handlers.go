@@ -24,7 +24,7 @@ const livenessPage = `{"status":"Service is Up and Running"}`
 
 // LivenessCheckHandler implements an application liveness checker for Google App Engine Flex apps
 func LivenessCheckHandler(w http.ResponseWriter, r *http.Request) {
-	WriteJSONResp(w, []byte(livenessPage))
+	WriteHTMLResp(w, livenessPage)
 }
 
 // StopHandler will cause make the server exit.

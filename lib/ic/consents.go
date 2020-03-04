@@ -40,14 +40,20 @@ func NewConsentsHandler(s tgpb.ConsentsServer) *ConsentsHandler {
 func (h *ConsentsHandler) DeleteConsent(w http.ResponseWriter, r *http.Request) {
 	req := &cpb.DeleteConsentRequest{Name: r.RequestURI}
 	resp, err := h.s.DeleteConsent(r.Context(), req)
-	httputil.WriteRPCResp(w, resp, err)
+	if err != nil {
+		httputil.WriteError(w, err)
+	}
+	httputil.WriteResp(w, resp)
 }
 
 // ListConsents handles ListConsents HTTP requests.
 func (h *ConsentsHandler) ListConsents(w http.ResponseWriter, r *http.Request) {
 	req := &cpb.ListConsentsRequest{Parent: r.RequestURI}
 	resp, err := h.s.ListConsents(r.Context(), req)
-	httputil.WriteRPCResp(w, resp, err)
+	if err != nil {
+		httputil.WriteError(w, err)
+	}
+	httputil.WriteResp(w, resp)
 }
 
 type stubConsents struct {

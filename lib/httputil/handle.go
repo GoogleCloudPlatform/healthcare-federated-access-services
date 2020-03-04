@@ -15,91 +15,61 @@
 package httputil
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 )
 
-// WriteRPCResp writes reponse and error.
-// Can be used to create an HTTP handler from a GRPC handler.
+// To create a HTTP handler from a gRPC handler:
 //
 //  func (h *FooHTTPHandler) GetFoo(w http.ResponseWriter, r *http.Request) {
 // 	  req := &fpb.GetFooRequest{Name: r.RequestURI}
-// 	  resp := &fpb.Foo{}
-// 	  err := fooServer.GetFoo(r.Context(), req, resp)
-// 	  WriteRPCResp(w, resp, err)
-//   }
-//
-// To return the detailed RPC Status error back to client as response, use:
-//   WriteRPCResp(w, status.Convert(err).Proto(), nil)
-//
-// TODO: reconcile and ensure consistency with
-//                  common.NewStatus() and common.SendStatus().
-func WriteRPCResp(w http.ResponseWriter, resp interface{}, err error) {
-	if err != nil {
-		code := FromError(err)
-		http.Error(w, err.Error(), code)
-		return
-	}
+// 	  resp, err := fooServer.GetFoo(r.Context(), req)
+//    if err != nil {
+//      httputil.WriteError(w, err)
+//    }
+// 	  WriteResp(w, resp)
+//  }
 
+// WriteResp writes an protobuf message to the response.
+func WriteResp(w http.ResponseWriter, m proto.Message) {
 	WriteCorsHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		glog.Errorf("json.NewEncoder(writer).Encode(resp) failed: %v", err)
+	// w.Header().Set("Cache-Control", "no-store")
+	// w.Header().Set("Pragma", "no-cache")
+	if err := EncodeJSONPB(w, m); err != nil {
+		glog.Errorf("EncodeJSONPB() failed: %v", err)
 		http.Error(w, "encoding the response failed", http.StatusInternalServerError)
 		return
 	}
 }
 
-// WriteProtoResp writes an error status to the response.
-//
-// TODO: This can be confused with the WriteRPCResp above.
-// Decide which one should be used for protobuf messages.
-func WriteProtoResp(w http.ResponseWriter, m proto.Message) {
+// WriteNonProtoResp writes a reponse.
+// For protobuf message responses use WriteResp(w, resp) instead.
+func WriteNonProtoResp(w http.ResponseWriter, resp interface{}) {
 	WriteCorsHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
-	// w.Header().Set("Cache-Control", "no-store")
-	// w.Header().Set("Pragma", "no-cache")
-	if err := (&jsonpb.Marshaler{}).Marshal(w, m); err != nil {
-		glog.Errorf("(&jsonpb.Marshaler{}).Marshal(w,resp) failed: %v", err)
-		http.Error(w, "encoding the response status failed", http.StatusInternalServerError)
+	if err := EncodeJSON(w, resp); err != nil {
+		glog.Errorf("EncodeJSON() failed: %v", err)
+		http.Error(w, "encoding the response failed", http.StatusInternalServerError)
 		return
 	}
 }
 
-// WriteStatus writes an error status to the response.
+// WriteError writes an error to the response.
 // Does nothing if status is nil.
-// TODO: update to accept status as error.
-func WriteStatus(w http.ResponseWriter, s *status.Status) {
-	if s == nil {
+func WriteError(w http.ResponseWriter, err error) {
+	if err == nil {
 		return
 	}
-	w.WriteHeader(HTTPStatus(s.Code()))
-	WriteProtoResp(w, s.Proto())
-}
-
-// WriteStatusError writes an error to the response.
-// Does nothing if status is nil.
-func WriteStatusError(w http.ResponseWriter, err error) {
-	WriteStatus(w, status.Convert(err))
-}
-
-// WriteError writes an HTTP status and error to w.
-// TODO: update its callers to use WriteStatus.
-func WriteError(w http.ResponseWriter, code int, err error) {
-	msg := fmt.Sprintf("%d request error: %v\n", code, err)
-	glog.InfoDepth(1, msg)
-
-	WriteCorsHeaders(w)
-	w.WriteHeader(code)
-	w.Write([]byte(msg))
+	glog.InfoDepthf(1, "WriteError: %v", err)
+	st := status.Convert(err)
+	w.WriteHeader(HTTPStatus(st.Code()))
+	WriteResp(w, st.Proto())
 }
 
 // WriteHTMLResp writes a "text/html" type string to the ResponseWriter.
@@ -107,15 +77,6 @@ func WriteHTMLResp(w http.ResponseWriter, b string) {
 	WriteCorsHeaders(w)
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(b))
-}
-
-// WriteJSONResp writes "application.json" type string to the ResponseWriter.
-func WriteJSONResp(w http.ResponseWriter, b []byte) {
-	WriteCorsHeaders(w)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Pragma", "no-cache")
-	w.Write(b)
 }
 
 // WriteRedirect writes a redirect to the provider URL.

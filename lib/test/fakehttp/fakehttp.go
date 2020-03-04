@@ -55,7 +55,10 @@ func New() (*HTTP, func() error) {
 		glog.Infof("HTTP Request: %+v", req)
 		defer glog.Infof("HTTP Response: %+v", req.Response)
 		resp, err := f.Handler(req)
-		httputil.WriteRPCResp(w, resp, err)
+		if err != nil {
+			httputil.WriteError(w, err)
+		}
+		httputil.WriteNonProtoResp(w, resp)
 	}
 
 	f.Server = httptest.NewServer(http.HandlerFunc(h))

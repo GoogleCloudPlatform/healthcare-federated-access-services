@@ -521,18 +521,18 @@ func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.Resourc
 
 // ResourceTokens returns a set of access tokens for a set of resources.
 func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
-	out, err := s.fetchResourceTokens(r)
+	resp, err := s.fetchResourceTokens(r)
 	if err != nil {
-		httputil.WriteStatusError(w, err)
+		httputil.WriteError(w, err)
 		return
 	}
-	httputil.WriteRPCResp(w, out, nil)
+	httputil.WriteResp(w, resp)
 }
 
 func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, ferr error) {
 	tx, err := s.store.Tx(false)
 	if err != nil {
-		return nil, status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+		return nil, status.Errorf(codes.Unavailable, "%v", err)
 	}
 	defer func() {
 		err := tx.Finish()
@@ -543,7 +543,7 @@ func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, f
 
 	auth, err := extractBearerToken(r)
 	if err != nil {
-		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "%v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	cart := ""
@@ -556,14 +556,14 @@ func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, f
 
 	state, id, err := s.resourceTokenState(cart, tx)
 	if err != nil {
-		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "%v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if len(state.Resources) == 0 {
-		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "empty resource list")
+		return nil, status.Errorf(codes.InvalidArgument, "empty resource list")
 	}
 	cfg, err := s.loadConfig(tx, state.Resources[0].Realm)
 	if err != nil {
-		return nil, status.Errorf(httputil.RPCCode(http.StatusBadRequest), "%v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	ctx := r.Context()
@@ -576,12 +576,12 @@ func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, f
 	for i, r := range state.Resources {
 		res, ok := cfg.Resources[r.Resource]
 		if !ok {
-			return nil, status.Errorf(httputil.RPCCode(http.StatusNotFound), "resource not found: %q", r.Resource)
+			return nil, status.Errorf(codes.NotFound, "resource not found: %q", r.Resource)
 		}
 
 		view, ok := res.Views[r.View]
 		if !ok {
-			return nil, status.Errorf(httputil.RPCCode(http.StatusNotFound), "view %q not found for resource %q", r.View, r.Resource)
+			return nil, status.Errorf(codes.NotFound, "view %q not found for resource %q", r.View, r.Resource)
 		}
 
 		result, st, err := s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, time.Duration(state.Ttl), keyFile, id, cfg, res, view)
@@ -639,18 +639,18 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	code, err := extractAuthCode(r)
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err)
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
 
 	stateID := httputil.QueryParam(r, "state")
 	if len(stateID) == 0 {
-		httputil.WriteError(w, http.StatusBadRequest, fmt.Errorf("request must include state"))
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "request must include state"))
 	}
 
-	out, st, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
+	out, sts, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
 	if err != nil {
-		httputil.WriteError(w, st, err)
+		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
 		return
 	}
 
@@ -664,5 +664,5 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteStatus(w, status.New(codes.Unimplemented, "oidc service not supported"))
+	httputil.WriteError(w, status.Errorf(codes.Unimplemented, "oidc service not supported"))
 }

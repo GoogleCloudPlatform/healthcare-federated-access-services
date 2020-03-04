@@ -118,8 +118,11 @@ func (s *Server) write(w http.ResponseWriter, code int, e *hydraapi.GenericError
 		code = int(e.Code)
 		body = e
 	}
-
-	httputil.WriteRPCResp(w, body, status.Errorf(httputil.RPCCode(code), ""))
+	err := status.Errorf(httputil.RPCCode(code), "")
+	if err != nil {
+		httputil.WriteError(w, err)
+	}
+	httputil.WriteNonProtoResp(w, body)
 }
 
 func (s *Server) getLoginRequest(w http.ResponseWriter, r *http.Request) {

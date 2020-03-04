@@ -533,13 +533,13 @@ func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg 
 
 	idp, ok := cfg.IdentityProviders[in.idpName]
 	if !ok {
-		httputil.WriteError(w, http.StatusNotFound, fmt.Errorf("login service %q not found", in.idpName))
+		httputil.WriteError(w, status.Errorf(codes.NotFound, "login service %q not found", in.idpName))
 		return
 	}
 
 	idpc, state, err := s.idpAuthorize(in, idp, cfg, nil)
 	if err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, err)
+		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
 	resType := idp.ResponseType
@@ -592,42 +592,42 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 	realm := getRealm(r)
 	lookup, err := s.scim.LoadAccountLookup(realm, id.Subject, tx)
 	if err != nil {
-		return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+		return false, "", status.Errorf(codes.Unavailable, "%v", err)
 	}
 	var subject string
 	if isLookupActive(lookup) {
 		subject = lookup.Subject
 		acct, _, err := s.scim.LoadAccount(subject, realm, true, tx)
 		if err != nil {
-			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+			return false, "", status.Errorf(codes.Unavailable, "%v", err)
 		}
 		if acct.State == storage.StateDisabled {
 			// Reject using a DISABLED account.
-			return false, "", status.Errorf(httputil.RPCCode(http.StatusForbidden), "this account has been disabled, please contact the system administrator")
+			return false, "", status.Errorf(codes.PermissionDenied, "this account has been disabled, please contact the system administrator")
 		}
 		visas, err := s.accountLinkToVisas(r.Context(), acct, id.Subject, provider, cfg, secrets)
 		if err != nil {
-			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+			return false, "", status.Errorf(codes.Unavailable, "%v", err)
 		}
 		if !visasAreEqual(visas, id.VisaJWTs) {
 			// Refresh the claims in the storage layer.
 			if err := s.populateAccountVisas(r.Context(), acct, id, provider); err != nil {
-				return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+				return false, "", status.Errorf(codes.Unavailable, "%v", err)
 			}
 			err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
 			if err != nil {
-				return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+				return false, "", status.Errorf(codes.Unavailable, "%v", err)
 			}
 		}
 	} else {
 		// Create an account for the identity automatically.
 		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
 		if err != nil {
-			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+			return false, "", status.Errorf(codes.Unavailable, "%v", err)
 		}
 
 		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
-			return false, "", status.Errorf(httputil.RPCCode(http.StatusServiceUnavailable), "%v", err)
+			return false, "", status.Errorf(codes.Unavailable, "%v", err)
 		}
 		subject = acct.Properties.Subject
 	}
@@ -650,7 +650,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 
 	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
 	if err != nil {
-		return false, "", status.Errorf(httputil.RPCCode(http.StatusInternalServerError), "%v", err)
+		return false, "", status.Errorf(codes.Internal, "%v", err)
 	}
 
 	if s.useHydra {

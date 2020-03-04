@@ -39,21 +39,30 @@ func NewTokensHandler(s tgpb.TokensServer) *TokensHandler {
 func (h *TokensHandler) GetToken(w http.ResponseWriter, r *http.Request) {
 	req := &tpb.GetTokenRequest{Name: r.RequestURI}
 	resp, err := h.s.GetToken(r.Context(), req)
-	httputil.WriteRPCResp(w, resp, err)
+	if err != nil {
+		httputil.WriteError(w, err)
+	}
+	httputil.WriteResp(w, resp)
 }
 
 // DeleteToken handles DeleteToken HTTP requests.
 func (h *TokensHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	req := &tpb.DeleteTokenRequest{Name: r.RequestURI}
 	resp, err := h.s.DeleteToken(r.Context(), req)
-	httputil.WriteRPCResp(w, resp, err)
+	if err != nil {
+		httputil.WriteError(w, err)
+	}
+	httputil.WriteResp(w, resp)
 }
 
 // ListTokens handles ListTokens HTTP requests.
 func (h *TokensHandler) ListTokens(w http.ResponseWriter, r *http.Request) {
 	req := &tpb.ListTokensRequest{Parent: r.RequestURI}
 	resp, err := h.s.ListTokens(r.Context(), req)
-	httputil.WriteRPCResp(w, resp, err)
+	if err != nil {
+		httputil.WriteError(w, err)
+	}
+	httputil.WriteResp(w, resp)
 }
 
 type stubTokens struct {
@@ -98,8 +107,8 @@ const fakeTokenJSON = `{
     "id": "fake-client-id",
     "name": "fake-client-name"
   },
-  "expires_at": 1573847329,
-  "issued_at": 1573850929,
+ 	"exp": "1573847329",
+ 	"iat": "1573850929",
   "metadata": {
     "client_desc": "fake-client-ui-description"
   },

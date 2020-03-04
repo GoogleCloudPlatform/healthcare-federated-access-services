@@ -23,7 +23,26 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
+
+// EncodeJSONPB encodes an object into JSONPB and writes it to io.Writer.
+func EncodeJSONPB(w io.Writer, m proto.Message) error {
+	if err := (&jsonpb.Marshaler{}).Marshal(w, m); err != nil {
+		return fmt.Errorf("(&jsonpb.Marshaler{}).Marshal(w,m) failed: %v", err)
+	}
+	return nil
+}
+
+// DecodeJSONPB reads JSONPB from io.Reader and decodes it into an object.
+func DecodeJSONPB(r io.Reader, m proto.Message) error {
+	if err := jsonpb.Unmarshal(r, m); err != nil {
+		return fmt.Errorf("jsonpb.Unmarshal(%s) failed: %v", r, err)
+	}
+	return nil
+}
 
 // EncodeJSON encodes an object into JSON and writes it to io.Writer.
 func EncodeJSON(w io.Writer, v interface{}) error {
@@ -50,11 +69,20 @@ func DecodeJSON(r io.Reader, v interface{}) error {
 	return nil
 }
 
-// MustDecodeRPCResp is the test helper for DecodeRPCResp.
+// MustDecodeJSONPBResp is the test helper for DecodeJSONPB.
 // TODO: move to a test package.
-func MustDecodeRPCResp(t *testing.T, resp *http.Response, v interface{}) {
+func MustDecodeJSONPBResp(t *testing.T, resp *http.Response, m proto.Message) {
+	t.Helper()
+	if err := DecodeJSONPB(resp.Body, m); err != nil {
+		t.Fatalf("httputil.DecodeJSON(%v, %T) failed: %v", resp, m, err)
+	}
+}
+
+// MustDecodeJSONResp is the test helper for DecodeJSON.
+// TODO: move to a test package.
+func MustDecodeJSONResp(t *testing.T, resp *http.Response, v interface{}) {
 	t.Helper()
 	if err := DecodeJSON(resp.Body, v); err != nil {
-		t.Fatalf("httputil.DecodeRPCResp(%v, %T) failed: %v", resp, v, err)
+		t.Fatalf("httputil.DecodeJSON(%v, %T) failed: %v", resp, v, err)
 	}
 }
