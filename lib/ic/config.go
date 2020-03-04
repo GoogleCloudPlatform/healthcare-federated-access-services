@@ -50,15 +50,13 @@ func (s *Service) PassportTranslators(w http.ResponseWriter, r *http.Request) {
 
 // HTTP handler for ".../clients/{name}"
 // Return self client information.
-func (s *Service) clientFactory() *handlerfactory.HandlerFactory {
+func (s *Service) clientFactory() *handlerfactory.Options {
 	c := &clientService{s: s}
 
-	return &handlerfactory.HandlerFactory{
+	return &handlerfactory.Options{
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return oathclients.NewClientHandler(r, c)
-		},
+		Service:             oathclients.NewClientHandler(c),
 	}
 }

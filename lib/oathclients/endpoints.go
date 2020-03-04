@@ -24,7 +24,6 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -56,7 +55,6 @@ type ClientService interface {
 //////////////////////////////////////////////////////////////////
 
 type clientHandler struct {
-	r        *http.Request
 	s        ClientService
 	clientID string
 	item     *pb.Client
@@ -64,25 +62,25 @@ type clientHandler struct {
 }
 
 // NewClientHandler returns clientHandler.
-func NewClientHandler(r *http.Request, s ClientService) handlerfactory.HandlerInterface {
-	return &clientHandler{r: r, s: s}
+func NewClientHandler(s ClientService) *clientHandler {
+	return &clientHandler{s: s}
 }
 
-func (c *clientHandler) Setup(tx storage.Tx) (int, error) {
-	clientID := ExtractClientID(c.r)
+func (c *clientHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	clientID := ExtractClientID(r)
 	if len(clientID) == 0 {
 		return http.StatusBadRequest, fmt.Errorf("request requires clientID")
 	}
 
-	id, status, err := c.s.HandlerSetup(tx, c.r)
+	id, status, err := c.s.HandlerSetup(tx, r)
 	c.id = id
 	c.clientID = clientID
 
 	return status, err
 }
 
-func (c *clientHandler) LookupItem(name string, vars map[string]string) bool {
-	clientID := ExtractClientID(c.r)
+func (c *clientHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
+	clientID := ExtractClientID(r)
 	cli := c.s.ClientByName(name)
 	if cli != nil && cli.ClientId == clientID {
 		c.item = cli
@@ -91,35 +89,35 @@ func (c *clientHandler) LookupItem(name string, vars map[string]string) bool {
 	return false
 }
 
-func (c *clientHandler) NormalizeInput(name string, vars map[string]string) error {
+func (c *clientHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
 	return nil
 }
 
-func (c *clientHandler) Get(name string) (proto.Message, error) {
+func (c *clientHandler) Get(r *http.Request, name string) (proto.Message, error) {
 	return &pb.ClientResponse{Client: c.item}, nil
 }
 
-func (c *clientHandler) Post(name string) (proto.Message, error) {
+func (c *clientHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("POST not allowed")
 }
 
-func (c *clientHandler) Put(name string) (proto.Message, error) {
+func (c *clientHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PUT not allowed")
 }
 
-func (c *clientHandler) Patch(name string) (proto.Message, error) {
+func (c *clientHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PATCH not allowed")
 }
 
-func (c *clientHandler) Remove(name string) (proto.Message, error) {
+func (c *clientHandler) Remove(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("REMOVE not allowed")
 }
 
-func (c *clientHandler) CheckIntegrity() *status.Status {
+func (c *clientHandler) CheckIntegrity(*http.Request) *status.Status {
 	return nil
 }
 
-func (c *clientHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (c *clientHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	// Accept, but do nothing.
 	return nil
 }
@@ -150,7 +148,6 @@ func (c *clientHandler) Save(tx storage.Tx, name string, vars map[string]string,
 //////////////////////////////////////////////////////////////////
 
 type adminClientHandler struct {
-	r             *http.Request
 	s             ClientService
 	useHydra      bool
 	httpClient    *http.Client
@@ -162,25 +159,25 @@ type adminClientHandler struct {
 }
 
 // NewAdminClientHandler returns adminClientHandler
-func NewAdminClientHandler(r *http.Request, s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) handlerfactory.HandlerInterface {
-	return &adminClientHandler{r: r, s: s, useHydra: useHydra, httpClient: httpClient, hydraAdminURL: hydraAdminURL}
+func NewAdminClientHandler(s ClientService, useHydra bool, httpClient *http.Client, hydraAdminURL string) *adminClientHandler {
+	return &adminClientHandler{s: s, useHydra: useHydra, httpClient: httpClient, hydraAdminURL: hydraAdminURL}
 }
 
-func (c *adminClientHandler) Setup(tx storage.Tx) (int, error) {
-	id, status, err := c.s.HandlerSetup(tx, c.r)
+func (c *adminClientHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	id, status, err := c.s.HandlerSetup(tx, r)
 	c.id = id
 	c.tx = tx
 	return status, err
 }
 
-func (c *adminClientHandler) LookupItem(name string, vars map[string]string) bool {
+func (c *adminClientHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	c.item = c.s.ClientByName(name)
 	return c.item != nil
 }
 
-func (c *adminClientHandler) NormalizeInput(name string, vars map[string]string) error {
+func (c *adminClientHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
 	c.input = &pb.ConfigClientRequest{}
-	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
+	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -196,11 +193,11 @@ func (c *adminClientHandler) NormalizeInput(name string, vars map[string]string)
 	return nil
 }
 
-func (c *adminClientHandler) Get(name string) (proto.Message, error) {
+func (c *adminClientHandler) Get(r *http.Request, name string) (proto.Message, error) {
 	return &pb.ConfigClientResponse{Client: c.item}, nil
 }
 
-func (c *adminClientHandler) Post(name string) (proto.Message, error) {
+func (c *adminClientHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	input := c.input.Item
 
 	if len(input.ClientId) == 0 {
@@ -243,11 +240,11 @@ func (c *adminClientHandler) Post(name string) (proto.Message, error) {
 	}, nil
 }
 
-func (c *adminClientHandler) Put(name string) (proto.Message, error) {
+func (c *adminClientHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PUT not allowed")
 }
 
-func (c *adminClientHandler) Patch(name string) (proto.Message, error) {
+func (c *adminClientHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	// TODO should use field mask for update.
 
 	input := c.input.Item
@@ -299,7 +296,7 @@ func (c *adminClientHandler) Patch(name string) (proto.Message, error) {
 	}, nil
 }
 
-func (c *adminClientHandler) Remove(name string) (proto.Message, error) {
+func (c *adminClientHandler) Remove(r *http.Request, name string) (proto.Message, error) {
 	if c.useHydra {
 		err := hydra.DeleteClient(c.httpClient, c.hydraAdminURL, c.item.ClientId)
 		if err != nil {
@@ -312,12 +309,12 @@ func (c *adminClientHandler) Remove(name string) (proto.Message, error) {
 	return nil, nil
 }
 
-func (c *adminClientHandler) CheckIntegrity() *status.Status {
-	return c.s.CheckIntegrity(c.r, extractConfigModification(c.input))
+func (c *adminClientHandler) CheckIntegrity(r *http.Request) *status.Status {
+	return c.s.CheckIntegrity(r, extractConfigModification(c.input))
 }
 
-func (c *adminClientHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return c.s.Save(c.tx, desc, typeName, c.r, c.id, extractConfigModification(c.input))
+func (c *adminClientHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return c.s.Save(c.tx, desc, typeName, r, c.id, extractConfigModification(c.input))
 }
 
 func extractConfigModification(input *pb.ConfigClientRequest) *pb.ConfigModification {

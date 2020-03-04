@@ -131,19 +131,16 @@ func linkProto(p proto.Message) *cpb.ConnectedAccount {
 }
 
 // MeFactory creates SCIM /Me request handlers.
-func MeFactory(store storage.Store, domainURL, path string) *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func MeFactory(store storage.Store, domainURL, path string) *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "user",
 		PathPrefix:          path,
 		HasNamedIdentifiers: false,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return &scimMe{
-				s:         New(store),
-				store:     store,
-				domainURL: domainURL,
-				userPath:  userPath(path),
-				r:         r,
-			}
+		Service: &scimMe{
+			s:         New(store),
+			store:     store,
+			domainURL: domainURL,
+			userPath:  userPath(path),
 		},
 	}
 }
@@ -153,88 +150,84 @@ type scimMe struct {
 	store     storage.Store
 	domainURL string
 	userPath  string
-	r         *http.Request
 	user      *scimUser
 }
 
 // Setup initializes the handler
-func (h *scimMe) Setup(tx storage.Tx) (int, error) {
-	h.r.ParseForm()
+func (h *scimMe) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	r.ParseForm()
 	h.user = &scimUser{
 		s:         h.s,
 		store:     h.store,
 		domainURL: h.domainURL,
 		userPath:  userPath(h.userPath),
-		r:         h.r,
 		input:     &spb.Patch{},
 	}
-	return h.user.Setup(tx)
+	return h.user.Setup(r, tx)
 }
 
 // LookupItem returns true if the named object is found
-func (h *scimMe) LookupItem(name string, vars map[string]string) bool {
-	return h.user.LookupItem(h.user.auth.ID.Subject, vars)
+func (h *scimMe) LookupItem(r *http.Request, name string, vars map[string]string) bool {
+	return h.user.LookupItem(r, h.user.auth.ID.Subject, vars)
 }
 
 // NormalizeInput transforms a request's object to standard form, as needed
-func (h *scimMe) NormalizeInput(name string, vars map[string]string) error {
-	return h.user.NormalizeInput(name, vars)
+func (h *scimMe) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	return h.user.NormalizeInput(r, name, vars)
 }
 
 // Get sends a GET method response
-func (h *scimMe) Get(name string) (proto.Message, error) {
-	return h.user.Get(name)
+func (h *scimMe) Get(r *http.Request, name string) (proto.Message, error) {
+	return h.user.Get(r, name)
 }
 
 // Post receives a POST method request
-func (h *scimMe) Post(name string) (proto.Message, error) {
-	return h.user.Post(name)
+func (h *scimMe) Post(r *http.Request, name string) (proto.Message, error) {
+	return h.user.Post(r, name)
 }
 
 // Put receives a PUT method request
-func (h *scimMe) Put(name string) (proto.Message, error) {
-	return h.user.Put(name)
+func (h *scimMe) Put(r *http.Request, name string) (proto.Message, error) {
+	return h.user.Put(r, name)
 }
 
 // Patch receives a PATCH method request
-func (h *scimMe) Patch(name string) (proto.Message, error) {
-	return h.user.Patch(name)
+func (h *scimMe) Patch(r *http.Request, name string) (proto.Message, error) {
+	return h.user.Patch(r, name)
 }
 
 // Remove receives a DELETE method request
-func (h *scimMe) Remove(name string) (proto.Message, error) {
-	return h.user.Remove(name)
+func (h *scimMe) Remove(r *http.Request, name string) (proto.Message, error) {
+	return h.user.Remove(r, name)
 }
 
 // CheckIntegrity provides an opportunity to check the result of any changes
-func (h *scimMe) CheckIntegrity() *status.Status {
-	return h.user.CheckIntegrity()
+func (h *scimMe) CheckIntegrity(r *http.Request) *status.Status {
+	return h.user.CheckIntegrity(r)
 }
 
 // Save can save any valid changes that occured during the request
-func (h *scimMe) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return h.user.Save(tx, name, vars, desc, typeName)
+func (h *scimMe) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return h.user.Save(r, tx, name, vars, desc, typeName)
 }
 
 //////////////////////////////////////////////////////////////////
 
 // UserFactory creates SCIM /Users/<id> request handlers
-func UserFactory(store storage.Store, domainURL, path string) *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func UserFactory(store storage.Store, domainURL, path string) *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "user",
 		PathPrefix:          path,
 		HasNamedIdentifiers: true,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return &scimUser{
-				s:         New(store),
-				store:     store,
-				domainURL: domainURL,
-				userPath:  userPath(path),
-				r:         r,
-				input:     &spb.Patch{},
-			}
+		Service: &scimUser{
+			s:         New(store),
+			store:     store,
+			domainURL: domainURL,
+			userPath:  userPath(path),
+			input:     &spb.Patch{},
 		},
 	}
+
 }
 
 type scimUser struct {
@@ -242,7 +235,6 @@ type scimUser struct {
 	store     storage.Store
 	domainURL string
 	userPath  string
-	r         *http.Request
 	item      *cpb.Account
 	input     *spb.Patch
 	save      *cpb.Account
@@ -251,13 +243,13 @@ type scimUser struct {
 }
 
 // Setup initializes the handler
-func (h *scimUser) Setup(tx storage.Tx) (int, error) {
-	auth, err := auth.FromContext(h.r.Context())
+func (h *scimUser) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	auth, err := auth.FromContext(r.Context())
 	if err != nil {
 		return http.StatusUnauthorized, err
 	}
-	if h.r.Method == http.MethodPatch {
-		if err := jsonpb.Unmarshal(h.r.Body, h.input); err != nil && err != io.EOF {
+	if r.Method == http.MethodPatch {
+		if err := jsonpb.Unmarshal(r.Body, h.input); err != nil && err != io.EOF {
 			return http.StatusBadRequest, err
 		}
 	}
@@ -269,8 +261,8 @@ func (h *scimUser) Setup(tx storage.Tx) (int, error) {
 }
 
 // LookupItem returns true if the named object is found
-func (h *scimUser) LookupItem(name string, vars map[string]string) bool {
-	realm := getRealm(h.r)
+func (h *scimUser) LookupItem(r *http.Request, name string, vars map[string]string) bool {
+	realm := getRealm(r)
 	acct := &cpb.Account{}
 	acct, _, err := h.s.LoadAccount(name, realm, h.auth.IsAdmin, h.tx)
 	if err != nil {
@@ -281,8 +273,8 @@ func (h *scimUser) LookupItem(name string, vars map[string]string) bool {
 }
 
 // NormalizeInput transforms a request's object to standard form, as needed
-func (h *scimUser) NormalizeInput(name string, vars map[string]string) error {
-	if h.r.Method != http.MethodPatch {
+func (h *scimUser) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	if r.Method != http.MethodPatch {
 		return nil
 	}
 
@@ -294,22 +286,22 @@ func (h *scimUser) NormalizeInput(name string, vars map[string]string) error {
 }
 
 // Get sends a GET method response
-func (h *scimUser) Get(name string) (proto.Message, error) {
-	return newScimUser(h.item, getRealm(h.r), h.domainURL, h.userPath), nil
+func (h *scimUser) Get(r *http.Request, name string) (proto.Message, error) {
+	return newScimUser(h.item, getRealm(r), h.domainURL, h.userPath), nil
 }
 
 // Post receives a POST method request
-func (h *scimUser) Post(name string) (proto.Message, error) {
+func (h *scimUser) Post(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("POST not allowed")
 }
 
 // Put receives a PUT method request
-func (h *scimUser) Put(name string) (proto.Message, error) {
+func (h *scimUser) Put(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PUT not allowed")
 }
 
 // Patch receives a PATCH method request
-func (h *scimUser) Patch(name string) (proto.Message, error) {
+func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for i, patch := range h.input.Operations {
@@ -378,7 +370,7 @@ func (h *scimUser) Patch(name string) (proto.Message, error) {
 				if src != auth.LinkAuthorizationHeader {
 					return nil, fmt.Errorf("operation %d: %q must be set to %q", i, src, auth.LinkAuthorizationHeader)
 				}
-				if err := h.linkEmail(); err != nil {
+				if err := h.linkEmail(r); err != nil {
 					return nil, err
 				}
 				break
@@ -404,7 +396,7 @@ func (h *scimUser) Patch(name string) (proto.Message, error) {
 				for idx, connect := range h.save.ConnectedAccounts {
 					if connect.Properties.Subject == link.Properties.Subject {
 						h.save.ConnectedAccounts = append(h.save.ConnectedAccounts[:idx], h.save.ConnectedAccounts[idx+1:]...)
-						if err := h.s.RemoveAccountLookup(link.LinkRevision, getRealm(h.r), link.Properties.Subject, h.r, h.auth.ID, h.tx); err != nil {
+						if err := h.s.RemoveAccountLookup(link.LinkRevision, getRealm(r), link.Properties.Subject, r, h.auth.ID, h.tx); err != nil {
 							return nil, fmt.Errorf("service dependencies not available; try again later")
 						}
 						break
@@ -448,18 +440,18 @@ func (h *scimUser) Patch(name string) (proto.Message, error) {
 			return nil, fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
 		}
 	}
-	return newScimUser(h.save, getRealm(h.r), h.domainURL, h.userPath), nil
+	return newScimUser(h.save, getRealm(r), h.domainURL, h.userPath), nil
 }
 
 // Remove receives a DELETE method request
-func (h *scimUser) Remove(name string) (proto.Message, error) {
+func (h *scimUser) Remove(r *http.Request, name string) (proto.Message, error) {
 	h.save = &cpb.Account{}
 	proto.Merge(h.save, h.item)
 	for _, link := range h.save.ConnectedAccounts {
 		if link.Properties == nil || len(link.Properties.Subject) == 0 {
 			continue
 		}
-		if err := h.s.RemoveAccountLookup(link.LinkRevision, getRealm(h.r), link.Properties.Subject, h.r, h.auth.ID, h.tx); err != nil {
+		if err := h.s.RemoveAccountLookup(link.LinkRevision, getRealm(r), link.Properties.Subject, r, h.auth.ID, h.tx); err != nil {
 			return nil, fmt.Errorf("service dependencies not available; try again later")
 		}
 	}
@@ -469,19 +461,19 @@ func (h *scimUser) Remove(name string) (proto.Message, error) {
 }
 
 // CheckIntegrity provides an opportunity to check the result of any changes
-func (h *scimUser) CheckIntegrity() *status.Status {
+func (h *scimUser) CheckIntegrity(*http.Request) *status.Status {
 	return nil
 }
 
 // Save can save any valid changes that occured during the request
-func (h *scimUser) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (h *scimUser) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if h.save == nil {
 		return nil
 	}
-	return h.s.SaveAccount(h.item, h.save, desc, h.r, h.auth.ID.Subject, h.tx)
+	return h.s.SaveAccount(h.item, h.save, desc, r, h.auth.ID.Subject, h.tx)
 }
 
-func (h *scimUser) linkEmail() error {
+func (h *scimUser) linkEmail(r *http.Request) error {
 	// This scope check is done here because it has only been determined now
 	// that the standard user token needs it for the specific patch requested.
 	if !strutil.ContainsWord(h.auth.ID.Scope, "link") {
@@ -496,7 +488,7 @@ func (h *scimUser) linkEmail() error {
 	if linkSub == idSub {
 		return fmt.Errorf("the accounts provided are already linked together")
 	}
-	linkAcct, _, err := h.s.LoadAccount(linkSub, getRealm(h.r), false, h.tx)
+	linkAcct, _, err := h.s.LoadAccount(linkSub, getRealm(r), false, h.tx)
 	if err != nil {
 		return err
 	}
@@ -512,7 +504,7 @@ func (h *scimUser) linkEmail() error {
 			Revision: acct.LinkRevision,
 			State:    storage.StateActive,
 		}
-		if err := h.s.SaveAccountLookup(lookup, getRealm(h.r), acct.Properties.Subject, h.r, h.auth.ID, h.tx); err != nil {
+		if err := h.s.SaveAccountLookup(lookup, getRealm(r), acct.Properties.Subject, r, h.auth.ID, h.tx); err != nil {
 			return fmt.Errorf("service dependencies not available; try again later")
 		}
 		acct.LinkRevision++
@@ -521,7 +513,7 @@ func (h *scimUser) linkEmail() error {
 	linkAcct.ConnectedAccounts = make([]*cpb.ConnectedAccount, 0)
 	linkAcct.State = "LINKED"
 	linkAcct.Owner = h.save.Properties.Subject
-	if err = h.s.SaveAccount(nil, linkAcct, "LINK account", h.r, h.auth.ID.Subject, h.tx); err != nil {
+	if err = h.s.SaveAccount(nil, linkAcct, "LINK account", r, h.auth.ID.Subject, h.tx); err != nil {
 		return err
 	}
 	return nil
@@ -530,19 +522,16 @@ func (h *scimUser) linkEmail() error {
 //////////////////////////////////////////////////////////////////
 
 // UsersFactory creates SCIM Users request handlers.
-func UsersFactory(store storage.Store, domainURL, path string) *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func UsersFactory(store storage.Store, domainURL, path string) *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "users",
 		PathPrefix:          path,
 		HasNamedIdentifiers: true,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return &scimUsers{
-				s:         New(store),
-				store:     store,
-				domainURL: domainURL,
-				userPath:  userPath(path),
-				r:         r,
-			}
+		Service: &scimUsers{
+			s:         New(store),
+			store:     store,
+			domainURL: domainURL,
+			userPath:  userPath(path),
 		},
 	}
 }
@@ -552,14 +541,13 @@ type scimUsers struct {
 	store     storage.Store
 	domainURL string
 	userPath  string
-	r         *http.Request
 	id        *ga4gh.Identity
 	tx        storage.Tx
 }
 
 // Setup initializes the handler
-func (h *scimUsers) Setup(tx storage.Tx) (int, error) {
-	a, err := auth.FromContext(h.r.Context())
+func (h *scimUsers) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	a, err := auth.FromContext(r.Context())
 	if err != nil {
 		return http.StatusUnauthorized, err
 	}
@@ -569,35 +557,35 @@ func (h *scimUsers) Setup(tx storage.Tx) (int, error) {
 }
 
 // LookupItem returns true if the named object is found
-func (h *scimUsers) LookupItem(name string, vars map[string]string) bool {
+func (h *scimUsers) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	return true
 }
 
 // NormalizeInput transforms a request's object to standard form, as needed
-func (h *scimUsers) NormalizeInput(name string, vars map[string]string) error {
+func (h *scimUsers) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
 	return nil
 }
 
 // Get sends a GET method response
-func (h *scimUsers) Get(name string) (proto.Message, error) {
-	filters, err := storage.BuildFilters(httputil.QueryParam(h.r, "filter"), scimUserFilterMap)
+func (h *scimUsers) Get(r *http.Request, name string) (proto.Message, error) {
+	filters, err := storage.BuildFilters(httputil.QueryParam(r, "filter"), scimUserFilterMap)
 	if err != nil {
 		return nil, err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := httputil.QueryParamInt(h.r, "startIndex")
+	start := httputil.QueryParamInt(r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := httputil.QueryParamInt(h.r, "count")
-	if len(httputil.QueryParam(h.r, "count")) == 0 {
+	max := httputil.QueryParamInt(r, "count")
+	if len(httputil.QueryParam(r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 
 	m := make(map[string]map[string]proto.Message)
-	count, err := h.store.MultiReadTx(storage.AccountDatatype, getRealm(h.r), storage.DefaultUser, filters, offset, max, m, &cpb.Account{}, h.tx)
+	count, err := h.store.MultiReadTx(storage.AccountDatatype, getRealm(r), storage.DefaultUser, filters, offset, max, m, &cpb.Account{}, h.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -612,7 +600,7 @@ func (h *scimUsers) Get(name string) (proto.Message, error) {
 		}
 	}
 	sort.Strings(subjects)
-	realm := getRealm(h.r)
+	realm := getRealm(r)
 	var list []*spb.User
 	for _, sub := range subjects {
 		list = append(list, newScimUser(accts[sub], realm, h.domainURL, h.userPath))
@@ -632,32 +620,32 @@ func (h *scimUsers) Get(name string) (proto.Message, error) {
 }
 
 // Post receives a POST method request
-func (h *scimUsers) Post(name string) (proto.Message, error) {
+func (h *scimUsers) Post(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("POST not allowed")
 }
 
 // Put receives a PUT method request
-func (h *scimUsers) Put(name string) (proto.Message, error) {
+func (h *scimUsers) Put(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PUT not allowed")
 }
 
 // Patch receives a PATCH method request
-func (h *scimUsers) Patch(name string) (proto.Message, error) {
+func (h *scimUsers) Patch(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PATCH not allowed")
 }
 
 // Remove receives a DELETE method request
-func (h *scimUsers) Remove(name string) (proto.Message, error) {
+func (h *scimUsers) Remove(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("DELETE not allowed")
 }
 
 // CheckIntegrity provides an opportunity to check the result of any changes
-func (h *scimUsers) CheckIntegrity() *status.Status {
+func (h *scimUsers) CheckIntegrity(*http.Request) *status.Status {
 	return nil
 }
 
 // Save can save any valid changes that occured during the request
-func (h *scimUsers) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (h *scimUsers) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
 }
 

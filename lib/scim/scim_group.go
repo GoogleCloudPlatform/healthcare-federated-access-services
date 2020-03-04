@@ -74,20 +74,17 @@ var (
 ////////////////////////////////////////////////////////////
 
 // GroupFactory creates handlers for group requests.
-func GroupFactory(store storage.Store, groupPath string) *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func GroupFactory(store storage.Store, groupPath string) *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "group",
 		PathPrefix:          groupPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return NewGroupHandler(store, r)
-		},
+		Service:             NewGroupHandler(store),
 	}
 }
 
 // GroupHandler handles SCIM group requests.
 type GroupHandler struct {
-	r     *http.Request
 	item  *spb.Group
 	save  *spb.Group
 	input *spb.Group
@@ -97,28 +94,27 @@ type GroupHandler struct {
 }
 
 // NewGroupHandler handles one SCIM group request.
-func NewGroupHandler(store storage.Store, r *http.Request) *GroupHandler {
+func NewGroupHandler(store storage.Store) *GroupHandler {
 	return &GroupHandler{
 		store: store,
-		r:     r,
 		item:  &spb.Group{},
 	}
 }
 
 // Setup sets up the handler.
-func (h *GroupHandler) Setup(tx storage.Tx) (int, error) {
-	h.r.ParseForm()
-	switch h.r.Method {
+func (h *GroupHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	r.ParseForm()
+	switch r.Method {
 	case http.MethodPost:
 		fallthrough
 	case http.MethodPut:
 		h.input = &spb.Group{}
-		if err := jsonpb.Unmarshal(h.r.Body, h.input); err != nil && err != io.EOF {
+		if err := jsonpb.Unmarshal(r.Body, h.input); err != nil && err != io.EOF {
 			return http.StatusBadRequest, err
 		}
 	case http.MethodPatch:
 		h.patch = &spb.Patch{}
-		if err := jsonpb.Unmarshal(h.r.Body, h.patch); err != nil && err != io.EOF {
+		if err := jsonpb.Unmarshal(r.Body, h.patch); err != nil && err != io.EOF {
 			return http.StatusBadRequest, err
 		}
 	}
@@ -127,16 +123,16 @@ func (h *GroupHandler) Setup(tx storage.Tx) (int, error) {
 }
 
 // LookupItem looks up the item in the storage layer.
-func (h *GroupHandler) LookupItem(name string, vars map[string]string) bool {
-	if err := h.store.ReadTx(storage.GroupDatatype, getRealm(h.r), name, storage.DefaultID, storage.LatestRev, h.item, h.tx); err != nil {
+func (h *GroupHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
+	if err := h.store.ReadTx(storage.GroupDatatype, getRealm(r), name, storage.DefaultID, storage.LatestRev, h.item, h.tx); err != nil {
 		return false
 	}
 	return true
 }
 
 // NormalizeInput sets up basic structure of request input objects if absent.
-func (h *GroupHandler) NormalizeInput(name string, vars map[string]string) error {
-	switch h.r.Method {
+func (h *GroupHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	switch r.Method {
 	case http.MethodPatch:
 		if len(h.patch.Schemas) != 1 || h.patch.Schemas[0] != scimPatchSchema {
 			return fmt.Errorf("PATCH requires schemas set to only be %q", scimPatchSchema)
@@ -145,7 +141,7 @@ func (h *GroupHandler) NormalizeInput(name string, vars map[string]string) error
 		fallthrough
 	case http.MethodPut:
 		if len(h.input.Schemas) != 1 || h.input.Schemas[0] != scimGroupSchema {
-			return fmt.Errorf("%s requires schemas set to only be %q", strings.ToUpper(h.r.Method), scimGroupSchema)
+			return fmt.Errorf("%s requires schemas set to only be %q", strings.ToUpper(r.Method), scimGroupSchema)
 		}
 	}
 
@@ -171,25 +167,25 @@ func (h *GroupHandler) NormalizeInput(name string, vars map[string]string) error
 }
 
 // Get is a GET request.
-func (h *GroupHandler) Get(name string) (proto.Message, error) {
-	filters, err := storage.BuildFilters(httputil.QueryParam(h.r, "filter"), scimMemberFilterMap)
+func (h *GroupHandler) Get(r *http.Request, name string) (proto.Message, error) {
+	filters, err := storage.BuildFilters(httputil.QueryParam(r, "filter"), scimMemberFilterMap)
 	if err != nil {
 		return nil, err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := httputil.QueryParamInt(h.r, "startIndex")
+	start := httputil.QueryParamInt(r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := httputil.QueryParamInt(h.r, "count")
-	if len(httputil.QueryParam(h.r, "count")) == 0 {
+	max := httputil.QueryParamInt(r, "count")
+	if len(httputil.QueryParam(r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 
 	m := make(map[string]map[string]proto.Message)
-	_, err = h.store.MultiReadTx(storage.GroupMemberDatatype, getRealm(h.r), name, filters, offset, max, m, &spb.Member{}, h.tx)
+	_, err = h.store.MultiReadTx(storage.GroupMemberDatatype, getRealm(r), name, filters, offset, max, m, &spb.Member{}, h.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -212,13 +208,13 @@ func (h *GroupHandler) Get(name string) (proto.Message, error) {
 }
 
 // Post is a POST request.
-func (h *GroupHandler) Post(name string) (proto.Message, error) {
+func (h *GroupHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	h.save = h.input
 	for _, member := range h.save.Members {
 		if err := httputil.CheckName("value", member.Value, groupMemberRegexps); err != nil {
 			return nil, fmt.Errorf("group member %q email format check failed: %v", member.Value, err)
 		}
-		if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(h.r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
+		if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
 			return nil, fmt.Errorf("writing group member %q: %v", member.Value, err)
 		}
 	}
@@ -226,16 +222,16 @@ func (h *GroupHandler) Post(name string) (proto.Message, error) {
 }
 
 // Put is a PUT request.
-func (h *GroupHandler) Put(name string) (proto.Message, error) {
+func (h *GroupHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	// Clean up existing membership
-	if _, err := h.Remove(name); err != nil {
+	if _, err := h.Remove(r, name); err != nil {
 		return nil, err
 	}
-	return h.Post(name)
+	return h.Post(r, name)
 }
 
 // Patch is a PATCH request.
-func (h *GroupHandler) Patch(name string) (proto.Message, error) {
+func (h *GroupHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	h.save = &spb.Group{}
 	proto.Merge(h.save, h.item)
 	for i, patch := range h.patch.Operations {
@@ -261,7 +257,7 @@ func (h *GroupHandler) Patch(name string) (proto.Message, error) {
 			if err != nil {
 				return nil, fmt.Errorf("operation %d failed: %v", i, err)
 			}
-			if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(h.r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
+			if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
 				return nil, fmt.Errorf("writing group member %q: %v", member.Value, err)
 			}
 
@@ -274,7 +270,7 @@ func (h *GroupHandler) Patch(name string) (proto.Message, error) {
 				return nil, fmt.Errorf("operation %d failed: invalid member path %q", i, patch.Path)
 			}
 			memberName := match[1]
-			if err := h.store.DeleteTx(storage.GroupMemberDatatype, getRealm(h.r), name, memberName, storage.LatestRev, h.tx); err != nil {
+			if err := h.store.DeleteTx(storage.GroupMemberDatatype, getRealm(r), name, memberName, storage.LatestRev, h.tx); err != nil {
 				if storage.ErrNotFound(err) {
 					return nil, fmt.Errorf("operation %d failed: %q is not a member of the group", i, memberName)
 				}
@@ -303,29 +299,29 @@ func (h *GroupHandler) Patch(name string) (proto.Message, error) {
 	}
 	// Output the new result: Get() will return contents from h.item.
 	h.item = h.save
-	return h.Get(name)
+	return h.Get(r, name)
 }
 
 // Remove is a DELETE request.
-func (h *GroupHandler) Remove(name string) (proto.Message, error) {
-	if err := h.store.MultiDeleteTx(storage.GroupMemberDatatype, getRealm(h.r), name, h.tx); err != nil {
+func (h *GroupHandler) Remove(r *http.Request, name string) (proto.Message, error) {
+	if err := h.store.MultiDeleteTx(storage.GroupMemberDatatype, getRealm(r), name, h.tx); err != nil {
 		return nil, err
 	}
-	return nil, h.store.DeleteTx(storage.GroupDatatype, getRealm(h.r), name, storage.DefaultID, storage.LatestRev, h.tx)
+	return nil, h.store.DeleteTx(storage.GroupDatatype, getRealm(r), name, storage.DefaultID, storage.LatestRev, h.tx)
 }
 
 // CheckIntegrity checks that any modifications make sense before applying them.
-func (h *GroupHandler) CheckIntegrity() *status.Status {
+func (h *GroupHandler) CheckIntegrity(*http.Request) *status.Status {
 	return nil
 }
 
 // Save will save any modifications done for the request.
-func (h *GroupHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (h *GroupHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if h.save == nil {
 		return nil
 	}
 	h.save.Members = nil // members are stored separately.
-	return h.store.WriteTx(storage.GroupDatatype, getRealm(h.r), name, storage.DefaultID, storage.LatestRev, h.save, nil, h.tx)
+	return h.store.WriteTx(storage.GroupDatatype, getRealm(r), name, storage.DefaultID, storage.LatestRev, h.save, nil, h.tx)
 }
 
 func (h *GroupHandler) patchMember(object map[string]string) (*spb.Member, error) {

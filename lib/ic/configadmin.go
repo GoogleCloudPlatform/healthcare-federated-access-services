@@ -32,41 +32,37 @@ import (
 )
 
 // HTTP handler for ".../config"
-func (s *Service) configFactory() *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func (s *Service) configFactory() *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "config",
 		PathPrefix:          configPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return &config{
-				s:     s,
-				r:     r,
-				input: &pb.ConfigRequest{},
-			}
+		Service: &config{
+			s:     s,
+			input: &pb.ConfigRequest{},
 		},
 	}
 }
 
 type config struct {
 	s     *Service
-	r     *http.Request
 	input *pb.ConfigRequest
 	cfg   *pb.IcConfig
 	id    *ga4gh.Identity
 }
 
-func (c *config) Setup(tx storage.Tx) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
+func (c *config) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	cfg, _, id, status, err := c.s.handlerSetup(tx, r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	return status, err
 }
-func (c *config) LookupItem(name string, vars map[string]string) bool {
+func (c *config) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	// Trival name as there is only one config.
 	return true
 }
-func (c *config) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
+func (c *config) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -87,13 +83,13 @@ func (c *config) NormalizeInput(name string, vars map[string]string) error {
 	c.input.Item.Options = receiveConfigOptions(c.input.Item.Options)
 	return nil
 }
-func (c *config) Get(name string) (proto.Message, error) {
+func (c *config) Get(r *http.Request, name string) (proto.Message, error) {
 	return makeConfig(c.cfg), nil
 }
-func (c *config) Post(name string) (proto.Message, error) {
+func (c *config) Post(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("POST not allowed")
 }
-func (c *config) Put(name string) (proto.Message, error) {
+func (c *config) Put(r *http.Request, name string) (proto.Message, error) {
 	if c.cfg.Version != c.input.Item.Version {
 		// TODO: consider upgrading older config versions automatically.
 		return nil, fmt.Errorf("PUT of config version %q mismatched with existing config version %q", c.input.Item.Version, c.cfg.Version)
@@ -102,15 +98,15 @@ func (c *config) Put(name string) (proto.Message, error) {
 	c.input.Item.Revision = c.cfg.Revision
 	return nil, nil
 }
-func (c *config) Patch(name string) (proto.Message, error) {
+func (c *config) Patch(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PATCH not allowed")
 }
-func (c *config) Remove(name string) (proto.Message, error) {
+func (c *config) Remove(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("DELETE not allowed")
 }
-func (c *config) CheckIntegrity() *status.Status {
+func (c *config) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
-	if err := check.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
 	if len(c.input.Item.Version) == 0 {
@@ -127,8 +123,8 @@ func (c *config) CheckIntegrity() *status.Status {
 	}
 	return nil
 }
-func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if err := c.s.saveConfig(c.input.Item, desc, typeName, c.r, c.id, c.cfg, c.input.Item, c.input.Modification, tx); err != nil {
+func (c *config) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	if err := c.s.saveConfig(c.input.Item, desc, typeName, r, c.id, c.cfg, c.input.Item, c.input.Modification, tx); err != nil {
 		return err
 	}
 	secrets, err := c.s.loadSecrets(tx)
@@ -145,17 +141,14 @@ func (c *config) Save(tx storage.Tx, name string, vars map[string]string, desc, 
 }
 
 // HTTP handler for ".../config/identityProviders/{name}"
-func (s *Service) configIdpFactory() *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func (s *Service) configIdpFactory() *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "configIDP",
 		PathPrefix:          configIdentityProvidersPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return &configIDP{
-				s:     s,
-				r:     r,
-				input: &pb.ConfigIdentityProviderRequest{},
-			}
+		Service: &configIDP{
+			s:     s,
+			input: &pb.ConfigIdentityProviderRequest{},
 		},
 	}
 }
@@ -171,22 +164,22 @@ type configIDP struct {
 	tx    storage.Tx
 }
 
-func (c *configIDP) Setup(tx storage.Tx) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
+func (c *configIDP) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	cfg, _, id, status, err := c.s.handlerSetup(tx, r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	c.tx = tx
 	return status, err
 }
-func (c *configIDP) LookupItem(name string, vars map[string]string) bool {
+func (c *configIDP) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	if item, ok := c.cfg.IdentityProviders[name]; ok {
 		c.item = item
 		return true
 	}
 	return false
 }
-func (c *configIDP) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
+func (c *configIDP) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -200,20 +193,20 @@ func (c *configIDP) NormalizeInput(name string, vars map[string]string) error {
 	}
 	return nil
 }
-func (c *configIDP) Get(name string) (proto.Message, error) {
+func (c *configIDP) Get(r *http.Request, name string) (proto.Message, error) {
 	return c.item, nil
 }
-func (c *configIDP) Post(name string) (proto.Message, error) {
+func (c *configIDP) Post(r *http.Request, name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.IdentityProviders[name] = c.save
 	return nil, nil
 }
-func (c *configIDP) Put(name string) (proto.Message, error) {
+func (c *configIDP) Put(r *http.Request, name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.IdentityProviders[name] = c.save
 	return nil, nil
 }
-func (c *configIDP) Patch(name string) (proto.Message, error) {
+func (c *configIDP) Patch(r *http.Request, name string) (proto.Message, error) {
 	c.save = &cpb.IdentityProvider{}
 	proto.Merge(c.save, c.item)
 	proto.Merge(c.save, c.input.Item)
@@ -222,14 +215,14 @@ func (c *configIDP) Patch(name string) (proto.Message, error) {
 	c.cfg.IdentityProviders[name] = c.save
 	return nil, nil
 }
-func (c *configIDP) Remove(name string) (proto.Message, error) {
+func (c *configIDP) Remove(r *http.Request, name string) (proto.Message, error) {
 	delete(c.cfg.IdentityProviders, name)
 	c.save = &cpb.IdentityProvider{}
 	return nil, nil
 }
-func (c *configIDP) CheckIntegrity() *status.Status {
+func (c *configIDP) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
-	if err := check.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
@@ -240,28 +233,25 @@ func (c *configIDP) CheckIntegrity() *status.Status {
 	}
 	return nil
 }
-func (c *configIDP) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (c *configIDP) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
 		return nil
 	}
-	if err := c.s.saveConfig(c.cfg, desc, typeName, c.r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
+	if err := c.s.saveConfig(c.cfg, desc, typeName, r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
 		return err
 	}
 	return nil
 }
 
 // HTTP handler for ".../config/options"
-func (s *Service) configOptionsFactory() *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func (s *Service) configOptionsFactory() *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "configOptions",
 		PathPrefix:          configOptionsPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return &configOptions{
-				s:     s,
-				r:     r,
-				input: &pb.ConfigOptionsRequest{},
-			}
+		Service: &configOptions{
+			s:     s,
+			input: &pb.ConfigOptionsRequest{},
 		},
 	}
 }
@@ -277,21 +267,21 @@ type configOptions struct {
 	tx    storage.Tx
 }
 
-func (c *configOptions) Setup(tx storage.Tx) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
+func (c *configOptions) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	cfg, _, id, status, err := c.s.handlerSetup(tx, r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	c.tx = tx
 	return status, err
 }
 
-func (c *configOptions) LookupItem(name string, vars map[string]string) bool {
+func (c *configOptions) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	c.item = c.cfg.Options
 	return true
 }
 
-func (c *configOptions) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
+func (c *configOptions) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -301,23 +291,23 @@ func (c *configOptions) NormalizeInput(name string, vars map[string]string) erro
 	return nil
 }
 
-func (c *configOptions) Get(name string) (proto.Message, error) {
+func (c *configOptions) Get(r *http.Request, name string) (proto.Message, error) {
 	return makeConfigOptions(c.item), nil
 }
 
-func (c *configOptions) Post(name string) (proto.Message, error) {
+func (c *configOptions) Post(r *http.Request, name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.Options = c.save
 	return nil, nil
 }
 
-func (c *configOptions) Put(name string) (proto.Message, error) {
+func (c *configOptions) Put(r *http.Request, name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.Options = c.save
 	return nil, nil
 }
 
-func (c *configOptions) Patch(name string) (proto.Message, error) {
+func (c *configOptions) Patch(r *http.Request, name string) (proto.Message, error) {
 	c.save = &pb.ConfigOptions{}
 	proto.Merge(c.save, c.item)
 	proto.Merge(c.save, c.input.Item)
@@ -326,13 +316,13 @@ func (c *configOptions) Patch(name string) (proto.Message, error) {
 	return nil, nil
 }
 
-func (c *configOptions) Remove(name string) (proto.Message, error) {
+func (c *configOptions) Remove(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("DELETE not allowed")
 }
 
-func (c *configOptions) CheckIntegrity() *status.Status {
+func (c *configOptions) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
-	if err := check.CheckReadOnly(getRealm(c.r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
@@ -344,11 +334,11 @@ func (c *configOptions) CheckIntegrity() *status.Status {
 	return nil
 }
 
-func (c *configOptions) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (c *configOptions) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
 		return nil
 	}
-	if err := c.s.saveConfig(c.cfg, desc, typeName, c.r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
+	if err := c.s.saveConfig(c.cfg, desc, typeName, r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
 		return err
 	}
 	return nil

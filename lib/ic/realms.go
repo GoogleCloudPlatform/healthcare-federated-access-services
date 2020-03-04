@@ -27,46 +27,42 @@ import (
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
 )
 
-func (s *Service) realmFactory() *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func (s *Service) realmFactory() *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "realm",
 		NameField:           "realm",
 		PathPrefix:          realmPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return &realm{
-				s:     s,
-				r:     r,
-				input: &pb.RealmRequest{},
-			}
+		Service: &realm{
+			s:     s,
+			input: &pb.RealmRequest{},
 		},
 	}
 }
 
 type realm struct {
 	s     *Service
-	r     *http.Request
 	input *pb.RealmRequest
 	item  *pb.Realm
 	cfg   *pb.IcConfig
 	id    *ga4gh.Identity
 }
 
-func (c *realm) Setup(tx storage.Tx) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, c.r, noScope, c.input)
+func (c *realm) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	cfg, _, id, status, err := c.s.handlerSetup(tx, r, noScope, c.input)
 	c.cfg = cfg
 	c.id = id
 	return status, err
 }
 
-func (c *realm) LookupItem(name string, vars map[string]string) bool {
+func (c *realm) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	// Accept any name that passes the name check.
 	c.item = &pb.Realm{}
 	return true
 }
 
-func (c *realm) NormalizeInput(name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, c.r); err != nil {
+func (c *realm) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input == nil {
@@ -78,29 +74,29 @@ func (c *realm) NormalizeInput(name string, vars map[string]string) error {
 	return nil
 }
 
-func (c *realm) Get(name string) (proto.Message, error) {
+func (c *realm) Get(r *http.Request, name string) (proto.Message, error) {
 	if c.item != nil {
 		return c.item, nil
 	}
 	return nil, nil
 }
 
-func (c *realm) Post(name string) (proto.Message, error) {
+func (c *realm) Post(r *http.Request, name string) (proto.Message, error) {
 	// Accept, but do nothing.
 	return nil, nil
 }
 
-func (c *realm) Put(name string) (proto.Message, error) {
+func (c *realm) Put(r *http.Request, name string) (proto.Message, error) {
 	// Accept, but do nothing.
 	return nil, nil
 }
 
-func (c *realm) Patch(name string) (proto.Message, error) {
+func (c *realm) Patch(r *http.Request, name string) (proto.Message, error) {
 	// Accept, but do nothing.
 	return nil, nil
 }
 
-func (c *realm) Remove(name string) (proto.Message, error) {
+func (c *realm) Remove(r *http.Request, name string) (proto.Message, error) {
 	if err := c.s.store.Wipe(name); err != nil {
 		return nil, err
 	}
@@ -110,11 +106,11 @@ func (c *realm) Remove(name string) (proto.Message, error) {
 	return nil, nil
 }
 
-func (c *realm) CheckIntegrity() *status.Status {
+func (c *realm) CheckIntegrity(r *http.Request) *status.Status {
 	return nil
 }
 
-func (c *realm) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (c *realm) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	// Accept, but do nothing.
 	return nil
 }

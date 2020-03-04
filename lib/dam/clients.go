@@ -102,16 +102,14 @@ func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModificatio
 //   Return self client information
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) clientFactory() *handlerfactory.HandlerFactory {
+func (s *Service) clientFactory() *handlerfactory.Options {
 	c := &clientService{s: s}
 
-	return &handlerfactory.HandlerFactory{
+	return &handlerfactory.Options{
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return oathclients.NewClientHandler(r, c)
-		},
+		Service:             oathclients.NewClientHandler(c),
 	}
 }
 
@@ -136,16 +134,14 @@ func (s *Service) clientFactory() *handlerfactory.HandlerFactory {
 //   Return nothing
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) configClientFactory() *handlerfactory.HandlerFactory {
+func (s *Service) configClientFactory() *handlerfactory.Options {
 	c := &clientService{s: s}
 
-	return &handlerfactory.HandlerFactory{
+	return &handlerfactory.Options{
 		TypeName:            "configClient",
 		PathPrefix:          configClientPath,
 		HasNamedIdentifiers: true,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return oathclients.NewAdminClientHandler(r, c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL)
-		},
+		Service:             oathclients.NewAdminClientHandler(c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL),
 	}
 }
 
@@ -182,41 +178,35 @@ func toDAMModification(m *cpb.ConfigModification) *pb.ConfigModification {
 //   Return empty response on success
 //////////////////////////////////////////////////////////////////
 
-func (s *Service) syncClientsFactory() *handlerfactory.HandlerFactory {
-	return &handlerfactory.HandlerFactory{
+func (s *Service) syncClientsFactory() *handlerfactory.Options {
+	return &handlerfactory.Options{
 		TypeName:            "configClientsSync",
 		PathPrefix:          syncClientsPath,
 		HasNamedIdentifiers: false,
-		NewHandler: func(r *http.Request) handlerfactory.HandlerInterface {
-			return NewSyncClientsHandler(s, r)
-		},
+		Service:             NewSyncClientsHandler(s),
 	}
 }
 
 // SyncClientsHandler is a handler for sync client.
 type SyncClientsHandler struct {
 	s   *Service
-	r   *http.Request
 	cfg *pb.DamConfig
 	tx  storage.Tx
 }
 
 // NewSyncClientsHandler implements the sync Hydra clients RPC method.
-func NewSyncClientsHandler(s *Service, r *http.Request) *SyncClientsHandler {
-	return &SyncClientsHandler{
-		s: s,
-		r: r,
-	}
+func NewSyncClientsHandler(s *Service) *SyncClientsHandler {
+	return &SyncClientsHandler{s: s}
 }
 
 // Setup setups.
-func (h *SyncClientsHandler) Setup(tx storage.Tx) (int, error) {
-	cfg, st, err := h.s.handlerSetupNoAuth(tx, h.r, nil)
+func (h *SyncClientsHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	cfg, st, err := h.s.handlerSetupNoAuth(tx, r, nil)
 	if err != nil {
 		return st, err
 	}
 
-	cliID := getClientID(h.r)
+	cliID := getClientID(r)
 	var scope string
 	for _, c := range cfg.Clients {
 		if c.ClientId == cliID {
@@ -235,18 +225,18 @@ func (h *SyncClientsHandler) Setup(tx storage.Tx) (int, error) {
 }
 
 // LookupItem looks up item.
-func (h *SyncClientsHandler) LookupItem(name string, vars map[string]string) bool {
+func (h *SyncClientsHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	// Allow POST to proceed by returning false, otherwise mark it as existing.
-	return h.r.Method != http.MethodPost
+	return r.Method != http.MethodPost
 }
 
 // NormalizeInput normalizes.
-func (h *SyncClientsHandler) NormalizeInput(name string, vars map[string]string) error {
+func (h *SyncClientsHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
 	return nil
 }
 
 // Get gets.
-func (h *SyncClientsHandler) Get(name string) (proto.Message, error) {
+func (h *SyncClientsHandler) Get(r *http.Request, name string) (proto.Message, error) {
 	secrets, err := h.s.loadSecrets(h.tx)
 	if err != nil {
 		return nil, err
@@ -260,7 +250,7 @@ func (h *SyncClientsHandler) Get(name string) (proto.Message, error) {
 }
 
 // Post posts.
-func (h *SyncClientsHandler) Post(name string) (proto.Message, error) {
+func (h *SyncClientsHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	secrets, err := h.s.loadSecrets(h.tx)
 	if err != nil {
 		return nil, err
@@ -274,26 +264,26 @@ func (h *SyncClientsHandler) Post(name string) (proto.Message, error) {
 }
 
 // Put puts.
-func (h *SyncClientsHandler) Put(name string) (proto.Message, error) {
+func (h *SyncClientsHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PUT not allowed")
 }
 
 // Patch paches.
-func (h *SyncClientsHandler) Patch(name string) (proto.Message, error) {
+func (h *SyncClientsHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PATCH not allowed")
 }
 
 // Remove removes.
-func (h *SyncClientsHandler) Remove(name string) (proto.Message, error) {
+func (h *SyncClientsHandler) Remove(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("DELETE not allowed")
 }
 
 // CheckIntegrity checks integrity.
-func (h *SyncClientsHandler) CheckIntegrity() *status.Status {
+func (h *SyncClientsHandler) CheckIntegrity(*http.Request) *status.Status {
 	return nil
 }
 
 // Save saves.
-func (h *SyncClientsHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (h *SyncClientsHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
 }

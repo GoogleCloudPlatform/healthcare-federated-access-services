@@ -52,20 +52,13 @@ func Test_HTTPHandler_Get(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(r *http.Request) HandlerInterface {
-		glog.Infof("request: %+v", r)
-		return &fakeService{
-			r:     r,
-			store: s,
-		}
-	}
-	hf := &HandlerFactory{
+	hf := &Options{
 		TypeName:            "duration",
 		NameField:           "duration",
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		NewHandler:          f,
+		Service:             &fakeService{store: s},
 	}
 	h := MakeHandler(s, hf)
 
@@ -96,19 +89,13 @@ func Test_HTTPHandler_Get_NotFound(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(r *http.Request) HandlerInterface {
-		return &fakeService{
-			r:     r,
-			store: s,
-		}
-	}
-	hf := &HandlerFactory{
+	hf := &Options{
 		TypeName:            "duration",
 		NameField:           "duration",
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		NewHandler:          f,
+		Service:             &fakeService{store: s},
 	}
 	h := MakeHandler(s, hf)
 
@@ -135,20 +122,13 @@ func Test_HTTPHandler_Post(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(r *http.Request) HandlerInterface {
-		glog.Infof("request: %+v", r)
-		return &fakeService{
-			r:     r,
-			store: s,
-		}
-	}
-	hf := &HandlerFactory{
+	hf := &Options{
 		TypeName:            "duration",
 		NameField:           "duration",
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		NewHandler:          f,
+		Service:             &fakeService{store: s},
 	}
 	h := MakeHandler(s, hf)
 
@@ -184,20 +164,14 @@ func Test_HTTPHandler_Delete(t *testing.T) {
 	extractVars = extractVarsFake
 
 	s := fakestore.New()
-	f := func(r *http.Request) HandlerInterface {
-		glog.Infof("request: %+v", r)
-		return &fakeService{
-			r:     r,
-			store: s,
-		}
-	}
-	hf := &HandlerFactory{
+
+	hf := &Options{
 		TypeName:            "duration",
 		NameField:           "duration",
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		NewHandler:          f,
+		Service:             &fakeService{store: s},
 	}
 	h := MakeHandler(s, hf)
 
@@ -222,11 +196,10 @@ type fakeService struct {
 	store *fakestore.Store
 
 	// TODO: cleanup these and pass them explicitly to the methods.
-	r  *http.Request
 	tx *fakestore.Tx
 }
 
-func (s *fakeService) Setup(tx storage.Tx) (int, error) {
+func (s *fakeService) Setup(r *http.Request, tx storage.Tx) (int, error) {
 	glog.Infof("Setup: tx = %+v", tx)
 
 	ntx, ok := tx.(*fakestore.Tx)
@@ -237,12 +210,12 @@ func (s *fakeService) Setup(tx storage.Tx) (int, error) {
 	return http.StatusOK, nil
 }
 
-func (s *fakeService) NormalizeInput(name string, vars map[string]string) error {
+func (s *fakeService) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
 	glog.Infof("NormalizeInput: name = %v vars = %+v", name, vars)
 	return nil
 }
 
-func (s *fakeService) LookupItem(name string, vars map[string]string) bool {
+func (s *fakeService) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	glog.Infof("LookupItem: name = %v vars = %+v", name, vars)
 	ok, err := s.store.Exists("resource", "master", "user", vars["duration"], storage.LatestRev)
 	if err != nil {
@@ -251,8 +224,8 @@ func (s *fakeService) LookupItem(name string, vars map[string]string) bool {
 	return ok
 }
 
-func (s *fakeService) Get(name string) (proto.Message, error) {
-	vars := extractVars(s.r)
+func (s *fakeService) Get(r *http.Request, name string) (proto.Message, error) {
+	vars := extractVars(r)
 	glog.Infof("Get: name = %v vars = %+v", name, vars)
 	d := &dpb.Duration{}
 	err := s.store.ReadTx("resource", "master", "user", vars["duration"], storage.LatestRev, d, s.tx)
@@ -263,11 +236,11 @@ func (s *fakeService) Get(name string) (proto.Message, error) {
 	return d, nil
 }
 
-func (s *fakeService) Post(name string) (proto.Message, error) {
-	vars := extractVars(s.r)
+func (s *fakeService) Post(r *http.Request, name string) (proto.Message, error) {
+	vars := extractVars(r)
 	glog.Infof("Post: name = %v vars = %+v", name, vars)
 	d := &dpb.Duration{}
-	if err := httputil.DecodeProtoReq(d, s.r); err != nil {
+	if err := httputil.DecodeProtoReq(d, r); err != nil {
 		return nil, err
 	}
 	err := s.store.WriteTx("resource", "master", "user", vars["duration"], storage.LatestRev, d, nil, s.tx)
@@ -278,18 +251,18 @@ func (s *fakeService) Post(name string) (proto.Message, error) {
 	return d, nil
 }
 
-func (s *fakeService) Put(name string) (proto.Message, error) {
+func (s *fakeService) Put(r *http.Request, name string) (proto.Message, error) {
 	// TODO
 	return nil, nil
 }
 
-func (s *fakeService) Patch(name string) (proto.Message, error) {
+func (s *fakeService) Patch(r *http.Request, name string) (proto.Message, error) {
 	// TODO
 	return nil, nil
 }
 
-func (s *fakeService) Remove(name string) (proto.Message, error) {
-	vars := extractVars(s.r)
+func (s *fakeService) Remove(r *http.Request, name string) (proto.Message, error) {
+	vars := extractVars(r)
 	glog.Infof("Remove: name = %v vars = %+v", name, vars)
 	err := s.store.DeleteTx("resource", "master", "user", vars["duration"], storage.LatestRev, s.tx)
 	glog.Infof("DeleteTx() = %+v", err)
@@ -299,10 +272,10 @@ func (s *fakeService) Remove(name string) (proto.Message, error) {
 	return nil, nil
 }
 
-func (s *fakeService) CheckIntegrity() *status.Status {
+func (s *fakeService) CheckIntegrity(r *http.Request) *status.Status {
 	return nil
 }
 
-func (s *fakeService) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (s *fakeService) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return tx.Finish()
 }

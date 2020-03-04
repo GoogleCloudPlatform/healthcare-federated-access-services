@@ -33,7 +33,6 @@ import (
 // TokensHandler is hanlder for tokens.
 type TokensHandler struct {
 	s     *Service
-	r     *http.Request
 	input *pb.TokensRequest
 	item  []*cpb.TokenMetadata
 	cfg   *pb.DamConfig
@@ -42,17 +41,16 @@ type TokensHandler struct {
 }
 
 // NewTokensHandler creates a new TokensHandler.
-func NewTokensHandler(s *Service, r *http.Request) *TokensHandler {
+func NewTokensHandler(s *Service) *TokensHandler {
 	return &TokensHandler{
 		s:     s,
-		r:     r,
 		input: &pb.TokensRequest{},
 	}
 }
 
 // Setup setups.
-func (h *TokensHandler) Setup(tx storage.Tx) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
+func (h *TokensHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	cfg, id, status, err := h.s.handlerSetup(tx, r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
 	h.id = id
@@ -60,7 +58,7 @@ func (h *TokensHandler) Setup(tx storage.Tx) (int, error) {
 }
 
 // LookupItem looks up item.
-func (h *TokensHandler) LookupItem(name string, vars map[string]string) bool {
+func (h *TokensHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	items, err := h.s.warehouse.ListTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, ga4gh.TokenUserID(h.id, adapter.SawMaxUserIDLength))
 	if err != nil {
 		return false
@@ -70,12 +68,12 @@ func (h *TokensHandler) LookupItem(name string, vars map[string]string) bool {
 }
 
 // NormalizeInput normalizes.
-func (h *TokensHandler) NormalizeInput(name string, vars map[string]string) error {
-	return httputil.DecodeProtoReq(h.input, h.r)
+func (h *TokensHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	return httputil.DecodeProtoReq(h.input, r)
 }
 
 // Get gets.
-func (h *TokensHandler) Get(name string) (proto.Message, error) {
+func (h *TokensHandler) Get(r *http.Request, name string) (proto.Message, error) {
 	item := h.item
 	if len(item) == 0 {
 		item = nil
@@ -87,22 +85,22 @@ func (h *TokensHandler) Get(name string) (proto.Message, error) {
 }
 
 // Post posts.
-func (h *TokensHandler) Post(name string) (proto.Message, error) {
+func (h *TokensHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("POST not allowed")
 }
 
 // Put puts.
-func (h *TokensHandler) Put(name string) (proto.Message, error) {
+func (h *TokensHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PUT not allowed")
 }
 
 // Patch patches.
-func (h *TokensHandler) Patch(name string) (proto.Message, error) {
+func (h *TokensHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PATCH not allowed")
 }
 
 // Remove removes.
-func (h *TokensHandler) Remove(name string) (proto.Message, error) {
+func (h *TokensHandler) Remove(r *http.Request, name string) (proto.Message, error) {
 	if len(h.item) == 0 {
 		return nil, nil
 	}
@@ -110,12 +108,12 @@ func (h *TokensHandler) Remove(name string) (proto.Message, error) {
 }
 
 // CheckIntegrity checks integrity.
-func (h *TokensHandler) CheckIntegrity() *status.Status {
+func (h *TokensHandler) CheckIntegrity(*http.Request) *status.Status {
 	return nil
 }
 
 // Save saves.
-func (h *TokensHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (h *TokensHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
 }
 
@@ -133,17 +131,16 @@ type TokenHandler struct {
 }
 
 // NewTokenHandler is the handler for the tokens/{name} endpoint.
-func NewTokenHandler(s *Service, r *http.Request) *TokenHandler {
+func NewTokenHandler(s *Service) *TokenHandler {
 	return &TokenHandler{
 		s:     s,
-		r:     r,
 		input: &pb.TokenRequest{},
 	}
 }
 
 // Setup setups.
-func (h *TokenHandler) Setup(tx storage.Tx) (int, error) {
-	cfg, id, status, err := h.s.handlerSetup(tx, h.r, noScope, h.input)
+func (h *TokenHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	cfg, id, status, err := h.s.handlerSetup(tx, r, noScope, h.input)
 	h.tx = tx
 	h.cfg = cfg
 	h.id = id
@@ -151,7 +148,7 @@ func (h *TokenHandler) Setup(tx storage.Tx) (int, error) {
 }
 
 // LookupItem looks up item.
-func (h *TokenHandler) LookupItem(name string, vars map[string]string) bool {
+func (h *TokenHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	item, err := h.s.warehouse.GetTokenMetadata(context.Background(), h.cfg.Options.GcpServiceAccountProject, ga4gh.TokenUserID(h.id, adapter.SawMaxUserIDLength), name)
 	if err != nil {
 		return false
@@ -161,42 +158,42 @@ func (h *TokenHandler) LookupItem(name string, vars map[string]string) bool {
 }
 
 // NormalizeInput normalizes.
-func (h *TokenHandler) NormalizeInput(name string, vars map[string]string) error {
-	return httputil.DecodeProtoReq(h.input, h.r)
+func (h *TokenHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	return httputil.DecodeProtoReq(h.input, r)
 }
 
 // Get gets.
-func (h *TokenHandler) Get(name string) (proto.Message, error) {
+func (h *TokenHandler) Get(r *http.Request, name string) (proto.Message, error) {
 	return &pb.TokenResponse{Token: h.item}, nil
 }
 
 // Post posts.
-func (h *TokenHandler) Post(name string) (proto.Message, error) {
+func (h *TokenHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("POST not allowed")
 }
 
 // Put puts.
-func (h *TokenHandler) Put(name string) (proto.Message, error) {
+func (h *TokenHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PUT not allowed")
 }
 
 // Patch patches.
-func (h *TokenHandler) Patch(name string) (proto.Message, error) {
+func (h *TokenHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("PATCH not allowed")
 }
 
 // Remove removes.
-func (h *TokenHandler) Remove(name string) (proto.Message, error) {
+func (h *TokenHandler) Remove(r *http.Request, name string) (proto.Message, error) {
 	list := []string{name}
 	return nil, h.s.warehouse.DeleteTokens(context.Background(), h.cfg.Options.GcpServiceAccountProject, ga4gh.TokenUserID(h.id, adapter.SawMaxUserIDLength), list)
 }
 
 // CheckIntegrity checks integrity.
-func (h *TokenHandler) CheckIntegrity() *status.Status {
+func (h *TokenHandler) CheckIntegrity(*http.Request) *status.Status {
 	return nil
 }
 
 // Save saves.
-func (h *TokenHandler) Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+func (h *TokenHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return nil
 }

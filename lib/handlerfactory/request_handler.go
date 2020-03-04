@@ -33,37 +33,37 @@ import (
 // pass it explicitly.
 var extractVars = mux.Vars
 
-// HandlerFactory contains the information about a handler service.
+// Options contains the information about a handler service.
 // Essentially the service interface + some options to the HTTP wrapper for it.
-type HandlerFactory struct {
+type Options struct {
 	TypeName            string
 	NameField           string
 	PathPrefix          string
 	HasNamedIdentifiers bool
 	NameChecker         map[string]*regexp.Regexp
-	NewHandler          func(r *http.Request) HandlerInterface
+	Service             Service
 }
 
-// HandlerInterface is the role interface for a service that will be wrapped.
-type HandlerInterface interface {
-	Setup(tx storage.Tx) (int, error)
+// Service is the role interface for a service that will be wrapped.
+type Service interface {
+	Setup(r *http.Request, tx storage.Tx) (int, error)
 	// TODO: Have LookupItem() return an error instead, so different errors can be handled
 	// properly, e.g. permission denied error vs. lookup error.
-	LookupItem(name string, vars map[string]string) bool
-	NormalizeInput(name string, vars map[string]string) error
-	Get(name string) (proto.Message, error)
-	Post(name string) (proto.Message, error)
-	Put(name string) (proto.Message, error)
-	Patch(name string) (proto.Message, error)
-	Remove(name string) (proto.Message, error)
-	CheckIntegrity() *status.Status
-	Save(tx storage.Tx, name string, vars map[string]string, desc, typeName string) error
+	LookupItem(r *http.Request, name string, vars map[string]string) bool
+	NormalizeInput(r *http.Request, name string, vars map[string]string) error
+	Get(r *http.Request, name string) (proto.Message, error)
+	Post(r *http.Request, name string) (proto.Message, error)
+	Put(r *http.Request, name string) (proto.Message, error)
+	Patch(r *http.Request, name string) (proto.Message, error)
+	Remove(r *http.Request, name string) (proto.Message, error)
+	CheckIntegrity(r *http.Request) *status.Status
+	Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error
 }
 
 // MakeHandler created a HTTP handler wrapper around a given service.
-func MakeHandler(s storage.Store, hri *HandlerFactory) http.HandlerFunc {
+func MakeHandler(s storage.Store, opts *Options) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		resp, err := Process(s, hri, r)
+		resp, err := Process(s, opts, r)
 		if err != nil {
 			httputil.WriteStatusError(w, err)
 			return
@@ -75,11 +75,9 @@ func MakeHandler(s storage.Store, hri *HandlerFactory) http.HandlerFunc {
 }
 
 // Process computes the response for a request.
-func Process(s storage.Store, hri *HandlerFactory, r *http.Request) (_ proto.Message, ferr error) {
-	// TODO: get rid of NewHandler and directly depend on service.
-	// Pass r explicitly to the service methods.
-	hi := hri.NewHandler(r)
-	var op func(string) (proto.Message, error)
+func Process(s storage.Store, opts *Options, r *http.Request) (_ proto.Message, ferr error) {
+	hi := opts.Service
+	var op func(*http.Request, string) (proto.Message, error)
 	switch r.Method {
 	case http.MethodGet:
 		op = hi.Get
@@ -96,11 +94,11 @@ func Process(s storage.Store, hri *HandlerFactory, r *http.Request) (_ proto.Mes
 	}
 
 	// TODO: move inside each service and don't pass NameChecker here.
-	name, vars, err := ValidateResourceName(r, hri.NameField, hri.NameChecker)
+	name, vars, err := ValidateResourceName(r, opts.NameField, opts.NameChecker)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	typ := hri.TypeName
+	typ := opts.TypeName
 	desc := r.Method + " " + typ
 
 	tx, err := s.Tx(r.Method != http.MethodGet)
@@ -116,18 +114,18 @@ func Process(s storage.Store, hri *HandlerFactory, r *http.Request) (_ proto.Mes
 
 	// Get rid of Setup and move creation of transaction inside service methods.
 	//
-	if _, err = hi.Setup(tx); err != nil {
+	if _, err = hi.Setup(r, tx); err != nil {
 		return nil, err
 	}
 
 	// TODO: Replace NormalizeInput with a ParseReq that returns a request proto message.
 	// TODO: Explicitly pass the message to the service methods.
-	if err := hi.NormalizeInput(name, vars); err != nil {
+	if err := hi.NormalizeInput(r, name, vars); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	// TODO: get rid of LookupItem and move this inside the service methods.
-	exists := hi.LookupItem(name, vars)
+	exists := hi.LookupItem(r, name, vars)
 	switch r.Method {
 	case http.MethodPost:
 		if exists {
@@ -135,7 +133,7 @@ func Process(s storage.Store, hri *HandlerFactory, r *http.Request) (_ proto.Mes
 		}
 	case http.MethodGet, http.MethodPatch, http.MethodPut, http.MethodDelete:
 		if !exists {
-			if hri.HasNamedIdentifiers {
+			if opts.HasNamedIdentifiers {
 				return nil, status.Errorf(codes.NotFound, "%s not found: %q", typ, name)
 			}
 			return nil, status.Errorf(codes.NotFound, "%s not found", typ)
@@ -143,14 +141,14 @@ func Process(s storage.Store, hri *HandlerFactory, r *http.Request) (_ proto.Mes
 	}
 
 	if r.Method == http.MethodGet {
-		resp, err := op(name)
+		resp, err := op(r, name)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
 		return resp, nil
 	}
 
-	resp, err := RunRMWTx(tx, op, hi.CheckIntegrity, hi.Save, name, vars, typ, desc)
+	resp, err := RunRMWTx(r, tx, op, hi.CheckIntegrity, hi.Save, name, vars, typ, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -180,24 +178,25 @@ func ValidateResourceName(r *http.Request, field string, nameRE map[string]*rege
 // Rolls back the transaction on any failure.
 // TODO: move outside this package. Service handlers should call it.
 func RunRMWTx(
+	r *http.Request,
 	tx storage.Tx,
-	op func(string) (proto.Message, error),
-	check func() *status.Status,
-	save func(storage.Tx, string, map[string]string, string, string) error,
+	op func(*http.Request, string) (proto.Message, error),
+	check func(*http.Request) *status.Status,
+	save func(*http.Request, storage.Tx, string, map[string]string, string, string) error,
 	name string,
 	vars map[string]string,
 	typ string,
 	desc string,
 ) (proto.Message, error) {
-	resp, err := op(name)
+	resp, err := op(r, name)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if st := check(); st != nil {
+	if st := check(r); st != nil {
 		tx.Rollback()
 		return nil, st.Err()
 	}
-	if err := save(tx, name, vars, desc, typ); err != nil {
+	if err := save(r, tx, name, vars, desc, typ); err != nil {
 		tx.Rollback()
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
