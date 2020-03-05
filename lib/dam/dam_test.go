@@ -1869,6 +1869,20 @@ func TestHydraConsent(t *testing.T) {
 	if h.AcceptConsentReq.Session.AccessToken["cart"] != consentStateID {
 		t.Errorf("AccessToken.cart = %v wants %v", h.AcceptConsentReq.Session.AccessToken["cart"], consentStateID)
 	}
+
+	atid, ok := h.AcceptConsentReq.Session.AccessToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in access token in wrong type")
+	}
+
+	itid, ok := h.AcceptConsentReq.Session.IDToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in id token in wrong type")
+	}
+
+	if itid != atid {
+		t.Errorf("tid in id token and access token should be the same, %s, %s", itid, atid)
+	}
 }
 
 func TestHydraConsent_Endpoint(t *testing.T) {
@@ -1913,6 +1927,20 @@ func TestHydraConsent_Endpoint(t *testing.T) {
 
 	if diff := cmp.Diff(wantIdentities, h.AcceptConsentReq.Session.AccessToken["identities"]); len(diff) > 0 {
 		t.Errorf("AccessToken.identities (-want, +got): %s", diff)
+	}
+
+	atid, ok := h.AcceptConsentReq.Session.AccessToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in access token in wrong type")
+	}
+
+	itid, ok := h.AcceptConsentReq.Session.IDToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in id token in wrong type")
+	}
+
+	if itid != atid {
+		t.Errorf("tid in id token and access token should be the same, %s, %s", itid, atid)
 	}
 }
 

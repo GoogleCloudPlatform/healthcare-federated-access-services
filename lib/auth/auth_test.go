@@ -1062,57 +1062,97 @@ func Test_UserAndLinkToken_Error_Log(t *testing.T) {
 }
 
 func Test_writeAccessLog_auth_pass(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
-
 	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-		ID:        "id",
-	}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
-
-	tracingID := "1"
-
-	sendRequest(http.MethodGet, "/auditlog/a", test.TestClientID, test.TestClientSecret, tok, tracingID, "", router, oidc)
-	logs.Client.Close()
-
-	want := &lepb.LogEntry{
-		Payload:  &lepb.LogEntry_JsonPayload{},
-		Severity: lspb.LogSeverity_DEFAULT,
-		Labels: map[string]string{
-			"error_type":      "",
-			"tracing_id":      tracingID,
-			"request_path":    "/auditlog/{name}",
-			"token_id":        "id",
-			"token_subject":   "sub",
-			"token_issuer":    normalize(issuerURL),
-			"type":            "access_log",
-			"pass_auth_check": "true",
-			"project_id":      "unset-serviceinfo-Project",
-			"service_type":    "unset-serviceinfo-Type",
-			"service_name":    "unset-serviceinfo-Name",
+	tests := []struct {
+		name   string
+		claims *ga4gh.Identity
+	}{
+		{
+			name: "tid in extra",
+			claims: &ga4gh.Identity{
+				Issuer:    issuerURL,
+				Subject:   "sub",
+				IssuedAt:  now,
+				Expiry:    now + 10000,
+				Audiences: ga4gh.NewAudience(test.TestClientID),
+				Extra:     map[string]interface{}{"tid": "id"},
+				ID:        "id1",
+				TokenID:   "id2",
+			},
 		},
-		HttpRequest: &hrpb.HttpRequest{
-			RequestUrl:    "/auditlog/a?client_id=" + test.TestClientID + "&client_secret=" + test.TestClientSecret,
-			RequestMethod: http.MethodGet,
-			RemoteIp:      "192.168.1.2",
+		{
+			name: "tid in top level",
+			claims: &ga4gh.Identity{
+				Issuer:    issuerURL,
+				Subject:   "sub",
+				IssuedAt:  now,
+				Expiry:    now + 10000,
+				Audiences: ga4gh.NewAudience(test.TestClientID),
+				ID:        "id1",
+				TokenID:   "id",
+			},
+		},
+		{
+			name: "no tid use jti",
+			claims: &ga4gh.Identity{
+				Issuer:    issuerURL,
+				Subject:   "sub",
+				IssuedAt:  now,
+				Expiry:    now + 10000,
+				Audiences: ga4gh.NewAudience(test.TestClientID),
+				Extra:     map[string]interface{}{"tid": "id"},
+				ID:        "id",
+			},
 		},
 	}
 
-	got := logs.Server.Logs[0].Entries[0]
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 
-	got.Timestamp = nil
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
-		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+			router, oidc, _, _, logs, close := setup(t)
+			defer close()
+
+			tok, err := oidc.Sign(nil, tc.claims)
+			if err != nil {
+				t.Fatalf("oidc.Sign() failed: %v", err)
+			}
+
+			tracingID := "1"
+
+			sendRequest(http.MethodGet, "/auditlog/a", test.TestClientID, test.TestClientSecret, tok, tracingID, "", router, oidc)
+			logs.Client.Close()
+
+			want := &lepb.LogEntry{
+				Payload:  &lepb.LogEntry_JsonPayload{},
+				Severity: lspb.LogSeverity_DEFAULT,
+				Labels: map[string]string{
+					"error_type":      "",
+					"tracing_id":      tracingID,
+					"request_path":    "/auditlog/{name}",
+					"token_id":        "id",
+					"token_subject":   "sub",
+					"token_issuer":    normalize(issuerURL),
+					"type":            "access_log",
+					"pass_auth_check": "true",
+					"project_id":      "unset-serviceinfo-Project",
+					"service_type":    "unset-serviceinfo-Type",
+					"service_name":    "unset-serviceinfo-Name",
+				},
+				HttpRequest: &hrpb.HttpRequest{
+					RequestUrl:    "/auditlog/a?client_id=" + test.TestClientID + "&client_secret=" + test.TestClientSecret,
+					RequestMethod: http.MethodGet,
+					RemoteIp:      "192.168.1.2",
+				},
+			}
+
+			got := logs.Server.Logs[0].Entries[0]
+
+			got.Timestamp = nil
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

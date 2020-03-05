@@ -24,6 +24,7 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -335,11 +336,17 @@ func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.AuthTokenState,
 		return "", status.Errorf(codes.Internal, "%v", err)
 	}
 
+	tokenID := uuid.New()
+	m["tid"] = tokenID
+
 	req := &hydraapi.HandledConsentRequest{
 		GrantedAudience: state.Audience,
 		GrantedScope:    strings.Split(state.Scope, " "),
 		Session: &hydraapi.ConsentRequestSessionData{
 			IDToken: m,
+			AccessToken: map[string]interface{}{
+				"tid": tokenID,
+			},
 		},
 	}
 
@@ -349,9 +356,7 @@ func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.AuthTokenState,
 			identities = append(identities, k)
 		}
 
-		req.Session.AccessToken = map[string]interface{}{
-			"identities": identities,
-		}
+		req.Session.AccessToken["identities"] = identities
 	}
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)

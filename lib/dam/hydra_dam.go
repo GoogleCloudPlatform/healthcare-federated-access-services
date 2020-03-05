@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -138,11 +139,18 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	tokenID := uuid.New()
+
 	req := &hydraapi.HandledConsentRequest{
 		GrantedAudience: append(consent.RequestedAudience, consent.Client.ClientID),
 		GrantedScope:    consent.RequestedScope,
 		Session: &hydraapi.ConsentRequestSessionData{
-			AccessToken: map[string]interface{}{},
+			AccessToken: map[string]interface{}{
+				"tid": tokenID,
+			},
+			IDToken: map[string]interface{}{
+				"tid": tokenID,
+			},
 		},
 	}
 

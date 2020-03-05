@@ -209,7 +209,7 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 	}
 
 	id, err := s.verifyAccessToken(r, cID, require)
-	log.TokenID = id.ID
+	log.TokenID = tokenID(id)
 	log.TokenSubject = id.Subject
 	log.TokenIssuer = id.Issuer
 
@@ -405,4 +405,18 @@ func writeAccessLog(client *logging.Client, entry *auditlog.AccessLog, err error
 	entry.Request = r
 
 	auditlog.WriteAccessLog(r.Context(), client, entry)
+}
+
+func tokenID(id *ga4gh.Identity) string {
+	v, ok := id.Extra["tid"]
+	if ok {
+		if tid, ok := v.(string); ok {
+			return tid
+		}
+	}
+
+	if len(id.TokenID) > 0 {
+		return id.TokenID
+	}
+	return id.ID
 }

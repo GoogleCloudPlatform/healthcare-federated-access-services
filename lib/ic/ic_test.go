@@ -1628,6 +1628,20 @@ func TestAcceptInformationRelease_Hydra_Accept(t *testing.T) {
 	if email != wantEmail {
 		t.Errorf("Email in id token wants %s got %s", wantEmail, email)
 	}
+
+	atid, ok := h.AcceptConsentReq.Session.AccessToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in access token in wrong type")
+	}
+
+	itid, ok := h.AcceptConsentReq.Session.IDToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in id token in wrong type")
+	}
+
+	if itid != atid {
+		t.Errorf("tid in id token and access token should be the same, %s, %s", itid, atid)
+	}
 }
 
 func TestAcceptInformationRelease_Hydra_Accept_Scoped(t *testing.T) {
@@ -1661,6 +1675,20 @@ func TestAcceptInformationRelease_Hydra_Accept_Scoped(t *testing.T) {
 
 	if _, ok := h.AcceptConsentReq.Session.IDToken["email"]; ok {
 		t.Fatalf("Email in id token should not exists")
+	}
+
+	atid, ok := h.AcceptConsentReq.Session.AccessToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in access token in wrong type")
+	}
+
+	itid, ok := h.AcceptConsentReq.Session.IDToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in id token in wrong type")
+	}
+
+	if itid != atid {
+		t.Errorf("tid in id token and access token should be the same, %s, %s", itid, atid)
 	}
 }
 
@@ -1726,6 +1754,20 @@ func TestAcceptInformationRelease_Hydra_Endpoint(t *testing.T) {
 	want := []interface{}{"foo@bar.com"}
 	if diff := cmp.Diff(want, h.AcceptConsentReq.Session.AccessToken["identities"]); len(diff) != 0 {
 		t.Errorf("AcceptConsentReq.GrantedScope (-wants, +got) %s", diff)
+	}
+
+	atid, ok := h.AcceptConsentReq.Session.AccessToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in access token in wrong type")
+	}
+
+	itid, ok := h.AcceptConsentReq.Session.IDToken["tid"].(string)
+	if !ok {
+		t.Fatalf("tid in id token in wrong type")
+	}
+
+	if itid != atid {
+		t.Errorf("tid in id token and access token should be the same, %s, %s", itid, atid)
 	}
 }
 

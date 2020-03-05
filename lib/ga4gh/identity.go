@@ -93,6 +93,7 @@ type Identity struct {
 	Audiences        Audiences              `json:"aud,omitempty"`
 	AuthorizedParty  string                 `json:"azp,omitempty"`
 	ID               string                 `json:"jti,omitempty"`
+	TokenID          string                 `json:"tid,omitempty"`
 	Nonce            string                 `json:"nonce,omitempty"`
 	GA4GH            map[string][]OldClaim  `json:"-"` // do not emit
 	RejectedVisas    []*RejectedVisa        `json:"-"` // do not emit
