@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -83,9 +84,30 @@ func TestCheckIntegrity_BadCfg(t *testing.T) {
 			want: codes.InvalidArgument,
 		},
 		{
-			desc: "all fields of a condition are emptry",
+			desc: "all fields of a condition are empty",
 			mutation: func(cfg *pb.DamConfig) {
 				cfg.Policies["bona_fide"].AnyOf[0].AllOf[0] = &cpb.Condition{}
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			desc: "edit built-in policy",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Policies["whitelist"].Ui["label"] = "edited whitelist label that should be rejected"
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			desc: "regular (non built-in) policy with UI source label",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Policies["bona_fide"].Ui["source"] = "me"
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			desc: "regular (non built-in) policy with UI edit label",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Policies["bona_fide"].Ui["edit"] = "go ahead"
 			},
 			want: codes.InvalidArgument,
 		},
@@ -107,6 +129,12 @@ func setupFromFile(t *testing.T) (*dam.Service, *pb.DamConfig) {
 	cfg := &pb.DamConfig{}
 	if err := store.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
 		t.Fatalf("error reading config: %v", err)
+	}
+
+	for k, v := range dam.BuiltinPolicies {
+		p := &pb.Policy{}
+		proto.Merge(p, v)
+		cfg.Policies[k] = p
 	}
 
 	opts := &dam.Options{

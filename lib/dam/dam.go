@@ -1091,7 +1091,14 @@ var (
 		Ui: map[string]string{
 			"label":       "Whitelist",
 			"description": "Allow users and groups to be whitelisted for access directly without using visas",
+			"source":      "built-in",
+			"edit":        "immutable",
 		},
+	}
+
+	// BuiltinPolicies contains the set of policies that are managed by DAM directly (not the administrator).
+	BuiltinPolicies = map[string]*pb.Policy{
+		whitelistPolicyName: whitelistPolicy,
 	}
 )
 
@@ -1105,7 +1112,11 @@ func normalizeConfig(cfg *pb.DamConfig) error {
 	if cfg.Policies == nil {
 		cfg.Policies = make(map[string]*pb.Policy)
 	}
-	cfg.Policies[whitelistPolicyName] = whitelistPolicy
+	for k, v := range BuiltinPolicies {
+		p := &pb.Policy{}
+		proto.Merge(p, v)
+		cfg.Policies[k] = p
+	}
 	return nil
 }
 
@@ -1138,7 +1149,10 @@ func (s *Service) saveConfig(cfg *pb.DamConfig, desc, resType string, r *http.Re
 		return nil
 	}
 	if cfg.Policies != nil {
-		delete(cfg.Policies, whitelistPolicyName)
+		// Remove built-in policies from the storage layer. These should only be maintained by the code.
+		for k := range BuiltinPolicies {
+			delete(cfg.Policies, k)
+		}
 	}
 	cfg.Revision++
 	cfg.CommitTime = float64(time.Now().UnixNano()) / 1e9

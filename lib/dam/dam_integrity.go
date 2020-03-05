@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
@@ -151,6 +152,18 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 		}
 		if path, err := check.CheckUI(policy.Ui, true); err != nil {
 			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, path), fmt.Sprintf("policies UI settings: %v", err))
+		}
+		// Note: there is no requirement that built-in policies be present. But if they are, they must not be edited.
+		// Regular, non-built-in policies must not use reserved UI labels for built-in policies.
+		builtin, ok := BuiltinPolicies[n]
+		if ok && !proto.Equal(builtin, policy) {
+			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n), fmt.Sprintf("built-in policy cannot be edited"))
+		}
+		if !ok && policy.Ui["source"] != "" {
+			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, "ui", "source"), fmt.Sprintf("%q label is reserved for built-in policies", "source"))
+		}
+		if !ok && policy.Ui["edit"] != "" {
+			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, "ui", "edit"), fmt.Sprintf("%q label is reserved for built-in policies", "edit"))
 		}
 	}
 

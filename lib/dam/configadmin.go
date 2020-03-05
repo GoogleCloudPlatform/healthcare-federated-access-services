@@ -655,6 +655,9 @@ func (h *configPolicyHandler) Patch(r *http.Request, name string) (proto.Message
 	return nil, nil
 }
 func (h *configPolicyHandler) Remove(r *http.Request, name string) (proto.Message, error) {
+	if _, ok := BuiltinPolicies[name]; ok {
+		return nil, status.Errorf(codes.InvalidArgument, "cannot delete built-in policy %q", name)
+	}
 	delete(h.cfg.Policies, name)
 	h.save = &pb.Policy{}
 	return nil, nil

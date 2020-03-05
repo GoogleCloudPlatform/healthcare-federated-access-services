@@ -566,6 +566,13 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 		{
+			Method:  "DELETE",
+			Path:    "/dam/v1alpha/test/config/policies/whitelist",
+			Persona: "admin",
+			Output:  `*built-in policy*`,
+			Status:  http.StatusBadRequest,
+		},
+		{
 			Method:  "GET",
 			Path:    "/dam/v1alpha/test/config/claimDefinitions/ResearcherStatus",
 			Persona: "admin",
