@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -47,6 +48,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -102,6 +104,7 @@ type Service struct {
 	translators      sync.Map
 	useHydra         bool
 	visaVerifier     *verifier.Verifier
+	scim             *scim.Scim
 }
 
 type ServiceHandler struct {
@@ -180,6 +183,7 @@ func New(r *mux.Router, params *Options) *Service {
 		hydraPublicURL:   params.HydraPublicURL,
 		hydraSyncFreq:    syncFreq,
 		visaVerifier:     verifier.New(""),
+		scim:             scim.New(params.Store),
 	}
 
 	if s.httpClient == nil {
@@ -209,7 +213,7 @@ func New(r *mux.Router, params *Options) *Service {
 	if err != nil {
 		glog.Fatalf("cannot load config: %v", err)
 	}
-	if stat := s.CheckIntegrity(cfg); stat != nil {
+	if stat := s.CheckIntegrity(cfg, storage.DefaultRealm, nil); stat != nil {
 		glog.Fatalf("config integrity error: %+v", stat.Proto())
 	}
 	if err = s.updateWarehouseOptions(cfg.Options, storage.DefaultRealm, nil); err != nil {
@@ -220,7 +224,7 @@ func New(r *mux.Router, params *Options) *Service {
 	}
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
-	if tests := runTests(ctx, cfg, nil, s.ValidateCfgOpts()); hasTestError(tests) {
+	if tests := runTests(ctx, cfg, nil, s.ValidateCfgOpts(storage.DefaultRealm, nil)); hasTestError(tests) {
 		glog.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
 	}
 
@@ -469,7 +473,7 @@ func resolveAccessList(ctx context.Context, id *ga4gh.Identity, resources, views
 	return "OK", got, nil
 }
 
-func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, r *http.Request) []string {
+func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []string, cfg *pb.DamConfig, r *http.Request, vopts ValidateCfgOpts) []string {
 	// Ignore errors as the goal of makeAccessList is to show what is accessible despite any errors.
 	// TODO: consider separating acceptable errors (don't halt the request) from system errors that should return an error code.
 	if id == nil {
@@ -479,7 +483,7 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 			return nil
 		}
 	}
-	_, got, err := resolveAccessList(r.Context(), id, resources, views, roles, cfg, s.ValidateCfgOpts())
+	_, got, err := resolveAccessList(r.Context(), id, resources, views, roles, cfg, vopts)
 	if err != nil {
 		return nil
 	}
@@ -504,6 +508,7 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 	}
 	active := false
 	for _, entry := range entries {
+		// Step 1: validation.
 		view := entry.View
 		res := entry.Res
 		vRole, ok := view.Roles[roleName]
@@ -514,11 +519,26 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 		if err != nil {
 			return errutil.WithErrorType(errCannotResolveServiceRole, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (cannot resolve service role)", resourceName, viewName, roleName))
 		}
+
+		// Step 3: check visa policies.
 		if len(vRole.Policies) == 0 {
 			return errutil.WithErrorType(errNoPolicyDefined, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName))
 		}
+
 		ctxWithTTL := context.WithValue(ctx, validator.RequestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
 		for _, p := range vRole.Policies {
+			if p.Name == whitelistPolicyName {
+				ok, err := checkWhitelist(p.Args, id, cfg, vopts)
+				if err != nil {
+					return errutil.WithErrorType(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (whitelist unavailable): %v", resourceName, viewName, roleName, err))
+				}
+				if !ok {
+					return errutil.WithErrorType(errRejectedPolicy, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (user not on whitelist)", resourceName, viewName, roleName))
+				}
+				active = true
+				continue
+			}
+
 			v, err := buildValidator(ctxWithTTL, p, vRole, cfg)
 			if err != nil {
 				return errutil.WithErrorType(errCannotEnforcePolicies, status.Errorf(codes.PermissionDenied, "cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err))
@@ -539,6 +559,65 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 		return errutil.WithErrorType(errRoleNotEnabled, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not enabled)", resourceName, viewName, roleName))
 	}
 	return nil
+}
+
+func checkWhitelist(args map[string]string, id *ga4gh.Identity, cfg *pb.DamConfig, vopts ValidateCfgOpts) (bool, error) {
+	if id.GA4GH == nil {
+		return false, nil
+	}
+	users := strings.Split(args["users"], ";")
+	if users[0] == "" {
+		users = nil
+	}
+	groups := strings.Split(args["groups"], ";")
+	if groups[0] == "" {
+		groups = nil
+	}
+	for _, email := range extractEmails(id) {
+		// Option 1: the whitelist item is an email address.
+		for _, wl := range users {
+			addr, err := mail.ParseAddress(wl)
+			if err != nil {
+				// Don't expose the email address to the end user, just hint at the problem being the email format.
+				return false, errutil.WithErrorType(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "whitelist contains invalid email addresses"))
+			}
+			if email == addr.Address {
+				return true, nil
+			}
+		}
+		// Option 2: the whitelist item is a group.
+		for _, wl := range groups {
+			member, err := vopts.Scim.LoadGroupMember(wl, email, vopts.Realm, vopts.Tx)
+			if err != nil {
+				return false, errutil.WithErrorType(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "loading group %q member %q failed: %v", wl, email, err))
+			}
+			if member != nil {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func extractEmails(id *ga4gh.Identity) []string {
+	out := []string{}
+	if id.GA4GH == nil {
+		return out
+	}
+	for _, li := range id.GA4GH[string(ga4gh.LinkedIdentities)] {
+		parts := strings.SplitN(li.Value, ",", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		decoded, err := url.QueryUnescape(parts[0])
+		if err != nil || !strings.Contains(decoded, "@") {
+			continue
+		}
+		if addr, err := mail.ParseAddress(decoded); err == nil {
+			out = append(out, addr.Address)
+		}
+	}
+	return out
 }
 
 func resolveAggregates(srcRes *pb.Resource, srcView *pb.View, cfg *pb.DamConfig, tas *adapter.ServiceAdapters) ([]*adapter.AggregateView, error) {
@@ -984,6 +1063,37 @@ func receiveConfigOptions(opts *pb.ConfigOptions, cfg *pb.DamConfig) *pb.ConfigO
 	return out
 }
 
+var (
+	whitelistPolicyName = "whitelist"
+	whitelistPolicy     = &pb.Policy{
+		AnyOf: []*cpb.ConditionSet{{AllOf: []*cpb.Condition{}}},
+		VariableDefinitions: map[string]*pb.VariableFormat{
+			"users": &pb.VariableFormat{
+				Type:     "split_pattern",
+				Regexp:   `^[^@]+@[^@]+\.[^@]+$`,
+				Optional: true,
+				Ui: map[string]string{
+					"label":       "User email addresses",
+					"description": "a set of email addresses to grant access to",
+				},
+			},
+			"groups": &pb.VariableFormat{
+				Type:     "split_pattern",
+				Regexp:   `^[A-Za-z][-_A-Za-z0-9\.]{1,30}[A-Za-z0-9]$`,
+				Optional: true,
+				Ui: map[string]string{
+					"label":       "Group names",
+					"description": "a set of group names to grant access to",
+				},
+			},
+		},
+		Ui: map[string]string{
+			"label":       "Whitelist",
+			"description": "Allow users and groups to be whitelisted for access directly without using visas",
+		},
+	}
+)
+
 func normalizeConfig(cfg *pb.DamConfig) error {
 	if cfg.Clients == nil {
 		cfg.Clients = make(map[string]*cpb.Client)
@@ -991,6 +1101,10 @@ func normalizeConfig(cfg *pb.DamConfig) error {
 	for _, p := range cfg.TestPersonas {
 		sort.Strings(p.Access)
 	}
+	if cfg.Policies == nil {
+		cfg.Policies = make(map[string]*pb.Policy)
+	}
+	cfg.Policies[whitelistPolicyName] = whitelistPolicy
 	return nil
 }
 
@@ -1021,6 +1135,9 @@ func (s *Service) saveConfig(cfg *pb.DamConfig, desc, resType string, r *http.Re
 	}
 	if modification != nil && modification.DryRun {
 		return nil
+	}
+	if cfg.Policies != nil {
+		delete(cfg.Policies, whitelistPolicyName)
 	}
 	cfg.Revision++
 	cfg.CommitTime = float64(time.Now().UnixNano()) / 1e9

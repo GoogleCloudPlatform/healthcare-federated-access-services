@@ -70,7 +70,7 @@ func (s *Service) GetResource(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := pb.GetResourceResponse{
 		Resource: makeResource(name, res, cfg, s.hidePolicyBasis, s.adapters),
-		Access:   s.makeAccessList(nil, []string{name}, nil, nil, cfg, r),
+		Access:   s.makeAccessList(nil, []string{name}, nil, nil, cfg, r, s.ValidateCfgOpts(getRealm(r), nil)),
 	}
 	httputil.WriteResp(w, proto.Message(&resp))
 }
@@ -169,7 +169,7 @@ func (s *Service) GetViews(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := pb.GetViewsResponse{
 		Views:  out,
-		Access: s.makeAccessList(nil, []string{name}, nil, nil, cfg, r),
+		Access: s.makeAccessList(nil, []string{name}, nil, nil, cfg, r, s.ValidateCfgOpts(getRealm(r), nil)),
 	}
 	httputil.WriteResp(w, proto.Message(&resp))
 }
@@ -203,7 +203,7 @@ func (s *Service) GetView(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := pb.GetViewResponse{
 		View:   makeView(viewName, view, res, cfg, s.hidePolicyBasis, s.adapters),
-		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, nil, cfg, r),
+		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, nil, cfg, r, s.ValidateCfgOpts(getRealm(r), nil)),
 	}
 	httputil.WriteResp(w, proto.Message(&resp))
 }
@@ -238,7 +238,7 @@ func (s *Service) GetViewRoles(w http.ResponseWriter, r *http.Request) {
 	out := makeViewRoles(view, res, cfg, s.hidePolicyBasis, s.adapters)
 	resp := pb.GetViewRolesResponse{
 		Roles:  out,
-		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, nil, cfg, r),
+		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, nil, cfg, r, s.ValidateCfgOpts(getRealm(r), nil)),
 	}
 	httputil.WriteResp(w, proto.Message(&resp))
 }
@@ -284,7 +284,7 @@ func (s *Service) GetViewRole(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := pb.GetViewRoleResponse{
 		Role:   role,
-		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, []string{roleName}, cfg, r),
+		Access: s.makeAccessList(nil, []string{name}, []string{viewName}, []string{roleName}, cfg, r, s.ValidateCfgOpts(getRealm(r), nil)),
 	}
 	httputil.WriteResp(w, proto.Message(&resp))
 }

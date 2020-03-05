@@ -39,6 +39,7 @@ type clientService struct {
 	sec  *pb.DamSecrets
 	item *cpb.Client
 	save bool
+	tx   storage.Tx
 }
 
 func (c *clientService) ClientByName(name string) *cpb.Client {
@@ -54,6 +55,7 @@ func (c *clientService) HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Ide
 
 	c.cfg = cfg
 	c.sec = sec
+	c.tx = tx
 	return id, status, err
 }
 
@@ -85,13 +87,14 @@ func (c *clientService) Save(tx storage.Tx, desc, typeName string, r *http.Reque
 }
 
 func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModification) *status.Status {
-	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	realm := getRealm(r)
+	if err := check.CheckReadOnly(realm, c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
 		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := configRevision(toDAMModification(m), c.cfg); err != nil {
 		return httputil.NewStatus(codes.InvalidArgument, err.Error())
 	}
-	if st := c.s.CheckIntegrity(c.cfg); st != nil {
+	if st := c.s.CheckIntegrity(c.cfg, realm, c.tx); st != nil {
 		return st
 	}
 	return nil

@@ -480,7 +480,7 @@ func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identit
 			return nil, http.StatusConflict, fmt.Errorf("cannot authorize resources using different realms")
 		}
 
-		err := checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, s.ValidateCfgOpts())
+		err := checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, s.ValidateCfgOpts(realm, tx))
 		writePolicyDeccisionLog(s.logger, id, r, ttl, err)
 		if err != nil {
 			return nil, httputil.FromError(err), err

@@ -217,32 +217,44 @@ func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[
 			rejected = append(rejected, NewRejectedVisa(d, v.Format(), "iss_missing", "iss", "empty 'iss' field"))
 			continue
 		}
-		typ := string(d.Assertion.Type)
-		c := OldClaim{
-			Value:       string(d.Assertion.Value),
-			Source:      string(d.Assertion.Source),
-			Asserted:    float64(d.Assertion.Asserted),
-			Expires:     float64(d.ExpiresAt),
-			By:          string(d.Assertion.By),
-			Issuer:      d.Issuer,
-			VisaData:    d,
-			TokenFormat: v.Format(),
-		}
+		var cond map[string]OldClaimCondition
 		if len(d.Assertion.Conditions) > 0 {
 			// Conditions on visas are not supported in non-experimental mode.
 			if !globalflags.Experimental {
 				rejected = append(rejected, NewRejectedVisa(d, v.Format(), "condition_not_supported", "visa.condition", "visa conditions not supported"))
 				continue
 			}
-			c.Condition, err = toOldClaimConditions(d.Assertion.Conditions)
+			cond, err = toOldClaimConditions(d.Assertion.Conditions)
 			if err != nil {
 				rejected = append(rejected, NewRejectedVisa(d, v.Format(), "condition_not_supported", "visa.condition", err.Error()))
 				continue
 			}
 		}
-		out[typ] = append(out[typ], c)
+		typ := string(d.Assertion.Type)
+		values := splitVisaValues(d.Assertion.Value, d.Assertion.Type)
+		for _, value := range values {
+			c := OldClaim{
+				Value:       value,
+				Source:      string(d.Assertion.Source),
+				Asserted:    float64(d.Assertion.Asserted),
+				Expires:     float64(d.ExpiresAt),
+				By:          string(d.Assertion.By),
+				Issuer:      d.Issuer,
+				VisaData:    d,
+				TokenFormat: v.Format(),
+				Condition:   cond,
+			}
+			out[typ] = append(out[typ], c)
+		}
 	}
 	return out, rejected, nil
+}
+
+func splitVisaValues(value Value, typ Type) []string {
+	if typ != LinkedIdentities {
+		return []string{string(value)}
+	}
+	return strings.Split(string(value), ";")
 }
 
 func toOldClaimConditions(conditions Conditions) (map[string]OldClaimCondition, error) {

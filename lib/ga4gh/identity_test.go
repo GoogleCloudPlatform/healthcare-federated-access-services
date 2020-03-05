@@ -63,11 +63,19 @@ func testVisaSetup(t *testing.T) []VisaJWT {
 			},
 		},
 	}
+	a4 := Assertion{
+		Type:     LinkedIdentities,
+		Value:    "user1%40example1.org,https%3A%2F%2Foidc.example1.org;user2%40example2.org,https%3A%2F%2Foidc.example2.org",
+		Source:   Source("http://" + string(testkeys.VisaIssuer1) + ".org"),
+		Asserted: 10200,
+		By:       "system",
+	}
 	v1 := newVisa(t, iss0, ID{Issuer: string(testkeys.VisaIssuer0), Subject: "subject1"}, a1)
 	v2 := newVisa(t, iss1, ID{Issuer: string(testkeys.VisaIssuer1), Subject: "subject2"}, a2)
 	v3 := newVisa(t, iss0, ID{Issuer: string(testkeys.VisaIssuer1), Subject: "subject1"}, a3)
+	v4 := newVisa(t, iss0, ID{Issuer: string(testkeys.VisaIssuer1), Subject: "subject1"}, a4)
 
-	return []VisaJWT{v1.JWT(), v2.JWT(), v3.JWT()}
+	return []VisaJWT{v1.JWT(), v2.JWT(), v3.JWT(), v4.JWT()}
 }
 
 func TestVisasToOldClaims(t *testing.T) {
@@ -162,6 +170,44 @@ func TestVisasToOldClaims(t *testing.T) {
 								},
 							},
 						},
+					},
+				},
+				TokenFormat: DocumentVisaFormat,
+			},
+		},
+		string(LinkedIdentities): []OldClaim{
+			{
+				Value:    "user1%40example1.org,https%3A%2F%2Foidc.example1.org",
+				Source:   "http://testkeys-visa-issuer-1.org",
+				By:       "system",
+				Asserted: 10200,
+				Issuer:   string(testkeys.VisaIssuer1),
+				VisaData: &VisaData{
+					StdClaims: StdClaims{Issuer: "testkeys-visa-issuer-1", Subject: "subject1"},
+					Assertion: Assertion{
+						Type:     "LinkedIdentities",
+						Value:    "user1%40example1.org,https%3A%2F%2Foidc.example1.org;user2%40example2.org,https%3A%2F%2Foidc.example2.org",
+						Source:   "http://testkeys-visa-issuer-1.org",
+						By:       "system",
+						Asserted: 10200,
+					},
+				},
+				TokenFormat: DocumentVisaFormat,
+			},
+			{
+				Value:    "user2%40example2.org,https%3A%2F%2Foidc.example2.org",
+				Source:   "http://testkeys-visa-issuer-1.org",
+				By:       "system",
+				Asserted: 10200,
+				Issuer:   string(testkeys.VisaIssuer1),
+				VisaData: &VisaData{
+					StdClaims: StdClaims{Issuer: "testkeys-visa-issuer-1", Subject: "subject1"},
+					Assertion: Assertion{
+						Type:     "LinkedIdentities",
+						Value:    "user1%40example1.org,https%3A%2F%2Foidc.example1.org;user2%40example2.org,https%3A%2F%2Foidc.example2.org",
+						Source:   "http://testkeys-visa-issuer-1.org",
+						By:       "system",
+						Asserted: 10200,
 					},
 				},
 				TokenFormat: DocumentVisaFormat,

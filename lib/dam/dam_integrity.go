@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"regexp"
 	"sort"
 	"strconv"
@@ -32,6 +33,8 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 
@@ -57,18 +60,21 @@ var (
 )
 
 // CheckIntegrity returns an error status if the config is invalid.
-func (s *Service) CheckIntegrity(cfg *pb.DamConfig) *status.Status {
-	return ValidateDAMConfig(cfg, s.ValidateCfgOpts())
+func (s *Service) CheckIntegrity(cfg *pb.DamConfig, realm string, tx storage.Tx) *status.Status {
+	return ValidateDAMConfig(cfg, s.ValidateCfgOpts(realm, tx))
 }
 
 // ValidateCfgOpts returns the options for checking validity of configuration.
-func (s *Service) ValidateCfgOpts() ValidateCfgOpts {
+func (s *Service) ValidateCfgOpts(realm string, tx storage.Tx) ValidateCfgOpts {
 	return ValidateCfgOpts{
 		Services:         s.adapters,
 		DefaultBroker:    s.defaultBroker,
 		RoleCategories:   s.roleCategories,
 		HidePolicyBasis:  s.hidePolicyBasis,
 		HideRejectDetail: s.hideRejectDetail,
+		Scim:             s.scim,
+		Realm:            realm,
+		Tx:               tx,
 	}
 }
 
@@ -79,6 +85,9 @@ type ValidateCfgOpts struct {
 	RoleCategories   map[string]*pb.RoleCategory
 	HidePolicyBasis  bool
 	HideRejectDetail bool
+	Scim             *scim.Scim
+	Realm            string
+	Tx               storage.Tx
 }
 
 // ValidateDAMConfig checks that the provided config is valid.
@@ -387,22 +396,39 @@ func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName s
 		if len(role.ComputedPolicyBasis) > 0 {
 			return httputil.StatusPath(rname, "policyBasis"), fmt.Errorf("role %q policyBasis should be determined at runtime and cannot be stored as part of the config", rname)
 		}
-		if role.Policies != nil {
-			for i, p := range role.Policies {
-				if len(p.Name) == 0 {
-					return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("access policy name is not defined")
+		if len(role.Policies) > 20 {
+			return httputil.StatusPath(rname, "policies"), fmt.Errorf("role exceeeds policy limit")
+		}
+		hasWhitelist := false
+		for i, p := range role.Policies {
+			if len(p.Name) == 0 {
+				return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("access policy name is not defined")
+			}
+			if p.Name == whitelistPolicyName {
+				hasWhitelist = true
+				emails := strings.Split(p.Args["users"], ";")
+				if len(emails) > 20 {
+					return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "args", "users"), fmt.Errorf("number of emails on whitelist policy exceeeds limit")
 				}
-				policy, ok := cfg.Policies[p.Name]
-				if !ok {
-					return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("policy %q is not defined", p.Name)
+				for j, email := range emails {
+					if _, err := mail.ParseAddress(email); err != nil {
+						return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "args", "users"), fmt.Errorf("email entry %d (%q) is invalid", j, email)
+					}
 				}
-				if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, p.Args); err != nil {
-					return httputil.StatusPath(rname, "policies", strconv.Itoa(i), path), err
-				}
+			}
+			policy, ok := cfg.Policies[p.Name]
+			if !ok {
+				return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("policy %q is not defined", p.Name)
+			}
+			if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, p.Args); err != nil {
+				return httputil.StatusPath(rname, "policies", strconv.Itoa(i), path), err
 			}
 		}
 		if len(role.Policies) == 0 && !desc.Properties.IsAggregate {
-			return httputil.StatusPath(rname, "policies"), fmt.Errorf("must provice at least one target policy")
+			return httputil.StatusPath(rname, "policies"), fmt.Errorf("must provide at least one target policy")
+		}
+		if hasWhitelist && len(role.Policies) > 1 {
+			return httputil.StatusPath(rname, "policies"), fmt.Errorf("whitelist policies cannot be used in combination with any other policies")
 		}
 	}
 	return "", nil

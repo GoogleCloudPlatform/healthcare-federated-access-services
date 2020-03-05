@@ -988,8 +988,7 @@ func setupAuthorizationTest(t *testing.T) *authTestContext {
 		HydraPublicURL: hydraPublicURL,
 	})
 
-	realm := "master"
-	cfg, err := s.loadConfig(nil, realm)
+	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
 		t.Fatalf("cannot load config, %v", err)
 	}
@@ -1020,7 +1019,7 @@ func setupAuthorizationTest(t *testing.T) *authTestContext {
 
 func TestCheckAuthorization(t *testing.T) {
 	auth := setupAuthorizationTest(t)
-	err := checkAuthorization(auth.ctx, auth.id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err := checkAuthorization(auth.ctx, auth.id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if err != nil {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, http.StatusOK, err)
 	}
@@ -1039,7 +1038,7 @@ func TestCheckAuthorization_UntrustedIssuer(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
@@ -1057,7 +1056,7 @@ func TestCheckAuthorization_ResourceNotFound(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.NotFound {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
 	}
@@ -1075,7 +1074,7 @@ func TestCheckAuthorization_ResourceViewNotFoound(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.NotFound {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
 	}
@@ -1093,7 +1092,7 @@ func TestCheckAuthorization_ResolveAggregatesFail(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
@@ -1111,7 +1110,7 @@ func TestCheckAuthorization_RoleNotAvailable(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
@@ -1129,7 +1128,7 @@ func TestCheckAuthorization_CannotResolveServiceRole(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
@@ -1147,7 +1146,7 @@ func TestCheckAuthorization_NoPolicyDefined(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
@@ -1166,7 +1165,7 @@ func TestCheckAuthorization_CannotEnforcePolicies(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
@@ -1184,12 +1183,55 @@ func TestCheckAuthorization_RejectedPolicy(t *testing.T) {
 		t.Fatalf("unable to obtain passport identity: %v", err)
 	}
 
-	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts())
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
 	if errutil.ErrorType(err) != errRejectedPolicy {
 		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errRejectedPolicy)
+	}
+}
+
+func TestCheckAuthorization_Whitelist(t *testing.T) {
+	auth := setupAuthorizationTest(t)
+	auth.resource = "dataset_example"
+
+	id, err := auth.dam.populateIdentityVisas(auth.ctx, auth.id, auth.cfg)
+	if err != nil {
+		t.Fatalf("unable to obtain passport identity: %v", err)
+	}
+
+	// Establish rejection due to not meeting policy.
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
+	if status.Code(err) != codes.PermissionDenied {
+		t.Errorf("setup checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
+	}
+	if errutil.ErrorType(err) != errRejectedPolicy {
+		t.Errorf("setup errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errRejectedPolicy)
+	}
+
+	// Now try again with being on the whitelist.
+	auth.cfg.Resources[auth.resource].Views[auth.view].Roles[auth.role].Policies = []*pb.ViewRole_ViewPolicy{{
+		Name: whitelistPolicyName,
+		Args: map[string]string{
+			"users": "abc@example.org;dr_joe@faculty.example.edu;foo@bar.org",
+		},
+	}}
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
+	if err != nil {
+		t.Errorf("whitelist by email: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, err)
+	}
+
+	// Use group membership whitelist
+	auth.cfg.Resources[auth.resource].Views[auth.view].Roles[auth.role].Policies = []*pb.ViewRole_ViewPolicy{{
+		Name: whitelistPolicyName,
+		Args: map[string]string{
+			"groups": "whitelisted",
+		},
+	}}
+	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
+	if err != nil {
+		t.Errorf("whitelist by group membership: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, err)
 	}
 }
 

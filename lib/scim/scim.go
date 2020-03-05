@@ -26,6 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
+	spb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2" /* copybara-comment: go_proto */
 )
 
 const (
@@ -128,6 +129,32 @@ func (s *Scim) SaveAccount(oldAcct, newAcct *cpb.Account, desc string, r *http.R
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil
+}
+
+// LoadGroup loads a user group.
+func (s *Scim) LoadGroup(name, realm string, tx storage.Tx) (*spb.Group, error) {
+	group := &spb.Group{}
+	st, err := s.readTx(storage.GroupDatatype, realm, name, storage.DefaultID, storage.LatestRev, group, tx)
+	if err != nil {
+		if st == http.StatusNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("loading group %q failed: %v", name, err)
+	}
+	return group, nil
+}
+
+// LoadGroupMember loads a user membership record as part of a group.
+func (s *Scim) LoadGroupMember(groupName, memberName, realm string, tx storage.Tx) (*spb.Member, error) {
+	member := &spb.Member{}
+	st, err := s.readTx(storage.GroupMemberDatatype, realm, groupName, memberName, storage.LatestRev, member, tx)
+	if err != nil {
+		if st == http.StatusNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("loading group %q member %q failed: %v", groupName, memberName, err)
+	}
+	return member, nil
 }
 
 func (s *Scim) readTx(datatype, realm, user, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {

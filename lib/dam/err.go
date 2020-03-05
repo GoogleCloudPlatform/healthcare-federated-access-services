@@ -65,4 +65,5 @@ const (
 	errCannotValidateIdentity   = "dam:check_auth:cannot_validate_identity"
 	errRejectedPolicy           = "dam:check_auth:rejected_policy"
 	errRoleNotEnabled           = "dam:check_auth:role_not_enabled"
+	errWhitelistUnavailable     = "dam:chdck_auth:whitelist_unavailable"
 )

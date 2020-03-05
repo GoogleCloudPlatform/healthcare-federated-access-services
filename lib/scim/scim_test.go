@@ -152,3 +152,64 @@ func TestLookupAccount_Error(t *testing.T) {
 		t.Fatalf("LookupAccount(%q, %q, true, nil) status code mismatch: got %d, not want %d", user, realm, st, http.StatusOK)
 	}
 }
+
+func TestLoadGroup(t *testing.T) {
+	groupName := "whitelisted"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	group, err := s.LoadGroup(groupName, realm, nil)
+	if err != nil {
+		t.Fatalf("LoadGroup(%q, %q, nil) failed: %v", groupName, realm, err)
+	}
+	if group == nil {
+		t.Fatalf("LoadGroup(%q, %q, nil) = (%+v, _) group not found", groupName, realm, group)
+	}
+	want := "whitelisted"
+	if group.Id != want {
+		t.Fatalf("LoadGroup(%q, %q, nil) = (%+v, _) ID mismatch: got %q, want %q", groupName, realm, group, group.Id, want)
+	}
+}
+
+func TestLoadGroup_NotFound(t *testing.T) {
+	groupName := "not_exists"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	group, err := s.LoadGroup(groupName, realm, nil)
+	if err != nil {
+		t.Fatalf("LoadGroup(%q, %q, nil) failed: %v", groupName, realm, err)
+	}
+	if group != nil {
+		t.Fatalf("LoadGroup(%q, %q, nil) = (%+v, _) expected nil group", groupName, realm, group)
+	}
+}
+
+func TestLoadGroupMember(t *testing.T) {
+	groupName := "whitelisted"
+	memberName := "dr_joe@faculty.example.edu"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	member, err := s.LoadGroupMember(groupName, memberName, realm, nil)
+	if err != nil {
+		t.Fatalf("LoadGroupMember(%q, %q, %q, nil) failed: %v", groupName, memberName, realm, err)
+	}
+	if member == nil {
+		t.Fatalf("LoadGroupMember(%q, %q, %q, nil) = (%+v, _) group member not found", groupName, memberName, realm, member)
+	}
+	if member.Value != memberName {
+		t.Fatalf("LoadGroupMember(%q, %q, %q, nil) = (%+v, _) value mismatch: got %q, want %q", groupName, memberName, realm, member, member.Value, memberName)
+	}
+}
+
+func TestLoadGroupMember_NotFound(t *testing.T) {
+	groupName := "whitelisted"
+	memberName := "no_exists@faculty.example.edu"
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	member, err := s.LoadGroupMember(groupName, memberName, realm, nil)
+	if err != nil {
+		t.Fatalf("LoadGroupMember(%q, %q, %q, nil) failed: %v", groupName, memberName, realm, err)
+	}
+	if member != nil {
+		t.Fatalf("LoadGroupMember(%q, %q, %q, nil) = (%+v, _) expected nil member", groupName, memberName, realm, member)
+	}
+}

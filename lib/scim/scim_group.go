@@ -89,6 +89,7 @@ type GroupHandler struct {
 	save  *spb.Group
 	input *spb.Group
 	patch *spb.Patch
+	scim  *Scim
 	store storage.Store
 	tx    storage.Tx
 }
@@ -97,6 +98,7 @@ type GroupHandler struct {
 func NewGroupHandler(store storage.Store) *GroupHandler {
 	return &GroupHandler{
 		store: store,
+		scim:  New(store),
 		item:  &spb.Group{},
 	}
 }
@@ -124,9 +126,12 @@ func (h *GroupHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
 
 // LookupItem looks up the item in the storage layer.
 func (h *GroupHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
-	if err := h.store.ReadTx(storage.GroupDatatype, getRealm(r), name, storage.DefaultID, storage.LatestRev, h.item, h.tx); err != nil {
+	group, err := h.scim.LoadGroup(name, getRealm(r), h.tx)
+	if err != nil || group == nil {
 		return false
 	}
+
+	h.item = group
 	return true
 }
 

@@ -35,7 +35,7 @@ const (
 func TestCheckIntegrity_FileConfig(t *testing.T) {
 	s, cfg := setupFromFile(t)
 	glog.Infof("DAMConfig: %v", cfg)
-	if err := s.CheckIntegrity(cfg).Err(); err != nil {
+	if err := s.CheckIntegrity(cfg, storage.DefaultRealm, nil).Err(); err != nil {
 		t.Errorf("CheckIntegrity(cfg) error: %v", err)
 	}
 }
@@ -95,7 +95,7 @@ func TestCheckIntegrity_BadCfg(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			s, cfg := setupFromFile(t)
 			tc.mutation(cfg)
-			if got := s.CheckIntegrity(cfg).Code(); got != tc.want {
+			if got := s.CheckIntegrity(cfg, storage.DefaultRealm, nil).Code(); got != tc.want {
 				t.Errorf("CheckIntegrity(cfg).Code() = %v, want %v", got, tc.want)
 			}
 		})

@@ -16,6 +16,7 @@ package persona
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -174,9 +175,10 @@ func ToIdentity(name string, persona *cpb.TestPersona, scope, visaIssuer string)
 		nickname = strings.Split(toName(name), " ")[0]
 	}
 
+	email := getStandardClaim(persona, "email")
 	identity := ga4gh.Identity{
 		Subject:         sub,
-		Email:           getStandardClaim(persona, "email"),
+		Email:           email,
 		Issuer:          iss,
 		Expiry:          time.Now().Add(180 * 24 * time.Hour).Unix(),
 		Scope:           scope,
@@ -192,6 +194,21 @@ func ToIdentity(name string, persona *cpb.TestPersona, scope, visaIssuer string)
 		Locale:          getStandardClaim(persona, "locale"),
 		Picture:         getStandardClaim(persona, "picture"),
 		Profile:         getStandardClaim(persona, "profile"),
+	}
+
+	if email != "" {
+		if persona.Passport.Ga4GhAssertions == nil {
+			persona.Passport.Ga4GhAssertions = []*cpb.Assertion{}
+		}
+		assert := &cpb.Assertion{
+			Type:             "LinkedIdentities",
+			Value:            url.QueryEscape(email) + "," + url.QueryEscape(visaIssuer),
+			Source:           visaIssuer,
+			By:               "system",
+			AssertedDuration: "30d",
+			ExpiresDuration:  "30d",
+		}
+		persona.Passport.Ga4GhAssertions = append(persona.Passport.Ga4GhAssertions, assert)
 	}
 	if persona.Passport.Ga4GhAssertions == nil || len(persona.Passport.Ga4GhAssertions) == 0 {
 		return &identity, nil

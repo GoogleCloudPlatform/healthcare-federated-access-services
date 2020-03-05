@@ -18,10 +18,10 @@
       "tokenUrl": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oauth2/token"
     },
     "ic_visa": {
-      "issuer": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/oidc",
+      "issuer": "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/visas",
       "ui": {
         "label": "IC visa",
-        "description": "IC visa issuer"
+        "description": "IC visa issuer for LinkedIdentities"
       }
     },
     "persona_broker": {

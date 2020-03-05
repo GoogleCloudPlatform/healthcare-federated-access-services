@@ -111,7 +111,7 @@ func (h *configHandler) Remove(r *http.Request, name string) (proto.Message, err
 	return nil, fmt.Errorf("DELETE not allowed")
 }
 func (h *configHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.save, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.save, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if err := h.s.saveConfig(h.save, desc, typeName, r, h.id, h.cfg, h.save, h.input.Modification, tx); err != nil {
@@ -208,7 +208,7 @@ func (h *configOptionsHandler) Remove(r *http.Request, name string) (proto.Messa
 	return nil, fmt.Errorf("DELETE not allowed")
 }
 func (h *configOptionsHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configOptionsHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	if err := h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx); err != nil {
@@ -303,7 +303,7 @@ func (h *configResourceHandler) Remove(r *http.Request, name string) (proto.Mess
 	return nil, nil
 }
 func (h *configResourceHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configResourceHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -402,7 +402,7 @@ func (h *configViewHandler) Remove(r *http.Request, name string) (proto.Message,
 	return nil, nil
 }
 func (h *configViewHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configViewHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -487,7 +487,7 @@ func (h *configIssuerHandler) Remove(r *http.Request, name string) (proto.Messag
 	return nil, nil
 }
 func (h *configIssuerHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configIssuerHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -574,7 +574,7 @@ func (h *configSourceHandler) Remove(r *http.Request, name string) (proto.Messag
 	return nil, nil
 }
 func (h *configSourceHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configSourceHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -660,7 +660,7 @@ func (h *configPolicyHandler) Remove(r *http.Request, name string) (proto.Messag
 	return nil, nil
 }
 func (h *configPolicyHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configPolicyHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -745,7 +745,7 @@ func (h *configVisaTypeHandler) Remove(r *http.Request, name string) (proto.Mess
 	return nil, nil
 }
 func (h *configVisaTypeHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configVisaTypeHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -838,7 +838,7 @@ func (h *configServiceTemplateHandler) Remove(r *http.Request, name string) (pro
 	return nil, nil
 }
 func (h *configServiceTemplateHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configServiceTemplateHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
@@ -934,7 +934,7 @@ func (h *configPersonaHandler) Remove(r *http.Request, name string) (proto.Messa
 	return nil, nil
 }
 func (h *configPersonaHandler) CheckIntegrity(r *http.Request) *status.Status {
-	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts())
+	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configPersonaHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
