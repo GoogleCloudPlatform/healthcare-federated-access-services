@@ -53,8 +53,8 @@ message Token {
   // Format: `tokens/{token_id}`.
   string name = 1;
 
-  // string issuer = 2 [json_name = "iss"];
-  // string subject = 4 [json_name = "sub"];
+  string issuer = 2 [json_name = "iss"];
+  string subject = 3 [json_name = "sub"];
   string audience = 4 [json_name = "aud"];
   int64 expires_at = 5 [json_name = "exp"];
   // int64 not_before = 6 [json_name = "nbf"];
@@ -79,6 +79,9 @@ message Token {
   //   client_id:
   //   client_desc: description of the client.
   map<string, string> metadata = 12;
+
+  // type of the token, used to distinguish tokens from different platforms.
+  string type = 13;
 }
 
 message Client {

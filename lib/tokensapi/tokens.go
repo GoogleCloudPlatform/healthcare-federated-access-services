@@ -92,6 +92,9 @@ func (s *StubTokens) ListTokens(_ context.Context, req *tpb.ListTokensRequest) (
 // TODO: move these fakes to test file once implemented.
 var FakeToken = &tpb.Token{
 	Name:      "fake-token",
+	Issuer:    "fake-issuer",
+	Audience:  "fake-audience",
+	Subject:   "fake-subject",
 	IssuedAt:  1573850929,
 	ExpiresAt: 1573847329,
 	Scope:     "fake-scope",
@@ -104,9 +107,11 @@ var FakeToken = &tpb.Token{
 	Metadata: map[string]string{
 		"client_desc": "fake-client-ui-description",
 	},
+	Type: "fake-type",
 }
 
 const fakeTokenJSON = `{
+  "aud": "fake-audience",
   "client": {
     "description": "fake-client-description",
     "id": "fake-client-id",
@@ -114,10 +119,13 @@ const fakeTokenJSON = `{
   },
  	"exp": "1573847329",
  	"iat": "1573850929",
+	"iss": "fake-issuer",
   "metadata": {
     "client_desc": "fake-client-ui-description"
   },
   "name": "fake-token",
   "scope": "fake-scope",
-  "target": "fake-target"
+	"sub": "fake-subject",
+  "target": "fake-target",
+	"type": "fake-type"
 }`
