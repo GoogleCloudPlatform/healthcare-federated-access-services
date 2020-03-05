@@ -153,11 +153,11 @@ func NewService(params *Options) *Service {
 func New(r *mux.Router, params *Options) *Service {
 	var roleCat pb.DamRoleCategoriesResponse
 	if err := srcutil.LoadProto("deploy/metadata/dam_roles.json", &roleCat); err != nil {
-		glog.Fatalf("cannot load role categories file %q: %v", "deploy/metadata/dam_roles.json", err)
+		glog.Exitf("cannot load role categories file %q: %v", "deploy/metadata/dam_roles.json", err)
 	}
 	perms, err := permissions.LoadPermissions(params.Store)
 	if err != nil {
-		glog.Fatalf("cannot load permissions: %v", err)
+		glog.Exitf("cannot load permissions: %v", err)
 	}
 	syncFreq := time.Minute
 	if params.HydraSyncFreq > 0 {
@@ -193,40 +193,40 @@ func New(r *mux.Router, params *Options) *Service {
 
 	exists, err := configExists(params.Store)
 	if err != nil {
-		glog.Fatalf("cannot use storage layer: %v", err)
+		glog.Exitf("cannot use storage layer: %v", err)
 	}
 	if !exists {
 		if err = ImportConfig(params.Store, params.ServiceName, params.Warehouse, nil); err != nil {
-			glog.Fatalf("cannot import configs to service %q: %v", params.ServiceName, err)
+			glog.Exitf("cannot import configs to service %q: %v", params.ServiceName, err)
 		}
 	}
 	secrets, err := s.loadSecrets(nil)
 	if err != nil {
-		glog.Fatalf("cannot load client secrets: %v", err)
+		glog.Exitf("cannot load client secrets: %v", err)
 	}
 	adapters, err := adapter.CreateAdapters(params.Store, params.Warehouse, secrets)
 	if err != nil {
-		glog.Fatalf("cannot load adapters: %v", err)
+		glog.Exitf("cannot load adapters: %v", err)
 	}
 	s.adapters = adapters
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
-		glog.Fatalf("cannot load config: %v", err)
+		glog.Exitf("cannot load config: %v", err)
 	}
 	if stat := s.CheckIntegrity(cfg, storage.DefaultRealm, nil); stat != nil {
-		glog.Fatalf("config integrity error: %+v", stat.Proto())
+		glog.Exitf("config integrity error: %+v", stat.Proto())
 	}
 	if err = s.updateWarehouseOptions(cfg.Options, storage.DefaultRealm, nil); err != nil {
-		glog.Fatalf("setting service account config options failed (cannot enforce access management policies): %v", err)
+		glog.Exitf("setting service account config options failed (cannot enforce access management policies): %v", err)
 	}
 	if err = s.registerAllProjects(nil); err != nil {
-		glog.Fatalf("registation of one or more service account projects failed (cannot enforce access management policies): %v", err)
+		glog.Exitf("registation of one or more service account projects failed (cannot enforce access management policies): %v", err)
 	}
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
 	if tests := runTests(ctx, cfg, nil, s.ValidateCfgOpts(storage.DefaultRealm, nil)); hasTestError(tests) {
-		glog.Fatalf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
+		glog.Exitf("run tests error: %v; results: %v; modification: <%v>", tests.Error, tests.TestResults, tests.Modification)
 	}
 
 	for name, cfgTpi := range cfg.TrustedIssuers {
