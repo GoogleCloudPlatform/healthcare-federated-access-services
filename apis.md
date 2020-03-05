@@ -90,11 +90,13 @@ The following implements a subset of [SCIM V2 API](https://tools.ietf.org/html/r
    [SCIM V2 User Resource Schema](https://tools.ietf.org/html/rfc7643#section-4.1).
 *  "/identity/scim/v2/{realm}/Me": based on the
    [SCIM V2 Me Authenticated Subject Alias](https://tools.ietf.org/html/rfc7644#section-3.11).
+*  "/identity/scim/v2/{realm}/Groups": user group management, based on
+   [SCIM V2 Group Resource Schema](https://tools.ietf.org/html/rfc7643#section-4.2).
 
 SCIM-like endpoints have the following user management limitations:
 
-*  See "proto/scim/v2/users.proto" for details of the structure that is
-   supported.
+*  See "proto/scim/v2/users.proto" and "proto/scim/v2/groups.proto" for details
+   of the structure that is supported.
 *  Account management updates require the `account_admin` scope on the access
    token.
 *  A [limited subset of filters](#scim-filters) is available.
@@ -263,6 +265,15 @@ They require "admin" permission access token unless otherwise noted below.
 *  "/dam/v1alpha/{realm}/config/reset": resets the config to its initial version read from configuration file.
 *  "/dam/v1alpha/{realm}/config/history": history of configuration changes.
 *  /dam/v1alpha/{realm}/tests": performs a set of tests for validity of the current configuration.
+
+### Users, Tokens, and Consents Management Endpoints
+
+The following implements a subset of [SCIM V2 API](https://tools.ietf.org/html/rfc7644#section-3.2).
+
+*  "/identity/scim/v2/{realm}/Groups": user group management, based on
+   [SCIM V2 Group Resource Schema](https://tools.ietf.org/html/rfc7643#section-4.2).
+
+See the IC's SCIM notes for limitations of use that also apply to the DAM.
 
 ### Non-Admin Configuration Endpoints
 

@@ -78,6 +78,10 @@ const (
 	configHistoryPath         = "/dam/v1alpha/{realm}/config/history"
 	configHistoryRevisionPath = "/dam/v1alpha/{realm}/config/history/{name}"
 
+	// Part of SCIM V2 for managing groups. See "proto/scim/v2/groups.proto"
+	scimGroupsPath = "/identity/scim/v2/{realm}/Groups"
+	scimGroupPath  = "/identity/scim/v2/{realm}/Groups/{name}"
+
 	// testPath: performs a set of tests for validity of the current configuration.
 	// TODO: remove and perform tests at the time of config update and reject
 	// update if it would put the configuration in an invalid state.

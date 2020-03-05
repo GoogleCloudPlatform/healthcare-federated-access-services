@@ -99,3 +99,28 @@ message Member {
   // OIDC "sub" or similar depending on the protocol used for the identity.
   string extension_subject = 6 [json_name = "subject"];
 }
+
+// Response for ListUsers per https://tools.ietf.org/html/rfc7644#section-3.4.2
+message ListGroupsResponse {
+  // List of SCIM User resources.
+  repeated Group resources = 1 [json_name = "Resources"];
+
+  // Index of the first element of the page.
+  uint32 start_index = 2;
+
+  // Number of items in current page.
+  uint32 items_per_page = 3;
+
+  // Number of results matched for this query.
+  uint32 total_results = 4;
+
+  // The schemas attribute is an array of Strings which allows introspection of
+  // the supported schema version for a SCIM representation as well any schema
+  // extensions supported by that representation. Each String value must be a
+  // unique URI. This specification defines URIs for User, Group, and a standard
+  // "enterprise" extension. All representations of SCIM schema MUST include a
+  // non-zero value array with value(s) of the URIs supported by that
+  // representation. Duplicate values MUST NOT be included. Value order is not
+  // specified and MUST not impact behavior. REQUIRED.
+  repeated string schemas = 5;
+}

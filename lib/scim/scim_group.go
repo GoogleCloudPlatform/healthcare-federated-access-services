@@ -36,7 +36,7 @@ import (
 
 var (
 	scimGroupFilterMap = map[string]func(p proto.Message) string{
-		"displayName": func(p proto.Message) string {
+		"displayname": func(p proto.Message) string {
 			return groupProto(p).DisplayName
 		},
 		"id": func(p proto.Message) string {
@@ -65,6 +65,18 @@ var (
 		},
 	}
 
+	scimGroupsFilterMap = map[string]func(p proto.Message) string{
+		"displayname": func(p proto.Message) string {
+			return groupProto(p).DisplayName
+		},
+		"id": func(p proto.Message) string {
+			return groupProto(p).Id
+		},
+		"externalid": func(p proto.Message) string {
+			return groupProto(p).ExternalId
+		},
+	}
+
 	groupMemberRegexps = map[string]*regexp.Regexp{
 		"value": regexp.MustCompile(`[^/\\@]+@[^/\\@]+\.[^/\\@]{2,20}$`),
 	}
@@ -78,7 +90,7 @@ func GroupFactory(store storage.Store, groupPath string) *handlerfactory.Options
 	return &handlerfactory.Options{
 		TypeName:            "group",
 		PathPrefix:          groupPath,
-		HasNamedIdentifiers: false,
+		HasNamedIdentifiers: true,
 		Service:             NewGroupHandler(store),
 	}
 }
@@ -377,6 +389,135 @@ func (h *GroupHandler) normalizeMember(member *spb.Member) error {
 	}
 	return nil
 }
+
+////////////////////////////////////////////////////////////
+
+// GroupsFactory creates handlers for group requests.
+func GroupsFactory(store storage.Store, path string) *handlerfactory.Options {
+	return &handlerfactory.Options{
+		TypeName:            "groups",
+		PathPrefix:          path,
+		HasNamedIdentifiers: false,
+		Service:             NewGroupsHandler(store),
+	}
+}
+
+// GroupsHandler handles SCIM group requests.
+type GroupsHandler struct {
+	scim  *Scim
+	store storage.Store
+	tx    storage.Tx
+}
+
+// NewGroupsHandler handles the SCIM groups request.
+func NewGroupsHandler(store storage.Store) *GroupsHandler {
+	return &GroupsHandler{
+		store: store,
+		scim:  New(store),
+	}
+}
+
+// Setup sets up the handler.
+func (h *GroupsHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	r.ParseForm()
+	h.tx = tx
+	return http.StatusOK, nil
+}
+
+// LookupItem returns true if the named object is found.
+func (h *GroupsHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
+	return true
+}
+
+// NormalizeInput sets up basic structure of request input objects if absent.
+func (h *GroupsHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	return nil
+}
+
+// Get is a GET request.
+func (h *GroupsHandler) Get(r *http.Request, name string) (proto.Message, error) {
+	filters, err := storage.BuildFilters(httputil.QueryParam(r, "filter"), scimGroupsFilterMap)
+	if err != nil {
+		return nil, err
+	}
+	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
+	start := httputil.QueryParamInt(r, "startIndex")
+	if start == 0 {
+		start = 1
+	}
+	offset := start - 1
+	// "count" is the number of results desired on this request's page.
+	max := httputil.QueryParamInt(r, "count")
+	if len(httputil.QueryParam(r, "count")) == 0 {
+		max = storage.DefaultPageSize
+	}
+
+	m := make(map[string]map[string]proto.Message)
+	count, err := h.store.MultiReadTx(storage.GroupDatatype, getRealm(r), storage.DefaultUser, filters, offset, max, m, &spb.Group{}, h.tx)
+	if err != nil {
+		return nil, err
+	}
+
+	groups := make(map[string]*spb.Group)
+	names := []string{}
+	for _, u := range m {
+		for _, v := range u {
+			if group, ok := v.(*spb.Group); ok {
+				groups[group.Id] = group
+				names = append(names, group.Id)
+			}
+		}
+	}
+	sort.Strings(names)
+	var list []*spb.Group
+	for _, name := range names {
+		list = append(list, groups[name])
+	}
+
+	if max < count {
+		max = count
+	}
+	resp := &spb.ListGroupsResponse{
+		Schemas:      []string{scimListSchema},
+		TotalResults: uint32(offset + count),
+		ItemsPerPage: uint32(len(list)),
+		StartIndex:   uint32(start),
+		Resources:    list,
+	}
+	return resp, nil
+}
+
+// Post is a POST request.
+func (h *GroupsHandler) Post(r *http.Request, name string) (proto.Message, error) {
+	return nil, fmt.Errorf("POST not allowed")
+}
+
+// Put is a PUT request.
+func (h *GroupsHandler) Put(r *http.Request, name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PUT not allowed")
+}
+
+// Patch is a PATCH request.
+func (h *GroupsHandler) Patch(r *http.Request, name string) (proto.Message, error) {
+	return nil, fmt.Errorf("PATCH not allowed")
+}
+
+// Remove is a DELETE request.
+func (h *GroupsHandler) Remove(r *http.Request, name string) (proto.Message, error) {
+	return nil, fmt.Errorf("DELETE not allowed")
+}
+
+// CheckIntegrity checks that any modifications make sense before applying them.
+func (h *GroupsHandler) CheckIntegrity(*http.Request) *status.Status {
+	return nil
+}
+
+// Save will save any modifications done for the request.
+func (h *GroupsHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return nil
+}
+
+////////////////////////////////////////////////////////////
 
 func memberProto(p proto.Message) *spb.Member {
 	member, ok := p.(*spb.Member)

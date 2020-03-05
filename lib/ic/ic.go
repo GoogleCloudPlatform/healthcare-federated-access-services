@@ -1739,6 +1739,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 
 	// scim service endpoints
 	r.HandleFunc(scimGroupPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupFactory(s.GetStore(), scimGroupPath)), checker, auth.RequireAdminToken))
+	r.HandleFunc(scimGroupsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupsFactory(s.GetStore(), scimGroupsPath)), checker, auth.RequireAdminToken))
 	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.MeFactory(s.GetStore(), s.getDomainURL(), scimMePath)), checker, auth.RequireAccountAdminUserToken))
 	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UserFactory(s.GetStore(), s.getDomainURL(), scimUserPath)), checker, auth.RequireAccountAdminUserToken))
 	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.getDomainURL(), scimUsersPath)), checker, auth.RequireAdminToken))

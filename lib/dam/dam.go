@@ -1375,6 +1375,10 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(processesPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processesFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(processPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processFactory()), checker, auth.RequireAdminToken))
 
+	// scim service endpoints
+	r.HandleFunc(scimGroupPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupFactory(s.GetStore(), scimGroupPath)), checker, auth.RequireAdminToken))
+	r.HandleFunc(scimGroupsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupsFactory(s.GetStore(), scimGroupsPath)), checker, auth.RequireAdminToken))
+
 	// hydra related oidc endpoints
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
