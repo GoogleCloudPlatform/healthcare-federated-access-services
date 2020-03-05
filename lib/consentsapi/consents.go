@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ic
+package consentsapi
 
 import (
 	"context"
@@ -56,22 +56,26 @@ func (h *ConsentsHandler) ListConsents(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResp(w, resp)
 }
 
-type stubConsents struct {
-	consent *cpb.Consent
+// StubConsents is a stub implementation.
+type StubConsents struct {
+	Consent *cpb.Consent
 }
 
-func (s *stubConsents) DeleteConsent(_ context.Context, req *cpb.DeleteConsentRequest) (*epb.Empty, error) {
+// DeleteConsent revokes a consent.
+func (s *StubConsents) DeleteConsent(_ context.Context, req *cpb.DeleteConsentRequest) (*epb.Empty, error) {
 	glog.Infof("DeleteConsent %v", req)
 	return &epb.Empty{}, nil
 }
 
-func (s *stubConsents) ListConsents(_ context.Context, req *cpb.ListConsentsRequest) (*cpb.ListConsentsResponse, error) {
+// ListConsents lists the consents.
+func (s *StubConsents) ListConsents(_ context.Context, req *cpb.ListConsentsRequest) (*cpb.ListConsentsResponse, error) {
 	glog.Infof("ListConsents %v", req)
-	return &cpb.ListConsentsResponse{Consents: []*cpb.Consent{s.consent}}, nil
+	return &cpb.ListConsentsResponse{Consents: []*cpb.Consent{s.Consent}}, nil
 }
 
+// FakeConsent is a fake consent.
 // TODO: move these fakes to test file once implemented.
-var fakeConsent = &cpb.Consent{
+var FakeConsent = &cpb.Consent{
 	Name:       "consents/fake-consent",
 	User:       "fake-user",
 	Client:     "fake-client",

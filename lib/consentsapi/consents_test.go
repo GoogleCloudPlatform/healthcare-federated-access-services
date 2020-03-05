@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ic
+package consentsapi
 
 import (
 	"net/http"
@@ -27,7 +27,7 @@ import (
 )
 
 func TestListConsents(t *testing.T) {
-	ts := NewConsentsHandler(&stubConsents{consent: fakeConsent})
+	ts := NewConsentsHandler(&StubConsents{Consent: FakeConsent})
 	s := httptest.NewServer(http.HandlerFunc(ts.ListConsents))
 	defer s.Close()
 
@@ -43,7 +43,7 @@ func TestListConsents(t *testing.T) {
 	got := &cpb.ListConsentsResponse{}
 	httputil.MustDecodeJSONPBResp(t, resp, got)
 
-	want := &cpb.ListConsentsResponse{Consents: []*cpb.Consent{fakeConsent}}
+	want := &cpb.ListConsentsResponse{Consents: []*cpb.Consent{FakeConsent}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("ListConsents(%s) returned diff (-want +got):\n%s", name, diff)
 	}

@@ -44,6 +44,7 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/consentsapi" /* copybara-comment: consentsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
@@ -55,6 +56,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/tokensapi" /* copybara-comment: tokensapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -1742,15 +1744,15 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.getDomainURL(), scimUsersPath)), checker, auth.RequireAdminToken))
 
 	// token service endpoints
-	tokens := &stubTokens{token: fakeToken}
-	r.HandleFunc(tokensPath, auth.MustWithAuth(NewTokensHandler(tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, auth.MustWithAuth(NewTokensHandler(tokens).GetToken, checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, auth.MustWithAuth(NewTokensHandler(tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	tokens := &tokensapi.StubTokens{Token: tokensapi.FakeToken}
+	r.HandleFunc(tokensPath, auth.MustWithAuth(tokensapi.NewTokensHandler(tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(tokensapi.NewTokensHandler(tokens).GetToken, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(tokensapi.NewTokensHandler(tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// consents service endpoints
-	consents := &stubConsents{consent: fakeConsent}
-	r.HandleFunc(consentsPath, auth.MustWithAuth(NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(consentPath, auth.MustWithAuth(NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
+	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// legacy endpoints
 	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminClaimsFactory()), checker, auth.RequireAdminToken))

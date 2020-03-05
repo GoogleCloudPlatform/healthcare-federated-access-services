@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ic
+package tokensapi
 
 import (
 	"context"
@@ -65,27 +65,32 @@ func (h *TokensHandler) ListTokens(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteResp(w, resp)
 }
 
-type stubTokens struct {
-	token *tpb.Token
+// StubTokens is a stub implementation.
+type StubTokens struct {
+	Token *tpb.Token
 }
 
-func (s *stubTokens) GetToken(_ context.Context, req *tpb.GetTokenRequest) (*tpb.Token, error) {
+// GetToken returns the token.
+func (s *StubTokens) GetToken(_ context.Context, req *tpb.GetTokenRequest) (*tpb.Token, error) {
 	glog.Infof("GetToken %v", req)
-	return s.token, nil
+	return s.Token, nil
 }
 
-func (s *stubTokens) DeleteToken(_ context.Context, req *tpb.DeleteTokenRequest) (*epb.Empty, error) {
+// DeleteToken revokes a token.
+func (s *StubTokens) DeleteToken(_ context.Context, req *tpb.DeleteTokenRequest) (*epb.Empty, error) {
 	glog.Infof("DeleteToken %v", req)
 	return &epb.Empty{}, nil
 }
 
-func (s *stubTokens) ListTokens(_ context.Context, req *tpb.ListTokensRequest) (*tpb.ListTokensResponse, error) {
+// ListTokens lists the tokens.
+func (s *StubTokens) ListTokens(_ context.Context, req *tpb.ListTokensRequest) (*tpb.ListTokensResponse, error) {
 	glog.Infof("ListTokens %v", req)
-	return &tpb.ListTokensResponse{Tokens: []*tpb.Token{s.token}}, nil
+	return &tpb.ListTokensResponse{Tokens: []*tpb.Token{s.Token}}, nil
 }
 
+// FakeToken is a fake token.
 // TODO: move these fakes to test file once implemented.
-var fakeToken = &tpb.Token{
+var FakeToken = &tpb.Token{
 	Name:      "fake-token",
 	IssuedAt:  1573850929,
 	ExpiresAt: 1573847329,

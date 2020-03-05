@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ic
+package tokensapi
 
 import (
 	"io/ioutil"
@@ -29,7 +29,7 @@ import (
 )
 
 func TestGetToken(t *testing.T) {
-	ts := NewTokensHandler(&stubTokens{token: fakeToken})
+	ts := NewTokensHandler(&StubTokens{Token: FakeToken})
 	s := httptest.NewServer(http.HandlerFunc(ts.GetToken))
 	defer s.Close()
 
@@ -45,14 +45,14 @@ func TestGetToken(t *testing.T) {
 	got := &tpb.Token{}
 	httputil.MustDecodeJSONPBResp(t, resp, got)
 
-	want := fakeToken
+	want := FakeToken
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("GetToken(%s) returned diff (-want +got):\n%s", name, diff)
 	}
 }
 
 func TestListTokens(t *testing.T) {
-	ts := NewTokensHandler(&stubTokens{token: fakeToken})
+	ts := NewTokensHandler(&StubTokens{Token: FakeToken})
 	s := httptest.NewServer(http.HandlerFunc(ts.ListTokens))
 	defer s.Close()
 
@@ -68,14 +68,14 @@ func TestListTokens(t *testing.T) {
 	got := &tpb.ListTokensResponse{}
 	httputil.MustDecodeJSONPBResp(t, resp, got)
 
-	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{fakeToken}}
+	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{FakeToken}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("ListTokens(%s) returned diff (-want +got):\n%s", name, diff)
 	}
 }
 
 func TestTokenJSONFormat(t *testing.T) {
-	ts := NewTokensHandler(&stubTokens{token: fakeToken})
+	ts := NewTokensHandler(&StubTokens{Token: FakeToken})
 	s := httptest.NewServer(http.HandlerFunc(ts.GetToken))
 	defer s.Close()
 
