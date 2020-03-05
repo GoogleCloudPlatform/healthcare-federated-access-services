@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 )
 
 // GetLoginRequest fetches information on a login request.
@@ -185,16 +185,16 @@ func putURL(hydraAdminURL, flow, action, challenge string) string {
 }
 
 func httpResponse(resp *http.Response, response interface{}) error {
-	if httputil.IsHTTPError(resp.StatusCode) {
+	if httputils.IsHTTPError(resp.StatusCode) {
 		gErr := &hydraapi.GenericError{}
-		if err := httputil.DecodeJSON(resp.Body, gErr); err != nil {
+		if err := httputils.DecodeJSON(resp.Body, gErr); err != nil {
 			return err
 		}
 		// TODO: figure out what error from hydra should handle.
 		return gErr
 	}
 
-	return httputil.DecodeJSON(resp.Body, response)
+	return httputils.DecodeJSON(resp.Body, response)
 }
 
 func httpPut(client *http.Client, url string, request interface{}, response interface{}) error {

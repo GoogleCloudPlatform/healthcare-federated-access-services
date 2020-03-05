@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
@@ -58,8 +58,8 @@ func main() {
 	page = strings.ReplaceAll(page, "${HYDRA_URL}", hydraURL)
 	page = strings.ReplaceAll(page, "${DAM_URL}", damURL)
 
-	http.HandleFunc("/test", httputil.NewPageHandler(page))
-	http.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
+	http.HandleFunc("/test", httputils.NewPageHandler(page))
+	http.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(
 		http.Dir(srcutil.Path(staticDirectory)))))
 

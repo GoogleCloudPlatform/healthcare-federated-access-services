@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -232,45 +232,45 @@ func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.VisaType, sources map
 	for i, any := range policy.AnyOf {
 		for j, clause := range any.AllOf {
 			if err := validateVisaType(clause.Type, defs); err != nil {
-				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "type"), err
+				return httputils.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "type"), err
 			}
 			if _, err := expandSources(clause.Type, clause.Source, sources); err != nil {
-				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "source"), err
+				return httputils.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "source"), err
 			}
 			if _, err := expandValues(clause.Value, valArgs); err != nil {
-				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
+				return httputils.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}
 			valArgs, err := strutil.ExtractVariables(clause.Value)
 			if err != nil {
-				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
+				return httputils.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "value"), err
 			}
 			for arg := range valArgs {
 				usedArgs[arg] = true
 			}
 			if _, err := expandBy(clause.By); err != nil {
-				return httputil.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "by"), err
+				return httputils.StatusPath("anyOf", strconv.Itoa(i), "allOf", strconv.Itoa(j), "by"), err
 			}
 		}
 	}
 	for name, v := range policy.VariableDefinitions {
 		if len(v.Regexp) == 0 {
-			return httputil.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("regular expression not specified")
+			return httputils.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("regular expression not specified")
 		}
 		re, err := regexp.Compile(v.Regexp)
 		if err != nil {
-			return httputil.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("invalid regular expression: %v", err)
+			return httputils.StatusPath("variableDefinitions", name, "regexp"), fmt.Errorf("invalid regular expression: %v", err)
 		}
 		if args != nil {
 			arg, ok := args[name]
 			if !ok {
-				return httputil.StatusPath("variableDefinitions", name), fmt.Errorf("variable not provided")
+				return httputils.StatusPath("variableDefinitions", name), fmt.Errorf("variable not provided")
 			}
 			if !re.Match([]byte(arg)) {
-				return httputil.StatusPath("variableDefinitions", name), fmt.Errorf("variable value %q invalid format", arg)
+				return httputils.StatusPath("variableDefinitions", name), fmt.Errorf("variable value %q invalid format", arg)
 			}
 		}
 		if v.Ui == nil || v.Ui["description"] == "" {
-			return httputil.StatusPath("variableDefinitions", name, "ui", "description"), fmt.Errorf("description not provided")
+			return httputils.StatusPath("variableDefinitions", name, "ui", "description"), fmt.Errorf("description not provided")
 		}
 	}
 
@@ -280,20 +280,20 @@ func ValidatePolicy(policy *pb.Policy, defs map[string]*pb.VisaType, sources map
 	}
 	for arg := range usedArgs {
 		if len(policy.VariableDefinitions) == 0 {
-			return httputil.StatusPath(prefix, arg), fmt.Errorf("policy does not use variables")
+			return httputils.StatusPath(prefix, arg), fmt.Errorf("policy does not use variables")
 		}
 		if _, ok := policy.VariableDefinitions[arg]; !ok {
-			return httputil.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
+			return httputils.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
 		}
 		if args != nil {
 			if _, ok := args[arg]; !ok {
-				return httputil.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
+				return httputils.StatusPath(prefix, arg), fmt.Errorf("undefined variable")
 			}
 		}
 	}
 	for arg := range args {
 		if _, ok := usedArgs[arg]; !ok {
-			return httputil.StatusPath(prefix, arg), fmt.Errorf("unused variable")
+			return httputils.StatusPath(prefix, arg), fmt.Errorf("unused variable")
 		}
 	}
 	return "", nil

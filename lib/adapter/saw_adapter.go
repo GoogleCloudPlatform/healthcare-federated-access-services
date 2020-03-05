@@ -20,7 +20,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -80,7 +80,7 @@ func (a *SawAdapter) IsAggregator() bool {
 // CheckConfig validates that a new configuration is compatible with this adapter.
 func (a *SawAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *ServiceAdapters) (string, error) {
 	if cfg.Options == nil || len(cfg.Options.GcpServiceAccountProject) == 0 {
-		return httputil.StatusPath("serviceTemplates", templateName, "targetAdapter"), fmt.Errorf("service adapter uses service accounts but options.gcpServiceAccountProject is not defined")
+		return httputils.StatusPath("serviceTemplates", templateName, "targetAdapter"), fmt.Errorf("service adapter uses service accounts but options.gcpServiceAccountProject is not defined")
 	}
 	return "", nil
 }

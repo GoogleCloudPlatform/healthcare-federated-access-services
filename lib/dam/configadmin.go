@@ -26,7 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -69,7 +69,7 @@ func (h *configHandler) LookupItem(r *http.Request, name string, vars map[string
 	return true
 }
 func (h *configHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -174,7 +174,7 @@ func (h *configOptionsHandler) LookupItem(r *http.Request, name string, vars map
 	return true
 }
 func (h *configOptionsHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -264,7 +264,7 @@ func (h *configResourceHandler) LookupItem(r *http.Request, name string, vars ma
 	return true
 }
 func (h *configResourceHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -364,7 +364,7 @@ func (h *configViewHandler) LookupItem(r *http.Request, name string, vars map[st
 	return true
 }
 func (h *configViewHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -451,7 +451,7 @@ func (h *configIssuerHandler) LookupItem(r *http.Request, name string, vars map[
 	return true
 }
 func (h *configIssuerHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -536,7 +536,7 @@ func (h *configSourceHandler) LookupItem(r *http.Request, name string, vars map[
 	return true
 }
 func (h *configSourceHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -623,7 +623,7 @@ func (h *configPolicyHandler) LookupItem(r *http.Request, name string, vars map[
 	return true
 }
 func (h *configPolicyHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -712,7 +712,7 @@ func (h *configVisaTypeHandler) LookupItem(r *http.Request, name string, vars ma
 	return true
 }
 func (h *configVisaTypeHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -797,7 +797,7 @@ func (h *configServiceTemplateHandler) LookupItem(r *http.Request, name string, 
 	return true
 }
 func (h *configServiceTemplateHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -890,7 +890,7 @@ func (h *configPersonaHandler) LookupItem(r *http.Request, name string, vars map
 	return true
 }
 func (h *configPersonaHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {
@@ -949,9 +949,9 @@ func (h *configPersonaHandler) Save(r *http.Request, tx storage.Tx, name string,
 func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 	h, sts, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 	}
-	httputil.WriteResp(w, h)
+	httputils.WriteResp(w, h)
 }
 
 // ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
@@ -959,25 +959,25 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 	name := getName(r)
 	rev, err := strconv.ParseInt(name, 10, 64)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "invalid history revision: %q (must be a positive integer)", name))
+		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "invalid history revision: %q (must be a positive integer)", name))
 		return
 	}
 	cfg := &pb.DamConfig{}
 	if sts, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 		return
 	}
-	httputil.WriteResp(w, cfg)
+	httputils.WriteResp(w, cfg)
 }
 
 // ConfigReset implements the corresponding method in the DAM API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.Wipe(storage.AllRealms); err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 	if err := ImportConfig(s.store, s.serviceName, s.warehouse, nil); err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 
@@ -985,18 +985,18 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if s.useHydra {
 		conf, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
-			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		secrets, err := s.loadSecrets(nil)
 		if err != nil {
-			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		if _, err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0, nil); err != nil {
-			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 	}
@@ -1006,11 +1006,11 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 func (s *Service) ConfigTestPersonas(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 	out := &pb.GetTestPersonasResponse{
 		Personas: cfg.TestPersonas,
 	}
-	httputil.WriteResp(w, out)
+	httputils.WriteResp(w, out)
 }

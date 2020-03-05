@@ -25,7 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -126,15 +126,15 @@ func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, 
 func GetItemVariables(adapters *ServiceAdapters, adapterName string, item *pb.View_Item) (map[string]string, string, error) {
 	desc, ok := adapters.Descriptors[adapterName]
 	if !ok {
-		return nil, httputil.StatusPath("ServiceAdapter"), fmt.Errorf("target adapter %q is undefined", adapterName)
+		return nil, httputils.StatusPath("ServiceAdapter"), fmt.Errorf("target adapter %q is undefined", adapterName)
 	}
 	for varname, val := range item.Args {
 		v, ok := desc.ItemVariables[varname]
 		if !ok {
-			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target service %q variable %q is undefined", adapterName, varname)
+			return nil, httputils.StatusPath("vars", varname), fmt.Errorf("target service %q variable %q is undefined", adapterName, varname)
 		}
 		if !globalflags.Experimental && v.Experimental {
-			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target service %q variable %q is for experimental use only, not for use in this environment", adapterName, varname)
+			return nil, httputils.StatusPath("vars", varname), fmt.Errorf("target service %q variable %q is for experimental use only, not for use in this environment", adapterName, varname)
 		}
 		if len(val) == 0 {
 			// Treat empty input the same as not provided so long as the variable name is valid.
@@ -146,7 +146,7 @@ func GetItemVariables(adapters *ServiceAdapters, adapterName string, item *pb.Vi
 			continue
 		}
 		if !re.Match([]byte(val)) {
-			return nil, httputil.StatusPath("vars", varname), fmt.Errorf("target adapter %q variable %q value %q does not match expected regexp", adapterName, varname, val)
+			return nil, httputils.StatusPath("vars", varname), fmt.Errorf("target adapter %q variable %q value %q does not match expected regexp", adapterName, varname, val)
 		}
 	}
 	return item.Args, "", nil

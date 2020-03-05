@@ -24,7 +24,7 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -177,7 +177,7 @@ func (c *adminClientHandler) LookupItem(r *http.Request, name string, vars map[s
 
 func (c *adminClientHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
 	c.input = &pb.ConfigClientRequest{}
-	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {

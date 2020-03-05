@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
@@ -149,7 +149,7 @@ func CheckUI(ui map[string]string, requireDescription bool) (string, error) {
 	}
 
 	if label := ui["label"]; len(label) == 0 {
-		return httputil.StatusPath("ui", "label"), fmt.Errorf("UI object missing %q field", "label")
+		return httputils.StatusPath("ui", "label"), fmt.Errorf("UI object missing %q field", "label")
 	}
 
 	if !requireDescription {
@@ -157,7 +157,7 @@ func CheckUI(ui map[string]string, requireDescription bool) (string, error) {
 	}
 
 	if desc := ui["description"]; len(desc) == 0 {
-		return httputil.StatusPath("ui", "description"), fmt.Errorf("UI object missing %q field", "description")
+		return httputils.StatusPath("ui", "description"), fmt.Errorf("UI object missing %q field", "description")
 	}
 
 	return "", nil

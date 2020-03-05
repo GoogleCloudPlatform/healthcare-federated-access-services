@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -69,7 +69,7 @@ func (h *TokensHandler) LookupItem(r *http.Request, name string, vars map[string
 
 // NormalizeInput normalizes.
 func (h *TokensHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	return httputil.DecodeProtoReq(h.input, r)
+	return httputils.DecodeProtoReq(h.input, r)
 }
 
 // Get gets.
@@ -159,7 +159,7 @@ func (h *TokenHandler) LookupItem(r *http.Request, name string, vars map[string]
 
 // NormalizeInput normalizes.
 func (h *TokenHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	return httputil.DecodeProtoReq(h.input, r)
+	return httputils.DecodeProtoReq(h.input, r)
 }
 
 // Get gets.

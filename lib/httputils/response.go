@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package httputil
+package httputils
 
 // This file contains the utilities for working with http.Response.
 
@@ -74,7 +74,7 @@ func DecodeJSON(r io.Reader, v interface{}) error {
 func MustDecodeJSONPBResp(t *testing.T, resp *http.Response, m proto.Message) {
 	t.Helper()
 	if err := DecodeJSONPB(resp.Body, m); err != nil {
-		t.Fatalf("httputil.DecodeJSON(%v, %T) failed: %v", resp, m, err)
+		t.Fatalf("httputils.DecodeJSON(%v, %T) failed: %v", resp, m, err)
 	}
 }
 
@@ -83,6 +83,6 @@ func MustDecodeJSONPBResp(t *testing.T, resp *http.Response, m proto.Message) {
 func MustDecodeJSONResp(t *testing.T, resp *http.Response, v interface{}) {
 	t.Helper()
 	if err := DecodeJSON(resp.Body, v); err != nil {
-		t.Fatalf("httputil.DecodeJSON(%v, %T) failed: %v", resp, v, err)
+		t.Fatalf("httputils.DecodeJSON(%v, %T) failed: %v", resp, v, err)
 	}
 }

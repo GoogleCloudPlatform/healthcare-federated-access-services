@@ -32,7 +32,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -66,7 +66,7 @@ func extractBearerToken(r *http.Request) (string, error) {
 }
 
 func extractAuthCode(r *http.Request) (string, error) {
-	code := httputil.QueryParam(r, "code")
+	code := httputils.QueryParam(r, "code")
 	if len(code) != 0 {
 		return code, nil
 	}
@@ -105,7 +105,7 @@ func extractTTL(maxAgeStr, ttlStr string) (time.Duration, error) {
 }
 
 func responseKeyFile(r *http.Request) bool {
-	return httputil.QueryParam(r, "response_type") == "key-file-type"
+	return httputils.QueryParam(r, "response_type") == "key-file-type"
 }
 
 func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceName, viewName, role string, ttl time.Duration, useKeyFile bool, id *ga4gh.Identity, cfg *pb.DamConfig, res *pb.Resource, view *pb.View) (*pb.ResourceResults_ResourceAccess, int, error) {
@@ -152,7 +152,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 		return nil, http.StatusServiceUnavailable, err
 	}
 
-	if httputil.IsJSON(result.TokenFormat) && result.Credentials != nil {
+	if httputils.IsJSON(result.TokenFormat) && result.Credentials != nil {
 		return &pb.ResourceResults_ResourceAccess{
 			Credentials: map[string]string{"key_file": result.Credentials["json"]},
 		}, http.StatusOK, nil
@@ -483,7 +483,7 @@ func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identit
 		err := checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, s.ValidateCfgOpts(realm, tx))
 		writePolicyDeccisionLog(s.logger, id, r, ttl, err)
 		if err != nil {
-			return nil, httputil.FromError(err), err
+			return nil, httputils.FromError(err), err
 		}
 	}
 
@@ -523,10 +523,10 @@ func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.Resourc
 func (s *Service) ResourceTokens(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.fetchResourceTokens(r)
 	if err != nil {
-		httputil.WriteError(w, err)
+		httputils.WriteError(w, err)
 		return
 	}
-	httputil.WriteResp(w, resp)
+	httputils.WriteResp(w, resp)
 }
 
 func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, ferr error) {
@@ -586,7 +586,7 @@ func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, f
 
 		result, st, err := s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, time.Duration(state.Ttl), keyFile, id, cfg, res, view)
 		if err != nil {
-			return nil, status.Errorf(httputil.RPCCode(st), "%v", err)
+			return nil, status.Errorf(httputils.RPCCode(st), "%v", err)
 		}
 		access := strconv.Itoa(i)
 
@@ -639,18 +639,18 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	code, err := extractAuthCode(r)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
 
-	stateID := httputil.QueryParam(r, "state")
+	stateID := httputils.QueryParam(r, "state")
 	if len(stateID) == 0 {
-		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "request must include state"))
+		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "request must include state"))
 	}
 
 	out, sts, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 		return
 	}
 
@@ -664,5 +664,5 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteError(w, status.Errorf(codes.Unimplemented, "oidc service not supported"))
+	httputils.WriteError(w, status.Errorf(codes.Unimplemented, "oidc service not supported"))
 }

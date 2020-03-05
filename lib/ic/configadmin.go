@@ -25,7 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
@@ -62,7 +62,7 @@ func (c *config) LookupItem(r *http.Request, name string, vars map[string]string
 	return true
 }
 func (c *config) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -107,19 +107,19 @@ func (c *config) Remove(r *http.Request, name string) (proto.Message, error) {
 func (c *config) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
 	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if len(c.input.Item.Version) == 0 {
-		return httputil.NewStatus(bad, "missing config version")
+		return httputils.NewStatus(bad, "missing config version")
 	}
 	if c.input.Item.Revision <= 0 {
-		return httputil.NewStatus(bad, "invalid config revision")
+		return httputils.NewStatus(bad, "invalid config revision")
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.input.Item); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func (c *configIDP) LookupItem(r *http.Request, name string, vars map[string]str
 	return false
 }
 func (c *configIDP) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -223,13 +223,13 @@ func (c *configIDP) Remove(r *http.Request, name string) (proto.Message, error) 
 func (c *configIDP) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
 	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	return nil
 }
@@ -281,7 +281,7 @@ func (c *configOptions) LookupItem(r *http.Request, name string, vars map[string
 }
 
 func (c *configOptions) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	if c.input.Item == nil {
@@ -323,13 +323,13 @@ func (c *configOptions) Remove(r *http.Request, name string) (proto.Message, err
 func (c *configOptions) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
 	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	return nil
 }
@@ -354,14 +354,14 @@ func (s *Service) ConfigHistory(w http.ResponseWriter, r *http.Request) {
 	// TODO: consider requiring an "admin" scope (modify all admin handlerSetup calls).
 	_, _, _, sts, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 		return
 	}
 	h, sts, err := storage.GetHistory(s.store, storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, r)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 	}
-	httputil.WriteResp(w, h)
+	httputils.WriteResp(w, h)
 }
 
 // ConfigHistoryRevision implements the HistoryRevisionConfig RPC method.
@@ -369,35 +369,35 @@ func (s *Service) ConfigHistoryRevision(w http.ResponseWriter, r *http.Request) 
 	name := getName(r)
 	rev, err := strconv.ParseInt(name, 10, 64)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "invalid history revision: %q (must be a positive integer)", name))
+		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "invalid history revision: %q (must be a positive integer)", name))
 		return
 	}
 	_, _, _, sts, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 		return
 	}
 	cfg := &pb.IcConfig{}
 	if sts, err := s.realmReadTx(storage.ConfigDatatype, getRealm(r), storage.DefaultUser, storage.DefaultID, rev, cfg, nil); err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 		return
 	}
-	httputil.WriteResp(w, cfg)
+	httputils.WriteResp(w, cfg)
 }
 
 // ConfigReset implements the corresponding method in the IC API.
 func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	_, _, _, sts, err := s.handlerSetup(nil, r, noScope, nil)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(httputil.RPCCode(sts), "%v", err))
+		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 		return
 	}
 	if err = s.store.Wipe(storage.AllRealms); err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 	if err = ImportConfig(s.store, s.serviceName, nil); err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Internal, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
 
@@ -405,18 +405,18 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 	if s.useHydra {
 		conf, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
-			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		secrets, err := s.loadSecrets(nil)
 		if err != nil {
-			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 
 		if _, err := s.syncToHydra(conf.Clients, secrets.ClientSecrets, 0, nil); err != nil {
-			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
 	}

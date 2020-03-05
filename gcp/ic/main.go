@@ -28,7 +28,7 @@ import (
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
@@ -127,7 +127,7 @@ func main() {
 		HydraPublicURL: hydraPublicAddr,
 	})
 
-	r.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
+	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)
 
 	srv := server.New("ic", port, s.Handler)
 	srv.ServeUnblock()

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package httputil
+package httputils
 
 import (
 	"net/http"
@@ -30,7 +30,7 @@ import (
 // 	  req := &fpb.GetFooRequest{Name: r.RequestURI}
 // 	  resp, err := fooServer.GetFoo(r.Context(), req)
 //    if err != nil {
-//      httputil.WriteError(w, err)
+//      httputils.WriteError(w, err)
 //    }
 // 	  WriteResp(w, resp)
 //  }

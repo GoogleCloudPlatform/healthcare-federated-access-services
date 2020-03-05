@@ -24,7 +24,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
@@ -81,13 +81,13 @@ func (c *clientService) Save(tx storage.Tx, desc, typeName string, r *http.Reque
 
 func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModification) *status.Status {
 	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
-		return httputil.NewStatus(codes.InvalidArgument, err.Error())
+		return httputils.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := configRevision(toICModification(m), c.cfg); err != nil {
-		return httputil.NewStatus(codes.InvalidArgument, err.Error())
+		return httputils.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := c.s.checkConfigIntegrity(c.cfg); err != nil {
-		return httputil.NewStatus(codes.InvalidArgument, err.Error())
+		return httputils.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	return nil
 }

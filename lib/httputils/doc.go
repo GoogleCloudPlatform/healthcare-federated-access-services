@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package httputil contains utilities for handling HTTP requests.
-package httputil
+// Package httputils contains utilities for handling HTTP requests.
+package httputils

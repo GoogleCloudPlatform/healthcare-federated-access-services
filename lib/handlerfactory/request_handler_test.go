@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakestore" /* copybara-comment: fakestore */
 
@@ -67,11 +67,11 @@ func Test_HTTPHandler_Get(t *testing.T) {
 		t.Errorf("store.Write() failed: %v", err)
 	}
 
-	req := httputil.MustNewReq(http.MethodGet, "https://example.org/durations/fake-duration-id", nil)
-	got := httputil.NewFakeWriter()
+	req := httputils.MustNewReq(http.MethodGet, "https://example.org/durations/fake-duration-id", nil)
+	got := httputils.NewFakeWriter()
 	h.ServeHTTP(got, req)
 
-	want := &httputil.FakeWriter{
+	want := &httputils.FakeWriter{
 		Headers: http.Header{
 			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
 			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
@@ -99,11 +99,11 @@ func Test_HTTPHandler_Get_NotFound(t *testing.T) {
 	}
 	h := MakeHandler(s, hf)
 
-	req := httputil.MustNewReq(http.MethodGet, "https://example.org/durations/fake-duration-id", nil)
-	got := httputil.NewFakeWriter()
+	req := httputils.MustNewReq(http.MethodGet, "https://example.org/durations/fake-duration-id", nil)
+	got := httputils.NewFakeWriter()
 	h.ServeHTTP(got, req)
 
-	want := &httputil.FakeWriter{
+	want := &httputils.FakeWriter{
 		Headers: http.Header{
 			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
 			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
@@ -132,11 +132,11 @@ func Test_HTTPHandler_Post(t *testing.T) {
 	}
 	h := MakeHandler(s, hf)
 
-	req := httputil.MustNewReq(http.MethodPost, "https://example.org/durations/fake-duration-id", httputil.MustEncodeProto(&dpb.Duration{Seconds: 60}))
-	got := httputil.NewFakeWriter()
+	req := httputils.MustNewReq(http.MethodPost, "https://example.org/durations/fake-duration-id", httputils.MustEncodeProto(&dpb.Duration{Seconds: 60}))
+	got := httputils.NewFakeWriter()
 	h.ServeHTTP(got, req)
 
-	want := &httputil.FakeWriter{
+	want := &httputils.FakeWriter{
 		Headers: http.Header{
 			"Access-Control-Allow-Headers": {"Content-Type, Origin, Accept, Authorization, X-Link-Authorization"},
 			"Access-Control-Allow-Methods": {"GET,POST,PUT,PATCH,DELETE,OPTIONS"},
@@ -180,11 +180,11 @@ func Test_HTTPHandler_Delete(t *testing.T) {
 		t.Errorf("store.Write() failed: %v", err)
 	}
 
-	req := httputil.MustNewReq(http.MethodDelete, "https://example.org/durations/fake-duration-id", nil)
-	got := httputil.NewFakeWriter()
+	req := httputils.MustNewReq(http.MethodDelete, "https://example.org/durations/fake-duration-id", nil)
+	got := httputils.NewFakeWriter()
 	h.ServeHTTP(got, req)
 
-	want := &httputil.FakeWriter{
+	want := &httputils.FakeWriter{
 		Headers: http.Header{},
 	}
 	if diff := cmp.Diff(got, want); diff != "" {
@@ -240,7 +240,7 @@ func (s *fakeService) Post(r *http.Request, name string) (proto.Message, error) 
 	vars := extractVars(r)
 	glog.Infof("Post: name = %v vars = %+v", name, vars)
 	d := &dpb.Duration{}
-	if err := httputil.DecodeProtoReq(d, r); err != nil {
+	if err := httputils.DecodeProtoReq(d, r); err != nil {
 		return nil, err
 	}
 	err := s.store.WriteTx("resource", "master", "user", vars["duration"], storage.LatestRev, d, nil, s.tx)

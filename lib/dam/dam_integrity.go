@@ -31,7 +31,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
@@ -94,7 +94,7 @@ type ValidateCfgOpts struct {
 // ValidateDAMConfig checks that the provided config is valid.
 func ValidateDAMConfig(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	if vopts.Services == nil {
-		return httputil.NewStatus(codes.Unavailable, "services not loaded")
+		return httputils.NewStatus(codes.Unavailable, "services not loaded")
 	}
 	if st := checkBasicIntegrity(cfg, vopts); st != nil {
 		return st
@@ -108,16 +108,16 @@ func ValidateDAMConfig(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status 
 func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	for n, ti := range cfg.TrustedIssuers {
 		if err := checkName(n); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n), err.Error())
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, n), err.Error())
 		}
 		if !isHTTPS(ti.Issuer) && !isLocalhost(ti.Issuer) {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n, "issuer"), "trusted identity must have an issuer of type HTTPS")
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, n, "issuer"), "trusted identity must have an issuer of type HTTPS")
 		}
 		if _, ok := translators[ti.TranslateUsing]; !ok && len(ti.TranslateUsing) > 0 {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n, "translateUsing"), fmt.Sprintf("trusted identity with unknown translator %q", ti.TranslateUsing))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, n, "translateUsing"), fmt.Sprintf("trusted identity with unknown translator %q", ti.TranslateUsing))
 		}
 		if path, err := check.CheckUI(ti.Ui, true); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, n, path), fmt.Sprintf("trusted passport issuer UI settings: %v", err))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, n, path), fmt.Sprintf("trusted passport issuer UI settings: %v", err))
 		}
 		if stat := checkTrustedIssuerClientCredentials(n, vopts.DefaultBroker, ti, vopts); stat != nil {
 			return stat
@@ -126,44 +126,44 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 
 	for n, ts := range cfg.TrustedSources {
 		if err := checkName(n); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n), err.Error())
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n), err.Error())
 		}
 		for i, source := range ts.Sources {
 			if !isHTTPS(source) {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "sources", strconv.Itoa(i)), "trusted source URL must be HTTPS")
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n, "sources", strconv.Itoa(i)), "trusted source URL must be HTTPS")
 			}
 		}
 		for i, visa := range ts.VisaTypes {
 			if _, ok := cfg.VisaTypes[visa]; !ok {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("visa name %q not found in visa type definitions", visa))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("visa name %q not found in visa type definitions", visa))
 			}
 		}
 		if path, err := check.CheckUI(ts.Ui, true); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedSources, n, path), fmt.Sprintf("trusted sources UI settings: %v", err))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n, path), fmt.Sprintf("trusted sources UI settings: %v", err))
 		}
 	}
 
 	for n, policy := range cfg.Policies {
 		if err := checkName(n); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n), err.Error())
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgPolicies, n), err.Error())
 		}
 		if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, nil); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, path), err.Error())
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgPolicies, n, path), err.Error())
 		}
 		if path, err := check.CheckUI(policy.Ui, true); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, path), fmt.Sprintf("policies UI settings: %v", err))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgPolicies, n, path), fmt.Sprintf("policies UI settings: %v", err))
 		}
 		// Note: there is no requirement that built-in policies be present. But if they are, they must not be edited.
 		// Regular, non-built-in policies must not use reserved UI labels for built-in policies.
 		builtin, ok := BuiltinPolicies[n]
 		if ok && !proto.Equal(builtin, policy) {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n), fmt.Sprintf("built-in policy cannot be edited"))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgPolicies, n), fmt.Sprintf("built-in policy cannot be edited"))
 		}
 		if !ok && policy.Ui["source"] != "" {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, "ui", "source"), fmt.Sprintf("%q label is reserved for built-in policies", "source"))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgPolicies, n, "ui", "source"), fmt.Sprintf("%q label is reserved for built-in policies", "source"))
 		}
 		if !ok && policy.Ui["edit"] != "" {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgPolicies, n, "ui", "edit"), fmt.Sprintf("%q label is reserved for built-in policies", "edit"))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgPolicies, n, "ui", "edit"), fmt.Sprintf("%q label is reserved for built-in policies", "edit"))
 		}
 	}
 
@@ -175,15 +175,15 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 
 	for n, res := range cfg.Resources {
 		if err := checkName(n); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, n), err.Error())
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, n), err.Error())
 		}
 		for i, item := range res.Clients {
 			if _, ok := cfg.Clients[item]; !ok {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, n, "clients", strconv.Itoa(i)), fmt.Sprintf("client %q does not exist", item))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, n, "clients", strconv.Itoa(i)), fmt.Sprintf("client %q does not exist", item))
 			}
 		}
 		if len(res.MaxTokenTtl) > 0 && !ttlRE.Match([]byte(res.MaxTokenTtl)) {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, n, "maxTokenTtl"), "max token TTL invalid format")
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, n, "maxTokenTtl"), "max token TTL invalid format")
 		}
 		for vn, view := range res.Views {
 			if stat := checkViewIntegrity(vn, view, n, res, cfg, vopts); stat != nil {
@@ -191,7 +191,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 			}
 		}
 		if path, err := check.CheckUI(res.Ui, true); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, n, path), fmt.Sprintf("resource UI settings: %v", err))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, n, path), fmt.Sprintf("resource UI settings: %v", err))
 		}
 	}
 
@@ -203,30 +203,30 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 
 	for n, def := range cfg.VisaTypes {
 		if path, err := check.CheckUI(def.Ui, true); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgVisaTypes, n, path), fmt.Sprintf("claim definitions UI settings: %v", err))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgVisaTypes, n, path), fmt.Sprintf("claim definitions UI settings: %v", err))
 		}
 	}
 
 	personaEmail := make(map[string]string)
 	for n, tp := range cfg.TestPersonas {
 		if err := checkName(n); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n), err.Error())
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n), err.Error())
 		}
 		if tp.Passport == nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "passport"), "persona requires a passport")
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "passport"), "persona requires a passport")
 		}
 		tid, err := persona.ToIdentity(n, tp, defaultPersonaScope, "")
 		if err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n), fmt.Sprintf("persona to identity: %v", err))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n), fmt.Sprintf("persona to identity: %v", err))
 		}
 		if len(tid.Issuer) == 0 {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "iss"), "persona requires an issuer")
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "iss"), "persona requires an issuer")
 		}
 		if len(tid.Subject) == 0 {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "sub"), "persona requires a subject")
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "sub"), "persona requires a subject")
 		}
 		if pmatch, ok := personaEmail[tid.Subject]; ok {
-			return httputil.NewInfoStatus(codes.AlreadyExists, httputil.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "sub"), fmt.Sprintf("persona subject %q conflicts with test persona %q", tid.Subject, pmatch))
+			return httputils.NewInfoStatus(codes.AlreadyExists, httputils.StatusPath(cfgTestPersonas, n, "passport", "standardClaims", "sub"), fmt.Sprintf("persona subject %q conflicts with test persona %q", tid.Subject, pmatch))
 		}
 		for i, a := range tp.Passport.Ga4GhAssertions {
 			// Test Persona conditions should meet the same criteria as policies that have no variables / arguments.
@@ -235,11 +235,11 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 			}
 			if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, nil); err != nil {
 				path = strings.Replace(path, "anyOf/", "anyOfConditions/", 1)
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "passport", "ga4ghAssertions", strconv.Itoa(i), path), err.Error())
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "passport", "ga4ghAssertions", strconv.Itoa(i), path), err.Error())
 			}
 		}
 		if path, err := check.CheckUI(tp.Ui, false); err != nil {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, path), fmt.Sprintf("test persona UI settings: %v", err))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, path), fmt.Sprintf("test persona UI settings: %v", err))
 		}
 		// Checking persona expectations is in checkExtraIntegrity() to give an
 		// opportunity for runTests() to catch problems and calculate a ConfigModification
@@ -251,7 +251,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 	}
 
 	if path, err := check.CheckUI(cfg.Ui, true); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgRoot, path), fmt.Sprintf("root config UI settings: %v", err))
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgRoot, path), fmt.Sprintf("root config UI settings: %v", err))
 	}
 
 	return nil
@@ -262,25 +262,25 @@ func checkExtraIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 		for i, access := range tp.Access {
 			aparts := strings.Split(access, "/")
 			if len(aparts) != 3 {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i)), "invalid access entry format (expecting 'resourceName/viewName/roleName')")
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i)), "invalid access entry format (expecting 'resourceName/viewName/roleName')")
 			}
 			rn := aparts[0]
 			vn := aparts[1]
 			rolename := aparts[2]
 			res, ok := cfg.Resources[rn]
 			if !ok {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "resource"), fmt.Sprintf("access entry resource %q not found", rn))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "resource"), fmt.Sprintf("access entry resource %q not found", rn))
 			}
 			view, ok := res.Views[vn]
 			if !ok {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "view"), fmt.Sprintf("access entry view %q not found", vn))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "view"), fmt.Sprintf("access entry view %q not found", vn))
 			}
 			roleView := makeView(vn, view, res, cfg, vopts.HidePolicyBasis, vopts.Services)
 			if roleView.Roles == nil {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry no roles defined for view %q", vn))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry no roles defined for view %q", vn))
 			}
 			if _, ok := roleView.Roles[rolename]; !ok {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry role %q not found on view %q", rolename, vn))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "access", strconv.Itoa(i), "role"), fmt.Sprintf("access entry role %q not found on view %q", rolename, vn))
 			}
 		}
 	}
@@ -289,32 +289,32 @@ func checkExtraIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 
 func checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Resource, cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	if err := checkName(name); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name), err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name), err.Error())
 	}
 	if len(view.ServiceTemplate) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), "service template is not defined")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), "service template is not defined")
 	}
 	st, ok := cfg.ServiceTemplates[view.ServiceTemplate]
 	if !ok {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), fmt.Sprintf("service template %q not found", view.ServiceTemplate))
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name, "serviceTemplate"), fmt.Sprintf("service template %q not found", view.ServiceTemplate))
 	}
 	if len(view.Labels) == 0 || view.Labels["version"] == "" {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "metadata", "version"), "version is empty")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name, "metadata", "version"), "version is empty")
 	}
 	if path, err := checkAccessRequirements(view.ServiceTemplate, st, resName, name, view, cfg, vopts); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, path), fmt.Sprintf("access requirements: %v", err))
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, path), fmt.Sprintf("access requirements: %v", err))
 	}
 	if len(view.DefaultRole) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is empty")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is empty")
 	}
 	if _, ok := view.Roles[view.DefaultRole]; !ok {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is not defined within the view")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name, "defaultRole"), "default role is not defined within the view")
 	}
 	if len(view.ComputedInterfaces) > 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, "interfaces"), "interfaces should be determined at runtime and cannot be stored as part of the config")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name, "interfaces"), "interfaces should be determined at runtime and cannot be stored as part of the config")
 	}
 	if path, err := check.CheckUI(view.Ui, true); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgResources, resName, "views", name, path), fmt.Sprintf("view UI settings: %v", err))
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgResources, resName, "views", name, path), fmt.Sprintf("view UI settings: %v", err))
 	}
 
 	return nil
@@ -322,27 +322,27 @@ func checkViewIntegrity(name string, view *pb.View, resName string, res *pb.Reso
 
 func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	if err := checkName(name); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name), err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgServiceTemplates, name), err.Error())
 	}
 	if len(template.ServiceName) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "serviceName"), "service is not specified")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgServiceTemplates, name, "serviceName"), "service is not specified")
 	}
 	service, ok := vopts.Services.ByServiceName[template.ServiceName]
 	if !ok {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "serviceName", template.ServiceName), "service is not a recognized by this DAM")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgServiceTemplates, name, "serviceName", template.ServiceName), "service is not a recognized by this DAM")
 	}
 	if path, err := service.CheckConfig(name, template, "", "", nil, cfg, vopts.Services); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	if path, err := checkServiceRoles(template.ServiceRoles, name, template.ServiceName, cfg, vopts); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, path, err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, path, err.Error())
 	}
 	varNames := make(map[string]bool)
 	desc := vopts.Services.Descriptors[template.ServiceName]
 	for varName, v := range desc.ItemVariables {
 		varNames[varName] = true
 		if v.Type != "const" && v.Type != "split_pattern" {
-			return httputil.NewInfoStatus(codes.Internal, httputil.StatusPath("serviceDescriptors", template.ServiceName, "itemVariables", varName, "type"), fmt.Sprintf("variable type %q must be %q or %q", v.Type, "const", "split_pattern"))
+			return httputils.NewInfoStatus(codes.Internal, httputils.StatusPath("serviceDescriptors", template.ServiceName, "itemVariables", varName, "type"), fmt.Sprintf("variable type %q must be %q or %q", v.Type, "const", "split_pattern"))
 		}
 	}
 	for k, v := range template.Interfaces {
@@ -351,12 +351,12 @@ func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.Dam
 			// Remove the `${` prefix and `}` suffix.
 			varName := varMatch[2 : len(varMatch)-1]
 			if _, ok := varNames[varName]; !ok {
-				return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, "interfaces", k), fmt.Sprintf("interface %q variable %q not defined for this service", k, varName))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgServiceTemplates, name, "interfaces", k), fmt.Sprintf("interface %q variable %q not defined for this service", k, varName))
 			}
 		}
 	}
 	if path, err := check.CheckUI(template.Ui, true); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgServiceTemplates, name, path), fmt.Sprintf("service template UI settings: %v", err))
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgServiceTemplates, name, path), fmt.Sprintf("service template UI settings: %v", err))
 	}
 	return nil
 }
@@ -364,31 +364,31 @@ func checkServiceTemplate(name string, template *pb.ServiceTemplate, cfg *pb.Dam
 func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	adapt, ok := vopts.Services.ByServiceName[template.ServiceName]
 	if !ok {
-		return httputil.StatusPath("services"), fmt.Errorf("service template %q service %q is not a recognized by this DAM", templateName, template.ServiceName)
+		return httputils.StatusPath("services"), fmt.Errorf("service template %q service %q is not a recognized by this DAM", templateName, template.ServiceName)
 	}
 	if path, err := adapt.CheckConfig(templateName, template, resName, viewName, view, cfg, vopts.Services); err != nil {
 		return path, err
 	}
 	if path, err := checkAccessRoles(view.Roles, templateName, template.ServiceName, cfg, vopts); err != nil {
-		return httputil.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
+		return httputils.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
 	}
 	desc, ok := vopts.Services.Descriptors[template.ServiceName]
 	if !ok {
-		return httputil.StatusPath("services", template.ServiceName), fmt.Errorf("internal error: service %q does not have a service descriptor", template.ServiceName)
+		return httputils.StatusPath("services", template.ServiceName), fmt.Errorf("internal error: service %q does not have a service descriptor", template.ServiceName)
 	}
 	if len(desc.ItemVariables) > 0 && len(view.Items) == 0 {
-		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q does not provide any target items", viewName)
+		return httputils.StatusPath("views", viewName, "items"), fmt.Errorf("view %q does not provide any target items", viewName)
 	}
 	if len(desc.ItemVariables) > 0 && desc.Properties != nil && desc.Properties.SingleItem && len(view.Items) > 1 {
-		return httputil.StatusPath("views", viewName, "items"), fmt.Errorf("view %q provides more than one item when only one was expected for service %q", viewName, template.ServiceName)
+		return httputils.StatusPath("views", viewName, "items"), fmt.Errorf("view %q provides more than one item when only one was expected for service %q", viewName, template.ServiceName)
 	}
 	for idx, item := range view.Items {
 		vars, path, err := adapter.GetItemVariables(vopts.Services, template.ServiceName, item)
 		if err != nil {
-			return httputil.StatusPath("views", viewName, "items", strconv.Itoa(idx), path), err
+			return httputils.StatusPath("views", viewName, "items", strconv.Itoa(idx), path), err
 		}
 		if len(vars) == 0 {
-			return httputil.StatusPath("views", viewName, "items", strconv.Itoa(idx), "vars"), fmt.Errorf("no variables defined")
+			return httputils.StatusPath("views", viewName, "items", strconv.Itoa(idx), "vars"), fmt.Errorf("no variables defined")
 		}
 	}
 	return "", nil
@@ -401,47 +401,47 @@ func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName s
 	desc := vopts.Services.Descriptors[serviceName]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
-			return httputil.StatusPath(rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
+			return httputils.StatusPath(rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
 		}
 		if len(role.ComputedPolicyBasis) > 0 {
-			return httputil.StatusPath(rname, "roleCategories"), fmt.Errorf("role %q roleCategories should be determined at runtime and cannot be stored as part of the config", rname)
+			return httputils.StatusPath(rname, "roleCategories"), fmt.Errorf("role %q roleCategories should be determined at runtime and cannot be stored as part of the config", rname)
 		}
 		if len(role.ComputedPolicyBasis) > 0 {
-			return httputil.StatusPath(rname, "policyBasis"), fmt.Errorf("role %q policyBasis should be determined at runtime and cannot be stored as part of the config", rname)
+			return httputils.StatusPath(rname, "policyBasis"), fmt.Errorf("role %q policyBasis should be determined at runtime and cannot be stored as part of the config", rname)
 		}
 		if len(role.Policies) > 20 {
-			return httputil.StatusPath(rname, "policies"), fmt.Errorf("role exceeeds policy limit")
+			return httputils.StatusPath(rname, "policies"), fmt.Errorf("role exceeeds policy limit")
 		}
 		hasWhitelist := false
 		for i, p := range role.Policies {
 			if len(p.Name) == 0 {
-				return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("access policy name is not defined")
+				return httputils.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("access policy name is not defined")
 			}
 			if p.Name == whitelistPolicyName {
 				hasWhitelist = true
 				emails := strings.Split(p.Args["users"], ";")
 				if len(emails) > 20 {
-					return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "args", "users"), fmt.Errorf("number of emails on whitelist policy exceeeds limit")
+					return httputils.StatusPath(rname, "policies", strconv.Itoa(i), "args", "users"), fmt.Errorf("number of emails on whitelist policy exceeeds limit")
 				}
 				for j, email := range emails {
 					if _, err := mail.ParseAddress(email); err != nil {
-						return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "args", "users"), fmt.Errorf("email entry %d (%q) is invalid", j, email)
+						return httputils.StatusPath(rname, "policies", strconv.Itoa(i), "args", "users"), fmt.Errorf("email entry %d (%q) is invalid", j, email)
 					}
 				}
 			}
 			policy, ok := cfg.Policies[p.Name]
 			if !ok {
-				return httputil.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("policy %q is not defined", p.Name)
+				return httputils.StatusPath(rname, "policies", strconv.Itoa(i), "name"), fmt.Errorf("policy %q is not defined", p.Name)
 			}
 			if path, err := validator.ValidatePolicy(policy, cfg.VisaTypes, cfg.TrustedSources, p.Args); err != nil {
-				return httputil.StatusPath(rname, "policies", strconv.Itoa(i), path), err
+				return httputils.StatusPath(rname, "policies", strconv.Itoa(i), path), err
 			}
 		}
 		if len(role.Policies) == 0 && !desc.Properties.IsAggregate {
-			return httputil.StatusPath(rname, "policies"), fmt.Errorf("must provide at least one target policy")
+			return httputils.StatusPath(rname, "policies"), fmt.Errorf("must provide at least one target policy")
 		}
 		if hasWhitelist && len(role.Policies) > 1 {
-			return httputil.StatusPath(rname, "policies"), fmt.Errorf("whitelist policies cannot be used in combination with any other policies")
+			return httputils.StatusPath(rname, "policies"), fmt.Errorf("whitelist policies cannot be used in combination with any other policies")
 		}
 	}
 	return "", nil
@@ -449,19 +449,19 @@ func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName s
 
 func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, serviceName string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
-		return httputil.StatusPath(cfgServiceTemplates, templateName, "roles"), fmt.Errorf("no roles provided")
+		return httputils.StatusPath(cfgServiceTemplates, templateName, "roles"), fmt.Errorf("no roles provided")
 	}
 	desc := vopts.Services.Descriptors[serviceName]
 	for rname, role := range roles {
 		if err := checkName(rname); err != nil {
-			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
+			return httputils.StatusPath(cfgServiceTemplates, templateName, "roles", rname), fmt.Errorf("role has invalid name %q: %v", rname, err)
 		}
 		if len(role.DamRoleCategories) == 0 {
-			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories"), fmt.Errorf("role %q does not provide a DAM role category", rname)
+			return httputils.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories"), fmt.Errorf("role %q does not provide a DAM role category", rname)
 		}
 		for i, pt := range role.DamRoleCategories {
 			if _, ok := vopts.RoleCategories[pt]; !ok {
-				return httputil.StatusPath(
+				return httputils.StatusPath(
 						cfgServiceTemplates, templateName, "roles", rname, "damRoleCategories", strconv.Itoa(i)),
 					fmt.Errorf("role %q DAM role category %q is not defined (valid types are: %s)", rname, pt,
 						strings.Join(roleCategorySet(vopts.RoleCategories), ", "))
@@ -473,28 +473,28 @@ func checkServiceRoles(roles map[string]*pb.ServiceRole, templateName, serviceNa
 				if def.Optional {
 					continue
 				}
-				return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname), fmt.Errorf("missing required service argument %q", vname)
+				return httputils.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname), fmt.Errorf("missing required service argument %q", vname)
 			}
 			re, err := regexp.Compile(def.Regexp)
 			if err != nil {
-				return httputil.StatusPath("services", templateName, "serviceArgs", vname), fmt.Errorf("variable format regexp %q is not a valid regular expression", def.Regexp)
+				return httputils.StatusPath("services", templateName, "serviceArgs", vname), fmt.Errorf("variable format regexp %q is not a valid regular expression", def.Regexp)
 			}
 			for ival, val := range arg.Values {
 				if len(val) == 0 {
-					return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname, "values", strconv.Itoa(ival)), fmt.Errorf("service argument value %d is empty", ival)
+					return httputils.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname, "values", strconv.Itoa(ival)), fmt.Errorf("service argument value %d is empty", ival)
 				}
 				if !re.MatchString(val) {
-					return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname, "values", strconv.Itoa(ival)), fmt.Errorf("service argument value %q is not valid", val)
+					return httputils.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", vname, "values", strconv.Itoa(ival)), fmt.Errorf("service argument value %q is not valid", val)
 				}
 			}
 		}
 		for aname := range role.ServiceArgs {
 			if _, ok := desc.ServiceVariables[aname]; !ok {
-				return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", aname), fmt.Errorf("service argument name %q is not a known input for service %q", aname, serviceName)
+				return httputils.StatusPath(cfgServiceTemplates, templateName, "roles", rname, "serviceArgs", aname), fmt.Errorf("service argument name %q is not a known input for service %q", aname, serviceName)
 			}
 		}
 		if path, err := check.CheckUI(role.Ui, true); err != nil {
-			return httputil.StatusPath(cfgServiceTemplates, templateName, "roles", rname, path), fmt.Errorf("role %q: %v", rname, err)
+			return httputils.StatusPath(cfgServiceTemplates, templateName, "roles", rname, path), fmt.Errorf("role %q: %v", rname, err)
 		}
 	}
 	return "", nil
@@ -507,16 +507,16 @@ func checkOptionsIntegrity(opts *pb.ConfigOptions, vopts ValidateCfgOpts) *statu
 	// Get the descriptors.
 	opts = makeConfigOptions(opts)
 	if err := check.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", opts.ComputedDescriptors); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "whitelistedRealms"), err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "whitelistedRealms"), err.Error())
 	}
 	if err := check.CheckStringOption(opts.GcpManagedKeysMaxRequestedTtl, "gcpManagedKeysMaxRequestedTtl", opts.ComputedDescriptors); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "gcpManagedKeysMaxRequestedTtl"), err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "gcpManagedKeysMaxRequestedTtl"), err.Error())
 	}
 	if err := check.CheckIntOption(opts.GcpManagedKeysPerAccount, "gcpManagedKeysPerAccount", opts.ComputedDescriptors); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "gcpManagedKeysPerAccount"), err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "gcpManagedKeysPerAccount"), err.Error())
 	}
 	if err := check.CheckStringOption(opts.GcpServiceAccountProject, "gcpServiceAccountProject", opts.ComputedDescriptors); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgOptions, "gcpServiceAccountProject"), err.Error())
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "gcpServiceAccountProject"), err.Error())
 	}
 	return nil
 }
@@ -524,16 +524,16 @@ func checkOptionsIntegrity(opts *pb.ConfigOptions, vopts ValidateCfgOpts) *statu
 func configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http.Request, vopts ValidateCfgOpts) *status.Status {
 	bad := codes.InvalidArgument
 	if err := check.CheckReadOnly(getRealm(r), cfg.Options.ReadOnlyMasterRealm, cfg.Options.WhitelistedRealms); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if len(cfg.Version) == 0 {
-		return httputil.NewStatus(bad, "missing config version")
+		return httputils.NewStatus(bad, "missing config version")
 	}
 	if cfg.Revision <= 0 {
-		return httputil.NewStatus(bad, "invalid config revision")
+		return httputils.NewStatus(bad, "invalid config revision")
 	}
 	if err := configRevision(mod, cfg); err != nil {
-		return httputil.NewStatus(bad, err.Error())
+		return httputils.NewStatus(bad, err.Error())
 	}
 	if stat := updateTests(cfg, mod, vopts); stat != nil {
 		return stat
@@ -542,8 +542,8 @@ func configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http
 		return stat
 	}
 	if tests := runTests(r.Context(), cfg, nil, vopts); hasTestError(tests) {
-		stat := httputil.NewStatus(codes.FailedPrecondition, tests.Error)
-		return httputil.AddStatusDetails(stat, tests.Modification)
+		stat := httputils.NewStatus(codes.FailedPrecondition, tests.Error)
+		return httputils.AddStatusDetails(stat, tests.Modification)
 	}
 	if stat := checkExtraIntegrity(cfg, vopts); stat != nil {
 		return stat
@@ -556,17 +556,17 @@ func checkTrustedIssuerClientCredentials(name, defaultBroker string, tpi *pb.Tru
 		return nil
 	}
 	if len(tpi.AuthUrl) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, name, "authUrl"), "AuthUrl not provided")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, name, "authUrl"), "AuthUrl not provided")
 	}
 	if len(tpi.TokenUrl) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTrustedPassportIssuer, name, "tokenUrl"), "TokenUrl not provided")
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, name, "tokenUrl"), "TokenUrl not provided")
 	}
 	return nil
 }
 
 func checkTrustedIssuer(iss string, cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Status {
 	if len(iss) == 0 {
-		return httputil.NewStatus(codes.PermissionDenied, "unauthorized missing passport issuer")
+		return httputils.NewStatus(codes.PermissionDenied, "unauthorized missing passport issuer")
 	}
 	foundIssuer := false
 	for _, ti := range cfg.TrustedIssuers {
@@ -576,7 +576,7 @@ func checkTrustedIssuer(iss string, cfg *pb.DamConfig, vopts ValidateCfgOpts) *s
 		}
 	}
 	if !foundIssuer {
-		return httputil.NewStatus(codes.PermissionDenied, fmt.Sprintf("unauthorized passport issuer %q", iss))
+		return httputils.NewStatus(codes.PermissionDenied, fmt.Sprintf("unauthorized passport issuer %q", iss))
 	}
 	return nil
 }
@@ -602,7 +602,7 @@ func updateTests(cfg *pb.DamConfig, modification *pb.ConfigModification, vopts V
 	for name, td := range modification.TestPersonas {
 		p, ok := cfg.TestPersonas[name]
 		if !ok {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgTestPersonas, name), fmt.Sprintf("test persona %q not found", name))
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, name), fmt.Sprintf("test persona %q not found", name))
 		}
 		p.Access = td.Access
 		sort.Strings(p.Access)

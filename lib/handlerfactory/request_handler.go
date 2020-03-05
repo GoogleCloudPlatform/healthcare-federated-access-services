@@ -23,7 +23,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 )
 
@@ -65,11 +65,11 @@ func MakeHandler(s storage.Store, opts *Options) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := Process(s, opts, r)
 		if err != nil {
-			httputil.WriteError(w, err)
+			httputils.WriteError(w, err)
 			return
 		}
 		if resp != nil {
-			httputil.WriteResp(w, resp)
+			httputils.WriteResp(w, resp)
 		}
 	}
 }
@@ -166,7 +166,7 @@ func ValidateResourceName(r *http.Request, field string, nameRE map[string]*rege
 	name := vars[nameVar]
 
 	for k, v := range vars {
-		if err := httputil.CheckName(k, v, nameRE); err != nil {
+		if err := httputils.CheckName(k, v, nameRE); err != nil {
 			return "", nil, err
 		}
 	}

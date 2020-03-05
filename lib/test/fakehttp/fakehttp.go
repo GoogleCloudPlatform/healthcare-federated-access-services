@@ -26,7 +26,7 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 )
 
 // Handler handles HTTP requests.
@@ -56,9 +56,9 @@ func New() (*HTTP, func() error) {
 		defer glog.Infof("HTTP Response: %+v", req.Response)
 		resp, err := f.Handler(req)
 		if err != nil {
-			httputil.WriteError(w, err)
+			httputils.WriteError(w, err)
 		}
-		httputil.WriteNonProtoResp(w, resp)
+		httputils.WriteNonProtoResp(w, resp)
 	}
 
 	f.Server = httptest.NewServer(http.HandlerFunc(h))

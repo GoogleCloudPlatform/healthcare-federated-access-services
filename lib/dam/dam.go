@@ -45,7 +45,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -296,14 +296,14 @@ func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, ite
 
 	c, err := auth.FromContext(r.Context())
 	if err != nil {
-		return nil, nil, httputil.FromError(err), err
+		return nil, nil, httputils.FromError(err), err
 	}
 	return cfg, c.ID, status, err
 }
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
-		httputil.WriteCorsHeaders(w)
+		httputils.WriteCorsHeaders(w)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -315,7 +315,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func checkName(name string) error {
-	return httputil.CheckName("name", name, nil)
+	return httputils.CheckName("name", name, nil)
 }
 
 func (s *Service) getIssuerString() string {

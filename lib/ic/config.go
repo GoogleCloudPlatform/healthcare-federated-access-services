@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
@@ -32,7 +32,7 @@ import (
 func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.loadConfig(nil, getRealm(r))
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 	resp := &pb.GetIdentityProvidersResponse{
@@ -41,13 +41,13 @@ func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 	for name, idp := range cfg.IdentityProviders {
 		resp.IdentityProviders[name] = makeIdentityProvider(idp)
 	}
-	httputil.WriteResp(w, resp)
+	httputils.WriteResp(w, resp)
 }
 
 // PassportTranslators returns part of config: Passport Translators
 func (s *Service) PassportTranslators(w http.ResponseWriter, r *http.Request) {
 	out := translator.GetPassportTranslators()
-	httputil.WriteResp(w, out)
+	httputils.WriteResp(w, out)
 }
 
 // HTTP handler for ".../clients/{name}"

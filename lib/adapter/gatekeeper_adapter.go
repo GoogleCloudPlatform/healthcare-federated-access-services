@@ -24,7 +24,7 @@ import (
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -95,7 +95,7 @@ func (a *GatekeeperAdapter) IsAggregator() bool {
 // CheckConfig validates that a new configuration is compatible with this adapter.
 func (a *GatekeeperAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *ServiceAdapters) (string, error) {
 	if view != nil && len(view.Items) > 1 {
-		return httputil.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("view %q has more than one target item defined", viewName)
+		return httputils.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("view %q has more than one target item defined", viewName)
 	}
 	return "", nil
 }

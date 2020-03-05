@@ -20,7 +20,7 @@ import (
 	"strconv"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -80,49 +80,49 @@ func (a *AggregatorAdapter) CheckConfig(templateName string, template *pb.Servic
 		return "", nil
 	}
 	if len(view.Items) == 0 {
-		return httputil.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("view %q has no items defined", viewName)
+		return httputils.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("view %q has no items defined", viewName)
 	}
 	adapterName := ""
 	adapterST := ""
 	for iIdx, item := range view.Items {
 		vars, path, err := GetItemVariables(adapters, template.ServiceName, item)
 		if err != nil {
-			return httputil.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), path), err
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), path), err
 		}
 		refResName := vars["resource"]
 		refRes, ok := cfg.Resources[refResName]
 		if !ok {
-			return httputil.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "resource"), fmt.Errorf("resource %q not found", refResName)
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "resource"), fmt.Errorf("resource %q not found", refResName)
 		}
 		refViewName := vars["view"]
 		refView, ok := refRes.Views[refViewName]
 		if !ok {
-			return httputil.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view %q not found", refViewName)
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view %q not found", refViewName)
 		}
 		refSt, ok := cfg.ServiceTemplates[refView.ServiceTemplate]
 		if !ok {
-			return httputil.StatusPath("resources", refResName, "views", refViewName, "serviceTemplate"), fmt.Errorf("view service template %q not found", refView.ServiceTemplate)
+			return httputils.StatusPath("resources", refResName, "views", refViewName, "serviceTemplate"), fmt.Errorf("view service template %q not found", refView.ServiceTemplate)
 		}
 		adapt, ok := adapters.ByServiceName[refSt.ServiceName]
 		if !ok {
-			return httputil.StatusPath("resources", refResName, "views", refViewName, "serviceTemplate"), fmt.Errorf("view service name %q not defined", refSt.ServiceName)
+			return httputils.StatusPath("resources", refResName, "views", refViewName, "serviceTemplate"), fmt.Errorf("view service name %q not defined", refSt.ServiceName)
 		}
 		if len(adapterName) == 0 {
 			adapterName = adapt.Name()
 			adapterST = refView.ServiceTemplate
 		} else if adapterName != adapt.Name() {
-			return httputil.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view service template %q service adapter %q does not match other items using service adapter %q", refView.ServiceTemplate, refSt.ServiceName, adapterName)
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", strconv.Itoa(iIdx), "vars", "view"), fmt.Errorf("view service template %q service adapter %q does not match other items using service adapter %q", refView.ServiceTemplate, refSt.ServiceName, adapterName)
 		}
 		desc, ok := adapters.Descriptors[refSt.ServiceName]
 		if !ok || desc == nil || desc.Properties == nil {
-			return httputil.StatusPath("serviceTemplates", adapterST, "serviceName", refSt.ServiceName), fmt.Errorf("lookup of descriptor properties for %q on adapter %q failed: desc:\n%+v", refSt.ServiceName, adapterName, desc)
+			return httputils.StatusPath("serviceTemplates", adapterST, "serviceName", refSt.ServiceName), fmt.Errorf("lookup of descriptor properties for %q on adapter %q failed: desc:\n%+v", refSt.ServiceName, adapterName, desc)
 		}
 		if !desc.Properties.CanBeAggregated {
-			return httputil.StatusPath("serviceTemplates", adapterST, "targetService", "properties", "canBeAggregated"), fmt.Errorf("aggregation on service adapter %q not supported", adapterName)
+			return httputils.StatusPath("serviceTemplates", adapterST, "targetService", "properties", "canBeAggregated"), fmt.Errorf("aggregation on service adapter %q not supported", adapterName)
 		}
 	}
 	if adapterName == "" {
-		return httputil.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("included views offer no items to aggregate")
+		return httputils.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("included views offer no items to aggregate")
 	}
 	return "", nil
 }

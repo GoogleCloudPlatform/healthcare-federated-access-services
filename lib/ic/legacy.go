@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -79,7 +79,7 @@ func (c *adminClaims) LookupItem(r *http.Request, name string, vars map[string]s
 	return true
 }
 func (c *adminClaims) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(c.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(c.input, r); err != nil {
 		return err
 	}
 	return nil
@@ -175,7 +175,7 @@ func (h *adminTokenMetadataHandler) LookupItem(r *http.Request, name string, var
 }
 
 func (h *adminTokenMetadataHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	return httputil.DecodeProtoReq(h.input, r)
+	return httputils.DecodeProtoReq(h.input, r)
 }
 
 func (h *adminTokenMetadataHandler) Get(r *http.Request, name string) (proto.Message, error) {

@@ -47,7 +47,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/consentsapi" /* copybara-comment: consentsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
@@ -372,23 +372,23 @@ func New(r *mux.Router, params *Options) *Service {
 }
 
 func getClientID(r *http.Request) string {
-	cid := httputil.QueryParam(r, "client_id")
+	cid := httputils.QueryParam(r, "client_id")
 	if len(cid) > 0 {
 		return cid
 	}
-	return httputil.QueryParam(r, "clientId")
+	return httputils.QueryParam(r, "clientId")
 }
 
 func getClientSecret(r *http.Request) string {
-	cs := httputil.QueryParam(r, "client_secret")
+	cs := httputils.QueryParam(r, "client_secret")
 	if len(cs) > 0 {
 		return cs
 	}
-	return httputil.QueryParam(r, "clientSecret")
+	return httputils.QueryParam(r, "clientSecret")
 }
 
 func getNonce(r *http.Request) (string, error) {
-	n := httputil.QueryParam(r, "nonce")
+	n := httputils.QueryParam(r, "nonce")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -398,7 +398,7 @@ func getNonce(r *http.Request) (string, error) {
 }
 
 func extractState(r *http.Request) (string, error) {
-	n := httputil.QueryParam(r, "state")
+	n := httputils.QueryParam(r, "state")
 	if len(n) > 0 {
 		return n, nil
 	}
@@ -409,7 +409,7 @@ func extractState(r *http.Request) (string, error) {
 
 func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
-		httputil.WriteCorsHeaders(w)
+		httputils.WriteCorsHeaders(w)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -535,13 +535,13 @@ func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg 
 
 	idp, ok := cfg.IdentityProviders[in.idpName]
 	if !ok {
-		httputil.WriteError(w, status.Errorf(codes.NotFound, "login service %q not found", in.idpName))
+		httputils.WriteError(w, status.Errorf(codes.NotFound, "login service %q not found", in.idpName))
 		return
 	}
 
 	idpc, state, err := s.idpAuthorize(in, idp, cfg, nil)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
 	resType := idp.ResponseType
@@ -559,16 +559,16 @@ func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg 
 	url := idpc.AuthCodeURL(state, options...)
 	url = strings.Replace(url, "${CLIENT_ID}", idp.ClientId, -1)
 	url = strings.Replace(url, "${REDIRECT_URI}", buildRedirectNonOIDC(idp, idpc, state), -1)
-	httputil.WriteRedirect(w, r, url)
+	httputils.WriteRedirect(w, r, url)
 }
 
 func getStateRedirect(r *http.Request) (string, error) {
-	redirect, err := url.Parse(httputil.QueryParam(r, "redirect_uri"))
+	redirect, err := url.Parse(httputils.QueryParam(r, "redirect_uri"))
 	if err != nil {
 		return "", fmt.Errorf("redirect_uri missing or invalid: %v", err)
 	}
 	q := redirect.Query()
-	if clientState := httputil.QueryParam(r, "state"); len(clientState) > 0 {
+	if clientState := httputils.QueryParam(r, "state"); len(clientState) > 0 {
 		q.Set("state", clientState)
 	}
 	redirect.RawQuery = q.Encode()
@@ -782,10 +782,10 @@ func (s *Service) handlerSetup(tx storage.Tx, r *http.Request, scope string, ite
 	}
 	c, err := auth.FromContext(r.Context())
 	if err != nil {
-		return nil, nil, nil, httputil.FromError(err), err
+		return nil, nil, nil, httputils.FromError(err), err
 	}
 
-	return cfg, secrets, c.ID, st, status.Errorf(httputil.RPCCode(st), "%v", err)
+	return cfg, secrets, c.ID, st, status.Errorf(httputils.RPCCode(st), "%v", err)
 }
 
 func (s *Service) accountToIdentity(ctx context.Context, acct *cpb.Account, cfg *pb.IcConfig, secrets *pb.IcSecrets) (*ga4gh.Identity, error) {
@@ -1003,7 +1003,7 @@ func (s *Service) populateLinkVisas(ctx context.Context, id *ga4gh.Identity, lin
 }
 
 func getScope(r *http.Request) (string, error) {
-	s := httputil.QueryParam(r, "scope")
+	s := httputils.QueryParam(r, "scope")
 	if !hasScopes(scopeOpenID, s, matchFullScope) {
 		return "", fmt.Errorf("scope must include 'openid'")
 	}
@@ -1318,7 +1318,7 @@ func (s *Service) createIssuerTranslator(ctx context.Context, cfgIdp *cpb.Identi
 func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 	// Check Id Providers.
 	for name, idp := range cfg.IdentityProviders {
-		if err := httputil.CheckName("name", name, nil); err != nil {
+		if err := httputils.CheckName("name", name, nil); err != nil {
 			return fmt.Errorf("invalid idProvider name %q: %v", name, err)
 		}
 		if len(idp.Issuer) == 0 {

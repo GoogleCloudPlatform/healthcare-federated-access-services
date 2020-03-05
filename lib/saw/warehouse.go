@@ -41,7 +41,7 @@ import (
 	"google.golang.org/grpc" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/processgc" /* copybara-comment: processgc */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -161,7 +161,7 @@ func New(store storage.Store, iamc *iamadmin.IamClient, credsc *iamcreds.IamCred
 
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
 func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, id string, ttl, maxTTL time.Duration, numKeys int, params *clouds.ResourceTokenCreationParams) (*clouds.ResourceTokenResult, error) {
-	if ttl > maxAccessTokenTTL || httputil.IsJSON(params.TokenFormat) {
+	if ttl > maxAccessTokenTTL || httputils.IsJSON(params.TokenFormat) {
 		return wh.GetAccountKey(ctx, id, ttl, maxTTL, numKeys, params)
 	}
 	return wh.GetAccessToken(ctx, id, params)
@@ -268,7 +268,7 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 		return nil, fmt.Errorf("creating key: %v", err)
 	}
 
-	if !httputil.IsJSON(params.TokenFormat) {
+	if !httputils.IsJSON(params.TokenFormat) {
 		return &clouds.ResourceTokenResult{
 			Account: email,
 			Token:   string(key.PrivateKeyData),

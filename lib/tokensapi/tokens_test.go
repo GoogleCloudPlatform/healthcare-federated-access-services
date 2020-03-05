@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/jsonutil" /* copybara-comment: jsonutil */
 
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
@@ -43,7 +43,7 @@ func TestGetToken(t *testing.T) {
 	}
 
 	got := &tpb.Token{}
-	httputil.MustDecodeJSONPBResp(t, resp, got)
+	httputils.MustDecodeJSONPBResp(t, resp, got)
 
 	want := FakeToken
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
@@ -66,7 +66,7 @@ func TestListTokens(t *testing.T) {
 	}
 
 	got := &tpb.ListTokensResponse{}
-	httputil.MustDecodeJSONPBResp(t, resp, got)
+	httputils.MustDecodeJSONPBResp(t, resp, got)
 
 	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{FakeToken}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {

@@ -28,7 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -42,13 +42,13 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	// Use login_challenge fetch information from hydra.
 	challenge, sts := hydra.ExtractLoginChallenge(r)
 	if sts != nil {
-		httputil.WriteError(w, sts.Err())
+		httputils.WriteError(w, sts.Err())
 		return
 	}
 
 	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
@@ -58,7 +58,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
@@ -69,7 +69,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	cfg, err := s.loadConfig(nil, realm)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
@@ -85,10 +85,10 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		query := fmt.Sprintf("?scope=%s&login_challenge=%s", url.QueryEscape(strings.Join(scopes, " ")), url.QueryEscape(challenge))
 		page, err := s.renderLoginPage(cfg, map[string]string{"realm": realm}, query)
 		if err != nil {
-			httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 			return
 		}
-		httputil.WriteHTMLResp(w, page)
+		httputils.WriteHTMLResp(w, page)
 		return
 	}
 
@@ -112,12 +112,12 @@ func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state,
 	var loginState cpb.LoginState
 	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, state, storage.LatestRev, &loginState)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Internal, "read login state failed, %q", err))
+		httputils.WriteError(w, status.Errorf(codes.Internal, "read login state failed, %q", err))
 		return
 	}
 
 	if len(loginState.Challenge) == 0 {
-		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state challenge parameter"))
+		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state challenge parameter"))
 		return
 	}
 
@@ -128,11 +128,11 @@ func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state,
 	}
 	resp, err := hydra.RejectLogin(s.httpClient, s.hydraAdminURL, loginState.Challenge, hyErr)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
-	httputil.WriteRedirect(w, r, resp.RedirectTo)
+	httputils.WriteRedirect(w, r, resp.RedirectTo)
 }
 
 // HydraConsent handles consent request from hydra.
@@ -141,13 +141,13 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	redirect, out, err := s.hydraConsent(r)
 	if err != nil {
-		httputil.WriteError(w, err)
+		httputils.WriteError(w, err)
 	}
 	if redirect {
-		httputil.WriteRedirect(w, r, out)
+		httputils.WriteRedirect(w, r, out)
 		return
 	}
-	httputil.WriteHTMLResp(w, out)
+	httputils.WriteHTMLResp(w, out)
 }
 
 // hydraConsent returns:
@@ -223,7 +223,7 @@ func (s *Service) hydraConsent(r *http.Request) (_ bool, _ string, ferr error) {
 
 	acct, st, err := s.scim.LoadAccount(sub, state.Realm, a.IsAdmin, tx)
 	if err != nil {
-		return false, "", status.Errorf(httputil.RPCCode(st), "%v", err)
+		return false, "", status.Errorf(httputils.RPCCode(st), "%v", err)
 	}
 
 	cfg, err := s.loadConfig(tx, state.Realm)
@@ -318,7 +318,7 @@ func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.AuthTokenState,
 
 	acct, st, err := s.scim.LoadAccount(state.Subject, state.Realm, a.IsAdmin, tx)
 	if err != nil {
-		return "", status.Errorf(httputil.RPCCode(st), "%v", err)
+		return "", status.Errorf(httputils.RPCCode(st), "%v", err)
 	}
 
 	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)

@@ -31,7 +31,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
@@ -147,7 +147,7 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 		}
 		writeAccessLog(checker.Logger, log, err, r)
 		if err != nil {
-			httputil.WriteError(w, err)
+			httputils.WriteError(w, err)
 			return
 		}
 
@@ -390,14 +390,14 @@ func isEditMethod(method string) bool {
 
 func writeAccessLog(client *logging.Client, entry *auditlog.AccessLog, err error, r *http.Request) {
 	entry.RequestMethod = r.Method
-	entry.RequestEndpoint = httputil.AbsolutePath(r)
-	entry.RequestIP = httputil.RequesterIP(r)
-	entry.TracingID = httputil.TracingID(r)
+	entry.RequestEndpoint = httputils.AbsolutePath(r)
+	entry.RequestIP = httputils.RequesterIP(r)
+	entry.TracingID = httputils.TracingID(r)
 	entry.PassAuthCheck = true
 
 	if err != nil {
 		if st, ok := status.FromError(err); ok {
-			entry.ResponseCode = httputil.HTTPStatus(st.Code())
+			entry.ResponseCode = httputils.HTTPStatus(st.Code())
 		}
 		entry.Payload = err.Error()
 		entry.PassAuthCheck = false

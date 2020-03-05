@@ -28,7 +28,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/server" /* copybara-comment: server */
@@ -122,7 +122,7 @@ func main() {
 		HydraPublicURL:   hydraPublicAddr,
 	})
 
-	r.HandleFunc("/liveness_check", httputil.LivenessCheckHandler)
+	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)
 
 	srv := server.New("dam", port, s.Handler)
 	srv.ServeUnblock()

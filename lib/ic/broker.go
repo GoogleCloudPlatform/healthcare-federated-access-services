@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -34,7 +34,7 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 
 	scope, err := getScope(r)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
 		return
 	}
 
@@ -42,16 +42,16 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 
 	cfg, err := s.loadConfig(nil, realm)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return
 	}
 
 	in := loginIn{
 		realm:     realm,
 		scope:     strings.Split(scope, " "),
-		loginHint: httputil.QueryParam(r, "login_hint"),
+		loginHint: httputils.QueryParam(r, "login_hint"),
 		idpName:   getName(r),
-		challenge: httputil.QueryParam(r, "login_challenge"),
+		challenge: httputils.QueryParam(r, "login_challenge"),
 	}
 
 	s.login(in, w, r, cfg)
@@ -61,49 +61,49 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
-	stateParam := httputil.QueryParam(r, "state")
-	errStr := httputil.QueryParam(r, "error")
-	errDesc := httputil.QueryParam(r, "error_description")
+	stateParam := httputils.QueryParam(r, "state")
+	errStr := httputils.QueryParam(r, "error")
+	errDesc := httputils.QueryParam(r, "error_description")
 	if len(errStr) > 0 || len(errDesc) > 0 {
 		if s.useHydra && len(stateParam) > 0 {
 			s.hydraLoginError(w, r, stateParam, errStr, errDesc)
 			return
 		}
-		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "authorization error: %q, description: %q", errStr, errDesc))
+		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "authorization error: %q, description: %q", errStr, errDesc))
 		return
 	}
 
 	// Experimental allows non OIDC auth code flow which may need state extracted from html anchor.
 	if globalflags.Experimental {
-		extract := httputil.QueryParam(r, "client_extract") // makes sure we only grab state from client once
+		extract := httputils.QueryParam(r, "client_extract") // makes sure we only grab state from client once
 
 		// Some IdPs need state extracted from html anchor.
 		if len(stateParam) == 0 && len(extract) == 0 {
 			page := s.clientLoginPage
 			page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
 			page = pageVariableRE.ReplaceAllString(page, `""`)
-			httputil.WriteHTMLResp(w, page)
+			httputils.WriteHTMLResp(w, page)
 			return
 		}
 	}
 
 	if len(stateParam) == 0 {
-		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "query params state missing"))
+		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "query params state missing"))
 		return
 	}
 
 	var loginState cpb.LoginState
 	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Internal, "read login state failed, %q", err))
+		httputils.WriteError(w, status.Errorf(codes.Internal, "read login state failed, %q", err))
 		return
 	}
 	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 {
-		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state parameter"))
+		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state parameter"))
 		return
 	}
 	if s.useHydra && len(loginState.Challenge) == 0 {
-		httputil.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state parameter"))
+		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state parameter"))
 		return
 	}
 
@@ -116,11 +116,11 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(path)
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Internal, "bad redirect format: %v", err))
+		httputils.WriteError(w, status.Errorf(codes.Internal, "bad redirect format: %v", err))
 		return
 	}
 	u.RawQuery = r.URL.RawQuery
-	httputil.WriteRedirect(w, r, u.String())
+	httputils.WriteRedirect(w, r, u.String())
 }
 
 // FinishLogin is the HTTP handler for ".../loggedin" endpoint.
@@ -128,12 +128,12 @@ func (s *Service) FinishLogin(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	redirect, out, err := s.doFinishLogin(r)
 	if err != nil {
-		httputil.WriteError(w, err)
+		httputils.WriteError(w, err)
 	}
 	if redirect {
-		httputil.WriteRedirect(w, r, out)
+		httputils.WriteRedirect(w, r, out)
 	}
-	httputil.WriteHTMLResp(w, out)
+	httputils.WriteHTMLResp(w, out)
 }
 
 func (s *Service) doFinishLogin(r *http.Request) (_ bool, _ string, ferr error) {
@@ -161,16 +161,16 @@ func (s *Service) doFinishLogin(r *http.Request) (_ bool, _ string, ferr error) 
 		return
 	}
 
-	code := httputil.QueryParam(r, "code")
-	stateParam := httputil.QueryParam(r, "state")
+	code := httputils.QueryParam(r, "code")
+	stateParam := httputils.QueryParam(r, "state")
 	idToken := ""
 	accessToken := ""
 	extract := ""
 	// Experimental allows reading tokens from non-OIDC.
 	if globalflags.Experimental {
-		idToken = httputil.QueryParam(r, "id_token")
-		accessToken = httputil.QueryParam(r, "access_token")
-		extract = httputil.QueryParam(r, "client_extract") // makes sure we only grab state from client once
+		idToken = httputils.QueryParam(r, "id_token")
+		accessToken = httputils.QueryParam(r, "access_token")
+		extract = httputils.QueryParam(r, "client_extract") // makes sure we only grab state from client once
 
 		if len(extract) == 0 && len(code) == 0 && len(idToken) == 0 && len(accessToken) == 0 {
 			instructions := ""
@@ -252,7 +252,7 @@ func (s *Service) doFinishLogin(r *http.Request) (_ bool, _ string, ferr error) 
 
 	login, st, err := s.loginTokenToIdentity(accessToken, idToken, idp, r, cfg, secrets)
 	if err != nil {
-		return false, "", status.Errorf(httputil.RPCCode(st), "%v", err)
+		return false, "", status.Errorf(httputils.RPCCode(st), "%v", err)
 	}
 
 	// If Idp does not support nonce field, use nonce in state instead.
@@ -260,7 +260,7 @@ func (s *Service) doFinishLogin(r *http.Request) (_ bool, _ string, ferr error) 
 		login.Nonce = nonce
 	}
 	if nonce != login.Nonce {
-		return false, "", status.Errorf(httputil.RPCCode(st), "nonce in id token is not equal to nonce linked to auth code")
+		return false, "", status.Errorf(httputils.RPCCode(st), "nonce in id token is not equal to nonce linked to auth code")
 	}
 
 	return s.finishLogin(login, idpName, redirect, scope, clientID, state, loginState.Challenge, tx, cfg, secrets, r)
@@ -271,21 +271,21 @@ func (s *Service) AcceptInformationRelease(w http.ResponseWriter, r *http.Reques
 	r.ParseForm()
 	redirect, out, err := s.acceptInformationRelease(r)
 	if err != nil {
-		httputil.WriteError(w, err)
+		httputils.WriteError(w, err)
 	}
 	if redirect {
-		httputil.WriteRedirect(w, r, out)
+		httputils.WriteRedirect(w, r, out)
 	}
 
 }
 
 func (s *Service) acceptInformationRelease(r *http.Request) (_ bool, _ string, ferr error) {
-	stateID := httputil.QueryParam(r, "state")
+	stateID := httputils.QueryParam(r, "state")
 	if len(stateID) == 0 {
 		return false, "", status.Errorf(codes.InvalidArgument, "missing %q parameter", "state")
 	}
 
-	agree := httputil.QueryParam(r, "agree")
+	agree := httputils.QueryParam(r, "agree")
 	if agree != "y" {
 		if s.useHydra {
 			addr, err := s.hydraRejectConsent(r, stateID)

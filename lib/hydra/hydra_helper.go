@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 )
@@ -35,32 +35,32 @@ const (
 
 // ExtractLoginChallenge extracts login_challenge from request.
 func ExtractLoginChallenge(r *http.Request) (string, *status.Status) {
-	n := httputil.QueryParam(r, "login_challenge")
+	n := httputils.QueryParam(r, "login_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
-	return "", httputil.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'login challenge'")
+	return "", httputils.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'login challenge'")
 }
 
 // ExtractConsentChallenge extracts consent_challenge from request.
 func ExtractConsentChallenge(r *http.Request) (string, *status.Status) {
-	n := httputil.QueryParam(r, "consent_challenge")
+	n := httputils.QueryParam(r, "consent_challenge")
 	if len(n) > 0 {
 		return n, nil
 	}
-	return "", httputil.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'consent_challenge'")
+	return "", httputils.NewInfoStatus(codes.InvalidArgument, "", "request must include query 'consent_challenge'")
 }
 
 // ExtractStateIDInConsent extracts stateID in ConsentRequest Context.
 func ExtractStateIDInConsent(consent *hydraapi.ConsentRequest) (string, *status.Status) {
 	st, ok := consent.Context[StateIDKey]
 	if !ok {
-		return "", httputil.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] not found", StateIDKey))
+		return "", httputils.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] not found", StateIDKey))
 	}
 
 	stateID, ok := st.(string)
 	if !ok {
-		return "", httputil.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] in wrong type", StateIDKey))
+		return "", httputils.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] in wrong type", StateIDKey))
 	}
 
 	return stateID, nil
@@ -77,13 +77,13 @@ func ExtractIdentitiesInConsent(consent *hydraapi.ConsentRequest) ([]string, *st
 
 	l, ok := v.([]interface{})
 	if !ok {
-		return nil, httputil.NewInfoStatus(codes.Internal, "", "consent.Context[identities] in wrong type")
+		return nil, httputils.NewInfoStatus(codes.Internal, "", "consent.Context[identities] in wrong type")
 	}
 
 	for i, it := range l {
 		id, ok := it.(string)
 		if !ok {
-			return nil, httputil.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[identities][%d] in wrong type", i))
+			return nil, httputils.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[identities][%d] in wrong type", i))
 		}
 
 		identities = append(identities, id)
@@ -105,11 +105,11 @@ func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, logi
 	// Now it's time to grant the login request. You could also deny the request if something went terribly wrong
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
 	if err != nil {
-		httputil.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
 		return true
 	}
 
-	httputil.WriteRedirect(w, r, resp.RedirectTo)
+	httputils.WriteRedirect(w, r, resp.RedirectTo)
 	return true
 }
 
@@ -142,9 +142,9 @@ func ConsentSkip(r *http.Request, client *http.Client, consent *hydraapi.Consent
 func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge, subject, stateID string, extra map[string]interface{}) {
 	addr, err := LoginSuccess(r, client, hydraAdminURL, challenge, subject, stateID, extra)
 	if err != nil {
-		httputil.WriteError(w, err)
+		httputils.WriteError(w, err)
 	}
-	httputil.WriteRedirect(w, r, addr)
+	httputils.WriteRedirect(w, r, addr)
 }
 
 // LoginSuccess is the redirect for successful login.

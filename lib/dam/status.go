@@ -17,7 +17,7 @@ package dam
 import (
 	"net/http"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -29,9 +29,9 @@ func (s *Service) GetInfo(w http.ResponseWriter, r *http.Request) {
 		Versions:  []string{"v1alpha"},
 		StartTime: s.startTime,
 	}
-	realm := httputil.QueryParamWithDefault(r, "realm", storage.DefaultRealm)
+	realm := httputils.QueryParamWithDefault(r, "realm", storage.DefaultRealm)
 	if cfg, err := s.loadConfig(nil, realm); err == nil {
 		out.Ui = cfg.Ui
 	}
-	httputil.WriteResp(w, out)
+	httputils.WriteResp(w, out)
 }

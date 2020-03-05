@@ -23,7 +23,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 )
@@ -118,11 +118,11 @@ func (s *Server) write(w http.ResponseWriter, code int, e *hydraapi.GenericError
 		code = int(e.Code)
 		body = e
 	}
-	err := status.Errorf(httputil.RPCCode(code), "")
+	err := status.Errorf(httputils.RPCCode(code), "")
 	if err != nil {
-		httputil.WriteError(w, err)
+		httputils.WriteError(w, err)
 	}
-	httputil.WriteNonProtoResp(w, body)
+	httputils.WriteNonProtoResp(w, body)
 }
 
 func (s *Server) getLoginRequest(w http.ResponseWriter, r *http.Request) {
@@ -132,13 +132,13 @@ func (s *Server) getLoginRequest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) acceptLogin(w http.ResponseWriter, r *http.Request) {
 	s.AcceptLoginReq = &hydraapi.HandledLoginRequest{}
-	httputil.DecodeJSON(r.Body, s.AcceptLoginReq)
+	httputils.DecodeJSON(r.Body, s.AcceptLoginReq)
 	s.write(w, http.StatusOK, s.AcceptLoginErr, s.AcceptLoginResp)
 }
 
 func (s *Server) rejectLogin(w http.ResponseWriter, r *http.Request) {
 	s.RejectLoginReq = &hydraapi.RequestDeniedError{}
-	httputil.DecodeJSON(r.Body, s.RejectLoginReq)
+	httputils.DecodeJSON(r.Body, s.RejectLoginReq)
 	s.write(w, http.StatusOK, s.RejectLoginErr, s.RejectLoginResp)
 }
 
@@ -149,13 +149,13 @@ func (s *Server) getConsentRequest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) acceptConsent(w http.ResponseWriter, r *http.Request) {
 	s.AcceptConsentReq = &hydraapi.HandledConsentRequest{}
-	httputil.DecodeJSON(r.Body, s.AcceptConsentReq)
+	httputils.DecodeJSON(r.Body, s.AcceptConsentReq)
 	s.write(w, http.StatusOK, s.AcceptConsentErr, s.AcceptConsentResp)
 }
 
 func (s *Server) rejectConsent(w http.ResponseWriter, r *http.Request) {
 	s.RejectConsentReq = &hydraapi.RequestDeniedError{}
-	httputil.DecodeJSON(r.Body, s.RejectConsentReq)
+	httputils.DecodeJSON(r.Body, s.RejectConsentReq)
 	s.write(w, http.StatusOK, s.RejectConsentErr, s.RejectConsentResp)
 }
 
@@ -183,7 +183,7 @@ func (s *Server) listClients(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createClient(w http.ResponseWriter, r *http.Request) {
 	s.CreateClientReq = &hydraapi.Client{}
-	httputil.DecodeJSON(r.Body, s.CreateClientReq)
+	httputils.DecodeJSON(r.Body, s.CreateClientReq)
 	s.write(w, http.StatusCreated, s.CreateClientErr, s.CreateClientResp)
 }
 
@@ -197,7 +197,7 @@ func (s *Server) updateClient(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	s.UpdateClientID = vars["id"]
 	s.UpdateClientReq = &hydraapi.Client{}
-	httputil.DecodeJSON(r.Body, s.UpdateClientReq)
+	httputils.DecodeJSON(r.Body, s.UpdateClientReq)
 	s.write(w, http.StatusOK, s.UpdateClientErr, s.UpdateClientResp)
 }
 

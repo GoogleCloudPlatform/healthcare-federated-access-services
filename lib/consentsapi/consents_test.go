@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
 )
@@ -41,7 +41,7 @@ func TestListConsents(t *testing.T) {
 	}
 
 	got := &cpb.ListConsentsResponse{}
-	httputil.MustDecodeJSONPBResp(t, resp, got)
+	httputils.MustDecodeJSONPBResp(t, resp, got)
 
 	want := &cpb.ListConsentsResponse{Consents: []*cpb.Consent{FakeConsent}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {

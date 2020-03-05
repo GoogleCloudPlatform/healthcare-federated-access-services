@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package httputil
+package httputils
 
 // This file contains utilities for resource names in the request.
 // TODO: not related to http, move to a more appripriate package.

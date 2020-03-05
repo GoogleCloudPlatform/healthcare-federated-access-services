@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
@@ -185,19 +185,19 @@ func (h *GroupHandler) NormalizeInput(r *http.Request, name string, vars map[str
 
 // Get is a GET request.
 func (h *GroupHandler) Get(r *http.Request, name string) (proto.Message, error) {
-	filters, err := storage.BuildFilters(httputil.QueryParam(r, "filter"), scimMemberFilterMap)
+	filters, err := storage.BuildFilters(httputils.QueryParam(r, "filter"), scimMemberFilterMap)
 	if err != nil {
 		return nil, err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := httputil.QueryParamInt(r, "startIndex")
+	start := httputils.QueryParamInt(r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := httputil.QueryParamInt(r, "count")
-	if len(httputil.QueryParam(r, "count")) == 0 {
+	max := httputils.QueryParamInt(r, "count")
+	if len(httputils.QueryParam(r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 
@@ -228,7 +228,7 @@ func (h *GroupHandler) Get(r *http.Request, name string) (proto.Message, error) 
 func (h *GroupHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	h.save = h.input
 	for _, member := range h.save.Members {
-		if err := httputil.CheckName("value", member.Value, groupMemberRegexps); err != nil {
+		if err := httputils.CheckName("value", member.Value, groupMemberRegexps); err != nil {
 			return nil, fmt.Errorf("group member %q email format check failed: %v", member.Value, err)
 		}
 		if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
@@ -436,19 +436,19 @@ func (h *GroupsHandler) NormalizeInput(r *http.Request, name string, vars map[st
 
 // Get is a GET request.
 func (h *GroupsHandler) Get(r *http.Request, name string) (proto.Message, error) {
-	filters, err := storage.BuildFilters(httputil.QueryParam(r, "filter"), scimGroupsFilterMap)
+	filters, err := storage.BuildFilters(httputils.QueryParam(r, "filter"), scimGroupsFilterMap)
 	if err != nil {
 		return nil, err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := httputil.QueryParamInt(r, "startIndex")
+	start := httputils.QueryParamInt(r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := httputil.QueryParamInt(r, "count")
-	if len(httputil.QueryParam(r, "count")) == 0 {
+	max := httputils.QueryParamInt(r, "count")
+	if len(httputils.QueryParam(r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 

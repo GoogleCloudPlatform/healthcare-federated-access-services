@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -68,7 +68,7 @@ func (h *realmHandler) LookupItem(r *http.Request, name string, vars map[string]
 }
 
 func (h *realmHandler) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
-	if err := httputil.DecodeProtoReq(h.input, r); err != nil {
+	if err := httputils.DecodeProtoReq(h.input, r); err != nil {
 		return err
 	}
 	if h.input.Item == nil {

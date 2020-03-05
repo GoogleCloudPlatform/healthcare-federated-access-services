@@ -30,7 +30,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -568,19 +568,19 @@ func (h *scimUsers) NormalizeInput(r *http.Request, name string, vars map[string
 
 // Get sends a GET method response
 func (h *scimUsers) Get(r *http.Request, name string) (proto.Message, error) {
-	filters, err := storage.BuildFilters(httputil.QueryParam(r, "filter"), scimUserFilterMap)
+	filters, err := storage.BuildFilters(httputils.QueryParam(r, "filter"), scimUserFilterMap)
 	if err != nil {
 		return nil, err
 	}
 	// "startIndex" is a 1-based starting location, to be converted to an offset for the query.
-	start := httputil.QueryParamInt(r, "startIndex")
+	start := httputils.QueryParamInt(r, "startIndex")
 	if start == 0 {
 		start = 1
 	}
 	offset := start - 1
 	// "count" is the number of results desired on this request's page.
-	max := httputil.QueryParamInt(r, "count")
-	if len(httputil.QueryParam(r, "count")) == 0 {
+	max := httputils.QueryParamInt(r, "count")
+	if len(httputils.QueryParam(r, "count")) == 0 {
 		max = storage.DefaultPageSize
 	}
 

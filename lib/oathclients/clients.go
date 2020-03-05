@@ -30,7 +30,7 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputil" /* copybara-comment: httputil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
@@ -45,20 +45,20 @@ const (
 
 // CheckClientIntegrity check if the given clientHandler integrity.
 func CheckClientIntegrity(name string, c *pb.Client) error {
-	if err := httputil.CheckName("name", name, nil); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name), fmt.Sprintf("invalid clientHandler name %q: %v", name, err)).Err()
+	if err := httputils.CheckName("name", name, nil); err != nil {
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name), fmt.Sprintf("invalid clientHandler name %q: %v", name, err)).Err()
 	}
 
 	if uid := uuid.Parse(c.ClientId); uid == nil || len(c.ClientId) != clientIDLen {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "clientId"), fmt.Sprintf("missing clientHandler ID or invalid format: %q", c.ClientId)).Err()
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name, "clientId"), fmt.Sprintf("missing clientHandler ID or invalid format: %q", c.ClientId)).Err()
 	}
 
 	if path, err := check.CheckUI(c.Ui, true); err != nil {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, path), fmt.Sprintf("clientHandler UI settings: %v", err)).Err()
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name, path), fmt.Sprintf("clientHandler UI settings: %v", err)).Err()
 	}
 
 	if len(c.RedirectUris) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "RedirectUris"), "missing RedirectUris").Err()
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name, "RedirectUris"), "missing RedirectUris").Err()
 	}
 
 	for _, uri := range c.RedirectUris {
@@ -67,20 +67,20 @@ func CheckClientIntegrity(name string, c *pb.Client) error {
 		}
 
 		if !strutil.IsURL(uri) {
-			return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "RedirectUris"), fmt.Sprintf("RedirectUris %q is not url", uri)).Err()
+			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name, "RedirectUris"), fmt.Sprintf("RedirectUris %q is not url", uri)).Err()
 		}
 	}
 
 	if len(c.Scope) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "Scope"), "missing Scope").Err()
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name, "Scope"), "missing Scope").Err()
 	}
 
 	if len(c.GrantTypes) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "GrantTypes"), "missing GrantTypes").Err()
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name, "GrantTypes"), "missing GrantTypes").Err()
 	}
 
 	if len(c.ResponseTypes) == 0 {
-		return httputil.NewInfoStatus(codes.InvalidArgument, httputil.StatusPath(cfgClients, name, "ResponseTypes"), "missing ResponseTypes").Err()
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgClients, name, "ResponseTypes"), "missing ResponseTypes").Err()
 	}
 
 	return nil
@@ -88,20 +88,20 @@ func CheckClientIntegrity(name string, c *pb.Client) error {
 
 // ExtractClientID from request.
 func ExtractClientID(r *http.Request) string {
-	cid := httputil.QueryParam(r, "client_id")
+	cid := httputils.QueryParam(r, "client_id")
 	if len(cid) > 0 {
 		return cid
 	}
-	return httputil.QueryParam(r, "clientId")
+	return httputils.QueryParam(r, "clientId")
 }
 
 // ExtractClientSecret from request.
 func ExtractClientSecret(r *http.Request) string {
-	cs := httputil.QueryParam(r, "client_secret")
+	cs := httputils.QueryParam(r, "client_secret")
 	if len(cs) > 0 {
 		return cs
 	}
-	return httputil.QueryParam(r, "clientSecret")
+	return httputils.QueryParam(r, "clientSecret")
 }
 
 // SyncClients resets clients in hydra with given clients and secrets.
@@ -130,7 +130,7 @@ func SyncClients(httpClient *http.Client, hydraAdminURL string, clients map[stri
 		}
 	}
 	msg := fmt.Sprintf("sync hydra clients: added %d, updated %d, removed %d, unchanged %d, no_secret %d", len(state.Add), len(state.Update), len(state.Remove), len(state.Unchanged), len(state.NoSecret))
-	state.Status = httputil.NewStatus(codes.OK, msg).Proto()
+	state.Status = httputils.NewStatus(codes.OK, msg).Proto()
 	glog.Infof(msg)
 	return state, nil
 }
@@ -204,6 +204,6 @@ func SyncState(httpClient *http.Client, hydraAdminURL string, clients map[string
 
 	sort.Strings(state.SecretMismatch)
 	msg := fmt.Sprintf("hydra clients status: add %d, update %d, remove %d, unchanged %d, no_secret %d", len(state.Add), len(state.Update), len(state.Remove), len(state.Unchanged), len(state.NoSecret))
-	state.Status = httputil.NewStatus(codes.OK, msg).Proto()
+	state.Status = httputils.NewStatus(codes.OK, msg).Proto()
 	return state, nil
 }
