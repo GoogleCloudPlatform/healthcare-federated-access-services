@@ -54,10 +54,6 @@ func TestDAMTokens_List(t *testing.T) {
 		t.Fatalf("ListTokens() failed: %v", err)
 	}
 
-	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{{Name: "projects/fake-project/users/fake-user/tokens/fake-key-id-0"}}}
-	if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(&tpb.Token{}, "expires_at", "issued_at")); diff != "" {
-		t.Errorf("ListTokens() returned diff (-want +got):\n%s", diff)
-	}
 	iat := time.Unix(got.Tokens[0].GetIssuedAt(), 0)
 	if iat.Before(before.Add(-time.Second)) || iat.After(after.Add(time.Second)) {
 		t.Errorf("ListTokens(): token is issued at %v, want in [%v,%v]", iat, before, after)
@@ -65,6 +61,13 @@ func TestDAMTokens_List(t *testing.T) {
 	exp := time.Unix(got.Tokens[0].GetExpiresAt(), 0)
 	if exp.Before(before.Add(-time.Second).Add(24*time.Hour)) || exp.After(after.Add(time.Second).Add(24*time.Hour)) {
 		t.Errorf("ListTokens(): token expires at %v, want in [%v,%v]", exp, before, after)
+	}
+	// TODO: use protocmp.IgnoreFields(&tpb.Token{}, "expires_at", "issued_at") instead when it works.
+	got.Tokens[0].IssuedAt = 0
+	got.Tokens[0].ExpiresAt = 0
+	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{{Name: "projects/fake-project/users/fake-user/tokens/fake-key-id-0"}}}
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Errorf("ListTokens() returned diff (-want +got):\n%s", diff)
 	}
 }
 
