@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/mail"
 	"net/url"
 	"reflect"
@@ -85,27 +86,28 @@ var (
 )
 
 type Service struct {
-	adapters         *adapter.ServiceAdapters
-	roleCategories   map[string]*pb.RoleCategory
-	domainURL        string
-	defaultBroker    string
-	serviceName      string
-	hydraAdminURL    string
-	hydraPublicURL   string
-	hydraSyncFreq    time.Duration
-	store            storage.Store
-	warehouse        clouds.ResourceTokenCreator
-	logger           *logging.Client
-	permissions      *permissions.Permissions
-	Handler          *ServiceHandler
-	hidePolicyBasis  bool
-	hideRejectDetail bool
-	httpClient       *http.Client
-	startTime        int64
-	translators      sync.Map
-	useHydra         bool
-	visaVerifier     *verifier.Verifier
-	scim             *scim.Scim
+	adapters            *adapter.ServiceAdapters
+	roleCategories      map[string]*pb.RoleCategory
+	domainURL           string
+	defaultBroker       string
+	serviceName         string
+	hydraAdminURL       string
+	hydraPublicURL      string
+	HydraPublicURLProxy *httputil.ReverseProxy
+	hydraSyncFreq       time.Duration
+	store               storage.Store
+	warehouse           clouds.ResourceTokenCreator
+	logger              *logging.Client
+	permissions         *permissions.Permissions
+	Handler             *ServiceHandler
+	hidePolicyBasis     bool
+	hideRejectDetail    bool
+	httpClient          *http.Client
+	startTime           int64
+	translators         sync.Map
+	useHydra            bool
+	visaVerifier        *verifier.Verifier
+	scim                *scim.Scim
 }
 
 type ServiceHandler struct {
@@ -135,6 +137,8 @@ type Options struct {
 	HydraAdminURL string
 	// HydraPublicURL: hydra public endpoints url
 	HydraPublicURL string
+	// HydraPublicURL: hydra public endpoints url for internal traffic.
+	HydraPublicURLInternal string
 	// HydraSyncFreq: how often to allow clients:sync to be called
 	HydraSyncFreq time.Duration
 	// HidePolicyBasis: do not send policy basis to client
@@ -190,6 +194,14 @@ func New(r *mux.Router, params *Options) *Service {
 	if s.httpClient == nil {
 		s.httpClient = http.DefaultClient
 	}
+
+	u, err := url.Parse(params.HydraPublicURLInternal)
+	if err != nil {
+		glog.Exitf("url.Parse(%s): %v", params.HydraPublicURLInternal, err)
+	}
+	s.HydraPublicURLProxy = httputil.NewSingleHostReverseProxy(u)
+	// reverse proxy use same http client transport.
+	s.HydraPublicURLProxy.Transport = s.httpClient.Transport
 
 	exists, err := configExists(params.Store)
 	if err != nil {
@@ -1393,4 +1405,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
 	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+
+	// proxy hydra oauth token endpoint
+	r.HandleFunc(oauthTokenPath, s.HydraOAuthToken).Methods(http.MethodPost)
 }

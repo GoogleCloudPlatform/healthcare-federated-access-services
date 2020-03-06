@@ -34,15 +34,16 @@ func TestConfigHandlers(t *testing.T) {
 	crypt := fakeencryption.New()
 
 	opts := &Options{
-		HTTPClient:     server.Client(),
-		Domain:         domain,
-		ServiceName:    "ic",
-		AccountDomain:  domain,
-		Store:          store,
-		Encryption:     crypt,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraURL,
+		HTTPClient:             server.Client(),
+		Domain:                 domain,
+		ServiceName:            "ic",
+		AccountDomain:          domain,
+		Store:                  store,
+		Encryption:             crypt,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraURL,
+		HydraPublicURLInternal: hydraURLInternal,
 	}
 	s := NewService(opts)
 

@@ -17,20 +17,21 @@ package dam_test
 import (
 	"testing"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
 const (
-	hydraAdminURL = "https://admin.hydra.example.com"
-	hydraURL      = "https://example.com/oidc"
-	useHydra      = true
+	hydraAdminURL    = "https://admin.hydra.example.com"
+	hydraURL         = "https://example.com/oidc"
+	hydraURLInternal = "https://hydra.internal.example.com/"
+	useHydra         = true
 )
 
 func TestCheckIntegrity_FileConfig(t *testing.T) {
@@ -138,14 +139,15 @@ func setupFromFile(t *testing.T) (*dam.Service, *pb.DamConfig) {
 	}
 
 	opts := &dam.Options{
-		Domain:         "test.org",
-		ServiceName:    "dam",
-		DefaultBroker:  "no-broker",
-		Store:          store,
-		Warehouse:      nil,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraURL,
+		Domain:                 "test.org",
+		ServiceName:            "dam",
+		DefaultBroker:          "no-broker",
+		Store:                  store,
+		Warehouse:              nil,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraURL,
+		HydraPublicURLInternal: hydraURLInternal,
 	}
 	s := dam.NewService(opts)
 

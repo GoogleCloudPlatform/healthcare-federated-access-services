@@ -31,6 +31,7 @@ function start_dam() {
   # HYDRA_ADMIN_URL sets the hydra admin url for callback.
   # TODO need to update after we deploy hydra on GCP.
   export HYDRA_ADMIN_URL="http://127.0.0.1:4445"
+  export HYDRA_PUBLIC_URL_INTERNAL="http://127.0.0.1:4444"
   export USE_HYDRA="true"
   # CONFIG_PATH is the path used for reading and writing config files.
   export CONFIG_PATH="deploy/config"

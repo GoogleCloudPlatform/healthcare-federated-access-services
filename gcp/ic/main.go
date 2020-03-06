@@ -62,6 +62,8 @@ var (
 	hydraAdminAddr = ""
 	// hydraPublicAddr is the address for the Hydra public endpoint.
 	hydraPublicAddr = ""
+	// hydraPublicAddrInternal is the address for the Hydra public endpoint in the internal traffic.
+	hydraPublicAddrInternal = ""
 
 	cfgVars = map[string]string{
 		"${YOUR_PROJECT_ID}":  project,
@@ -111,20 +113,22 @@ func main() {
 	if useHydra {
 		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
+		hydraPublicAddrInternal = osenv.MustVar("HYDRA_PUBLIC_URL_INTERNAL")
 	}
 
 	r := mux.NewRouter()
 
 	s := ic.New(r, &ic.Options{
-		Domain:         srvAddr,
-		ServiceName:    srvName,
-		AccountDomain:  acctDomain,
-		Store:          store,
-		Encryption:     gcpkms,
-		Logger:         logger,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminAddr,
-		HydraPublicURL: hydraPublicAddr,
+		Domain:                 srvAddr,
+		ServiceName:            srvName,
+		AccountDomain:          acctDomain,
+		Store:                  store,
+		Encryption:             gcpkms,
+		Logger:                 logger,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminAddr,
+		HydraPublicURL:         hydraPublicAddr,
+		HydraPublicURLInternal: hydraPublicAddrInternal,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

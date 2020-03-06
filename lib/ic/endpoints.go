@@ -33,6 +33,8 @@ const (
 	hydraConsentPath = "/identity/consent"
 	// Redirected to here from Identity Broker.
 	acceptLoginPath = "/identity/loggedin"
+	// Proxy hydra token endpoint.
+	oauthTokenPath = "/oauth2/token"
 
 	// ---------------------------------------------------------------------------
 	// The following are administration endpoints for managing DAM.

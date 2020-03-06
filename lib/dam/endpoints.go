@@ -33,6 +33,9 @@ const (
 	// resources.
 	resourceTokensPath = "/dam/checkout"
 
+	// Proxy hydra token endpoint.
+	oauthTokenPath = "/oauth2/token"
+
 	// ---------------------------------------------------------------------------
 	// The following are administration endpoints for managing DAM.
 	// ---------------------------------------------------------------------------

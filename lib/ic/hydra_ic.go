@@ -15,8 +15,10 @@
 package ic
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -365,4 +367,18 @@ func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.AuthTokenState,
 	}
 
 	return resp.RedirectTo, nil
+}
+
+// HydraOAuthToken proxy the POST /oauth2/token request.
+// - for code exhange token: do nothing, just proxy.
+// - for refresh token exchange token: check the token is not revoked before proxy the request.
+func (s *Service) HydraOAuthToken(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+
+	// introspect the refresh token before proxy the request to exchange.
+
+	// Encode form back into request body
+	r.Body = ioutil.NopCloser(bytes.NewBufferString(r.PostForm.Encode()))
+
+	s.HydraPublicURLProxy.ServeHTTP(w, r)
 }

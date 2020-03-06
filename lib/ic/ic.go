@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path"
@@ -223,6 +224,7 @@ type Service struct {
 	accountDomain         string
 	hydraAdminURL         string
 	hydraPublicURL        string
+	HydraPublicURLProxy   *httputil.ReverseProxy
 	translators           sync.Map
 	encryption            Encryption
 	logger                *logging.Client
@@ -264,6 +266,8 @@ type Options struct {
 	HydraAdminURL string
 	// HydraPublicURL: hydra public endpoints url.
 	HydraPublicURL string
+	// HydraPublicURL: hydra public endpoints url for internal traffic.
+	HydraPublicURLInternal string
 	// HydraSyncFreq: how often to allow clients:sync to be called
 	HydraSyncFreq time.Duration
 }
@@ -279,20 +283,20 @@ func New(r *mux.Router, params *Options) *Service {
 	sh := &ServiceHandler{}
 	lp, err := srcutil.LoadFile(loginPageFile)
 	if err != nil {
-		glog.Fatalf("cannot load login page: %v", err)
+		glog.Exitf("cannot load login page: %v", err)
 	}
 	lpi, err := srcutil.LoadFile(loginPageInfoFile)
 	if err != nil {
-		glog.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
+		glog.Exitf("cannot load login page info %q: %v", loginPageInfoFile, err)
 	}
 	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
 	clp, err := srcutil.LoadFile(clientLoginPageFile)
 	if err != nil {
-		glog.Fatalf("cannot load client login page: %v", err)
+		glog.Exitf("cannot load client login page: %v", err)
 	}
 	irp, err := srcutil.LoadFile(informationReleasePageFile)
 	if err != nil {
-		glog.Fatalf("cannot load information release page: %v", err)
+		glog.Exitf("cannot load information release page: %v", err)
 	}
 	syncFreq := time.Minute
 	if params.HydraSyncFreq > 0 {
@@ -301,7 +305,7 @@ func New(r *mux.Router, params *Options) *Service {
 
 	perms, err := permissions.LoadPermissions(params.Store)
 	if err != nil {
-		glog.Fatalf("cannot load permissions:%v", err)
+		glog.Exitf("cannot load permissions:%v", err)
 	}
 	s := &Service{
 		store:                 params.Store,
@@ -328,31 +332,39 @@ func New(r *mux.Router, params *Options) *Service {
 		s.httpClient = http.DefaultClient
 	}
 
+	u, err := url.Parse(params.HydraPublicURLInternal)
+	if err != nil {
+		glog.Exitf("url.Parse(%s): %v", params.HydraPublicURLInternal, err)
+	}
+	s.HydraPublicURLProxy = httputil.NewSingleHostReverseProxy(u)
+	// reverse proxy use same http client transport.
+	s.HydraPublicURLProxy.Transport = s.httpClient.Transport
+
 	if err := validateURLs(map[string]string{
 		"DOMAIN as URL":         "https://" + params.Domain,
 		"ACCOUNT_DOMAIN as URL": "https://" + params.AccountDomain,
 	}); err != nil {
-		glog.Fatalf(err.Error())
+		glog.Exitf(err.Error())
 	}
 	exists, err := configExists(params.Store)
 	if err != nil {
-		glog.Fatalf("cannot use storage layer: %v", err)
+		glog.Exitf("cannot use storage layer: %v", err)
 	}
 	if !exists {
 		if err = ImportConfig(params.Store, params.ServiceName, nil); err != nil {
-			glog.Fatalf("cannot import configs to service %q: %v", params.ServiceName, err)
+			glog.Exitf("cannot import configs to service %q: %v", params.ServiceName, err)
 		}
 	}
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
-		glog.Fatalf("cannot load config: %v", err)
+		glog.Exitf("cannot load config: %v", err)
 	}
 	if err = s.checkConfigIntegrity(cfg); err != nil {
-		glog.Fatalf("invalid config: %v", err)
+		glog.Exitf("invalid config: %v", err)
 	}
 	secrets, err := s.loadSecrets(nil)
 	if err != nil {
-		glog.Fatalf("cannot load client secrets: %v", err)
+		glog.Exitf("cannot load client secrets: %v", err)
 	}
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
@@ -1758,4 +1770,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	// legacy endpoints
 	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminClaimsFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
+
+	// proxy hydra oauth token endpoint
+	r.HandleFunc(oauthTokenPath, s.HydraOAuthToken).Methods(http.MethodPost)
 }

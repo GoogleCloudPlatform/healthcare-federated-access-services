@@ -57,6 +57,7 @@ const (
 	domain           = "example.com"
 	hydraAdminURL    = "https://admin.hydra.example.com"
 	hydraURL         = "https://hydra.example.com/"
+	hydraURLInternal = "https://hydra.internal.example.com/"
 	testClientID     = "00000000-0000-0000-0000-000000000000"
 	testClientSecret = "00000000-0000-0000-0000-000000000001"
 	useHydra         = true
@@ -92,16 +93,17 @@ func TestHandlers(t *testing.T) {
 	crypt := fakeencryption.New()
 
 	opts := &Options{
-		HTTPClient:     server.Client(),
-		Domain:         domain,
-		ServiceName:    "ic",
-		AccountDomain:  domain,
-		Store:          store,
-		Encryption:     crypt,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraURL,
-		HydraSyncFreq:  time.Nanosecond,
+		HTTPClient:             server.Client(),
+		Domain:                 domain,
+		ServiceName:            "ic",
+		AccountDomain:          domain,
+		Store:                  store,
+		Encryption:             crypt,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraURL,
+		HydraPublicURLInternal: hydraURLInternal,
+		HydraSyncFreq:          time.Nanosecond,
 	}
 	s := NewService(opts)
 	verifyService(t, s.domain, opts.Domain, "domain")
@@ -886,14 +888,15 @@ func TestAddLinkedIdentities(t *testing.T) {
 
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(&Options{
-		Domain:         domain,
-		ServiceName:    "ic",
-		AccountDomain:  domain,
-		Store:          store,
-		Encryption:     fakeencryption.New(),
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraURL,
+		Domain:                 domain,
+		ServiceName:            "ic",
+		AccountDomain:          domain,
+		Store:                  store,
+		Encryption:             fakeencryption.New(),
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraURL,
+		HydraPublicURLInternal: hydraURLInternal,
 	})
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -959,16 +962,17 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 
 	crypt := fakeencryption.New()
 	s := NewService(&Options{
-		HTTPClient:     httptestclient.New(server.Handler),
-		Domain:         domain,
-		ServiceName:    "ic-min",
-		AccountDomain:  domain,
-		Store:          store,
-		Encryption:     crypt,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraURL,
-		HydraSyncFreq:  time.Nanosecond,
+		HTTPClient:             httptestclient.New(server.Handler),
+		Domain:                 domain,
+		ServiceName:            "ic-min",
+		AccountDomain:          domain,
+		Store:                  store,
+		Encryption:             crypt,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraURL,
+		HydraPublicURLInternal: hydraURLInternal,
+		HydraSyncFreq:          time.Nanosecond,
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)

@@ -34,15 +34,16 @@ func TestConfigHandlers(t *testing.T) {
 	}
 
 	s := NewService(&Options{
-		HTTPClient:     server.Client(),
-		Domain:         "test.org",
-		ServiceName:    "dam",
-		DefaultBroker:  "no-broker",
-		Store:          store,
-		Warehouse:      wh,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraPublicURL,
+		HTTPClient:             server.Client(),
+		Domain:                 "test.org",
+		ServiceName:            "dam",
+		DefaultBroker:          "no-broker",
+		Store:                  store,
+		Warehouse:              wh,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraPublicURL,
+		HydraPublicURLInternal: hydraURLInternal,
 	})
 
 	role := `{"roleCategories":["metadata"],"policyBasis":{"AcceptedTermsAndPolicies":true,"ResearcherStatus":true}}`

@@ -64,6 +64,7 @@ const (
 	damURL           = "https://dam.example.com"
 	hydraAdminURL    = "https://admin.hydra.example.com"
 	hydraPublicURL   = "https://hydra.example.com/"
+	hydraURLInternal = "https://hydra.internal.example.com/"
 	testBroker       = "testBroker"
 	useHydra         = true
 	loginChallenge   = "lc-1234"
@@ -96,16 +97,17 @@ func TestHandlers(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	s := NewService(&Options{
-		HTTPClient:     server.Client(),
-		Domain:         "test.org",
-		ServiceName:    "dam",
-		DefaultBroker:  "no-broker",
-		Store:          store,
-		Warehouse:      wh,
-		UseHydra:       useHydra,
-		HydraAdminURL:  hydraAdminURL,
-		HydraPublicURL: hydraPublicURL,
-		HydraSyncFreq:  time.Nanosecond,
+		HTTPClient:             server.Client(),
+		Domain:                 "test.org",
+		ServiceName:            "dam",
+		DefaultBroker:          "no-broker",
+		Store:                  store,
+		Warehouse:              wh,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraPublicURL,
+		HydraPublicURLInternal: hydraURLInternal,
+		HydraSyncFreq:          time.Nanosecond,
 	})
 	tests := []test.HandlerTest{
 		// Realm tests.
@@ -888,17 +890,18 @@ func TestMinConfig(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	opts := &Options{
-		HTTPClient:       server.Client(),
-		Domain:           "test.org",
-		ServiceName:      "dam",
-		DefaultBroker:    "no-broker",
-		Store:            store,
-		Warehouse:        nil,
-		UseHydra:         useHydra,
-		HydraAdminURL:    hydraAdminURL,
-		HydraPublicURL:   hydraPublicURL,
-		HidePolicyBasis:  true,
-		HideRejectDetail: true,
+		HTTPClient:             server.Client(),
+		Domain:                 "test.org",
+		ServiceName:            "dam",
+		DefaultBroker:          "no-broker",
+		Store:                  store,
+		Warehouse:              nil,
+		UseHydra:               useHydra,
+		HydraAdminURL:          hydraAdminURL,
+		HydraPublicURL:         hydraPublicURL,
+		HydraPublicURLInternal: hydraURLInternal,
+		HidePolicyBasis:        true,
+		HideRejectDetail:       true,
 	}
 	s := NewService(opts)
 	verifyService(t, s.domainURL, opts.Domain, "domainURL")
