@@ -38,11 +38,11 @@ func TestOAuthToken_code(t *testing.T) {
 
 	wantURL := "https://example.com/oauth2/token"
 	if f.ExchangeTokenReqURL != wantURL {
-		t.Errorf("ExchangeTokenReqURL in dest server = %s want %s", f.ExchangeTokenReqURL, wantURL)
+		t.Errorf("ExchangeTokenReqURL in dest server = %s, want %s", f.ExchangeTokenReqURL, wantURL)
 	}
 
 	if f.ExchangeTokenReq.Get("code") != wantCode {
-		t.Errorf("ExchangeTokenReq[code] = %s want %s", f.ExchangeTokenReq.Get("code"), wantCode)
+		t.Errorf("ExchangeTokenReq[code] = %s, want %s", f.ExchangeTokenReq.Get("code"), wantCode)
 	}
 }
 
@@ -60,16 +60,16 @@ func TestOAuthToken_refresh(t *testing.T) {
 	sendExchangeToken(s, "refresh_token", "", wantRefreshToken)
 
 	if f.IntrospectionReqToken != wantRefreshToken {
-		t.Errorf("IntrospectionReqToken = %s want %s", f.IntrospectionReqToken, wantRefreshToken)
+		t.Errorf("IntrospectionReqToken = %s, want %s", f.IntrospectionReqToken, wantRefreshToken)
 	}
 
 	wantURL := "https://example.com/oauth2/token"
 	if f.ExchangeTokenReqURL != wantURL {
-		t.Errorf("ExchangeTokenReqURL = %s want %s", f.ExchangeTokenReqURL, wantURL)
+		t.Errorf("ExchangeTokenReqURL = %s, want %s", f.ExchangeTokenReqURL, wantURL)
 	}
 
 	if f.ExchangeTokenReq.Get("refresh_token") != wantRefreshToken {
-		t.Errorf("ExchangeTokenReq[refresh_token] = %s want %s", f.ExchangeTokenReq.Get("refresh_token"), wantRefreshToken)
+		t.Errorf("ExchangeTokenReq[refresh_token] = %s, want %s", f.ExchangeTokenReq.Get("refresh_token"), wantRefreshToken)
 	}
 }
 
@@ -90,15 +90,15 @@ func TestOAuthToken_refresh_deleted(t *testing.T) {
 	resp := sendExchangeToken(s, "refresh_token", "", wantRefreshToken)
 
 	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("StatusCode = %d want %d", resp.StatusCode, http.StatusUnauthorized)
+		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 
 	if f.ExchangeTokenReq != nil {
-		t.Errorf("ExchangeTokenReq = %v want nil", f.ExchangeTokenReq)
+		t.Errorf("ExchangeTokenReq = %v, want nil", f.ExchangeTokenReq)
 	}
 
 	if f.RevokeTokenReq != wantRefreshToken {
-		t.Errorf("RevokeTokenReq = %s want %s", f.RevokeTokenReq, wantRefreshToken)
+		t.Errorf("RevokeTokenReq = %s, want %s", f.RevokeTokenReq, wantRefreshToken)
 	}
 
 	if err := s.store.Read(storage.PendingDeleteTokenDatatype, storage.DefaultRealm, sub, tokenID, storage.LatestRev, pending); !storage.ErrNotFound(err) {
@@ -146,13 +146,44 @@ func TestOAuthToken_refresh_error(t *testing.T) {
 			resp := sendExchangeToken(s, "refresh_token", "code", "tok")
 
 			if resp.StatusCode != tc.wantStatus {
-				t.Errorf("StatusCode = %d want %d", resp.StatusCode, tc.wantStatus)
+				t.Errorf("StatusCode = %d, want %d", resp.StatusCode, tc.wantStatus)
 			}
 
 			if f.ExchangeTokenReq != nil {
-				t.Errorf("ExchangeTokenReq = %v want nil", f.ExchangeTokenReq)
+				t.Errorf("ExchangeTokenReq = %v, want nil", f.ExchangeTokenReq)
 			}
 		})
+	}
+}
+
+func TestOAuthToken_refresh_deleted_err(t *testing.T) {
+	s, f := setupOAuthTokenTest(t)
+
+	sub := "sub"
+	tokenID := "token-id"
+	f.IntrospectionResp = &hydraapi.Introspection{
+		Subject: sub,
+		Extra:   map[string]interface{}{"tid": tokenID},
+	}
+	f.RevokeTokenErr = &hydraapi.GenericError{
+		Code: http.StatusUnauthorized,
+	}
+
+	pending := &tpb.PendingDeleteToken{}
+	s.store.Write(storage.PendingDeleteTokenDatatype, storage.DefaultRealm, sub, tokenID, storage.LatestRev, pending, nil)
+
+	resp := sendExchangeToken(s, "refresh_token", "", "tok")
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusInternalServerError)
+	}
+
+	if f.ExchangeTokenReq != nil {
+		t.Errorf("ExchangeTokenReq = %v, want nil", f.ExchangeTokenReq)
+	}
+
+	if err := s.store.Read(storage.PendingDeleteTokenDatatype, storage.DefaultRealm, sub, tokenID, storage.LatestRev, pending); err != nil {
+		t.Errorf("PendingDeleteToken should not delete")
 	}
 }
 
