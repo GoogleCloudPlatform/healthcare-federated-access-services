@@ -90,6 +90,10 @@ const (
 	// update if it would put the configuration in an invalid state.
 	testPath = "/dam/v1alpha/{realm}/tests"
 
+	// End-point for managing tokens. See "proto/tokens/v1/consents.proto"
+	tokensPath = "/tokens"
+	tokenPath  = "/tokens/"
+
 	// End-point for managing consents. See "proto/tokens/v1/tokens.proto"
 	consentsPath = "/consents"
 	consentPath  = "/consents/"

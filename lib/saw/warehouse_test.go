@@ -51,10 +51,7 @@ func TestSAW_GetAccountKey(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -86,10 +83,7 @@ func TestSAW_MintTokenWithTTL(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -125,10 +119,7 @@ func TestSAW_GetTokenMetadata(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -170,10 +161,7 @@ func TestSAW_ListTokenMetadata(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -215,10 +203,7 @@ func TestSAW_DeleteTokens(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -253,10 +238,7 @@ func TestSAW_GetServiceAccounts(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -298,10 +280,7 @@ func TestSAW_RemoveServiceAccount(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -327,10 +306,7 @@ func TestSAW_ManageAccountKeys_RemovesExpiredKeys(t *testing.T) {
 	defer cleanup()
 
 	store := fakestore.New()
-	saw, err := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
 
 	params := &clouds.ResourceTokenCreationParams{
 		AccountProject: "fake-account-project",
@@ -350,7 +326,7 @@ func TestSAW_ManageAccountKeys_RemovesExpiredKeys(t *testing.T) {
 		t.Errorf("GetAccountKey() failed: %v", err)
 	}
 
-	active, removed, err := saw.ManageAccountKeys(ctx, "fake-project-id", emailID("fake-project-id", "fake-id"), time.Minute, time.Hour, time.Now(), 2)
+	active, removed, err := saw.ManageAccountKeys(ctx, "fake-project-id", EmailID("fake-project-id", "fake-id"), time.Minute, time.Hour, time.Now(), 2)
 	if err != nil {
 		t.Errorf("ManageAccountKeys() failed: %v", err)
 	}
@@ -358,7 +334,7 @@ func TestSAW_ManageAccountKeys_RemovesExpiredKeys(t *testing.T) {
 		t.Errorf("ManageAccountKeys() = active:%v, removed:%v, want active:%v, removed:%v", active, removed, 2, 1)
 	}
 
-	active, removed, err = saw.ManageAccountKeys(ctx, "fake-project-id", emailID("fake-project-id", "fake-id"), time.Minute, time.Hour, time.Now().Add(48*time.Hour), 2)
+	active, removed, err = saw.ManageAccountKeys(ctx, "fake-project-id", EmailID("fake-project-id", "fake-id"), time.Minute, time.Hour, time.Now().Add(48*time.Hour), 2)
 	if err != nil {
 		t.Errorf("ManageAccountKeys() failed: %v", err)
 	}

@@ -50,10 +50,12 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/tokensapi" /* copybara-comment: tokensapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/verifier" /* copybara-comment: verifier */
@@ -61,6 +63,7 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
+	tgrpcpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto_grpc */
 )
 
 const (
@@ -108,6 +111,7 @@ type Service struct {
 	useHydra            bool
 	visaVerifier        *verifier.Verifier
 	scim                *scim.Scim
+	tokens              tgrpcpb.TokensServer
 }
 
 type ServiceHandler struct {
@@ -128,7 +132,8 @@ type Options struct {
 	// Store: data storage and configuration storage
 	Store storage.Store
 	// Warehouse: resource token creator service
-	Warehouse clouds.ResourceTokenCreator
+	Warehouse             clouds.ResourceTokenCreator
+	ServiceAccountManager *saw.AccountWarehouse
 	// Logger: audit log logger
 	Logger *logging.Client
 	// UseHydra: service use hydra integrated OIDC.
@@ -189,6 +194,7 @@ func New(r *mux.Router, params *Options) *Service {
 		hydraSyncFreq:    syncFreq,
 		visaVerifier:     verifier.New(""),
 		scim:             scim.New(params.Store),
+		tokens:           tokensapi.NewDAMTokens(params.ServiceAccountManager),
 	}
 
 	if s.httpClient == nil {
@@ -1400,6 +1406,10 @@ func registerHandlers(r *mux.Router, s *Service) {
 
 	// resource token exchange endpoint
 	r.HandleFunc(resourceTokensPath, auth.MustWithAuth(s.ResourceTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet, http.MethodPost)
+
+	// token service endpoints
+	r.HandleFunc(tokensPath, auth.MustWithAuth(tokensapi.NewTokensHandler(s.tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(tokensapi.NewTokensHandler(s.tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// consents service endpoints
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}

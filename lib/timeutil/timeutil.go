@@ -155,6 +155,16 @@ func RFC3339(ts *tspb.Timestamp) string {
 	return t.Format(time.RFC3339)
 }
 
+// ParseRFC3339 converts an RFC3339 string to time.Time.
+// Returns default value of time.Time if the string is invalid.
+func ParseRFC3339(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
 // TimestampProto returns the timestamp proto for a given time.
 // Returns empty if the time is invalid.
 func TimestampProto(t time.Time) *tspb.Timestamp {

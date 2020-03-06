@@ -16,54 +16,11 @@ package tokensapi
 
 import (
 	"context"
-	"net/http"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
-	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto_grpc */
 )
-
-// TokensHandler is a HTTP handler wrapping a GRPC server.
-type TokensHandler struct {
-	s tgpb.TokensServer
-}
-
-// NewTokensHandler returns a new TokensHandler.
-func NewTokensHandler(s tgpb.TokensServer) *TokensHandler {
-	return &TokensHandler{s: s}
-}
-
-// GetToken handles GetToken HTTP requests.
-func (h *TokensHandler) GetToken(w http.ResponseWriter, r *http.Request) {
-	req := &tpb.GetTokenRequest{Name: r.RequestURI}
-	resp, err := h.s.GetToken(r.Context(), req)
-	if err != nil {
-		httputils.WriteError(w, err)
-	}
-	httputils.WriteResp(w, resp)
-}
-
-// DeleteToken handles DeleteToken HTTP requests.
-func (h *TokensHandler) DeleteToken(w http.ResponseWriter, r *http.Request) {
-	req := &tpb.DeleteTokenRequest{Name: r.RequestURI}
-	resp, err := h.s.DeleteToken(r.Context(), req)
-	if err != nil {
-		httputils.WriteError(w, err)
-	}
-	httputils.WriteResp(w, resp)
-}
-
-// ListTokens handles ListTokens HTTP requests.
-func (h *TokensHandler) ListTokens(w http.ResponseWriter, r *http.Request) {
-	req := &tpb.ListTokensRequest{Parent: r.RequestURI}
-	resp, err := h.s.ListTokens(r.Context(), req)
-	if err != nil {
-		httputils.WriteError(w, err)
-	}
-	httputils.WriteResp(w, resp)
-}
 
 // StubTokens is a stub implementation.
 type StubTokens struct {

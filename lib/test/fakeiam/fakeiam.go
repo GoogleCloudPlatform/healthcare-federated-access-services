@@ -89,8 +89,8 @@ func (f *Admin) CreateServiceAccount(ctx context.Context, req *iampb.CreateServi
 	defer func() { f.State <- state }()
 
 	proj := strings.Split(req.Name, "/")[1]
-	email := fmt.Sprintf("%v@%v.iam.gserviceaccount.com", req.AccountId, proj)
-	name := fmt.Sprintf("projects/%v/serviceAccounts/%v", proj, email)
+	email := SAEmail(proj, req.AccountId)
+	name := SAName(proj, req.AccountId)
 	guid := uuid.New()
 	for _, a := range state.Accounts {
 		if a.Name == name {
@@ -239,4 +239,19 @@ func HashProto(msg proto.Message) []byte {
 	h := sha256.New()
 	io.WriteString(h, msg.String())
 	return h.Sum(nil)
+}
+
+// SAEmail returns the service account email for a given project and account id.
+func SAEmail(proj string, accountID string) string {
+	return fmt.Sprintf("%v@%v.iam.gserviceaccount.com", accountID, proj)
+}
+
+// SAName returns the service account resource name.
+func SAName(proj string, accountID string) string {
+	return fmt.Sprintf("projects/%v/serviceAccounts/%v", proj, SAEmail(proj, accountID))
+}
+
+// SAKName returns the service account key resource name.
+func SAKName(proj string, accountID string, keyID string) string {
+	return fmt.Sprintf("projects/%v/serviceAccounts/%v/keys/%v", proj, SAEmail(proj, accountID), keyID)
 }

@@ -117,6 +117,7 @@ func main() {
 		DefaultBroker:          defaultBroker,
 		Store:                  store,
 		Warehouse:              wh,
+		ServiceAccountManager:  wh,
 		Logger:                 logger,
 		HidePolicyBasis:        hidePolicyBasis,
 		HideRejectDetail:       hideRejectDetail,
