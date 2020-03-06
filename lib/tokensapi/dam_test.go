@@ -142,3 +142,105 @@ func newFix(t *testing.T) (*Fix, func() error) {
 
 	return f, cleanup
 }
+
+func TestParentRE(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []string
+	}{
+		{
+			in:   "projects/fake-project/users/fake-user",
+			want: []string{"projects/fake-project/users/fake-user", "fake-project", "fake-user"},
+		},
+		{
+			in:   "",
+			want: nil,
+		},
+		{
+			in:   "projects",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project/users",
+			want: nil,
+		},
+		{
+			in:   "EXTRAprojects/fake-project/users/fake-user",
+			want: nil,
+		},
+		{
+			in:   "EXTRA/projects/fake-project/users/fake-user",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project/users/fake-user/EXTRA",
+			want: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		got := parentRE.FindStringSubmatch(tc.in)
+		if diff := cmp.Diff(tc.want, got); diff != "" {
+			t.Errorf("parentRE.FindStringSubmatch(%v) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestResourceRE(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []string
+	}{
+		{
+			in:   "projects/fake-project/users/fake-user/tokens/fake-token",
+			want: []string{"projects/fake-project/users/fake-user/tokens/fake-token", "fake-project", "fake-user", "fake-token"},
+		},
+		{
+			in:   "",
+			want: nil,
+		},
+		{
+			in:   "projects",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project/users",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project/users/fake-user",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project/users/fake-user/tokens",
+			want: nil,
+		},
+		{
+			in:   "EXTRAprojects/fake-project/users/fake-user/tokens/fake-token",
+			want: nil,
+		},
+		{
+			in:   "EXTRA/projects/fake-project/users/fake-user/tokens/fake-token",
+			want: nil,
+		},
+		{
+			in:   "projects/fake-project/users/fake-user//tokens/fake-token/EXTRA",
+			want: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		got := resourceRE.FindStringSubmatch(tc.in)
+		if diff := cmp.Diff(tc.want, got); diff != "" {
+			t.Errorf("resourceRE.FindStringSubmatch(%v) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}

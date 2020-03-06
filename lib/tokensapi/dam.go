@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
@@ -49,12 +48,15 @@ func (s *DAMTokens) GetToken(_ context.Context, req *tpb.GetTokenRequest) (*tpb.
 func (s *DAMTokens) DeleteToken(ctx context.Context, req *tpb.DeleteTokenRequest) (*epb.Empty, error) {
 	glog.Info("DeleteTokenRequest")
 	name := req.GetName()
-	parts := resourceRE.FindStringSubmatch(name)
-	if len(parts) < 3 {
+	ids := resourceRE.FindStringSubmatch(name)
+	if len(ids) < 3 {
 		return nil, status.Errorf(codes.InvalidArgument, "invalud name: %v", name)
 	}
 
-	if err := s.saw.DeleteTokens(ctx, parts[1], parts[2], []string{parts[3]}); err != nil {
+	// TODO: demux based on the platform from which the token is from.
+
+	err := s.GCPDeleteToken(ctx, ids)
+	if err != nil {
 		return nil, err
 	}
 
@@ -65,28 +67,22 @@ func (s *DAMTokens) DeleteToken(ctx context.Context, req *tpb.DeleteTokenRequest
 func (s *DAMTokens) ListTokens(ctx context.Context, req *tpb.ListTokensRequest) (*tpb.ListTokensResponse, error) {
 	glog.Infof("ListTokensRequest")
 	parent := req.GetParent()
-	parts := parentRE.FindStringSubmatch(parent)
-	if len(parts) < 3 {
+	ids := parentRE.FindStringSubmatch(parent)
+	if len(ids) < 3 {
 		return nil, status.Errorf(codes.InvalidArgument, "invalud parent: %v", parent)
 	}
 
-	tokens, err := s.saw.ListTokenMetadata(ctx, parts[1], parts[2])
+	tokens, err := s.GCPListTokens(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	resp := &tpb.ListTokensResponse{}
-	for _, v := range tokens {
-		t := &tpb.Token{
-			Name:      "projects/" + parts[1] + "/users/" + parts[2] + "/tokens/" + v.GetName(),
-			IssuedAt:  timeutil.ParseRFC3339(v.GetIssuedAt()).Unix(),
-			ExpiresAt: timeutil.ParseRFC3339(v.GetExpires()).Unix(),
-		}
-		resp.Tokens = append(resp.Tokens, t)
-	}
-	return resp, nil
+
+	// TODO: mux based on the platform from which the token is from.
+
+	return &tpb.ListTokensResponse{Tokens: tokens}, nil
 }
 
 var (
-	parentRE   = regexp.MustCompile("projects/([^/]*)/users/([^/]*)")
-	resourceRE = regexp.MustCompile("projects/([^/]*)/users/([^/]*)/tokens/([^/]*)")
+	parentRE   = regexp.MustCompile("^projects/([^/]*)/users/([^/]*)$")
+	resourceRE = regexp.MustCompile("^projects/([^/]*)/users/([^/]*)/tokens/([^/]*)$")
 )
