@@ -432,7 +432,7 @@ func TestIntrospect_Error(t *testing.T) {
 	s.IntrospectionErr = genericError
 
 	if _, err := Introspect(c, hydraAdminURL, tok); err == nil {
-		t.Errorf("Introspect wants error: %v", err)
+		t.Errorf("Introspect wants error")
 	}
 }
 
@@ -466,7 +466,7 @@ func TestListConsents_Error(t *testing.T) {
 	s.ListConsentsErr = genericError
 
 	if _, err := ListConsents(c, hydraAdminURL, sub); err == nil {
-		t.Errorf("ListConsents wants error: %v", err)
+		t.Errorf("ListConsents wants error")
 	}
 }
 
@@ -479,7 +479,7 @@ func TestRevokeConsents(t *testing.T) {
 	for _, cli := range clients {
 		err := RevokeConsents(c, hydraAdminURL, sub, cli)
 		if err != nil {
-			t.Errorf("ListConsents return error: %v", err)
+			t.Errorf("RevokeConsents return error: %v", err)
 		}
 
 		subject := s.RevokeConsentsReq.URL.Query().Get("subject")
@@ -502,6 +502,31 @@ func TestRevokeConsents_Error(t *testing.T) {
 	s.RevokeConsentsErr = genericError
 
 	if err := RevokeConsents(c, hydraAdminURL, sub, ""); err == nil {
-		t.Errorf("RevokeConsents wants error: %v", err)
+		t.Errorf("RevokeConsents wants error")
+	}
+}
+
+func TestRevokeToken(t *testing.T) {
+	s, c := setup()
+
+	tok := "tok"
+
+	err := RevokeToken(c, hydraAdminURL, tok)
+	if err != nil {
+		t.Errorf("RevokeToken return error: %v", err)
+	}
+
+	if s.RevokeTokenReq != tok {
+		t.Errorf("RevokeTokenReq = %s wants %s", s.RevokeTokenReq, tok)
+	}
+}
+
+func TestRevokeToken_Error(t *testing.T) {
+	s, c := setup()
+
+	s.RevokeTokenErr = genericError
+
+	if err := RevokeToken(c, hydraAdminURL, "tok"); err == nil {
+		t.Errorf("RevokeToken wants error")
 	}
 }

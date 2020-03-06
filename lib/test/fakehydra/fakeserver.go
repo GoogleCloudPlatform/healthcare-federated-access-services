@@ -70,6 +70,8 @@ type Data struct {
 	ListConsentsErr       *hydraapi.GenericError
 	RevokeConsentsReq     *http.Request
 	RevokeConsentsErr     *hydraapi.GenericError
+	RevokeTokenReq        string
+	RevokeTokenErr        *hydraapi.GenericError
 }
 
 // Server is fake hydra server.
@@ -92,6 +94,7 @@ func New(r *mux.Router) *Server {
 	r.HandleFunc("/oauth2/auth/requests/consent/accept", s.acceptConsent).Methods(http.MethodPut)
 	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsent).Methods(http.MethodPut)
 	r.HandleFunc("/oauth2/introspect", s.introspection).Methods(http.MethodPost)
+	r.HandleFunc("/oauth2/revoke", s.revokeToken).Methods(http.MethodPost)
 
 	// client endpoints
 	r.HandleFunc("/clients", s.listClients).Methods(http.MethodGet)
@@ -175,6 +178,16 @@ func (s *Server) introspection(w http.ResponseWriter, r *http.Request) {
 	s.IntrospectionReqToken = q.Get("token")
 
 	s.write(w, http.StatusOK, s.IntrospectionErr, s.IntrospectionResp)
+}
+
+func (s *Server) revokeToken(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	s.RevokeTokenReq = r.PostFormValue("token")
+	if s.RevokeTokenErr != nil {
+		s.write(w, int(s.RevokeTokenErr.Code), s.RevokeTokenErr, nil)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) listClients(w http.ResponseWriter, r *http.Request) {

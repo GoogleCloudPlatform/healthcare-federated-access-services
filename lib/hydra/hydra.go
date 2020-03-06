@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"strings"
 
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 )
@@ -87,7 +89,7 @@ func ListClients(client *http.Client, hydraAdminURL string) ([]*hydraapi.Client,
 func CreateClient(client *http.Client, hydraAdminURL string, oauthClient *hydraapi.Client) (*hydraapi.Client, error) {
 	u := hydraAdminURL + "/clients"
 	resp := &hydraapi.Client{}
-	err := httpPost(client, u, oauthClient, resp)
+	err := httpPostJSON(client, u, oauthClient, resp)
 	return resp, err
 }
 
@@ -174,6 +176,39 @@ func RevokeConsents(client *http.Client, hydraAdminURL, subject, clientID string
 	return httpDelete(client, u.String())
 }
 
+// RevokeToken revokes the given token, token maybe refresh token or access token.
+func RevokeToken(client *http.Client, hydraAdminURL, token string) error {
+	u, err := url.Parse(hydraAdminURL + "/oauth2/revoke")
+	if err != nil {
+		return status.Errorf(codes.Internal, "invalid hydraAdminURL: %v", err)
+	}
+
+	q := url.Values{}
+	q.Add("token", token)
+
+	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewBufferString(q.Encode()))
+	if err != nil {
+		return status.Errorf(codes.Internal, "http.NewRequest for RevokeToken failed to initialize: %v", err)
+	}
+
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return status.Errorf(codes.Unavailable, "RevokeToken to hydra failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Doc shows API may return empty body for success response.
+	// https://www.ory.sh/docs/next/hydra/sdk/api#revoke-oauth2-tokens
+	if httputils.IsHTTPSuccess(resp.StatusCode) {
+		return nil
+	}
+
+	return httpResponse(resp, nil)
+}
+
 func getURL(hydraAdminURL, flow, challenge string) string {
 	const getURLPattern = "%s/oauth2/auth/requests/%s?%s_challenge=%s"
 	return fmt.Sprintf(getURLPattern, hydraAdminURL, flow, flow, url.QueryEscape(challenge))
@@ -220,7 +255,7 @@ func httpPut(client *http.Client, url string, request interface{}, response inte
 	return httpResponse(resp, response)
 }
 
-func httpPost(client *http.Client, url string, request interface{}, response interface{}) error {
+func httpPostJSON(client *http.Client, url string, request interface{}, response interface{}) error {
 	body, err := json.Marshal(request)
 	if err != nil {
 		return err
