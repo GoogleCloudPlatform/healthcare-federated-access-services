@@ -1378,7 +1378,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(configTrustedIssuerPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configIssuerFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configTrustedSourcePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configSourceFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configPolicyPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPolicyFactory()), checker, auth.RequireAdminToken))
-	r.HandleFunc(configClaimDefPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configVisaTypeFactory()), checker, auth.RequireAdminToken))
+	r.HandleFunc(configVisaTypePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configVisaTypeFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configServiceTemplateFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPersonaFactory()), checker, auth.RequireAdminToken))
 	r.HandleFunc(configClientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientFactory()), checker, auth.RequireAdminToken))

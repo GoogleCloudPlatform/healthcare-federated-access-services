@@ -97,16 +97,16 @@ func TestHandlers(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	s := NewService(&Options{
-		HTTPClient:             server.Client(),
-		Domain:                 "test.org",
-		ServiceName:            "dam",
-		DefaultBroker:          "no-broker",
-		Store:                  store,
-		Warehouse:              wh,
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminURL,
-		HydraPublicURL:         hydraPublicURL,
-		HydraSyncFreq:          time.Nanosecond,
+		HTTPClient:     server.Client(),
+		Domain:         "test.org",
+		ServiceName:    "dam",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      wh,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+		HydraSyncFreq:  time.Nanosecond,
 	})
 	tests := []test.HandlerTest{
 		// Realm tests.
@@ -575,14 +575,14 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "GET",
-			Path:    "/dam/v1alpha/test/config/claimDefinitions/ResearcherStatus",
+			Path:    "/dam/v1alpha/test/config/visaTypes/ResearcherStatus",
 			Persona: "admin",
 			Output:  `^.*"ui"`,
 			Status:  http.StatusOK,
 		},
 		{
 			Method:  "POST",
-			Path:    "/dam/v1alpha/test/config/claimDefinitions/new.claim",
+			Path:    "/dam/v1alpha/test/config/visaTypes/new.claim",
 			Persona: "admin",
 			Input:   `{"item":{"ui":{"label":"new.Claim","description":"bar"}}}`,
 			Output:  ``,
@@ -590,21 +590,21 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "PUT",
-			Path:    "/dam/v1alpha/test/config/claimDefinitions/new.claim",
+			Path:    "/dam/v1alpha/test/config/visaTypes/new.claim",
 			Persona: "admin",
 			Input:   `{"item":{"ui":{"label":"new.Claim2","description":"bar"}}}`,
 			Status:  http.StatusOK,
 		},
 		{
 			Method:  "PATCH",
-			Path:    "/dam/v1alpha/test/config/claimDefinitions/new.claim",
+			Path:    "/dam/v1alpha/test/config/visaTypes/new.claim",
 			Persona: "admin",
 			Input:   `{"item":{"ui":{"label":"new.Claim3","description":"bar"}}}`,
 			Status:  http.StatusOK,
 		},
 		{
 			Method:  "DELETE",
-			Path:    "/dam/v1alpha/test/config/claimDefinitions/new.claim",
+			Path:    "/dam/v1alpha/test/config/visaTypes/new.claim",
 			Persona: "admin",
 			Output:  ``,
 			Status:  http.StatusOK,
@@ -889,17 +889,17 @@ func TestMinConfig(t *testing.T) {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	opts := &Options{
-		HTTPClient:             server.Client(),
-		Domain:                 "test.org",
-		ServiceName:            "dam",
-		DefaultBroker:          "no-broker",
-		Store:                  store,
-		Warehouse:              nil,
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminURL,
-		HydraPublicURL:         hydraPublicURL,
-		HidePolicyBasis:        true,
-		HideRejectDetail:       true,
+		HTTPClient:       server.Client(),
+		Domain:           "test.org",
+		ServiceName:      "dam",
+		DefaultBroker:    "no-broker",
+		Store:            store,
+		Warehouse:        nil,
+		UseHydra:         useHydra,
+		HydraAdminURL:    hydraAdminURL,
+		HydraPublicURL:   hydraPublicURL,
+		HidePolicyBasis:  true,
+		HideRejectDetail: true,
 	}
 	s := NewService(opts)
 	verifyService(t, s.domainURL, opts.Domain, "domainURL")

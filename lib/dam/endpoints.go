@@ -62,7 +62,7 @@ const (
 	configTrustedSourcePath   = "/dam/v1alpha/{realm}/config/trustedSources/{name}"
 	configPolicyPath          = "/dam/v1alpha/{realm}/config/policies/{name}"
 	configOptionsPath         = "/dam/v1alpha/{realm}/config/options"
-	configClaimDefPath        = "/dam/v1alpha/{realm}/config/claimDefinitions/{name}"
+	configVisaTypePath        = "/dam/v1alpha/{realm}/config/visaTypes/{name}"
 	configServiceTemplatePath = "/dam/v1alpha/{realm}/config/serviceTemplates/{name}"
 	configClientPath          = "/dam/v1alpha/{realm}/config/clients/{name}"
 	configTestPersonasPath    = "/dam/v1alpha/{realm}/config/testPersonas"

@@ -674,7 +674,7 @@ func (h *configPolicyHandler) Save(r *http.Request, tx storage.Tx, name string, 
 func (s *Service) configVisaTypeFactory() *handlerfactory.Options {
 	return &handlerfactory.Options{
 		TypeName:            "configVisaType",
-		PathPrefix:          configClaimDefPath,
+		PathPrefix:          configVisaTypePath,
 		HasNamedIdentifiers: true,
 		Service:             NewConfigVisaTypeHandler(s),
 	}
