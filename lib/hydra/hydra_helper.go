@@ -92,6 +92,21 @@ func ExtractIdentitiesInConsent(consent *hydraapi.ConsentRequest) ([]string, *st
 	return identities, nil
 }
 
+// ExtractTokenIDInIntrospect finds token id in introspect result, return error if not found or in wront type.
+func ExtractTokenIDInIntrospect(in *hydraapi.Introspection) (string, error) {
+	v, ok := in.Extra["tid"]
+	if !ok {
+		return "", status.Error(codes.Internal, "no tid in token")
+	}
+
+	tid, ok := v.(string)
+	if !ok {
+		return "", status.Error(codes.Internal, "no tid in wrong type")
+	}
+
+	return tid, nil
+}
+
 // LoginSkip if hydra was already able to authenticate the user, skip will be true and we do not need to re-authenticate the user.
 func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, login *hydraapi.LoginRequest, hydraAdminURL, challenge string) bool {
 	if !login.Skip {

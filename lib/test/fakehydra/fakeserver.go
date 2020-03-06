@@ -72,6 +72,8 @@ type Data struct {
 	RevokeConsentsErr     *hydraapi.GenericError
 	RevokeTokenReq        string
 	RevokeTokenErr        *hydraapi.GenericError
+	ExchangeTokenReqURL   string
+	ExchangeTokenReq      url.Values
 }
 
 // Server is fake hydra server.
@@ -95,6 +97,7 @@ func New(r *mux.Router) *Server {
 	r.HandleFunc("/oauth2/auth/requests/consent/reject", s.rejectConsent).Methods(http.MethodPut)
 	r.HandleFunc("/oauth2/introspect", s.introspection).Methods(http.MethodPost)
 	r.HandleFunc("/oauth2/revoke", s.revokeToken).Methods(http.MethodPost)
+	r.HandleFunc("/oauth2/token", s.exchangeToken).Methods(http.MethodPost)
 
 	// client endpoints
 	r.HandleFunc("/clients", s.listClients).Methods(http.MethodGet)
@@ -188,6 +191,12 @@ func (s *Server) revokeToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) exchangeToken(w http.ResponseWriter, r *http.Request) {
+	s.ExchangeTokenReqURL = r.RequestURI
+	r.ParseForm()
+	s.ExchangeTokenReq = r.PostForm
 }
 
 func (s *Server) listClients(w http.ResponseWriter, r *http.Request) {
