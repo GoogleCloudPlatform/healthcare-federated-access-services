@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dam
+package hydraproxy
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ import (
 )
 
 func TestOAuthToken_code(t *testing.T) {
-	s, f := setupOAuthTokenTest()
+	s, f := setupOAuthTokenTest(t)
 
 	wantCode := "code"
 	sendExchangeToken(s, "code", wantCode, "")
@@ -47,7 +47,7 @@ func TestOAuthToken_code(t *testing.T) {
 }
 
 func TestOAuthToken_refresh(t *testing.T) {
-	s, f := setupOAuthTokenTest()
+	s, f := setupOAuthTokenTest(t)
 
 	wantRefreshToken := "reftok"
 	sub := "sub"
@@ -74,7 +74,7 @@ func TestOAuthToken_refresh(t *testing.T) {
 }
 
 func TestOAuthToken_refresh_deleted(t *testing.T) {
-	s, f := setupOAuthTokenTest()
+	s, f := setupOAuthTokenTest(t)
 
 	sub := "sub"
 	tokenID := "token-id"
@@ -107,7 +107,7 @@ func TestOAuthToken_refresh_deleted(t *testing.T) {
 }
 
 func TestOAuthToken_refresh_error(t *testing.T) {
-	s, f := setupOAuthTokenTest()
+	s, f := setupOAuthTokenTest(t)
 
 	tests := []struct {
 		name          string
@@ -171,32 +171,25 @@ func sendExchangeToken(s *Service, grantType, code, refreshToken string) *http.R
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 
-	s.Handler.ServeHTTP(w, r)
+	s.HydraOAuthToken(w, r)
 
 	return w.Result()
 }
 
-func setupOAuthTokenTest() (*Service, *fakehydra.Server) {
-	store := storage.NewMemoryStorage("dam-min", "testdata/config")
+func setupOAuthTokenTest(t *testing.T) (*Service, *fakehydra.Server) {
+	t.Helper()
+
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 
 	router := mux.NewRouter()
 	h := fakehydra.New(router)
+	client := httptestclient.New(router)
 
-	opts := &Options{
-		HTTPClient:             httptestclient.New(router),
-		Domain:                 "test.org",
-		ServiceName:            "dam",
-		DefaultBroker:          "no-broker",
-		Store:                  store,
-		Warehouse:              nil,
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminURL,
-		HydraPublicURL:         hydraPublicURL,
-		HydraPublicURLInternal: hydraURLInternal,
-		HidePolicyBasis:        true,
-		HideRejectDetail:       true,
+	s, err := New(client, "http://hydra-admin.example.com", "http://hydra-pub-internal.example.com", store)
+	if err != nil {
+		t.Fatalf("New service failed: %v", err)
 	}
-	s := NewService(opts)
+	s.hydraPublicURLProxy.Transport = client.Transport
 
 	return s, h
 }

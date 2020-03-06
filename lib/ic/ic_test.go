@@ -102,7 +102,6 @@ func TestHandlers(t *testing.T) {
 		UseHydra:               useHydra,
 		HydraAdminURL:          hydraAdminURL,
 		HydraPublicURL:         hydraURL,
-		HydraPublicURLInternal: hydraURLInternal,
 		HydraSyncFreq:          time.Nanosecond,
 	}
 	s := NewService(opts)
@@ -896,7 +895,6 @@ func TestAddLinkedIdentities(t *testing.T) {
 		UseHydra:               useHydra,
 		HydraAdminURL:          hydraAdminURL,
 		HydraPublicURL:         hydraURL,
-		HydraPublicURLInternal: hydraURLInternal,
 	})
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -971,7 +969,6 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 		UseHydra:               useHydra,
 		HydraAdminURL:          hydraAdminURL,
 		HydraPublicURL:         hydraURL,
-		HydraPublicURLInternal: hydraURLInternal,
 		HydraSyncFreq:          time.Nanosecond,
 	})
 

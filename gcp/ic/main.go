@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
@@ -62,8 +64,6 @@ var (
 	hydraAdminAddr = ""
 	// hydraPublicAddr is the address for the Hydra public endpoint.
 	hydraPublicAddr = ""
-	// hydraPublicAddrInternal is the address for the Hydra public endpoint in the internal traffic.
-	hydraPublicAddrInternal = ""
 
 	cfgVars = map[string]string{
 		"${YOUR_PROJECT_ID}":  project,
@@ -110,25 +110,31 @@ func main() {
 		glog.Warningf("StackdriverLogging.Client.OnError: %v", err)
 	}
 
+	var hyproxy *hydraproxy.Service
 	if useHydra {
 		hydraAdminAddr = osenv.MustVar("HYDRA_ADMIN_URL")
 		hydraPublicAddr = osenv.MustVar("HYDRA_PUBLIC_URL")
-		hydraPublicAddrInternal = osenv.MustVar("HYDRA_PUBLIC_URL_INTERNAL")
+		hydraPublicAddrInternal := osenv.MustVar("HYDRA_PUBLIC_URL_INTERNAL")
+
+		hyproxy, err = hydraproxy.New(http.DefaultClient, hydraAdminAddr, hydraPublicAddrInternal, store)
+		if err != nil {
+			glog.Exitf("hydraproxy.New failed: %v", err)
+		}
 	}
 
 	r := mux.NewRouter()
 
 	s := ic.New(r, &ic.Options{
-		Domain:                 srvAddr,
-		ServiceName:            srvName,
-		AccountDomain:          acctDomain,
-		Store:                  store,
-		Encryption:             gcpkms,
-		Logger:                 logger,
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminAddr,
-		HydraPublicURL:         hydraPublicAddr,
-		HydraPublicURLInternal: hydraPublicAddrInternal,
+		Domain:           srvAddr,
+		ServiceName:      srvName,
+		AccountDomain:    acctDomain,
+		Store:            store,
+		Encryption:       gcpkms,
+		Logger:           logger,
+		UseHydra:         useHydra,
+		HydraAdminURL:    hydraAdminAddr,
+		HydraPublicURL:   hydraPublicAddr,
+		HydraPublicProxy: hyproxy,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

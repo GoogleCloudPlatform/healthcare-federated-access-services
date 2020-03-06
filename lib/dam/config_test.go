@@ -43,7 +43,6 @@ func TestConfigHandlers(t *testing.T) {
 		UseHydra:               useHydra,
 		HydraAdminURL:          hydraAdminURL,
 		HydraPublicURL:         hydraPublicURL,
-		HydraPublicURLInternal: hydraURLInternal,
 	})
 
 	role := `{"roleCategories":["metadata"],"policyBasis":{"AcceptedTermsAndPolicies":true,"ResearcherStatus":true}}`

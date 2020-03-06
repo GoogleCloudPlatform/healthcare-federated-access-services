@@ -147,7 +147,6 @@ func setupFromFile(t *testing.T) (*dam.Service, *pb.DamConfig) {
 		UseHydra:               useHydra,
 		HydraAdminURL:          hydraAdminURL,
 		HydraPublicURL:         hydraURL,
-		HydraPublicURLInternal: hydraURLInternal,
 	}
 	s := dam.NewService(opts)
 

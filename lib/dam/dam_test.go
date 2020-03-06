@@ -106,7 +106,6 @@ func TestHandlers(t *testing.T) {
 		UseHydra:               useHydra,
 		HydraAdminURL:          hydraAdminURL,
 		HydraPublicURL:         hydraPublicURL,
-		HydraPublicURLInternal: hydraURLInternal,
 		HydraSyncFreq:          time.Nanosecond,
 	})
 	tests := []test.HandlerTest{
@@ -899,7 +898,6 @@ func TestMinConfig(t *testing.T) {
 		UseHydra:               useHydra,
 		HydraAdminURL:          hydraAdminURL,
 		HydraPublicURL:         hydraPublicURL,
-		HydraPublicURLInternal: hydraURLInternal,
 		HidePolicyBasis:        true,
 		HideRejectDetail:       true,
 	}

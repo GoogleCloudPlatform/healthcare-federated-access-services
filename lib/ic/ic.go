@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path"
@@ -50,6 +49,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
@@ -224,7 +224,7 @@ type Service struct {
 	accountDomain         string
 	hydraAdminURL         string
 	hydraPublicURL        string
-	HydraPublicURLProxy   *httputil.ReverseProxy
+	hydraPublicURLProxy   *hydraproxy.Service
 	translators           sync.Map
 	encryption            Encryption
 	logger                *logging.Client
@@ -266,8 +266,8 @@ type Options struct {
 	HydraAdminURL string
 	// HydraPublicURL: hydra public endpoints url.
 	HydraPublicURL string
-	// HydraPublicURL: hydra public endpoints url for internal traffic.
-	HydraPublicURLInternal string
+	// HydraPublicProxy: proxy for hydra public endpoint.
+	HydraPublicProxy *hydraproxy.Service
 	// HydraSyncFreq: how often to allow clients:sync to be called
 	HydraSyncFreq time.Duration
 }
@@ -321,6 +321,7 @@ func New(r *mux.Router, params *Options) *Service {
 		accountDomain:         params.AccountDomain,
 		hydraAdminURL:         params.HydraAdminURL,
 		hydraPublicURL:        params.HydraPublicURL,
+		hydraPublicURLProxy:   params.HydraPublicProxy,
 		encryption:            params.Encryption,
 		logger:                params.Logger,
 		useHydra:              params.UseHydra,
@@ -331,14 +332,6 @@ func New(r *mux.Router, params *Options) *Service {
 	if s.httpClient == nil {
 		s.httpClient = http.DefaultClient
 	}
-
-	u, err := url.Parse(params.HydraPublicURLInternal)
-	if err != nil {
-		glog.Exitf("url.Parse(%s): %v", params.HydraPublicURLInternal, err)
-	}
-	s.HydraPublicURLProxy = httputil.NewSingleHostReverseProxy(u)
-	// reverse proxy use same http client transport.
-	s.HydraPublicURLProxy.Transport = s.httpClient.Transport
 
 	if err := validateURLs(map[string]string{
 		"DOMAIN as URL":         "https://" + params.Domain,
@@ -1772,5 +1765,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(adminTokenMetadataPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminTokenMetadataFactory()), checker, auth.RequireAdminToken))
 
 	// proxy hydra oauth token endpoint
-	r.HandleFunc(oauthTokenPath, s.HydraOAuthToken).Methods(http.MethodPost)
+	if s.hydraPublicURLProxy != nil {
+		r.HandleFunc(oauthTokenPath, s.hydraPublicURLProxy.HydraOAuthToken).Methods(http.MethodPost)
+	}
 }

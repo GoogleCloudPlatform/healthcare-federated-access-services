@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"net/mail"
 	"net/url"
 	"reflect"
@@ -47,6 +46,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -96,7 +96,7 @@ type Service struct {
 	serviceName         string
 	hydraAdminURL       string
 	hydraPublicURL      string
-	HydraPublicURLProxy *httputil.ReverseProxy
+	hydraPublicURLProxy *hydraproxy.Service
 	hydraSyncFreq       time.Duration
 	store               storage.Store
 	warehouse           clouds.ResourceTokenCreator
@@ -142,8 +142,8 @@ type Options struct {
 	HydraAdminURL string
 	// HydraPublicURL: hydra public endpoints url
 	HydraPublicURL string
-	// HydraPublicURL: hydra public endpoints url for internal traffic.
-	HydraPublicURLInternal string
+	// HydraPublicProxy: proxy for hydra public endpoint.
+	HydraPublicProxy *hydraproxy.Service
 	// HydraSyncFreq: how often to allow clients:sync to be called
 	HydraSyncFreq time.Duration
 	// HidePolicyBasis: do not send policy basis to client
@@ -175,39 +175,32 @@ func New(r *mux.Router, params *Options) *Service {
 
 	sh := &ServiceHandler{}
 	s := &Service{
-		roleCategories:   roleCat.DamRoleCategories,
-		domainURL:        params.Domain,
-		defaultBroker:    params.DefaultBroker,
-		serviceName:      params.ServiceName,
-		store:            params.Store,
-		warehouse:        params.Warehouse,
-		logger:           params.Logger,
-		permissions:      perms,
-		Handler:          sh,
-		hidePolicyBasis:  params.HidePolicyBasis,
-		hideRejectDetail: params.HideRejectDetail,
-		httpClient:       params.HTTPClient,
-		startTime:        time.Now().Unix(),
-		useHydra:         params.UseHydra,
-		hydraAdminURL:    params.HydraAdminURL,
-		hydraPublicURL:   params.HydraPublicURL,
-		hydraSyncFreq:    syncFreq,
-		visaVerifier:     verifier.New(""),
-		scim:             scim.New(params.Store),
-		tokens:           tokensapi.NewDAMTokens(params.ServiceAccountManager),
+		roleCategories:      roleCat.DamRoleCategories,
+		domainURL:           params.Domain,
+		defaultBroker:       params.DefaultBroker,
+		serviceName:         params.ServiceName,
+		store:               params.Store,
+		warehouse:           params.Warehouse,
+		logger:              params.Logger,
+		permissions:         perms,
+		Handler:             sh,
+		hidePolicyBasis:     params.HidePolicyBasis,
+		hideRejectDetail:    params.HideRejectDetail,
+		httpClient:          params.HTTPClient,
+		startTime:           time.Now().Unix(),
+		useHydra:            params.UseHydra,
+		hydraAdminURL:       params.HydraAdminURL,
+		hydraPublicURL:      params.HydraPublicURL,
+		hydraPublicURLProxy: params.HydraPublicProxy,
+		hydraSyncFreq:       syncFreq,
+		visaVerifier:        verifier.New(""),
+		scim:                scim.New(params.Store),
+		tokens:              tokensapi.NewDAMTokens(params.ServiceAccountManager),
 	}
 
 	if s.httpClient == nil {
 		s.httpClient = http.DefaultClient
 	}
-
-	u, err := url.Parse(params.HydraPublicURLInternal)
-	if err != nil {
-		glog.Exitf("url.Parse(%s): %v", params.HydraPublicURLInternal, err)
-	}
-	s.HydraPublicURLProxy = httputil.NewSingleHostReverseProxy(u)
-	// reverse proxy use same http client transport.
-	s.HydraPublicURLProxy.Transport = s.httpClient.Transport
 
 	exists, err := configExists(params.Store)
 	if err != nil {
@@ -1417,5 +1410,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// proxy hydra oauth token endpoint
-	r.HandleFunc(oauthTokenPath, s.HydraOAuthToken).Methods(http.MethodPost)
+	if s.hydraPublicURLProxy != nil {
+		r.HandleFunc(oauthTokenPath, s.hydraPublicURLProxy.HydraOAuthToken).Methods(http.MethodPost)
+	}
 }
