@@ -194,7 +194,7 @@
         "http://example.com"
       ],
       "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin",
-      "grantTypes": ["authorization_code"],
+      "grantTypes": ["authorization_code", "refresh_token"],
       "responseTypes": ["token", "code", "id_token"]
     },
     "test_client2": {
