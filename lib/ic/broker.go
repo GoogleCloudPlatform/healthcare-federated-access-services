@@ -276,7 +276,6 @@ func (s *Service) AcceptInformationRelease(w http.ResponseWriter, r *http.Reques
 	if redirect {
 		httputils.WriteRedirect(w, r, out)
 	}
-
 }
 
 func (s *Service) acceptInformationRelease(r *http.Request) (_ bool, _ string, ferr error) {
@@ -330,7 +329,6 @@ func (s *Service) acceptInformationRelease(r *http.Request) (_ bool, _ string, f
 			return false, "", err
 		}
 		return true, addr, nil
-		return
 	}
 
 	return false, "", status.Errorf(codes.Unimplemented, "oidc service not supported")

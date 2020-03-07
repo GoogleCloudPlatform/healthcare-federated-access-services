@@ -154,7 +154,6 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 //   if true, redirect address.
 //   if false, the html page.
 func (s *Service) hydraConsent(r *http.Request) (_ bool, _ string, ferr error) {
-
 	// Use consent_challenge fetch information from hydra.
 	challenge, sts := hydra.ExtractConsentChallenge(r)
 	if sts != nil {
@@ -172,19 +171,6 @@ func (s *Service) hydraConsent(r *http.Request) (_ bool, _ string, ferr error) {
 	}
 	if yes {
 		return true, redirect, nil
-	}
-
-	clientName := consent.Client.Name
-	if len(clientName) == 0 {
-		clientName = consent.Client.ClientID
-	}
-	if len(clientName) == 0 {
-		return false, "", status.Errorf(codes.Unavailable, "consent.Client.Name empty")
-	}
-
-	sub := consent.Subject
-	if len(sub) == 0 {
-		return false, "", status.Errorf(codes.Unavailable, "consent.Subject empty")
 	}
 
 	stateID, sts := hydra.ExtractStateIDInConsent(consent)
@@ -212,7 +198,46 @@ func (s *Service) hydraConsent(r *http.Request) (_ bool, _ string, ferr error) {
 	state.ConsentChallenge = challenge
 	state.Scope = strings.Join(consent.RequestedScope, " ")
 	state.Audience = append(consent.RequestedAudience, consent.Client.ClientID)
-	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
+
+	cfg, err := s.loadConfig(tx, state.Realm)
+	if err != nil {
+		return false, "", status.Errorf(codes.Unavailable, "%v", err)
+	}
+
+	if s.skipInformationReleasePage {
+		return s.hydraConsentSkipInformationReleasePage(r, stateID, state, cfg, tx)
+	}
+	return s.hydraConsentReturnInformationReleasePage(r, consent, stateID, state, cfg, tx)
+}
+
+func (s *Service) hydraConsentSkipInformationReleasePage(r *http.Request, stateID string, state *cpb.AuthTokenState, cfg *pb.IcConfig, tx storage.Tx) (_ bool, _ string, ferr error) {
+	err := s.store.DeleteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
+	if err != nil {
+		return false, "", status.Errorf(codes.Internal, "%v", err)
+	}
+
+	addr, err := s.hydraAcceptConsent(r, state, cfg, tx)
+	if err != nil {
+		return false, "", err
+	}
+	return true, addr, nil
+}
+
+func (s *Service) hydraConsentReturnInformationReleasePage(r *http.Request, consent *hydraapi.ConsentRequest, stateID string, state *cpb.AuthTokenState, cfg *pb.IcConfig, tx storage.Tx) (_ bool, _ string, ferr error) {
+	clientName := consent.Client.Name
+	if len(clientName) == 0 {
+		clientName = consent.Client.ClientID
+	}
+	if len(clientName) == 0 {
+		return false, "", status.Errorf(codes.Unavailable, "consent.Client.Name empty")
+	}
+
+	sub := consent.Subject
+	if len(sub) == 0 {
+		return false, "", status.Errorf(codes.Unavailable, "consent.Subject empty")
+	}
+
+	err := s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
 	if err != nil {
 		return false, "", status.Errorf(codes.Internal, "%v", err)
 	}
@@ -224,11 +249,6 @@ func (s *Service) hydraConsent(r *http.Request) (_ bool, _ string, ferr error) {
 	acct, st, err := s.scim.LoadAccount(sub, state.Realm, a.IsAdmin, tx)
 	if err != nil {
 		return false, "", status.Errorf(httputils.RPCCode(st), "%v", err)
-	}
-
-	cfg, err := s.loadConfig(tx, state.Realm)
-	if err != nil {
-		return false, "", status.Errorf(codes.Unavailable, "%v", err)
 	}
 
 	secrets, err := s.loadSecrets(tx)

@@ -59,6 +59,10 @@ var (
 
 	port = osenv.VarWithDefault("IC_PORT", "8080")
 
+	// skipInformationReleasePage is useful if IC and DAM provided by same org.
+	// Use env var "SKIP_INFORMATION_RELEASE_PAGE" = true to set.
+	skipInformationReleasePage = os.Getenv("SKIP_INFORMATION_RELEASE_PAGE") == "true"
+
 	useHydra = os.Getenv("USE_HYDRA") != ""
 	// hydraAdminAddr is the address for the Hydra admin endpoint.
 	hydraAdminAddr = ""
@@ -125,16 +129,17 @@ func main() {
 	r := mux.NewRouter()
 
 	s := ic.New(r, &ic.Options{
-		Domain:           srvAddr,
-		ServiceName:      srvName,
-		AccountDomain:    acctDomain,
-		Store:            store,
-		Encryption:       gcpkms,
-		Logger:           logger,
-		UseHydra:         useHydra,
-		HydraAdminURL:    hydraAdminAddr,
-		HydraPublicURL:   hydraPublicAddr,
-		HydraPublicProxy: hyproxy,
+		Domain:                     srvAddr,
+		ServiceName:                srvName,
+		AccountDomain:              acctDomain,
+		Store:                      store,
+		Encryption:                 gcpkms,
+		Logger:                     logger,
+		SkipInformationReleasePage: skipInformationReleasePage,
+		UseHydra:                   useHydra,
+		HydraAdminURL:              hydraAdminAddr,
+		HydraPublicURL:             hydraPublicAddr,
+		HydraPublicProxy:           hyproxy,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

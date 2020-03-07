@@ -211,26 +211,27 @@ var (
 )
 
 type Service struct {
-	store                 storage.Store
-	Handler               *ServiceHandler
-	httpClient            *http.Client
-	loginPage             string
-	clientLoginPage       string
-	infomationReleasePage string
-	startTime             int64
-	permissions           *permissions.Permissions
-	domain                string
-	serviceName           string
-	accountDomain         string
-	hydraAdminURL         string
-	hydraPublicURL        string
-	hydraPublicURLProxy   *hydraproxy.Service
-	translators           sync.Map
-	encryption            Encryption
-	logger                *logging.Client
-	useHydra              bool
-	hydraSyncFreq         time.Duration
-	scim                  *scim.Scim
+	store                      storage.Store
+	Handler                    *ServiceHandler
+	httpClient                 *http.Client
+	loginPage                  string
+	clientLoginPage            string
+	infomationReleasePage      string
+	startTime                  int64
+	permissions                *permissions.Permissions
+	domain                     string
+	serviceName                string
+	accountDomain              string
+	hydraAdminURL              string
+	hydraPublicURL             string
+	hydraPublicURLProxy        *hydraproxy.Service
+	translators                sync.Map
+	encryption                 Encryption
+	logger                     *logging.Client
+	skipInformationReleasePage bool
+	useHydra                   bool
+	hydraSyncFreq              time.Duration
+	scim                       *scim.Scim
 }
 
 type ServiceHandler struct {
@@ -260,6 +261,8 @@ type Options struct {
 	Encryption Encryption
 	// Logger: audit log logger
 	Logger *logging.Client
+	// SkipInformationReleasePage: set true if want to skip the information release page.
+	SkipInformationReleasePage bool
 	// UseHydra: service use hydra integrated OIDC.
 	UseHydra bool
 	// HydraAdminURL: hydra admin endpoints url.
@@ -308,25 +311,26 @@ func New(r *mux.Router, params *Options) *Service {
 		glog.Exitf("cannot load permissions:%v", err)
 	}
 	s := &Service{
-		store:                 params.Store,
-		Handler:               sh,
-		httpClient:            params.HTTPClient,
-		loginPage:             lp,
-		clientLoginPage:       clp,
-		infomationReleasePage: irp,
-		startTime:             time.Now().Unix(),
-		permissions:           perms,
-		domain:                params.Domain,
-		serviceName:           params.ServiceName,
-		accountDomain:         params.AccountDomain,
-		hydraAdminURL:         params.HydraAdminURL,
-		hydraPublicURL:        params.HydraPublicURL,
-		hydraPublicURLProxy:   params.HydraPublicProxy,
-		encryption:            params.Encryption,
-		logger:                params.Logger,
-		useHydra:              params.UseHydra,
-		hydraSyncFreq:         syncFreq,
-		scim:                  scim.New(params.Store),
+		store:                      params.Store,
+		Handler:                    sh,
+		httpClient:                 params.HTTPClient,
+		loginPage:                  lp,
+		clientLoginPage:            clp,
+		infomationReleasePage:      irp,
+		startTime:                  time.Now().Unix(),
+		permissions:                perms,
+		domain:                     params.Domain,
+		serviceName:                params.ServiceName,
+		accountDomain:              params.AccountDomain,
+		hydraAdminURL:              params.HydraAdminURL,
+		hydraPublicURL:             params.HydraPublicURL,
+		hydraPublicURLProxy:        params.HydraPublicProxy,
+		encryption:                 params.Encryption,
+		logger:                     params.Logger,
+		skipInformationReleasePage: params.SkipInformationReleasePage,
+		useHydra:                   params.UseHydra,
+		hydraSyncFreq:              syncFreq,
+		scim:                       scim.New(params.Store),
 	}
 
 	if s.httpClient == nil {

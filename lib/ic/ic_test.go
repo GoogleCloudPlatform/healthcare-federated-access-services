@@ -93,16 +93,16 @@ func TestHandlers(t *testing.T) {
 	crypt := fakeencryption.New()
 
 	opts := &Options{
-		HTTPClient:             server.Client(),
-		Domain:                 domain,
-		ServiceName:            "ic",
-		AccountDomain:          domain,
-		Store:                  store,
-		Encryption:             crypt,
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminURL,
-		HydraPublicURL:         hydraURL,
-		HydraSyncFreq:          time.Nanosecond,
+		HTTPClient:     server.Client(),
+		Domain:         domain,
+		ServiceName:    "ic",
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     crypt,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+		HydraSyncFreq:  time.Nanosecond,
 	}
 	s := NewService(opts)
 	verifyService(t, s.domain, opts.Domain, "domain")
@@ -887,14 +887,14 @@ func TestAddLinkedIdentities(t *testing.T) {
 
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(&Options{
-		Domain:                 domain,
-		ServiceName:            "ic",
-		AccountDomain:          domain,
-		Store:                  store,
-		Encryption:             fakeencryption.New(),
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminURL,
-		HydraPublicURL:         hydraURL,
+		Domain:         domain,
+		ServiceName:    "ic",
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     fakeencryption.New(),
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
 	})
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
 	if err != nil {
@@ -960,16 +960,16 @@ func setupHydraTest() (*Service, *pb.IcConfig, *pb.IcSecrets, *fakehydra.Server,
 
 	crypt := fakeencryption.New()
 	s := NewService(&Options{
-		HTTPClient:             httptestclient.New(server.Handler),
-		Domain:                 domain,
-		ServiceName:            "ic-min",
-		AccountDomain:          domain,
-		Store:                  store,
-		Encryption:             crypt,
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminURL,
-		HydraPublicURL:         hydraURL,
-		HydraSyncFreq:          time.Nanosecond,
+		HTTPClient:     httptestclient.New(server.Handler),
+		Domain:         domain,
+		ServiceName:    "ic-min",
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     crypt,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+		HydraSyncFreq:  time.Nanosecond,
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1470,17 +1470,34 @@ func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, reqStateID 
 	t.Helper()
 
 	h.GetConsentRequestResp = &hydraapi.ConsentRequest{
-		RequestedScope:    []string{"openid", "ga4gh"},
+		RequestedScope:    []string{"openid", "profile"},
 		Client:            &hydraapi.Client{Name: "test-client", ClientID: testClientID},
 		Subject:           "admin",
 		Context:           map[string]interface{}{hydra.StateIDKey: reqStateID},
 		RequestedAudience: []string{"another_aud"},
 	}
 
-	state := &cpb.AuthTokenState{Realm: "test"}
+	state := &cpb.AuthTokenState{Realm: "test", Subject: "admin"}
 	err := s.store.Write(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, state, nil)
 	if err != nil {
 		t.Fatalf("write AuthTokenState failed: %v", err)
+	}
+
+	// Ensure identity exists before request.
+	acct := &cpb.Account{
+		Properties: &cpb.AccountProperties{Subject: "admin"},
+		State:      "ACTIVE",
+		ConnectedAccounts: []*cpb.ConnectedAccount{
+			{
+				Properties: &cpb.AccountProperties{
+					Subject: "foo@bar.com",
+				},
+			},
+		},
+	}
+	err = s.store.Write(storage.AccountDatatype, "test", storage.DefaultUser, "admin", storage.LatestRev, acct, nil)
+	if err != nil {
+		t.Fatalf("write Account failed: %v", err)
 	}
 
 	w := httptest.NewRecorder()
@@ -1521,7 +1538,7 @@ func TestConsent_Hydra(t *testing.T) {
 		t.Errorf("state.ConsentChallenge = %s want %s", state.ConsentChallenge, consentChallenge)
 	}
 
-	wantScope := "openid ga4gh"
+	wantScope := "openid profile"
 	if state.Scope != wantScope {
 		t.Errorf("state.Scope = %q want %q", state.Scope, wantScope)
 	}
@@ -1542,6 +1559,46 @@ func TestConsent_Hydra_StateInvalid(t *testing.T) {
 
 	if resp.StatusCode != http.StatusInternalServerError {
 		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusInternalServerError, resp.StatusCode)
+	}
+}
+
+func TestConsent_Hydra_skipInformationRelease(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+	s.skipInformationReleasePage = true
+
+	h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	resp := sendHydraConsent(t, s, h, loginStateID)
+
+	// return consent page
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	}
+
+	if l := resp.Header.Get("Location"); l != hydraURL {
+		t.Errorf("resp.Location wants %s got %s", hydraURL, l)
+	}
+
+	if h.RejectConsentReq != nil {
+		t.Errorf("RejectConsentReq wants nil got %v", h.RejectConsentReq)
+	}
+
+	scope := "openid profile"
+	if diff := cmp.Diff(h.AcceptConsentReq.GrantedScope, strings.Split(scope, " ")); len(diff) != 0 {
+		t.Errorf("AcceptConsentReq.GrantedScope wants %s got %v", scope, h.AcceptConsentReq.GrantedScope)
+	}
+
+	email, ok := h.AcceptConsentReq.Session.IDToken["email"].(string)
+	if !ok {
+		t.Fatalf("Email in id token in wrong type")
+	}
+
+	wantEmail := "admin@" + domain
+	if email != wantEmail {
+		t.Errorf("Email in id token wants %s got %s", wantEmail, email)
 	}
 }
 
