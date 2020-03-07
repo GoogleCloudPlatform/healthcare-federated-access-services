@@ -26,11 +26,13 @@
       var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=" + scope + "&state=_STATE_&max_age=_MAX_AGE_&resource=_RESOURCES_";
       var loginIdentitiesURL= "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=" + identitiesScope + "&state=_STATE_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
-      var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
+      var authCodeExchangeToken = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
+      var refreshExchangeToken = "grant_type=refresh_token&redirect_uri=_REDIRECT_&refresh_token=_REFRESH_TOKEN_";
       var resourcesURL = "_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id="+clientId+"&client_secret="+clientSecret;
       var resourceURL = "_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_/interfaces/_INTERFACE_"
       var resources = {};
       var checkoutURL = "_DAM_URL_/dam/checkout?client_id="+clientId+"&client_secret="+clientSecret;
+      var refreshToken = "";
 
       function validateState(stateID) {
         if (!stateID) {
@@ -120,6 +122,7 @@
         }
         return pattern.replace(/_PATH_/g, encodeURI(path))
                       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
+                      .replace(/_REFRESH_TOKEN_/g, encodeURIComponent(token))
                       .replace(/_REALM_/g, encodeURIComponent(realm))
                       .replace(/_MAX_AGE_/g, encodeURIComponent($("#ttl").val() || "3600"))
                       .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
@@ -168,19 +171,45 @@
         $.ajax({
           url: url,
           type: "POST",
-          data: makeURL(tokenQuery, authCode),
+          data: makeURL(authCodeExchangeToken, authCode),
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
             clearError();
             $("#token").text(resp.access_token);
             $("#access_token_div").addClass("available");
             $("#cart-btn").removeClass("white").addClass("blue");
+            refreshToken = resp.refresh_token;
           },
           error: function(err) {
             displayError("token exchanged failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
+
+      function refresh() {
+        if (!refreshToken) {
+          $("#log").text("must login first...");
+          return;
+        }
+        var url = makeURL(tokenURL);
+        $.ajax({
+          url: url,
+          type: "POST",
+          data: makeURL(refreshExchangeToken, refreshToken),
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
+          success: function(resp) {
+            clearError();
+            $("#token").text(resp.access_token);
+            $("#access_token_div").addClass("available");
+            $("#cart-btn").removeClass("white").addClass("blue");
+            refreshToken = resp.refresh_token;
+          },
+          error: function(err) {
+            $("#log").text(JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
+
       function cartTokens() {
         var token = $("#token").text();
         if (!token) {
@@ -439,6 +468,7 @@
       <table id="cart_table" class="cart-table"></table>
       <div>
         <a id="cart-btn" class="btn white" onclick="cartTokens()">Cart Tokens</a>
+        <a class="btn black" onclick="refresh()">Refresh Token</a>
       </div>
     </div>
 

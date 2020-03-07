@@ -28,9 +28,11 @@
       var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_";
       var tokenURL = "_HYDRA_URL_/oauth2/token";
       var userinfoURL = "_HYDRA_URL_/userinfo";
-      var tokenQuery = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
+      var authCodeExchangeToken = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
+      var refreshExchangeToken = "grant_type=refresh_token&redirect_uri=_REDIRECT_&refresh_token=_REFRESH_TOKEN_";
       var realm = "master";
       var accountURL = "_IC_URL_/identity/scim/v2/_REALM_/Me?client_id=" + clientId + "&client_secret=" + clientSecret;
+      var refreshToken = "";
 
       function validateStateAndNonce(stateID) {
         var state = window.localStorage.getItem('state');
@@ -98,6 +100,7 @@
         nonce = nonce || "";
         return pattern.replace(/_PATH_/g, encodeURI(path))
                       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
+                      .replace(/_REFRESH_TOKEN_/g, encodeURIComponent(token))
                       .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
                       .replace(/_HYDRA_URL_/g, encodeURI($("#hydra_url").val()))
                       .replace(/_IC_URL_/g, encodeURI($("#ic_url").val()))
@@ -143,11 +146,12 @@
         $.ajax({
           url: url,
           type: "POST",
-          data: makeURL(tokenQuery, authCode),
+          data: makeURL(authCodeExchangeToken, authCode),
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
             $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
             $("#token").val(resp.access_token);
+            refreshToken = resp.refresh_token;
           },
           error: function(err) {
             $("#log").text(JSON.stringify(err, undefined, 2));
@@ -163,7 +167,7 @@
         $.ajax({
           url: url,
           type: "POST",
-          data: makeURL(tokenQuery, authCode),
+          data: makeURL(authCodeExchangeToken, authCode),
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
             scimLink(primaryToken, resp.access_token);
@@ -210,6 +214,28 @@
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Bearer ' + tok)},
           success: function(resp) {
             $("#log").text("Userinfo: " + JSON.stringify(resp, undefined, 2));
+          },
+          error: function(err) {
+            $("#log").text(JSON.stringify(err, undefined, 2));
+          }
+        });
+      }
+
+      function refresh() {
+        if (!refreshToken) {
+          $("#log").text("must login first...");
+          return;
+        }
+        var url = makeURL(tokenURL);
+        $.ajax({
+          url: url,
+          type: "POST",
+          data: makeURL(refreshExchangeToken, refreshToken),
+          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
+          success: function(resp) {
+            $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
+            $("#token").val(resp.access_token);
+            refreshToken = resp.refresh_token;
           },
           error: function(err) {
             $("#log").text(JSON.stringify(err, undefined, 2));
@@ -281,6 +307,7 @@
       <textarea id="token" rows="7" style="width:100%" readonly></textarea>
       <div>
         <a class="btn black" onclick="userinfo()">Token Userinfo</a>
+        <a class="btn black" onclick="refresh()">Refresh Token</a>
         <a class="btn black" onclick="accountInfo()">Account Info</a>
         <a class="btn white" onclick="debugJWT('#token')">JWT.IO</a>
       </div>

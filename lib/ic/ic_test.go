@@ -2192,6 +2192,7 @@ func TestConfigClients_Create_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 		Scope:         defaultScope,
 		RedirectURIs:  cli.RedirectUris,
+		Audience:      []string{h.CreateClientReq.ClientID},
 	}
 	if diff := diffOfHydraClientIgnoreClientIDAndSecret(wantReq, h.CreateClientReq); len(diff) > 0 {
 		t.Errorf("client (-want, +got): %s", diff)
@@ -2804,6 +2805,7 @@ func TestConfig_Hydra_Put(t *testing.T) {
 		ResponseTypes: cli.ResponseTypes,
 		Scope:         updatedScope,
 		RedirectURIs:  cli.RedirectUris,
+		Audience:      []string{cli.ClientId},
 	}
 	if diff := diffOfHydraClientIgnoreClientIDAndSecret(wantReq, h.UpdateClientReq); len(diff) > 0 {
 		t.Errorf("client (-want, +got): %s", diff)

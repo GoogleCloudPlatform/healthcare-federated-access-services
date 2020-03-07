@@ -334,6 +334,7 @@ func toHydraClient(c *pb.Client, name, secret string, createdAt strfmt.DateTime)
 		ResponseTypes: c.ResponseTypes,
 		RedirectURIs:  c.RedirectUris,
 		CreatedAt:     createdAt,
+		Audience:      []string{c.ClientId},
 	}
 }
 
