@@ -53,7 +53,7 @@ func main() {
 		accountPrefix = *pre
 	}
 	ctx := context.Background()
-	store := dsstore.NewDatastoreStorage(context.Background(), project, service, *path)
+	store := dsstore.NewStore(context.Background(), project, service, *path)
 	wh := saw.MustNew(ctx, store)
 	vars := map[string]string{
 		"${YOUR_PROJECT_ID}":  project,
@@ -81,7 +81,7 @@ func main() {
 	glog.Infof("SUCCESS resetting DAM service %q", service)
 }
 
-func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, store *dsstore.DatastoreStorage) {
+func cleanupServiceAccounts(ctx context.Context, accountPrefix, project string, store *dsstore.Store) {
 	wh := saw.MustNew(ctx, store)
 	var (
 		removed, skipped, errors int

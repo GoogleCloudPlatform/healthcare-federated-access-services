@@ -42,7 +42,7 @@ func main() {
 		envPrefix = "-" + env
 		service += envPrefix
 	}
-	store := dsstore.NewDatastoreStorage(context.Background(), project, service, *path)
+	store := dsstore.NewStore(context.Background(), project, service, *path)
 
 	vars := map[string]string{
 		"${YOUR_PROJECT_ID}":  project,

@@ -85,7 +85,7 @@ func main() {
 	var store storage.Store
 	switch storageType {
 	case "datastore":
-		store = dsstore.NewDatastoreStorage(ctx, project, srvName, cfgPath)
+		store = dsstore.NewStore(ctx, project, srvName, cfgPath)
 	case "memory":
 		store = storage.NewMemoryStorage(srvName, cfgPath)
 		// Import and resolve template variables, if any.
