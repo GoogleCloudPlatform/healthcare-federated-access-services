@@ -67,6 +67,28 @@ h3 .small {
 .box {
   margin: 20px 0 20px 0;
 }
+.error-info {
+  margin: 10px 10px;
+  padding: 5px 5px;
+  border: 1px solid red;
+  background: lightpink;
+  color: red;
+}
+.error {
+  margin: 5px 10px;
+  padding: 5px 5px;
+  border-bottom: 1px solid red;
+  font-weight: bold;
+}
+.error-desc, .error-hint {
+  padding: 5px 5px;
+}
+.error-hint {
+  color: black;
+}
+.hidden {
+  display: none;
+}
 pre {
   border: 1px solid #888;
   background: #eee;

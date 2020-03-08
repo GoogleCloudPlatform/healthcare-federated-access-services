@@ -41,7 +41,7 @@
         var state = window.localStorage.getItem('state');
         if (!state) {
           displayError(`request with invalid 'state' ${stateID}, no 'state' in database`,
-                       `app maybe under attack.`);
+                       `app maybe under attack or test page refreshed using same code.`);
           return false;
         }
         var s = JSON.parse(state)
@@ -420,7 +420,7 @@
     </script>
   </head>
   <body onload="init()">
-    <h1>Hydra Token Flow DAM Test</h1>
+    <h1>DAM Test Page</h1>
     <div id="error_info" class="error-info hidden">
       <div id="error" class="error"></div>
       <div id="error_desc" class="error-desc"></div>

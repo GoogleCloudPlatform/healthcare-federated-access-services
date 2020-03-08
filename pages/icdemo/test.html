@@ -19,8 +19,9 @@
     <link rel="stylesheet" href="/static/css/icdemo-test.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script>
-      var clientId = "903cfaeb-57d9-4ef6-5659-04377794ed65";
-      var clientSecret = "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
+      var winParams = new URLSearchParams(window.location.search);
+      var clientId = winParams.get('client_id') || "903cfaeb-57d9-4ef6-5659-04377794ed65";
+      var clientSecret = winParams.get('client_secret') || "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
       // IMPORTANT: Scopes "account_admin" and "link" should only be requested when the user is
       // actively requesting the account to be modified or linked.
       var defaultScope = "openid+offline+profile+identities+ga4gh_passport_v1";
@@ -34,18 +35,24 @@
       var accountURL = "_IC_URL_/identity/scim/v2/_REALM_/Me?client_id=" + clientId + "&client_secret=" + clientSecret;
       var refreshToken = "";
 
-      function validateStateAndNonce(stateID) {
+      function validateState(stateID, nonce) {
         var state = window.localStorage.getItem('state');
         if (!state) {
-          $("#log").text(`request with invalid 'state' ${stateID}, no 'state' in database`);
-          window.alert(`app maybe under attack.`);
+          displayError(`request with invalid 'state' ${stateID}, no 'state' in database`,
+                       `app maybe under attack or test page refreshed using same code.`);
+          return false;
         }
         var s = JSON.parse(state);
         if (s.id !== stateID) {
-          $("#log").text(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`);
-          window.alert(`app maybe under attack.`);
+          displayError(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`, `app maybe under attack.`);
           return false;
         }
+        if (s.nonce && s.nonce !== nonce) {
+          displayError(`request with invalid 'nonce' ${nonce}, 'nonce' in database is ${s.nonce}`, `app maybe under attack.`);
+          return false;
+        }
+        clientId = s.clientId
+        clientSecret = s.clientSecret
 
         window.localStorage.removeItem('state');
         return true;
@@ -60,12 +67,10 @@
           port = new URL($("#ic_url").val()).port;
           $("#ic_url").val(`${window.location.protocol}//${window.location.hostname}:${port}`);
         }
-        var params = new URLSearchParams(window.location.search);
-        var code = params.get('code');
+        var code = winParams.get('code');
         if (code) {
           $("#auth_code").val(code);
-          var state = params.get('state');
-          // validateState(state);
+          validateState(winParams.get('state'), winParams.get('nonce'));
           if (window.localStorage.getItem('primary_token')) {
             linkAccount(code);
           }
@@ -110,14 +115,17 @@
                       .replace(/_STATE_/g, state)
                       .replace(/_NONCE_/g, nonce)
       }
+
       function auth(scope) {
         var stateID = randomString(16);
-        var state = new Object();
-        state.id = stateID;
+        var nonce = ""; // not supplying nonce for code flow
+        var state = {
+          id: stateID,
+          nonce: nonce,
+          clientId: clientId,
+          clientSecret: clientSecret
+        };
         window.localStorage.setItem('state', JSON.stringify(state));
-
-        var nonce = randomString(16);
-        window.localStorage.setItem('nonce', nonce);
 
         var url = makeURL(loginURL, /*token*/ undefined, scope || defaultScope, stateID, nonce);
         window.location.href = url;
@@ -125,9 +133,9 @@
 
       function linkauth() {
         var authCode = $("#auth_code").val();
-        var tok = $("#token").val();
+        var tok = $("#access_token").val();
         if (authCode && !tok) {
-          $("#log").text("must exchange code first (assuming it has the 'link' scope)...");
+          displayError("must exchange code first (assuming it has the 'link' scope)...");
           return;
         }
         if (tok) {
@@ -139,7 +147,7 @@
       function tokenExchange() {
         var authCode = $("#auth_code").val();
         if (!authCode) {
-          $("#log").text("must login first...");
+          displayError("must login first...");
           return;
         }
         var url = makeURL(tokenURL);
@@ -150,11 +158,12 @@
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
             $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#token").val(resp.access_token);
+            $("#access_token").val(resp.access_token);
+            $("#refresh_token").val(resp.refresh_token||"")
             refreshToken = resp.refresh_token;
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("token exchange failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
@@ -162,7 +171,7 @@
       function linkAccount(authCode) {
         var primaryToken = window.localStorage.getItem('primary_token');
         window.localStorage.removeItem('primary_token');
-        $("#token").val(primaryToken);
+        $("#access_token").val(primaryToken);
         var url = makeURL(tokenURL);
         $.ajax({
           url: url,
@@ -173,7 +182,7 @@
             scimLink(primaryToken, resp.access_token);
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("token exchange (for linking) failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
@@ -196,15 +205,15 @@
             $("#log").text("LINK ACCOUNT SUCCESS:\n\n" + JSON.stringify(resp, undefined, 2));
           },
           error: function(err, status, info) {
-            $("#log").text(JSON.stringify(err, undefined, 2) + `,\nstatus: "${status}", info: "${info}"`);
+            displayError("link account failed", `status: "${status}", info: "${info}"`, JSON.stringify(err, undefined, 2));
           }
         });
       }
 
       function userinfo() {
-        var tok = $("#token").val();
+        var tok = $("#access_token").val();
         if (!tok) {
-          $("#log").text("must login first...");
+          displayError("must login first...");
           return;
         }
         var url = makeURL(userinfoURL);
@@ -216,7 +225,7 @@
             $("#log").text("Userinfo: " + JSON.stringify(resp, undefined, 2));
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("user info failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
@@ -234,17 +243,18 @@
           beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
           success: function(resp) {
             $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#token").val(resp.access_token);
+            $("#access_token").val(resp.access_token);
+            $("#refresh_token").val(resp.refresh_token);
             refreshToken = resp.refresh_token;
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("refresh token failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
 
       function accountInfo() {
-        var tok = $("#token").val();
+        var tok = $("#access_token").val();
         if (!tok) {
           $("#log").text("must login first...");
           return;
@@ -258,7 +268,7 @@
             $("#log").text("Account Info:\n\n" + JSON.stringify(resp, undefined, 2));
           },
           error: function(err) {
-            $("#log").text(JSON.stringify(err, undefined, 2));
+            displayError("account info failed", "", JSON.stringify(err, undefined, 2));
           }
         });
       }
@@ -267,10 +277,17 @@
         $("#log").text(JSON.stringify(result, undefined, 2));
       }
       function displaySuccess(str) {
+        clearError();
         $("#log").text(str);
       }
-      function displayError(str) {
-        $("#log").text(str);
+      function clearError() {
+        $('#error_info').addClass("hidden");
+      }
+      function displayError(error, desc, hint) {
+        $('#error').text(error);
+        $('#error_desc').text(desc || "");
+        $('#error_hint').text(hint || "");
+        $('#error_info').removeClass("hidden");
       }
       function clearPage() {
         window.localStorage.removeItem('primary_token');
@@ -283,9 +300,14 @@
     </script>
   </head>
   <body onload="init()">
-    <h1>Hydra Token Flow IC Test</h1>
+    <h1>IC Test Page</h1>
+    <div id="error_info" class="error-info hidden">
+      <div id="error" class="error"></div>
+      <div id="error_desc" class="error-desc"></div>
+      <div id="error_hint" class="error-hint"></div>
+    </div>
     <div class="box">
-      <h3>1. Auth on Hydra</h3>
+      <h3>1. Auth using Hydra</h3>
       <input id="hydra_url" style="width:50%" value="${HYDRA_URL}">
       <input id="ic_url" style="width:49%" value="${IC_URL}">
       <div>
@@ -303,13 +325,14 @@
       </div>
     </div>
     <div class="box">
-      <h3>3. Token</h3>
-      <textarea id="token" rows="7" style="width:100%" readonly></textarea>
+      <h3>3. Tokens</h3>
+      Access: <textarea id="access_token" rows="7" style="width:100%" readonly></textarea>
+      Refresh: <textarea id="refresh_token" rows="1" style="width:100%" readonly></textarea>
       <div>
         <a class="btn black" onclick="userinfo()">Token Userinfo</a>
         <a class="btn black" onclick="refresh()">Refresh Token</a>
         <a class="btn black" onclick="accountInfo()">Account Info</a>
-        <a class="btn white" onclick="debugJWT('#token')">JWT.IO</a>
+        <a class="btn white" onclick="debugJWT('#access_token')">JWT.IO</a>
       </div>
     </div>
 
