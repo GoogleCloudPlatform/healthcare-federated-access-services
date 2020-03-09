@@ -496,7 +496,7 @@
         "https://damdemo${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/test"
       ],
       "scope": "openid offline ga4gh_passport_v1 profile email identities",
-      "grantTypes": ["authorization_code"],
+      "grantTypes": ["authorization_code", "refresh_token"],
       "responseTypes": ["token", "code", "id_token"]
     },
     "admin_tool": {
@@ -507,7 +507,7 @@
       },
       "redirectUris": ["/"],
       "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin sync",
-      "grantTypes": ["authorization_code"],
+      "grantTypes": ["authorization_code", "refresh_token"],
       "responseTypes": ["token", "code", "id_token"]
     }
   },
