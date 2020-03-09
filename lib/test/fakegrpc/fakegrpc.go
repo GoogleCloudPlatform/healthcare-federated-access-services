@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,11 @@ func New() (*Fake, func() error) {
 	f := &Fake{}
 
 	// Create a gRPC server.
-	f.Server = grpc.NewServer()
+	opts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(UnaryLoggerInterceptor),
+		grpc.StreamInterceptor(StreamLoggerInterceptor),
+	}
+	f.Server = grpc.NewServer(opts...)
 
 	// ":0" means pick a random free port on the local host.
 	port := ":0"
@@ -65,4 +69,9 @@ func (f *Fake) Start() {
 			glog.Fatalf("server.Serve(_) failed: %v", err)
 		}
 	}()
+}
+
+// Addr returns the address of the server.
+func (f *Fake) Addr() string {
+	return f.Listener.Addr().String()
 }
