@@ -17,8 +17,8 @@ package dam_test
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google3/third_party/golang/protobuf/v1/proto/proto"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -139,14 +139,14 @@ func setupFromFile(t *testing.T) (*dam.Service, *pb.DamConfig) {
 	}
 
 	opts := &dam.Options{
-		Domain:                 "test.org",
-		ServiceName:            "dam",
-		DefaultBroker:          "no-broker",
-		Store:                  store,
-		Warehouse:              nil,
-		UseHydra:               useHydra,
-		HydraAdminURL:          hydraAdminURL,
-		HydraPublicURL:         hydraURL,
+		Domain:         "test.org",
+		ServiceName:    "dam",
+		DefaultBroker:  "no-broker",
+		Store:          store,
+		Warehouse:      nil,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
 	}
 	s := dam.NewService(opts)
 
