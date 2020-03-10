@@ -17,7 +17,7 @@ package storage
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/third_party/golang/protobuf/v1/proto/proto"
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 

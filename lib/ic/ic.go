@@ -33,14 +33,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
+	"google3/third_party/golang/protobuf/v1/jsonpb/jsonpb"
+	"google3/third_party/golang/protobuf/v1/proto/proto"
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */

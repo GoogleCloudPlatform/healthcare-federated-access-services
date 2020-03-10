@@ -15,7 +15,7 @@
 package storage
 
 import (
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/third_party/golang/protobuf/v1/proto/proto"
 )
 
 type StorageCache struct {
