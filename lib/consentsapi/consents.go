@@ -20,7 +20,7 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
-	"google3/net/proto2/go/ptypes"
+	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_grpc_proto */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
