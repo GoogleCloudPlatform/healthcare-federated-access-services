@@ -26,8 +26,8 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
-	"github.com/golang/protobuf/ptypes" /* copybara-comment */
+	"google3/net/proto2/go/proto"
+	"google3/net/proto2/go/ptypes"
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */

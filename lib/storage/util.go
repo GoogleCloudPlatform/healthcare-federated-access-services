@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"strings"
 
-	"google3/third_party/golang/protobuf/v1/jsonpb/jsonpb"
-	"google3/third_party/golang/protobuf/v1/proto/proto"
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )

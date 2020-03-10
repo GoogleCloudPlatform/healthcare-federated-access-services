@@ -17,7 +17,7 @@ package storage
 import (
 	"testing"
 
-	"google3/third_party/golang/protobuf/v1/proto/proto"
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
 
 func TestFilters(t *testing.T) {

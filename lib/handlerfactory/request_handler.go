@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/net/proto2/go/proto"
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */

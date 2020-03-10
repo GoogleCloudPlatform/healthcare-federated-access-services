@@ -21,8 +21,8 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
-	"github.com/golang/protobuf/ptypes" /* copybara-comment */
+	"google3/net/proto2/go/proto"
+	"google3/net/proto2/go/ptypes"
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */

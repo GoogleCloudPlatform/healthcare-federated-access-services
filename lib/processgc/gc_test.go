@@ -20,7 +20,7 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/net/proto2/go/proto"
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */

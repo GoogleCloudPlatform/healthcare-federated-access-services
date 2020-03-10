@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/net/proto2/go/proto"
 	"google.golang.org/grpc/status" /* copybara-comment */
 
 	glog "github.com/golang/glog" /* copybara-comment */

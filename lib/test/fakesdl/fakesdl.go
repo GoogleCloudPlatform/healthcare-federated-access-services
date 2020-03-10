@@ -19,7 +19,7 @@ import (
 	"context"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/net/proto2/go/proto"
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes" /* copybara-comment */
+	"google3/net/proto2/go/ptypes"
 	"golang.org/x/text/language" /* copybara-comment */
 
 	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */

@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"google3/net/proto2/go/jsonpb"
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */

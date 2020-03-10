@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/net/proto2/go/jsonpb"
+	"google3/net/proto2/go/proto"
 )
 
 var (

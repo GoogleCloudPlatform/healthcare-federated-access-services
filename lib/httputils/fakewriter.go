@@ -19,7 +19,7 @@ import (
 	"net/http"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"google3/net/proto2/go/proto"
 )
 
 // FakeWriter is a fake HTTP response writer.

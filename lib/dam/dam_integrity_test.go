@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
-	"google3/third_party/golang/protobuf/v1/proto/proto"
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 

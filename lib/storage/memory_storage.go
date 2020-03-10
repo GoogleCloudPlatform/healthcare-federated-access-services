@@ -24,8 +24,8 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"google3/third_party/golang/protobuf/v1/jsonpb/jsonpb"
-	"google3/third_party/golang/protobuf/v1/proto/proto"
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
 
 const (
