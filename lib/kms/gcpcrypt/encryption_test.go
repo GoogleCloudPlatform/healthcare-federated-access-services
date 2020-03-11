@@ -20,10 +20,10 @@ import (
 	"net"
 	"testing"
 
-	"google3/net/proto2/go/proto"
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 
 	rpb "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: resources_go_proto */
 	kmsgrpc "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: service_go_grpc */

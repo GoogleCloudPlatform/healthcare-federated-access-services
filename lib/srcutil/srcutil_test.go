@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"google3/net/proto2/go/proto"
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 

@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"google3/net/proto2/go/ptypes"
 	"golang.org/x/text/language" /* copybara-comment */
+	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 
 	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 	tspb "github.com/golang/protobuf/ptypes/timestamp" /* copybara-comment */
