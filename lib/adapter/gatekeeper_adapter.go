@@ -118,7 +118,7 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 			continue
 		}
 		if a, ok := item.Args["aud"]; ok {
-			if aud == "" {
+			if aud != "" {
 				aud += " "
 			}
 			aud += a

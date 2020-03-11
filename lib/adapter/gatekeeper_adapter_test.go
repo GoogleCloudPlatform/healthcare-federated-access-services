@@ -23,6 +23,8 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -70,10 +72,10 @@ func TestGatekeeperAdapter(t *testing.T) {
 	}
 
 	tests := []struct {
-		name   string
-		input  *adapter.Action
-		expect []clouds.MockTokenCreatorEntry
-		fail   bool
+		name  string
+		input *adapter.Action
+		want  *ga4gh.StdClaims
+		fail  bool
 	}{
 		{
 			name: "standard beacon token",
@@ -88,6 +90,10 @@ func TestGatekeeperAdapter(t *testing.T) {
 				ServiceTemplate: st,
 				TTL:             60 * time.Second,
 				View:            view,
+			},
+			want: &ga4gh.StdClaims{
+				Audience: ga4gh.Audiences{"https://ga4gh-apis-beacon.dnastack.com"},
+				Subject:  "larry",
 			},
 			fail: false,
 		},
@@ -113,8 +119,18 @@ func TestGatekeeperAdapter(t *testing.T) {
 		if test.fail != (err != nil) {
 			t.Fatalf("test %q error mismatch: want error %v, got error %v", test.name, test.fail, err)
 		}
-		if err == nil && (len(result.Credentials) == 0 || len(result.Credentials["access_token"]) == 0) {
+		if err != nil {
+			continue
+		}
+		if len(result.Credentials) == 0 || len(result.Credentials["access_token"]) == 0 {
 			t.Errorf("test %q token mismatch: want non-empty, got empty", test.name)
+		}
+		got, err := ga4gh.NewStdClaimsFromJWT(result.Credentials["access_token"])
+		if err != nil {
+			t.Errorf("test %q NewStdClaimsFromJWT(access_token) failed: %v", test.name, err)
+		}
+		if diff := cmp.Diff(test.want, got, cmpopts.IgnoreFields(ga4gh.StdClaims{}, "ExpiresAt", "IssuedAt", "ID", "NotBefore")); diff != "" {
+			t.Errorf("test %q claims mismatch (-want +got):\n%s", test.name, diff)
 		}
 	}
 }
