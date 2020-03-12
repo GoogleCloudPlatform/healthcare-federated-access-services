@@ -18,8 +18,8 @@ import (
 	"net/http"
 	"strings"
 
-	"google3/net/proto2/go/proto"
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 )

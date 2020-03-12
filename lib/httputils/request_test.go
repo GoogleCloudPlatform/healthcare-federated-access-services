@@ -20,8 +20,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"google3/net/proto2/go/jsonpb"
 	"github.com/gorilla/mux" /* copybara-comment */
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 
 	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 )

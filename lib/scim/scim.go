@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"time"
 
-	"google3/net/proto2/go/proto"
 	"github.com/gorilla/mux" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 

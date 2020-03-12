@@ -17,7 +17,7 @@ package fakestore
 import (
 	"time"
 
-	"google3/net/proto2/go/proto"
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
 
 // Key is the type of keys.

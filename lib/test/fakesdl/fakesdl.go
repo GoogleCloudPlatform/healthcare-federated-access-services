@@ -18,13 +18,13 @@ package fakesdl
 import (
 	"context"
 
-	glog "github.com/golang/glog" /* copybara-comment */
-	"google3/net/proto2/go/proto"
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakegrpc" /* copybara-comment: fakegrpc */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
 )

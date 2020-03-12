@@ -17,9 +17,9 @@ package httputils
 import (
 	"strings"
 
-	"google3/net/proto2/go/proto"
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 
 	errpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
 )

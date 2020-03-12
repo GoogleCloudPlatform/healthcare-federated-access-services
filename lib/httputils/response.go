@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"testing"
 
-	"google3/net/proto2/go/jsonpb"
-	"google3/net/proto2/go/proto"
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
 
 // EncodeJSONPB encodes an object into JSONPB and writes it to io.Writer.
