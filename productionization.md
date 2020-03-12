@@ -28,7 +28,7 @@ To create a production environment, complete the following steps:
     cat public.pem
     ```
 
-1.  Edit `deploy.bash` and ensure the following is configured correctly:
+1.  Edit `deploy.bash` or `deploy-gke.bash` and ensure the following is configured correctly:
 
     *  The CloudSQL `username` and `password`.
     *  [DAM's permissions.json](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/config/dam-template/permissions_master_main_latest.json) file. This file contains a list of DAM administrators.
@@ -57,10 +57,10 @@ To create a production environment, complete the following steps:
     admin endpoints outside the VM (nginx is configured to guard this in the
     sample setup).
 
-1.  Run the `deploy.bash` script and make sure you rebuild your images
+1.  Run the `deploy(_gke).bash` script and make sure you rebuild your images
     and do not install the "personas" playground component.
 
-    *  The `prepare_project.bash` and `deploy.bash` are not designed for
+    *  The `prepare_project(_gke).bash` and `deploy(_gke).bash` are not designed for
        production use. You will need to develop your own version of these
        scripts that meets your deployment needs.
     *  Make sure that you run or re-run `project_init.bash` or a similar script
@@ -170,8 +170,10 @@ To create a production environment, complete the following steps:
 
     For more information, see the following files:
 
-    *  deploy/build/dam/entrypoint.bash
-    *  deploy/build/ic/entrypoint.bash
+    *  deploy/build/dam/entrypoint.bash for GAE Flex
+    *  deploy/build/ic/entrypoint.bash for GAE Flex
+    *  deploy/build-gke/dam/entrypoint.bash for GKE
+    *  deploy/build-gke/ic/entrypoint.bash for GKE
 
     `SECRETS_SYSTEM` is the secret that hydra used to encrypt the sensitive
     information in SQL database. This variable should not be stored as plain text
