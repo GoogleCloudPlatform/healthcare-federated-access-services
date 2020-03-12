@@ -1050,8 +1050,8 @@ func TestCheckAuthorization_UntrustedIssuer(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errUntrustedIssuer {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errUntrustedIssuer)
+	if errutil.ErrorReason(err) != errUntrustedIssuer {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errUntrustedIssuer)
 	}
 }
 
@@ -1068,8 +1068,8 @@ func TestCheckAuthorization_ResourceNotFound(t *testing.T) {
 	if status.Code(err) != codes.NotFound {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
 	}
-	if errutil.ErrorType(err) != errResourceNotFoound {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errResourceNotFoound)
+	if errutil.ErrorReason(err) != errResourceNotFoound {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errResourceNotFoound)
 	}
 }
 
@@ -1086,8 +1086,8 @@ func TestCheckAuthorization_ResourceViewNotFoound(t *testing.T) {
 	if status.Code(err) != codes.NotFound {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
 	}
-	if errutil.ErrorType(err) != errResourceViewNotFoound {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errResourceViewNotFoound)
+	if errutil.ErrorReason(err) != errResourceViewNotFoound {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errResourceViewNotFoound)
 	}
 }
 
@@ -1104,8 +1104,8 @@ func TestCheckAuthorization_ResolveAggregatesFail(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errResolveAggregatesFail {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errResolveAggregatesFail)
+	if errutil.ErrorReason(err) != errResolveAggregatesFail {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errResolveAggregatesFail)
 	}
 }
 
@@ -1122,8 +1122,8 @@ func TestCheckAuthorization_RoleNotAvailable(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errRoleNotAvailable {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errRoleNotAvailable)
+	if errutil.ErrorReason(err) != errRoleNotAvailable {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errRoleNotAvailable)
 	}
 }
 
@@ -1140,8 +1140,8 @@ func TestCheckAuthorization_CannotResolveServiceRole(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errCannotResolveServiceRole {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errCannotResolveServiceRole)
+	if errutil.ErrorReason(err) != errCannotResolveServiceRole {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errCannotResolveServiceRole)
 	}
 }
 
@@ -1158,8 +1158,8 @@ func TestCheckAuthorization_NoPolicyDefined(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errNoPolicyDefined {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errNoPolicyDefined)
+	if errutil.ErrorReason(err) != errNoPolicyDefined {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errNoPolicyDefined)
 	}
 }
 
@@ -1177,8 +1177,8 @@ func TestCheckAuthorization_CannotEnforcePolicies(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errCannotEnforcePolicies {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errCannotEnforcePolicies)
+	if errutil.ErrorReason(err) != errCannotEnforcePolicies {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errCannotEnforcePolicies)
 	}
 }
 
@@ -1195,8 +1195,8 @@ func TestCheckAuthorization_RejectedPolicy(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errRejectedPolicy {
-		t.Errorf("errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errRejectedPolicy)
+	if errutil.ErrorReason(err) != errRejectedPolicy {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errRejectedPolicy)
 	}
 }
 
@@ -1214,8 +1214,8 @@ func TestCheckAuthorization_Whitelist(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("setup checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.PermissionDenied, err)
 	}
-	if errutil.ErrorType(err) != errRejectedPolicy {
-		t.Errorf("setup errutil.ErrorType() = %s want %s", errutil.ErrorType(err), errRejectedPolicy)
+	if errutil.ErrorReason(err) != errRejectedPolicy {
+		t.Errorf("setup errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errRejectedPolicy)
 	}
 
 	// Now try again with being on the whitelist.

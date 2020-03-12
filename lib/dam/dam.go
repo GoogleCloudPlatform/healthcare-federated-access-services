@@ -504,19 +504,19 @@ func (s *Service) makeAccessList(id *ga4gh.Identity, resources, views, roles []s
 
 func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Duration, resourceName, viewName, roleName string, cfg *pb.DamConfig, client string, vopts ValidateCfgOpts) error {
 	if stat := checkTrustedIssuer(id.Issuer, cfg, vopts); stat != nil {
-		return errutil.WithErrorType(errUntrustedIssuer, stat.Err())
+		return errutil.WithErrorReason(errUntrustedIssuer, stat.Err())
 	}
 	srcRes, ok := cfg.Resources[resourceName]
 	if !ok {
-		return errutil.WithErrorType(errResourceNotFoound, status.Errorf(codes.NotFound, "resource %q not found", resourceName))
+		return errutil.WithErrorReason(errResourceNotFoound, status.Errorf(codes.NotFound, "resource %q not found", resourceName))
 	}
 	srcView, ok := srcRes.Views[viewName]
 	if !ok {
-		return errutil.WithErrorType(errResourceViewNotFoound, status.Errorf(codes.NotFound, "resource %q view %q not found", resourceName, viewName))
+		return errutil.WithErrorReason(errResourceViewNotFoound, status.Errorf(codes.NotFound, "resource %q view %q not found", resourceName, viewName))
 	}
 	entries, err := resolveAggregates(srcRes, srcView, cfg, vopts.Services)
 	if err != nil {
-		return errutil.WithErrorType(errResolveAggregatesFail, status.Error(codes.PermissionDenied, err.Error()))
+		return errutil.WithErrorReason(errResolveAggregatesFail, status.Error(codes.PermissionDenied, err.Error()))
 	}
 	active := false
 	for _, entry := range entries {
@@ -525,16 +525,16 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 		res := entry.Res
 		vRole, ok := view.Roles[roleName]
 		if !ok {
-			return errutil.WithErrorType(errRoleNotAvailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not available on this view)", resourceName, viewName, roleName))
+			return errutil.WithErrorReason(errRoleNotAvailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not available on this view)", resourceName, viewName, roleName))
 		}
 		_, err := adapter.ResolveServiceRole(roleName, view, res, cfg)
 		if err != nil {
-			return errutil.WithErrorType(errCannotResolveServiceRole, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (cannot resolve service role)", resourceName, viewName, roleName))
+			return errutil.WithErrorReason(errCannotResolveServiceRole, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (cannot resolve service role)", resourceName, viewName, roleName))
 		}
 
 		// Step 3: check visa policies.
 		if len(vRole.Policies) == 0 {
-			return errutil.WithErrorType(errNoPolicyDefined, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName))
+			return errutil.WithErrorReason(errNoPolicyDefined, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (no policy defined for this view's role)", resourceName, viewName, roleName))
 		}
 
 		ctxWithTTL := context.WithValue(ctx, validator.RequestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
@@ -542,10 +542,10 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 			if p.Name == whitelistPolicyName {
 				ok, err := checkWhitelist(p.Args, id, cfg, vopts)
 				if err != nil {
-					return errutil.WithErrorType(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (whitelist unavailable): %v", resourceName, viewName, roleName, err))
+					return errutil.WithErrorReason(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (whitelist unavailable): %v", resourceName, viewName, roleName, err))
 				}
 				if !ok {
-					return errutil.WithErrorType(errRejectedPolicy, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (user not on whitelist)", resourceName, viewName, roleName))
+					return errutil.WithErrorReason(errRejectedPolicy, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (user not on whitelist)", resourceName, viewName, roleName))
 				}
 				active = true
 				continue
@@ -553,22 +553,22 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 
 			v, err := buildValidator(ctxWithTTL, p, vRole, cfg)
 			if err != nil {
-				return errutil.WithErrorType(errCannotEnforcePolicies, status.Errorf(codes.PermissionDenied, "cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err))
+				return errutil.WithErrorReason(errCannotEnforcePolicies, status.Errorf(codes.PermissionDenied, "cannot enforce policies for resource %q view %q role %q: %v", resourceName, viewName, roleName, err))
 			}
 			ok, err = v.Validate(ctxWithTTL, id)
 			if err != nil {
 				// Strip internal error in case it contains any sensitive data.
-				return errutil.WithErrorType(errCannotValidateIdentity, status.Errorf(codes.PermissionDenied, "cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer))
+				return errutil.WithErrorReason(errCannotValidateIdentity, status.Errorf(codes.PermissionDenied, "cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer))
 			}
 			if !ok {
 				details, s := buildRejectedPolicy(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Services), vopts)
-				return errutil.WithErrorType(errRejectedPolicy, withRejectedPolicy(details, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, s)))
+				return errutil.WithErrorReason(errRejectedPolicy, withRejectedPolicy(details, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, s)))
 			}
 			active = true
 		}
 	}
 	if !active {
-		return errutil.WithErrorType(errRoleNotEnabled, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not enabled)", resourceName, viewName, roleName))
+		return errutil.WithErrorReason(errRoleNotEnabled, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (role not enabled)", resourceName, viewName, roleName))
 	}
 	return nil
 }
@@ -591,7 +591,7 @@ func checkWhitelist(args map[string]string, id *ga4gh.Identity, cfg *pb.DamConfi
 			addr, err := mail.ParseAddress(wl)
 			if err != nil {
 				// Don't expose the email address to the end user, just hint at the problem being the email format.
-				return false, errutil.WithErrorType(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "whitelist contains invalid email addresses"))
+				return false, errutil.WithErrorReason(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "whitelist contains invalid email addresses"))
 			}
 			if email == addr.Address {
 				return true, nil
@@ -601,7 +601,7 @@ func checkWhitelist(args map[string]string, id *ga4gh.Identity, cfg *pb.DamConfi
 		for _, wl := range groups {
 			member, err := vopts.Scim.LoadGroupMember(wl, email, vopts.Realm, vopts.Tx)
 			if err != nil {
-				return false, errutil.WithErrorType(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "loading group %q member %q failed: %v", wl, email, err))
+				return false, errutil.WithErrorReason(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "loading group %q member %q failed: %v", wl, email, err))
 			}
 			if member != nil {
 				return true, nil

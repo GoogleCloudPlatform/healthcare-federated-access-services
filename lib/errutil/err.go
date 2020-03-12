@@ -22,23 +22,23 @@ import (
 	edpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
 )
 
-// WithErrorType add error type to status error.
-func WithErrorType(typ string, err error) error {
+// WithErrorReason add error reason to status error.
+func WithErrorReason(reason string, err error) error {
 	s, ok := status.FromError(err)
 	if !ok {
 		glog.Error("not a status error")
 		return err
 	}
 
-	s, err = s.WithDetails(&edpb.ErrorInfo{Type: typ})
+	s, err = s.WithDetails(&edpb.ErrorInfo{Reason: reason})
 	if err != nil {
 		glog.Errorf("status.WithDetails() failed: %v", err)
 	}
 	return s.Err()
 }
 
-// ErrorType find error type attached in status error.
-func ErrorType(err error) string {
+// ErrorReason find error reason attached in status error.
+func ErrorReason(err error) string {
 	s, ok := status.FromError(err)
 	if !ok {
 		glog.Error("not a status error")
@@ -47,7 +47,7 @@ func ErrorType(err error) string {
 	for _, d := range s.Details() {
 		switch v := d.(type) {
 		case *edpb.ErrorInfo:
-			return v.GetType()
+			return v.GetReason()
 		}
 	}
 	return ""

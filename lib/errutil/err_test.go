@@ -26,10 +26,10 @@ import (
 	edpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
 )
 
-func TestWithErrorType(t *testing.T) {
-	errType := "type"
+func TestWithErrorReason(t *testing.T) {
+	errReason := "reason"
 
-	err := WithErrorType(errType, status.Error(codes.Internal, "this is a error"))
+	err := WithErrorReason(errReason, status.Error(codes.Internal, "this is a error"))
 
 	s, ok := status.FromError(err)
 	if !ok {
@@ -37,7 +37,7 @@ func TestWithErrorType(t *testing.T) {
 	}
 
 	want := []interface{}{
-		&edpb.ErrorInfo{Type: errType},
+		&edpb.ErrorInfo{Reason: errReason},
 	}
 
 	if d := cmp.Diff(want, s.Details(), protocmp.Transform()); len(d) > 0 {
@@ -45,24 +45,24 @@ func TestWithErrorType(t *testing.T) {
 	}
 }
 
-func TestErrorType(t *testing.T) {
-	errType := "type"
+func TestErrorReason(t *testing.T) {
+	errReason := "reason"
 
-	err := WithErrorType(errType, status.Error(codes.Internal, "this is a error"))
+	err := WithErrorReason(errReason, status.Error(codes.Internal, "this is a error"))
 
-	got := ErrorType(err)
-	if got != errType {
-		t.Errorf("ErrorType() =%s want %s", got, errType)
+	got := ErrorReason(err)
+	if got != errReason {
+		t.Errorf("ErrorReason() =%s want %s", got, errReason)
 	}
 }
 
-func TestErrorType_NotStatusErr(t *testing.T) {
-	errType := "type"
+func TestErrorReason_NotStatusErr(t *testing.T) {
+	errReason := "reason"
 
-	err := WithErrorType(errType, fmt.Errorf("this is a error"))
+	err := WithErrorReason(errReason, fmt.Errorf("this is a error"))
 
-	got := ErrorType(err)
+	got := ErrorReason(err)
 	if len(got) > 0 {
-		t.Errorf("ErrorType() = %s want \"\"", got)
+		t.Errorf("ErrorReason() = %s want \"\"", got)
 	}
 }

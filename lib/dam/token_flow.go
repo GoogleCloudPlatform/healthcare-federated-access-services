@@ -456,7 +456,7 @@ func writePolicyDeccisionLog(logger *logging.Client, id *ga4gh.Identity, res *pb
 
 	if err != nil {
 		log.PassAuthCheck = false
-		log.ErrorType = errutil.ErrorType(err)
+		log.ErrorType = errutil.ErrorReason(err)
 
 		if reject := rejectedPolicy(err); reject != nil {
 			log.Message = reject

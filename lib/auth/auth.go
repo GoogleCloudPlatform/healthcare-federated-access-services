@@ -139,11 +139,11 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 		if err == nil && len(r.Header.Get(LinkAuthorizationHeader)) > 0 {
 			linkedID, err = checker.verifiedBearerToken(r, LinkAuthorizationHeader, oathclients.ExtractClientID(r))
 			if err == nil && !strutil.ContainsWord(linkedID.Scope, "link") {
-				err = errutil.WithErrorType(errScopeMissing, status.Errorf(codes.Unauthenticated, "linked auth bearer token missing required 'link' scope"))
+				err = errutil.WithErrorReason(errScopeMissing, status.Errorf(codes.Unauthenticated, "linked auth bearer token missing required 'link' scope"))
 			}
 		}
 		if err != nil {
-			log.ErrorType = errutil.ErrorType(err)
+			log.ErrorType = errutil.ErrorReason(err)
 		}
 		writeAccessLog(checker.Logger, log, err, r)
 		if err != nil {
@@ -183,7 +183,7 @@ func FromContext(ctx context.Context) (*Context, error) {
 func checkRequest(r *http.Request) error {
 	// TODO: maybe should also cover content-length = -1
 	if r.ContentLength > maxHTTPBody {
-		return errutil.WithErrorType(errBodyTooLarge, status.Error(codes.FailedPrecondition, "body too large"))
+		return errutil.WithErrorReason(errBodyTooLarge, status.Error(codes.FailedPrecondition, "body too large"))
 	}
 
 	return nil
@@ -221,7 +221,7 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 	if len(require.EditScopes) > 0 && isEditMethod(r.Method) && s.IsAdmin(id) != nil {
 		for _, scope := range require.EditScopes {
 			if !strutil.ContainsWord(id.Scope, scope) {
-				return log, id, errutil.WithErrorType(errScopeMissing, status.Errorf(codes.Unauthenticated, "scope %q required for this method (%q)", scope, id.Scope))
+				return log, id, errutil.WithErrorReason(errScopeMissing, status.Errorf(codes.Unauthenticated, "scope %q required for this method (%q)", scope, id.Scope))
 			}
 		}
 	}
@@ -235,17 +235,17 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 func (s *Checker) verifyClientCredentials(client, secret string, require Require) error {
 	secrets, err := s.FetchClientSecrets()
 	if err != nil {
-		return errutil.WithErrorType(errClientUnavailable, err)
+		return errutil.WithErrorReason(errClientUnavailable, err)
 	}
 
 	// Check that the client ID exists and it is a known.
 	if len(client) == 0 {
-		return errutil.WithErrorType(errClientMissing, status.Error(codes.Unauthenticated, "requires a valid client ID"))
+		return errutil.WithErrorReason(errClientMissing, status.Error(codes.Unauthenticated, "requires a valid client ID"))
 	}
 
 	want, ok := secrets[client]
 	if !ok {
-		return errutil.WithErrorType(errClientInvalid, status.Errorf(codes.Unauthenticated, "client ID %q is unrecognized", client))
+		return errutil.WithErrorReason(errClientInvalid, status.Errorf(codes.Unauthenticated, "client ID %q is unrecognized", client))
 	}
 
 	if !require.ClientSecret {
@@ -254,7 +254,7 @@ func (s *Checker) verifyClientCredentials(client, secret string, require Require
 
 	// Check that the client secret match the client ID.
 	if want != secret {
-		return errutil.WithErrorType(errSecretMismatch, status.Error(codes.Unauthenticated, "requires a valid client secret"))
+		return errutil.WithErrorReason(errSecretMismatch, status.Error(codes.Unauthenticated, "requires a valid client secret"))
 	}
 
 	return nil
@@ -276,7 +276,7 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 
 		if err := s.IsAdmin(id); err != nil {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return id, errutil.WithErrorType(errNotAdmin, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err))
+			return id, errutil.WithErrorReason(errNotAdmin, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err))
 		}
 		return id, nil
 
@@ -291,12 +291,12 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 		}
 		if user := mux.Vars(r)["user"]; len(user) != 0 && user != id.Subject {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return id, errutil.WithErrorType(errUserMismatch, status.Errorf(codes.Unauthenticated, "user in path does not match token"))
+			return id, errutil.WithErrorReason(errUserMismatch, status.Errorf(codes.Unauthenticated, "user in path does not match token"))
 		}
 		return id, nil
 
 	default:
-		return &ga4gh.Identity{}, errutil.WithErrorType(errUnknownRole, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role))
+		return &ga4gh.Identity{}, errutil.WithErrorReason(errUnknownRole, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role))
 	}
 }
 
@@ -305,7 +305,7 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID string) (*ga4gh.Identity, error) {
 	parts := strings.SplitN(r.Header.Get(authHeader), " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return nil, errutil.WithErrorType(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "invalid brearer token"))
+		return nil, errutil.WithErrorReason(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "invalid brearer token"))
 	}
 	tok := parts[1]
 
@@ -330,7 +330,7 @@ func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID stri
 func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identity, error) {
 	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
 	if err != nil {
-		return nil, errutil.WithErrorType(errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err))
+		return nil, errutil.WithErrorReason(errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err))
 	}
 	id.Issuer = normalize(id.Issuer)
 	return s.TransformIdentity(id), nil
@@ -345,20 +345,20 @@ func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) error {
 	iss := normalize(issuer)
 	if id.Issuer != iss {
 		// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-		return errutil.WithErrorType(errIssMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: for issuer %s", id.Issuer))
+		return errutil.WithErrorReason(errIssMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: for issuer %s", id.Issuer))
 	}
 
 	if len(id.Subject) == 0 {
-		return errutil.WithErrorType(errSubMissing, status.Error(codes.Unauthenticated, "token unauthorized: no subject"))
+		return errutil.WithErrorReason(errSubMissing, status.Error(codes.Unauthenticated, "token unauthorized: no subject"))
 	}
 
 	if !ga4gh.IsAudience(id, clientID, iss) {
 		// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-		return errutil.WithErrorType(errAudMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: unauthorized party"))
+		return errutil.WithErrorReason(errAudMismatch, status.Errorf(codes.Unauthenticated, "token unauthorized: unauthorized party"))
 	}
 
 	if err := id.Valid(); err != nil {
-		return errutil.WithErrorType(errIDInvalid, status.Errorf(codes.Unauthenticated, "token unauthorized: %v", err))
+		return errutil.WithErrorReason(errIDInvalid, status.Errorf(codes.Unauthenticated, "token unauthorized: %v", err))
 	}
 
 	return nil
@@ -368,10 +368,10 @@ func verifyIdentity(id *ga4gh.Identity, issuer, clientID string) error {
 func verifyToken(ctx context.Context, tok, iss, clientID string) error {
 	v, err := ga4gh.GetOIDCTokenVerifier(ctx, clientID, iss)
 	if err != nil {
-		return errutil.WithErrorType(errVerifierUnavailable, status.Errorf(codes.Unauthenticated, "GetOIDCTokenVerifier failed: %v", err))
+		return errutil.WithErrorReason(errVerifierUnavailable, status.Errorf(codes.Unauthenticated, "GetOIDCTokenVerifier failed: %v", err))
 	}
 	if _, err = v.Verify(ctx, tok); err != nil {
-		return errutil.WithErrorType(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
+		return errutil.WithErrorReason(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
 	}
 	return nil
 }
