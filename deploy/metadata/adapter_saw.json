@@ -101,6 +101,15 @@
             "description": "make sure to use the project ID and not the project name"
           }
         },
+        "job-project": {
+          "type": "const",
+          "optional": true,
+          "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+          "ui": {
+            "label": "Project ID to submit BigQuery jobs to",
+            "description": "make sure to use the project ID and not the project name"
+          }
+        },
         "dataset": {
           "type": "const",
           "regexp": "^[a-z]([-_a-z0-9]*[a-z0-9])?$",

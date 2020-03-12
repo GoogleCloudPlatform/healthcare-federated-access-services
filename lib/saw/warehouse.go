@@ -56,6 +56,7 @@ const (
 	projectVariable       = "project"
 	bucketVariable        = "bucket"
 	datasetVariable       = "dataset"
+	jobProjectVariable    = "job-project"
 	inheritProject        = "-"
 	gcMaxTTL              = 180 * 24 * time.Hour /* 180 days */
 	defaultGcFrequency    = 14 * 24 * time.Hour  /* 14 days */
@@ -533,10 +534,15 @@ func parseParams(params *clouds.ResourceTokenCreationParams) (projects map[strin
 					bqdatasets[proj] = dr
 				}
 				dr[ds] = append(dr[ds], resolvedRole)
-				resolvedRole = "roles/bigquery.user"
+				jobProj, ok := item[jobProjectVariable]
+				if ok {
+					proj = jobProj
+				}
+				projects[proj] = append(projects[proj], "roles/bigquery.user")
+				continue
 			}
 
-			// Otherwise, store project-level configuration.
+			// Otherwise, only store project-level configuration.
 			projects[proj] = append(projects[proj], resolvedRole)
 		}
 	}
