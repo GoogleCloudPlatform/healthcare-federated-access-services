@@ -63,6 +63,10 @@ The `deploy.bash` script is designed to get a test environment up and running qu
 
 When planning the next phase where these services need to be prepared for a production environment with live, sensitive data, the [productionization documentation](productionization.md) can be helpful.
 
+More technical information about components and how to manage them:
+
+*  [Technical Guide to DAM](dam.md)
+
 ## Troubleshooting
 
 See the [how-to](howto.md) guide.
