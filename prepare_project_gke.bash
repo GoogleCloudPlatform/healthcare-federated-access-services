@@ -61,6 +61,7 @@ echo -e '  - at least 3 nodes node pool.'
 echo -e '- Enable "datastore mode" datastore: https://console.cloud.google.com/datastore/welcome'
 echo -e '- Reserve Static IP: https://console.cloud.google.com/networking/addresses'
 echo -e '- Bind your domain to the static ip reserved, run `nslookup your.doamin.to.ic` to verify before next step'
+echo -e '- Fill your domain to deploy/build-gke-template/certificate.yaml and run `kubectl apply -f deploy/build-gke-template/certificate.yaml` to request https cert'
 echo -e '- Config a OAuth screen: https://console.cloud.google.com/apis/credentials/consent?project='${PROJECT?}', see documentation at https://developers.google.com/identity/protocols/OAuth2'
 echo -e '- Create OAuth client credentials and add redirect url (format: https://your.doamin.to.ic/identity/loggedin): https://console.cloud.google.com/apis/credentials?project='${PROJECT?}
 echo
@@ -119,6 +120,6 @@ gcloud sql databases create ic --project=${PROJECT?} --instance=hydra
 
 echo -e ${GREEN?}'Complete.'${RESET?}
 
-echo -e ${YELLOW?}'1. Enable private ip connect for database in Connectivity tab https://console.cloud.google.com/sql/instances/hydra/edit-performance-class?project='${PROJECT?}
+echo -e ${YELLOW?}'1. Enable private ip connect for database in Connectivity tab https://console.cloud.google.com/sql/instances/hydra/edit-performance-class?project=${PROJECT?}'
 echo -e '2. run `./import.bash -p '${PROJECT?}' ic` to init datastore'
 echo -e ${RESET?}
