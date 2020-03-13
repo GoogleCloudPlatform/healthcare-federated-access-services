@@ -7,6 +7,39 @@ researchers -- to get access to cloud resources using identities and permissions
 carried on their access tokens from upstream
 [Identity Providers](https://en.wikipedia.org/wiki/Identity_provider).
 
+## Researcher Cloud User Journey
+
+![researcher cloud use case](assets/diagrams/fa_researcher_cloud_usage.svg)
+
+In the above diagram, a researcher wishes to run a Virtual Machine (VM) in their
+home organization or in a public cloud supported by DAM, or multiple VMs some
+combination of places:
+
+1.  Perform discovery of available datasets.
+    *  Determine which datasets the DAM has available.
+    *  The user or a tool of their choosing collects datasets that should be
+       allowed given the researcher's status and controlled access grants from
+       Data Access Committees (DACs).
+    *  Initiate a request to DAM for access to the dataset collection desired.
+
+1.  The user is redirected to get Passports and Visas from appropriate locations
+    for the given collection of datasets being requested.
+    *  The user chooses an Identity Provider to authenticate with (i.e. login).
+    *  Once the login successfully completes, the Identity Concentrator (IC)
+       or other compliant Passport Broker packages up Passport Visas for use
+       by the DAM.
+
+1.  The user is redirected back to the DAM to complete the request to access
+    the collection of datasets.
+    *  DAM decides if the request meets the policy requirements of all datasets
+       being requested.
+    *  DAM allocates a "DAM access token" that can be used to get cloud
+       resources for the collection of datasets.
+    *  The application calls the DAM API `checkout` endpoint to get cloud
+       resource URLs, tokens, and interface information.
+
+## DAM Resource Configuration
+
 The user can discover a set of resources that are published by a DAM. This can
 include multiple datasets where each dataset may provide multiple views:
 
@@ -61,14 +94,16 @@ Cloud services, represented by the `service template`, may expose a set of
    1.  `gcp:gs` for using the GCS `gsutil` command line tool.
    1.  `http:gcp:gs` for using the GCS RESTful API.
 
-## Requesting Access to Resources
+## Auth Details for Requesting Access to Resources
 
-Each client application to DAM may redirect the user to DAM's `auth` endpoint to
-get access to a set of resources. The user and/or the application would
-typically select a set of resources, views, roles, and interfaces. This set of
-resources may provide a set of access tokens and metadata for how to use them
-that include multiple services and multiple public clouds within a single,
-multi-layered auth flow.
+Much like described in the
+[Researcher Cloud User Journey](#researcher-cloud-user-journey), each client
+application to DAM may redirect the user to DAM's `auth` endpoint to get access
+to a set of resources. The user and/or the application would typically select a
+set of resources, views, roles, and interfaces. This set of resources may
+provide a set of access tokens and metadata for how to use them that include
+multiple services and multiple public clouds within a single, multi-layered auth
+flow.
 
 There are three layers to the auth flow journey for the user. Each layer uses
 the OpenID Connect (OIDC) protocol to obtain the identity and permissions
@@ -123,6 +158,9 @@ For example:
 *   The `damdemo` application ends up getting a `code` for a DAM access token,
     and does not get exposed to the IC Passport nor the upstream IdP access
     token directly.
+
+**Tip:** See [Appendix A](#appendix-a-three-layer-auth-flow) for a full sequence
+diagram of a user going through a three layer auth flow with these services.
 
 ## DAM checkout
 
@@ -292,3 +330,10 @@ or
 ```
 ./import.bash -e <environment> dam
 ```
+
+## Appendix A: Three Layer Auth Flow
+
+Full APP/DAM/IC/IdP cloud resource request flow
+
+![auth flow](assets/diagrams/3_layer_auth_flow.svg "Three Layer Auth Flow")
+
