@@ -108,33 +108,6 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 	s.login(in, w, r, cfg)
 }
 
-func (s *Service) hydraLoginError(w http.ResponseWriter, r *http.Request, state, errName, errDesc string) {
-	var loginState cpb.LoginState
-	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, state, storage.LatestRev, &loginState)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Internal, "read login state failed, %q", err))
-		return
-	}
-
-	if len(loginState.Challenge) == 0 {
-		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state challenge parameter"))
-		return
-	}
-
-	// Report the login err to hydra.
-	hyErr := &hydraapi.RequestDeniedError{
-		Name:        errName,
-		Description: errDesc,
-	}
-	resp, err := hydra.RejectLogin(s.httpClient, s.hydraAdminURL, loginState.Challenge, hyErr)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
-		return
-	}
-
-	httputils.WriteRedirect(w, r, resp.RedirectTo)
-}
-
 // HydraConsent handles consent request from hydra.
 func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()

@@ -21,8 +21,10 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -64,9 +66,24 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 	stateParam := httputils.QueryParam(r, "state")
 	errStr := httputils.QueryParam(r, "error")
 	errDesc := httputils.QueryParam(r, "error_description")
+
+	if len(stateParam) == 0 {
+		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "query params state missing"))
+		return
+	}
+
+	var loginState cpb.LoginState
+	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
+	if err != nil {
+		httputils.WriteError(w, status.Errorf(codes.Internal, "read login state failed, %q", err))
+		return
+	}
+
 	if len(errStr) > 0 || len(errDesc) > 0 {
-		if s.useHydra && len(stateParam) > 0 {
-			s.hydraLoginError(w, r, stateParam, errStr, errDesc)
+		// error from upstream report to hydra directly
+		if s.useHydra {
+			err := errutil.WithErrorReason(errStr, status.Errorf(codes.Unauthenticated, errDesc))
+			hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, loginState.Challenge, err)
 			return
 		}
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "authorization error: %q, description: %q", errStr, errDesc))
@@ -87,17 +104,6 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if len(stateParam) == 0 {
-		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "query params state missing"))
-		return
-	}
-
-	var loginState cpb.LoginState
-	err := s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateParam, storage.LatestRev, &loginState)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Internal, "read login state failed, %q", err))
-		return
-	}
 	if len(loginState.IdpName) == 0 || len(loginState.Realm) == 0 {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid login state parameter"))
 		return

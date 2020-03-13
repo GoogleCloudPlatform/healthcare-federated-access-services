@@ -1287,8 +1287,9 @@ func TestAcceptLogin_Hydra_Reject(t *testing.T) {
 	if h.RejectLoginReq.Name != errName {
 		t.Errorf("RejectLoginReq.Name wants %s got %s", errName, h.RejectLoginReq.Name)
 	}
-	if h.RejectLoginReq.Description != errDesc {
-		t.Errorf("RejectLoginReq.Description wants %s got %s", errDesc, h.RejectLoginReq.Description)
+	wantDesc := "rpc error: code = Unauthenticated desc = " + errDesc
+	if h.RejectLoginReq.Description != wantDesc {
+		t.Errorf("RejectLoginReq.Description wants %s got %s", wantDesc, h.RejectLoginReq.Description)
 	}
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
