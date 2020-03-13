@@ -379,65 +379,66 @@ type loggedInHandlerOut struct {
 	redirect   string
 	stateID    string
 	subject    string
-	challenge  string
 	identities []string
 }
 
-func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (_ *loggedInHandlerOut, _ int, ferr error) {
+func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (_ *loggedInHandlerOut, _ string, ferr error) {
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, "", status.Errorf(codes.Unavailable, err.Error())
 	}
 	defer func() {
 		err := tx.Finish()
-		if ferr == nil {
-			ferr = err
+		if ferr == nil && err != nil {
+			ferr = status.Errorf(codes.Internal, err.Error())
 		}
 	}()
 
 	state := &pb.ResourceTokenRequestState{}
 	err = s.store.ReadTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, in.stateID, storage.LatestRev, state, tx)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, "", status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	sec, err := s.loadSecrets(tx)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, state.Challenge, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	realm := state.Realm
 	cfg, err := s.loadConfig(tx, realm)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, state.Challenge, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	broker, ok := cfg.TrustedIssuers[state.Broker]
 	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("unknown identity broker %q", state.Broker)
+		return nil, state.Challenge, status.Errorf(codes.InvalidArgument, "unknown identity broker %q", state.Broker)
 	}
 
 	clientSecret, ok := sec.GetBrokerSecrets()[broker.ClientId]
 	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("client secret of broker %q is not defined", s.defaultBroker)
+		return nil, state.Challenge, status.Errorf(codes.FailedPrecondition, "client secret of broker %q is not defined", s.defaultBroker)
 	}
 
 	conf := s.oauthConf(state.Broker, broker, clientSecret, []string{})
 	tok, err := conf.Exchange(ctx, in.authCode)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, fmt.Errorf("token exchange failed. %s", err)
+		return nil, state.Challenge, status.Errorf(codes.Unauthenticated, "token exchange failed. %s", err)
 	}
 
 	id, err := s.upstreamTokenToPassportIdentity(ctx, cfg, tx, tok.AccessToken, broker.ClientId)
 	if err != nil {
-		return nil, http.StatusUnauthorized, err
+		return nil, state.Challenge, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
 	if state.Type == pb.ResourceTokenRequestState_DATASET {
-		return s.loggedInForDatasetToken(ctx, id, state, cfg, in.stateID, realm, tx)
+		out, err := s.loggedInForDatasetToken(ctx, id, state, cfg, in.stateID, realm, tx)
+		return out, state.Challenge, err
 	}
 
-	return s.loggedInForEndpointToken(id, state, in.stateID, tx)
+	out, err := s.loggedInForEndpointToken(id, state, in.stateID, tx)
+	return out, state.Challenge, err
 }
 
 func resourceToString(res *pb.ResourceTokenRequestState_Resource) string {
@@ -468,22 +469,22 @@ func writePolicyDeccisionLog(logger *logging.Client, id *ga4gh.Identity, res *pb
 	auditlog.WritePolicyDecisionLog(logger, log)
 }
 
-func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identity, state *pb.ResourceTokenRequestState, cfg *pb.DamConfig, stateID, realm string, tx storage.Tx) (*loggedInHandlerOut, int, error) {
+func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identity, state *pb.ResourceTokenRequestState, cfg *pb.DamConfig, stateID, realm string, tx storage.Tx) (*loggedInHandlerOut, error) {
 	ttl := time.Duration(state.Ttl)
 
 	list := state.Resources
 	if len(list) == 0 {
-		return nil, http.StatusInternalServerError, fmt.Errorf("empty resource list")
+		return nil, status.Errorf(codes.Internal, "empty resource list")
 	}
 	for _, r := range list {
 		if r.Realm != realm {
-			return nil, http.StatusConflict, fmt.Errorf("cannot authorize resources using different realms")
+			return nil, status.Errorf(codes.Aborted, "cannot authorize resources using different realms")
 		}
 
 		err := checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, s.ValidateCfgOpts(realm, tx))
 		writePolicyDeccisionLog(s.logger, id, r, ttl, err)
 		if err != nil {
-			return nil, httputils.FromError(err), err
+			return nil, err
 		}
 	}
 
@@ -491,20 +492,19 @@ func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identit
 	state.Subject = id.Subject
 	err := s.store.WriteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	return &loggedInHandlerOut{
-		stateID:   stateID,
-		subject:   id.Subject,
-		challenge: state.Challenge,
-	}, http.StatusOK, nil
+		stateID: stateID,
+		subject: id.Subject,
+	}, nil
 }
 
-func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.ResourceTokenRequestState, stateID string, tx storage.Tx) (*loggedInHandlerOut, int, error) {
+func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.ResourceTokenRequestState, stateID string, tx storage.Tx) (*loggedInHandlerOut, error) {
 	err := s.store.DeleteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	identities := []string{id.Subject}
@@ -514,9 +514,8 @@ func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.Resourc
 
 	return &loggedInHandlerOut{
 		subject:    id.Subject,
-		challenge:  state.Challenge,
 		identities: identities,
-	}, http.StatusOK, nil
+	}, nil
 }
 
 // ResourceTokens returns a set of access tokens for a set of resources.
@@ -648,9 +647,13 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "request must include state"))
 	}
 
-	out, sts, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
+	out, challenge, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
+		if s.useHydra && len(challenge) > 0 {
+			hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
+		} else {
+			httputils.WriteError(w, err)
+		}
 		return
 	}
 
@@ -660,7 +663,7 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 			ext["identities"] = out.identities
 		}
 
-		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, out.challenge, out.subject, out.stateID, ext)
+		hydra.SendLoginSuccess(w, r, s.httpClient, s.hydraAdminURL, challenge, out.subject, out.stateID, ext)
 		return
 	}
 

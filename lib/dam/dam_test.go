@@ -1724,7 +1724,7 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 	}
 }
 
-func TestLoggedIn_Hydra_Errors(t *testing.T) {
+func TestLoggedIn_Hydra_Errors_no_challenge(t *testing.T) {
 	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
@@ -1739,22 +1739,16 @@ func TestLoggedIn_Hydra_Errors(t *testing.T) {
 		respStatus int
 	}{
 		{
-			name:       "code invalid",
-			code:       "invalid",
+			name:       "no code",
+			code:       "",
 			stateID:    loginStateID,
-			respStatus: http.StatusServiceUnavailable,
+			respStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "stateID invalid",
 			code:       pname,
 			stateID:    "invalid",
 			respStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:       "user does not have enough permission",
-			code:       "dr_joe_era_commons",
-			stateID:    loginStateID,
-			respStatus: http.StatusForbidden,
 		},
 	}
 
@@ -1769,6 +1763,50 @@ func TestLoggedIn_Hydra_Errors(t *testing.T) {
 	}
 }
 
+func TestLoggedIn_Hydra_Errors_with_challenge(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		code    string
+		stateID string
+		errCode int64
+	}{
+		{
+			name:    "code invalid",
+			code:    "invalid",
+			stateID: loginStateID,
+			errCode: http.StatusUnauthorized,
+		},
+		{
+			name:    "user does not have enough permission",
+			code:    "dr_joe_era_commons",
+			stateID: loginStateID,
+			errCode: http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h.Clear()
+			h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
+
+			resp := sendLoggedIn(t, s, cfg, h, tc.code, tc.stateID, pb.ResourceTokenRequestState_DATASET)
+
+			if resp.StatusCode != http.StatusTemporaryRedirect {
+				t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+			}
+
+			if h.RejectLoginReq.Code != tc.errCode {
+				t.Errorf("RejectLoginReq.Code = %d, wants %d", h.RejectLoginReq.Code, tc.errCode)
+			}
+		})
+	}
+}
+
 func TestLoggedIn_Hydra_Error_Log(t *testing.T) {
 	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
@@ -1777,6 +1815,8 @@ func TestLoggedIn_Hydra_Error_Log(t *testing.T) {
 	logs, close := fakesdl.New()
 	defer close()
 	s.logger = logs.Client
+
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
 
 	pname := "dr_joe_era_commons"
 

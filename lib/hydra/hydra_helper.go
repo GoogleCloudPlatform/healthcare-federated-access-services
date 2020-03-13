@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
@@ -182,6 +183,24 @@ func LoginSuccess(r *http.Request, client *http.Client, hydraAdminURL, challenge
 		return "", status.Errorf(codes.Unavailable, "%v", err)
 	}
 	return resp.RedirectTo, nil
+}
+
+// SendLoginReject to hydra, requires a status err.
+func SendLoginReject(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge string, err error) {
+	resp, er := RejectLogin(client, hydraAdminURL, challenge, toRequestDeniedError(err))
+	if er != nil {
+		httputils.WriteError(w, err)
+		return
+	}
+	httputils.WriteRedirect(w, r, resp.RedirectTo)
+}
+
+func toRequestDeniedError(err error) *hydraapi.RequestDeniedError {
+	return &hydraapi.RequestDeniedError{
+		Code:        int64(httputils.FromError(err)),
+		Description: err.Error(),
+		Name:        errutil.ErrorReason(err),
+	}
 }
 
 // NormalizeIdentity converts hydra special format in access token to ga4gh.Identity
