@@ -3,8 +3,8 @@
 ## Introduction
 
 [Data Access Manager](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services#data-access-manager) (DAM) provides a mechanism for users -- such as
-researchers -- to get access to cloud resources using identities and permissions
-carried on their access tokens from upstream
+researchers -- to get access to cloud resources using identities and
+permissions/qualifications carried on their access tokens from upstream
 [Identity Providers](https://en.wikipedia.org/wiki/Identity_provider).
 
 ## Researcher Cloud User Journey
@@ -37,6 +37,15 @@ combination of places:
        resources for the collection of datasets.
     *  The application calls the DAM API `checkout` endpoint to get cloud
        resource URLs, tokens, and interface information.
+
+1.  The user starts a compute job on a set of VMs.
+    *  The user directly or via the application takes steps to grab the cloud
+       URLs and related tokens and provide them as inputs to the VM(s).
+    *  VM(s) may run on premises (i.e. in the researcher's home institution or
+       private cloud), or on any supported public cloud, or some combination
+       thereof.
+    *  VM(s) use different tokens or signed URLs to access resources across
+       clouds as needed with the appropriate ACLs and billing settings.
 
 ## DAM Resource Configuration
 
