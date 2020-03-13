@@ -56,7 +56,7 @@ func ExtractConsentChallenge(r *http.Request) (string, *status.Status) {
 func ExtractStateIDInConsent(consent *hydraapi.ConsentRequest) (string, *status.Status) {
 	st, ok := consent.Context[StateIDKey]
 	if !ok {
-		return "", httputils.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[%s] not found", StateIDKey))
+		return "", nil
 	}
 
 	stateID, ok := st.(string)
@@ -188,6 +188,16 @@ func LoginSuccess(r *http.Request, client *http.Client, hydraAdminURL, challenge
 // SendLoginReject to hydra, requires a status err.
 func SendLoginReject(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge string, err error) {
 	resp, er := RejectLogin(client, hydraAdminURL, challenge, toRequestDeniedError(err))
+	if er != nil {
+		httputils.WriteError(w, err)
+		return
+	}
+	httputils.WriteRedirect(w, r, resp.RedirectTo)
+}
+
+// SendConsentReject to hydra, requires a status err.
+func SendConsentReject(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge string, err error) {
+	resp, er := RejectConsent(client, hydraAdminURL, challenge, toRequestDeniedError(err))
 	if er != nil {
 		httputils.WriteError(w, err)
 		return

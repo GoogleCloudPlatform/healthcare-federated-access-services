@@ -1992,6 +1992,33 @@ func TestHydraConsent_Endpoint(t *testing.T) {
 	}
 }
 
+func TestHydraConsent_Error(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.GetConsentRequestResp = &hydraapi.ConsentRequest{}
+	h.RejectConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
+
+	// Send Request.
+	query := fmt.Sprintf("?consent_challenge=%s", consentChallenge)
+	u := damURL + hydraConsentPath + query
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+	s.Handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	}
+
+	if h.RejectConsentReq.Code != http.StatusBadRequest {
+		t.Errorf("RejectConsentReq.Code = %d, wants %d", h.RejectConsentReq.Code, http.StatusBadRequest)
+	}
+}
+
 func sendResourceTokens(t *testing.T, s *Service, broker *persona.Server, cartID string) *http.Response {
 	t.Helper()
 

@@ -132,19 +132,31 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	redirect, err := s.hydraConsent(challenge, consent)
+	if err != nil {
+		hydra.SendConsentReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
+	} else {
+		httputils.WriteRedirect(w, r, redirect)
+	}
+}
+
+// hydraConsent returns redirect and status error
+func (s *Service) hydraConsent(challenge string, consent *hydraapi.ConsentRequest) (string, error) {
 	identities, sts := hydra.ExtractIdentitiesInConsent(consent)
 	if sts != nil {
-		httputils.WriteError(w, sts.Err())
-		return
+		return "", sts.Err()
 	}
 
 	var stateID string
 	if len(identities) == 0 {
 		stateID, sts = hydra.ExtractStateIDInConsent(consent)
 		if sts != nil {
-			httputils.WriteError(w, sts.Err())
-			return
+			return "", sts.Err()
 		}
+	}
+
+	if len(identities) == 0 && len(stateID) == 0 {
+		return "", status.Errorf(codes.FailedPrecondition, "token format invalid: identities or stateID not found")
 	}
 
 	tokenID := uuid.New()
@@ -170,11 +182,11 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
-		return
+		// TODO: hydra client should return status error.
+		return "", status.Errorf(codes.Unavailable, "%v", err)
 	}
 
-	httputils.WriteRedirect(w, r, resp.RedirectTo)
+	return resp.RedirectTo, nil
 }
 
 func (s *Service) extractCartFromAccessToken(token string) (string, error) {
