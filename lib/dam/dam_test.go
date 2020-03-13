@@ -1416,85 +1416,92 @@ func TestLogin_Hydra_Error(t *testing.T) {
 	tests := []struct {
 		name       string
 		authParams string
-		respCode   int
+		errCode    int64
 	}{
 		{
 			name:       "max_age wrong format",
 			authParams: "max_age=1h&resource=" + ga4ghGCSViewer,
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "negative max_age",
 			authParams: "max_age=-1000&resource=" + ga4ghGCSViewer,
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "max_age more than maxTTL",
 			authParams: "max_age=9999999&resource=" + ga4ghGCSViewer,
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "negative ttl",
 			authParams: "ttl=-1d&resource=" + ga4ghGCSViewer,
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "ttl more than maxTTL",
 			authParams: "ttl=100d&resource=" + ga4ghGCSViewer,
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "no resource",
 			authParams: "",
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "resource without domain",
 			authParams: "resource=dam/master/resources/ga4gh-apis/views/gcs_read/roles/viewer",
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "resource wrong format",
 			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "resources", "invalid"),
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "resource not exist",
 			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "ga4gh-apis", "invalid"),
-			respCode:   http.StatusNotFound,
+			errCode:    http.StatusNotFound,
 		},
 		{
 			name:       "resource view not exist",
 			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "gcs_read", "invalid"),
-			respCode:   http.StatusNotFound,
+			errCode:    http.StatusNotFound,
 		},
 		{
 			name:       "resource view role not exist",
 			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "viewer", "invalid"),
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "resource interface not exist",
 			authParams: "resource=" + strings.ReplaceAll(ga4ghGCSViewer, "gcp", "invalid"),
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "second resource invalid",
 			authParams: "resource=" + ga4ghGCSViewer + "&resource=invalid",
-			respCode:   http.StatusBadRequest,
+			errCode:    http.StatusBadRequest,
 		},
 		{
 			name:       "resource not at same realm",
 			authParams: "resource=" + ga4ghGCSViewer + "&resource=" + strings.ReplaceAll(ga4ghGCSViewer, "master", "test"),
-			respCode:   http.StatusConflict,
+			errCode:    http.StatusConflict,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			h.Clear()
+			h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
+
 			resp := sendLogin(s, cfg, h, tc.authParams, nil)
-			if resp.StatusCode != tc.respCode {
-				t.Errorf("test case %q: sendLogin(_, _, _, %q, nil) = %+v, resp.StatusCode want %d, got %d", tc.name, tc.authParams, resp, tc.respCode, resp.StatusCode)
+			if resp.StatusCode != http.StatusTemporaryRedirect {
+				t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+			}
+
+			if h.RejectLoginReq.Code != tc.errCode {
+				t.Errorf("RejectLoginReq.Code = %d, wants %d", h.RejectLoginReq.Code, tc.errCode)
 			}
 		})
 	}

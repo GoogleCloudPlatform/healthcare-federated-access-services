@@ -239,50 +239,50 @@ type authHandlerOut struct {
 	stateID string
 }
 
-func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut, _ int, ferr error) {
+func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut, ferr error) {
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, status.Errorf(codes.Unavailable, err.Error())
 	}
 	defer func() {
 		err := tx.Finish()
-		if ferr == nil {
-			ferr = err
+		if ferr == nil && err != nil {
+			ferr = status.Errorf(codes.Unavailable, err.Error())
 		}
 	}()
 
 	sec, err := s.loadSecrets(tx)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	realm := in.realm
 	if in.tokenType == pb.ResourceTokenRequestState_DATASET {
 		if len(in.resources) == 0 {
-			return nil, http.StatusBadRequest, fmt.Errorf("empty resource list")
+			return nil, status.Errorf(codes.FailedPrecondition, "empty resource list")
 		}
 		realm = in.resources[0].realm
 	}
 
 	cfg, err := s.loadConfig(tx, realm)
 	if err != nil {
-		return nil, http.StatusServiceUnavailable, err
+		return nil, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	broker, ok := cfg.TrustedIssuers[s.defaultBroker]
 	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("broker %q is not defined", s.defaultBroker)
+		return nil, status.Errorf(codes.InvalidArgument, "broker %q is not defined", s.defaultBroker)
 	}
 	clientSecret, ok := sec.GetBrokerSecrets()[broker.ClientId]
 	if !ok {
-		return nil, http.StatusBadRequest, fmt.Errorf("client secret of broker %q is not defined", s.defaultBroker)
+		return nil, status.Errorf(codes.FailedPrecondition, "client secret of broker %q is not defined", s.defaultBroker)
 	}
 
 	var list []*pb.ResourceTokenRequestState_Resource
 
 	for _, rvr := range in.resources {
 		if rvr.realm != realm {
-			return nil, http.StatusConflict, fmt.Errorf("cannot authorize resources using different realms")
+			return nil, status.Errorf(codes.Aborted, "cannot authorize resources using different realms")
 		}
 
 		resName := rvr.resource
@@ -290,30 +290,30 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut
 		roleName := rvr.role
 		interf := rvr.interf
 		if err := checkName(resName); err != nil {
-			return nil, http.StatusBadRequest, err
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
 		}
 		if err := checkName(viewName); err != nil {
-			return nil, http.StatusBadRequest, err
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
 		}
 
 		res, ok := cfg.Resources[resName]
 		if !ok {
-			return nil, http.StatusNotFound, fmt.Errorf("resource not found: %q", resName)
+			return nil, status.Errorf(codes.NotFound, "resource not found: %q", resName)
 		}
 		view, ok := res.Views[viewName]
 		if !ok {
-			return nil, http.StatusNotFound, fmt.Errorf("view %q not found for resource %q", viewName, resName)
+			return nil, status.Errorf(codes.NotFound, "view %q not found for resource %q", viewName, resName)
 		}
 		grantRole := roleName
 		if len(grantRole) == 0 {
 			grantRole = view.DefaultRole
 		}
 		if !viewHasRole(view, grantRole) {
-			return nil, http.StatusBadRequest, fmt.Errorf("role %q is not defined on resource %q view %q", grantRole, resName, viewName)
+			return nil, status.Errorf(codes.FailedPrecondition, "role %q is not defined on resource %q view %q", grantRole, resName, viewName)
 		}
 		st, ok := cfg.ServiceTemplates[view.ServiceTemplate]
 		if !ok {
-			return nil, http.StatusInternalServerError, fmt.Errorf("service template %q is invalid for resource %q view %q", view.ServiceTemplate, resName, viewName)
+			return nil, status.Errorf(codes.Internal, "service template %q is invalid for resource %q view %q", view.ServiceTemplate, resName, viewName)
 		}
 		// TODO: remove support for oldResourcePath
 		if len(interf) == 0 {
@@ -323,7 +323,7 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut
 			}
 		}
 		if _, ok = st.Interfaces[interf]; !ok {
-			return nil, http.StatusBadRequest, fmt.Errorf("interface %q is not defined on resource %q view %q service template %q", interf, resName, viewName, view.ServiceTemplate)
+			return nil, status.Errorf(codes.FailedPrecondition, "interface %q is not defined on resource %q view %q service template %q", interf, resName, viewName, view.ServiceTemplate)
 		}
 
 		list = append(list, &pb.ResourceTokenRequestState_Resource{
@@ -360,14 +360,14 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut
 
 	err = s.store.WriteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, sID, storage.LatestRev, state, nil, tx)
 	if err != nil {
-		return nil, http.StatusInternalServerError, err
+		return nil, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	conf := s.oauthConf(s.defaultBroker, broker, clientSecret, scopes)
 	return &authHandlerOut{
 		oauth:   conf,
 		stateID: sID,
-	}, http.StatusOK, nil
+	}, nil
 }
 
 type loggedInHandlerIn struct {

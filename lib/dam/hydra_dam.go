@@ -15,6 +15,7 @@
 package dam
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
@@ -24,6 +25,7 @@ import (
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -55,10 +57,19 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	redirect, err := s.hydraLogin(r.Context(), challenge, login)
+	if err != nil {
+		hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
+	} else {
+		httputils.WriteRedirect(w, r, redirect)
+	}
+}
+
+// hydraLogin returns redirect and status error
+func (s *Service) hydraLogin(ctx context.Context, challenge string, login *hydraapi.LoginRequest) (string, error) {
 	u, err := url.Parse(login.RequestURL)
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
-		return
+		return "", errutil.WithErrorReason("url_parse", status.Errorf(codes.FailedPrecondition, "url parse: %v", err))
 	}
 
 	in := authHandlerIn{
@@ -76,24 +87,21 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		in.tokenType = pb.ResourceTokenRequestState_DATASET
 		in.ttl, err = extractTTL(u.Query().Get("max_age"), u.Query().Get("ttl"))
 		if err != nil {
-			httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
-			return
+			return "", errutil.WithErrorReason("ttl_invalid", status.Errorf(codes.InvalidArgument, "ttl invalid: %v", err))
 		}
 
 		list := u.Query()["resource"]
 		in.resources, err = s.resourceViewRoleFromRequest(list)
 		if err != nil {
-			httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
-			return
+			return "", errutil.WithErrorReason("resource_invalid", status.Errorf(codes.InvalidArgument, "resource invalid: %v", err))
 		}
 
 		in.responseKeyFile = u.Query().Get("response_type") == "key-file-type"
 	}
 
-	out, st, err := s.auth(r.Context(), in)
+	out, err := s.auth(ctx, in)
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(httputils.RPCCode(st), "%v", err))
-		return
+		return "", err
 	}
 
 	var opts []oauth2.AuthCodeOption
@@ -105,7 +113,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	auth := out.oauth.AuthCodeURL(out.stateID, opts...)
 
-	httputils.WriteRedirect(w, r, auth)
+	return auth, nil
 }
 
 // HydraConsent handles consent request from hydra.
