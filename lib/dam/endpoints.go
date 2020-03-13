@@ -40,10 +40,6 @@ const (
 	// The following are administration endpoints for managing DAM.
 	// ---------------------------------------------------------------------------
 
-	// infoPath: metadata about the service, like versions of various services.
-	// Required permission: admin
-	infoPath = "/dam"
-
 	// realms: for managing realms.
 	realmPath = "/dam/v1alpha/{realm}"
 
@@ -118,4 +114,12 @@ const (
 	translatorsPath       = "/dam/v1alpha/{realm}/passportTranslators"
 	damRoleCategoriesPath = "/dam/v1alpha/{realm}/damRoleCategories"
 	testPersonasPath      = "/dam/v1alpha/{realm}/testPersonas"
+
+	// ---------------------------------------------------------------------------
+	// The following are read-only and public.
+	// ---------------------------------------------------------------------------
+
+	// infoPath: metadata about the service, like versions of various services.
+	// Required permission: none
+	infoPath = "/dam"
 )

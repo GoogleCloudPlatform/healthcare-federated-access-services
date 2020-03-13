@@ -40,12 +40,6 @@ const (
 	// The following are administration endpoints for managing DAM.
 	// ---------------------------------------------------------------------------
 
-	// infoPath: metadata about the service, like versions of various services.
-	// Required permission: admin
-	infoPath = "/identity"
-	// Return the JWKS of keys for visas signed by the IC.
-	jwksPath = "/visas/jwks"
-
 	// The following are for managing realms.
 	realmPath = "/identity/v1alpha/{realm}"
 
@@ -97,6 +91,16 @@ const (
 	identityProvidersPath = "/identity/v1alpha/{realm}/identityProviders"
 	clientPath            = "/identity/v1alpha/{realm}/clients/{name}"
 	translatorsPath       = "/identity/v1alpha/{realm}/passportTranslators"
+
+	// ---------------------------------------------------------------------------
+	// The following are read-only and public.
+	// ---------------------------------------------------------------------------
+
+	// infoPath: metadata about the service, like versions of various services.
+	// Required permission: none
+	infoPath = "/identity"
+	// Return the JWKS of keys for visas signed by the IC.
+	jwksPath = "/visas/jwks"
 
 	// ---------------------------------------------------------------------------
 	// The following are unsupported and to be removed.
