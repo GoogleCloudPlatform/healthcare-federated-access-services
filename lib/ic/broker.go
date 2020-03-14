@@ -35,9 +35,13 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	challenge := httputils.QueryParam(r, "login_challenge")
-	if s.useHydra && len(challenge) == 0 {
-		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "Query login_challenge missing"))
-		return
+	if s.useHydra {
+		if len(challenge) == 0 {
+			httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "Query login_challenge missing"))
+			return
+		}
+	} else {
+		httputils.WriteError(w, status.Errorf(codes.Unimplemented, "Unimplemented oidc provider"))
 	}
 
 	scope, err := getScope(r)
@@ -233,9 +237,7 @@ func (s *Service) doFinishLogin(r *http.Request) (_ bool, _ string, ferr error) 
 			return false, "", status.Errorf(codes.Unauthenticated, "invalid login state parameter")
 		}
 	} else {
-		if len(loginState.ClientId) == 0 || len(loginState.Redirect) == 0 || len(loginState.Nonce) == 0 {
-			return false, "", status.Errorf(codes.Unauthenticated, "invalid login state parameter")
-		}
+		return false, "", status.Errorf(codes.Unimplemented, "Unimplemented oidc provider")
 	}
 
 	if len(code) == 0 && len(idToken) == 0 && !s.idpUsesClientLoginPage(loginState.IdpName, loginState.Realm, cfg) {

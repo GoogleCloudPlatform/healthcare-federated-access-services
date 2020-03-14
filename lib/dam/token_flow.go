@@ -551,6 +551,8 @@ func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, f
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, "%v", err)
 		}
+	} else {
+		return nil, status.Errorf(codes.Unimplemented, "Unimplemented oidc provider")
 	}
 
 	state, id, err := s.resourceTokenState(cart, tx)
