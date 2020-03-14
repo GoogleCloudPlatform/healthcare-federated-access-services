@@ -539,19 +539,18 @@ type loginIn struct {
 	scope     []string
 }
 
-func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg *pb.IcConfig) {
+// login returns redirect and status error.
+func (s *Service) login(in loginIn, cfg *pb.IcConfig) (string, error) {
 	var err error
 
 	idp, ok := cfg.IdentityProviders[in.idpName]
 	if !ok {
-		httputils.WriteError(w, status.Errorf(codes.NotFound, "login service %q not found", in.idpName))
-		return
+		return "", status.Errorf(codes.NotFound, "login service %q not found", in.idpName)
 	}
 
 	idpc, state, err := s.idpAuthorize(in, idp, cfg, nil)
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
-		return
+		return "", status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	resType := idp.ResponseType
 	if len(resType) == 0 {
@@ -568,7 +567,7 @@ func (s *Service) login(in loginIn, w http.ResponseWriter, r *http.Request, cfg 
 	url := idpc.AuthCodeURL(state, options...)
 	url = strings.Replace(url, "${CLIENT_ID}", idp.ClientId, -1)
 	url = strings.Replace(url, "${REDIRECT_URI}", buildRedirectNonOIDC(idp, idpc, state), -1)
-	httputils.WriteRedirect(w, r, url)
+	return url, nil
 }
 
 func getStateRedirect(r *http.Request) (string, error) {

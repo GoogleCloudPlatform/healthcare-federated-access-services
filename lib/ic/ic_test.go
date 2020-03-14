@@ -1112,22 +1112,26 @@ func TestHydraLogin_LoginHint_Hydra(t *testing.T) {
 	}
 }
 
+func sendLogin(s *Service, idp string) *http.Response {
+	w := httptest.NewRecorder()
+	params := fmt.Sprintf("?scope=openid&login_challenge=%s", loginChallenge)
+	u := "https://ic.example.com" + loginPath + params
+	u = strings.ReplaceAll(u, "{realm}", storage.DefaultRealm)
+	u = strings.ReplaceAll(u, "{name}", idp)
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+
+	s.Handler.ServeHTTP(w, r)
+
+	return w.Result()
+}
+
 func TestLogin_Hydra(t *testing.T) {
 	s, cfg, _, _, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
-	w := httptest.NewRecorder()
-	params := fmt.Sprintf("?scope=openid&login_challenge=%s", loginChallenge)
-	u := "https://ic.example.com" + loginPath + params
-	u = strings.ReplaceAll(u, "{realm}", storage.DefaultRealm)
-	u = strings.ReplaceAll(u, "{name}", idpName)
-	r := httptest.NewRequest(http.MethodGet, u, nil)
-
-	s.Handler.ServeHTTP(w, r)
-
-	resp := w.Result()
+	resp := sendLogin(s, idpName)
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
 		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
@@ -1176,6 +1180,25 @@ func TestLogin_Hydra(t *testing.T) {
 	}
 	if loginState.IdpName != idpName {
 		t.Errorf("state.IdpName wants %s got %s", idpName, loginState.IdpName)
+	}
+}
+
+func TestLogin_Hydra_invalid_idp_Error(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	resp := sendLogin(s, "invalid")
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	}
+
+	if h.RejectLoginReq.Code != http.StatusNotFound {
+		t.Errorf("RejectLoginReq.Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusNotFound)
 	}
 }
 

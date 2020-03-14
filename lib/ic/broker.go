@@ -34,6 +34,12 @@ import (
 func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
+	challenge := httputils.QueryParam(r, "login_challenge")
+	if s.useHydra && len(challenge) == 0 {
+		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "Query login_challenge missing"))
+		return
+	}
+
 	scope, err := getScope(r)
 	if err != nil {
 		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
@@ -53,10 +59,19 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 		scope:     strings.Split(scope, " "),
 		loginHint: httputils.QueryParam(r, "login_hint"),
 		idpName:   getName(r),
-		challenge: httputils.QueryParam(r, "login_challenge"),
+		challenge: challenge,
 	}
 
-	s.login(in, w, r, cfg)
+	redirect, err := s.login(in, cfg)
+	if err != nil {
+		if s.useHydra {
+			hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
+		} else {
+			httputils.WriteError(w, err)
+		}
+	} else {
+		httputils.WriteRedirect(w, r, redirect)
+	}
 }
 
 // AcceptLogin is the HTTP handler for ".../loggedin/{name}" endpoint.
