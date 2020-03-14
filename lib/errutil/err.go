@@ -30,7 +30,7 @@ func WithErrorReason(reason string, err error) error {
 		return err
 	}
 
-	s, err = s.WithDetails(&edpb.ErrorInfo{Reason: reason})
+	s, err = s.WithDetails(&edpb.ErrorInfo{Metadata: map[string]string{"reason": reason}})
 	if err != nil {
 		glog.Errorf("status.WithDetails() failed: %v", err)
 	}
@@ -47,7 +47,7 @@ func ErrorReason(err error) string {
 	for _, d := range s.Details() {
 		switch v := d.(type) {
 		case *edpb.ErrorInfo:
-			return v.GetReason()
+			return v.GetMetadata()["reason"]
 		}
 	}
 	return ""

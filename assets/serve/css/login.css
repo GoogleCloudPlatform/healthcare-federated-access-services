@@ -123,6 +123,10 @@ button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
     background: url(../images/background.png) center center / cover no-repeat;
 }
 
+#main-container.persona {
+  background: url(../images/persona_bg.png) center center / cover no-repeat;
+}
+
 #main-container .mdl-card {
   padding: 2rem;
   width: 65%;

@@ -75,7 +75,7 @@ const (
 	loginPageFile              = "pages/login.html"
 	loginPageInfoFile          = "pages/ic/login_info.html"
 	clientLoginPageFile        = "pages/ic/client_login.html"
-	informationReleasePageFile = "pages/ic/inforelease.html"
+	informationReleasePageFile = "pages/ic/info_release.html"
 	staticDirectory            = "assets/serve/"
 
 	serviceTitle            = "Identity Concentrator"

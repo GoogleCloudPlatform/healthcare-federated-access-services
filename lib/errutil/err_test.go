@@ -37,7 +37,7 @@ func TestWithErrorReason(t *testing.T) {
 	}
 
 	want := []interface{}{
-		&edpb.ErrorInfo{Reason: errReason},
+		&edpb.ErrorInfo{Metadata: map[string]string{"reason": errReason}},
 	}
 
 	if d := cmp.Diff(want, s.Details(), protocmp.Transform()); len(d) > 0 {
