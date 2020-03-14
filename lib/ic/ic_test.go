@@ -1456,13 +1456,6 @@ func TestFinishLogin_Hydra_Invalid(t *testing.T) {
 			status: http.StatusUnauthorized,
 		},
 		{
-			name:   "invalid auth_code",
-			idp:    idpName,
-			code:   "invalid",
-			state:  loginStateID,
-			status: http.StatusUnauthorized,
-		},
-		{
 			name:  "invalid state",
 			idp:   idpName,
 			code:  authCode,
@@ -1487,6 +1480,28 @@ func TestFinishLogin_Hydra_Invalid(t *testing.T) {
 				t.Errorf("AcceptLoginReq wants nil got %v", h.AcceptLoginReq)
 			}
 		})
+	}
+}
+
+func TestFinishLogin_Hydra_Invalid_auth_code(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	resp, err := sendFinishLogin(s, cfg, h, idpName, "invalid", loginStateID)
+	if err != nil {
+		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s) failed: %v", idpName, "invalid", loginStateID, err)
+	}
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	}
+
+	if h.RejectLoginReq.Code != http.StatusUnauthorized {
+		t.Errorf("RejectLoginReq.Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusUnauthorized)
 	}
 }
 

@@ -598,46 +598,47 @@ func (s *Service) getAndValidateStateRedirect(r *http.Request, cfg *pb.IcConfig)
 	return redirect, nil
 }
 
-func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request) (bool, string, error) {
+// finishLogin returns html page or redirect url and status error
+func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request) (*htmlPageOrRedirectURL, error) {
 	realm := getRealm(r)
 	lookup, err := s.scim.LoadAccountLookup(realm, id.Subject, tx)
 	if err != nil {
-		return false, "", status.Errorf(codes.Unavailable, "%v", err)
+		return nil, status.Errorf(codes.Unavailable, "%v", err)
 	}
 	var subject string
 	if isLookupActive(lookup) {
 		subject = lookup.Subject
 		acct, _, err := s.scim.LoadAccount(subject, realm, true, tx)
 		if err != nil {
-			return false, "", status.Errorf(codes.Unavailable, "%v", err)
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
 		if acct.State == storage.StateDisabled {
 			// Reject using a DISABLED account.
-			return false, "", status.Errorf(codes.PermissionDenied, "this account has been disabled, please contact the system administrator")
+			return nil, status.Errorf(codes.PermissionDenied, "this account has been disabled, please contact the system administrator")
 		}
 		visas, err := s.accountLinkToVisas(r.Context(), acct, id.Subject, provider, cfg, secrets)
 		if err != nil {
-			return false, "", status.Errorf(codes.Unavailable, "%v", err)
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
 		if !visasAreEqual(visas, id.VisaJWTs) {
 			// Refresh the claims in the storage layer.
 			if err := s.populateAccountVisas(r.Context(), acct, id, provider); err != nil {
-				return false, "", status.Errorf(codes.Unavailable, "%v", err)
+				return nil, status.Errorf(codes.Unavailable, "%v", err)
 			}
 			err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
 			if err != nil {
-				return false, "", status.Errorf(codes.Unavailable, "%v", err)
+				return nil, status.Errorf(codes.Unavailable, "%v", err)
 			}
 		}
 	} else {
 		// Create an account for the identity automatically.
 		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
 		if err != nil {
-			return false, "", status.Errorf(codes.Unavailable, "%v", err)
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
 
 		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
-			return false, "", status.Errorf(codes.Unavailable, "%v", err)
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
 		subject = acct.Properties.Subject
 	}
@@ -660,18 +661,19 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 
 	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
 	if err != nil {
-		return false, "", status.Errorf(codes.Internal, "%v", err)
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 
 	if s.useHydra {
-		addr, err := hydra.LoginSuccess(r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID, nil)
+		// send login success to hydra and redirect to hydra, hydra will come back to /identity/consent for information release.
+		redirect, err := hydra.LoginSuccess(r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID, nil)
 		if err != nil {
-			return false, "", err
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
-		return true, addr, nil
+		return &htmlPageOrRedirectURL{redirect: redirect}, nil
 	}
-	page := s.informationReleasePage(id, stateID, extractClientName(cfg, clientID), scope, realm, cfg)
-	return false, page, nil
+
+	return nil, status.Errorf(codes.Unimplemented, "Unimplemented oidc provider")
 }
 
 func extractClientName(cfg *pb.IcConfig, clientID string) string {
