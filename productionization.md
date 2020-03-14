@@ -184,6 +184,22 @@ To create a production environment, complete the following steps:
     off and not later turned on. It can be turned off by removing the `export`
     from the configuration.
 
+1.  Manage which clients are able to allocate the `account_admin`, `link`, and
+    `sync` scopes. These scopes are not needed by most clients.
+
+    *  Having no more than one or two clients that can allow users to change
+       their profile or link their accounts is recommended.
+    *  Clients that are permitted to use these scopes should keep `link` scoped
+       access tokens as short-lived and revoke or discard them immediately after
+       they serve their purpose.
+    *  It is recommended to not use `account_admin` nor `link` scopes with
+       refresh tokens. Generally it is better if the user modifies their account
+       within a short window of time, then re-authenticates if more edits are
+       desired later.
+    *  The `sync` scope should be provided to only "admin tool" type clients
+       as a Hydra client sync can be performed using just a `client_id` and
+       `client_secret`.
+
 ## Security
 
 ### DAM Background Processes
