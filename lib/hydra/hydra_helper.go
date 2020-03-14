@@ -130,10 +130,10 @@ func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, logi
 }
 
 // ConsentSkip if hydra was already able to consent the user, skip will be true and we do not need to re-consent the user.
-// Returns whether a consent is required and redirect address for the conset page.
-func ConsentSkip(r *http.Request, client *http.Client, consent *hydraapi.ConsentRequest, hydraAdminURL, challenge string) (bool, string, error) {
+// Returns whether a consent is required
+func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, consent *hydraapi.ConsentRequest, hydraAdminURL, challenge string) bool {
 	if !consent.Skip {
-		return false, "", nil
+		return false
 	}
 
 	// You can apply logic here, for example update the number of times the user consent.
@@ -148,10 +148,12 @@ func ConsentSkip(r *http.Request, client *http.Client, consent *hydraapi.Consent
 	}
 	resp, err := AcceptConsent(client, hydraAdminURL, challenge, consentReq)
 	if err != nil {
-		return false, "", err
+		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		return false
 	}
 
-	return true, resp.RedirectTo, nil
+	httputils.WriteRedirect(w, r, resp.RedirectTo)
+	return true
 }
 
 // SendLoginSuccess sends login success to hydra.
@@ -159,6 +161,7 @@ func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Clien
 	addr, err := LoginSuccess(r, client, hydraAdminURL, challenge, subject, stateID, extra)
 	if err != nil {
 		httputils.WriteError(w, err)
+		return
 	}
 	httputils.WriteRedirect(w, r, addr)
 }

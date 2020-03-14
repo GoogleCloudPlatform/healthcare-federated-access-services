@@ -290,67 +290,67 @@ func (s *Service) doFinishLogin(r *http.Request) (_ bool, _ string, ferr error) 
 // AcceptInformationRelease is the HTTP handler for ".../inforelease" endpoint.
 func (s *Service) AcceptInformationRelease(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	redirect, out, err := s.acceptInformationRelease(r)
+	challenge, redirect, err := s.acceptInformationRelease(r)
 	if err != nil {
-		httputils.WriteError(w, err)
-	}
-	if redirect {
-		httputils.WriteRedirect(w, r, out)
+		if s.useHydra && len(challenge) > 0 {
+			hydra.SendConsentReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
+		} else {
+			httputils.WriteError(w, err)
+		}
+	} else {
+		httputils.WriteRedirect(w, r, redirect)
 	}
 }
 
-func (s *Service) acceptInformationRelease(r *http.Request) (_ bool, _ string, ferr error) {
+// acceptInformationRelease returns challenge, redirect and status error
+func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr error) {
 	stateID := httputils.QueryParam(r, "state")
 	if len(stateID) == 0 {
-		return false, "", status.Errorf(codes.InvalidArgument, "missing %q parameter", "state")
-	}
-
-	agree := httputils.QueryParam(r, "agree")
-	if agree != "y" {
-		if s.useHydra {
-			addr, err := s.hydraRejectConsent(r, stateID)
-			if err != nil {
-				return false, "", err
-			}
-			return true, addr, nil
-		}
-		return false, "", status.Errorf(codes.Unauthenticated, "no information release")
+		return "", "", status.Errorf(codes.InvalidArgument, "missing %q parameter", "state")
 	}
 
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		return false, "", status.Errorf(codes.Unavailable, "%v", err)
+		return "", "", status.Errorf(codes.Unavailable, "%v", err)
 	}
 	defer func() {
 		err := tx.Finish()
-		if ferr == nil {
-			ferr = err
+		if ferr == nil && err != nil {
+			ferr = status.Errorf(codes.Internal, "%v", err)
 		}
 	}()
 
 	state := &cpb.AuthTokenState{}
 	err = s.store.ReadTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
 	if err != nil {
-		return false, "", status.Errorf(codes.Internal, "%v", err)
+		return "", "", status.Errorf(codes.Internal, "%v", err)
 	}
 
+	// The temporary state for information releasing process can be only used once.
 	err = s.store.DeleteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
 	if err != nil {
-		return false, "", status.Errorf(codes.Internal, "%v", err)
+		return "", "", status.Errorf(codes.Internal, "%v", err)
+	}
+
+	challenge := state.ConsentChallenge
+
+	agree := httputils.QueryParam(r, "agree")
+	if agree != "y" {
+		return challenge, "", errutil.WithErrorReason("user_denied", status.Errorf(codes.Unauthenticated, "User deny consent"))
 	}
 
 	cfg, err := s.loadConfig(tx, state.Realm)
 	if err != nil {
-		return false, "", status.Errorf(codes.Internal, "%v", err)
+		return challenge, "", status.Errorf(codes.Internal, "%v", err)
 	}
 
 	if s.useHydra {
 		addr, err := s.hydraAcceptConsent(r, state, cfg, tx)
 		if err != nil {
-			return false, "", err
+			return challenge, "", status.Errorf(codes.Internal, "%v", err)
 		}
-		return true, addr, nil
+		return challenge, addr, nil
 	}
 
-	return false, "", status.Errorf(codes.Unimplemented, "oidc service not supported")
+	return challenge, "", status.Errorf(codes.Unimplemented, "oidc service not supported")
 }

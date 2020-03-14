@@ -1579,10 +1579,16 @@ func TestConsent_Hydra_StateInvalid(t *testing.T) {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
+	h.RejectConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
 	resp := sendHydraConsent(t, s, h, "invalid")
 
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusInternalServerError, resp.StatusCode)
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode = %d, wants %d,", resp.StatusCode, http.StatusTemporaryRedirect)
+	}
+
+	if h.RejectConsentReq.Code != http.StatusInternalServerError {
+		t.Errorf("RejectConsentReq.Code = %d, wants %d,", h.RejectConsentReq.Code, http.StatusInternalServerError)
 	}
 }
 
