@@ -24,6 +24,8 @@ env_variables:
   SERVICE_NAME: "ic${YOUR_ENVIRONMENT}"
   # Project id
   PROJECT: "${YOUR_PROJECT_ID}"
+  # Experimental mode features are turned on if set to 'true'. Not for use with production systems.
+  EXPERIMENTAL: "${EXPERIMENTAL}"
 
 beta_settings:
   # Pass CloudSQL instance to GAE

@@ -38,6 +38,9 @@ function start_ic() {
   export CONFIG_PATH="deploy/config"
   # STORAGE is one of: "memory", "datastore".
   export STORAGE="datastore"
+  # FEDERATED_ACCESS_ENABLE_EXPERIMENTAL turns on experimental features if set to 'true'.
+  # Not for use with production systems.
+  export FEDERATED_ACCESS_ENABLE_EXPERIMENTAL="${EXPERIMENTAL?}"
 
   export IC_PORT="8000"
   # SERVICE_DOMAIN determines the URL domain for identity provider redirects and issuer strings.

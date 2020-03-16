@@ -37,6 +37,9 @@ function start_dam() {
   export CONFIG_PATH="deploy/config"
   # STORAGE is one of: "memory", "datastore".
   export STORAGE="datastore"
+  # FEDERATED_ACCESS_ENABLE_EXPERIMENTAL turns on experimental features if set to 'true'.
+  # Not for use with production systems.
+  export FEDERATED_ACCESS_ENABLE_EXPERIMENTAL="${EXPERIMENTAL?}"
 
   export DAM_PORT="8000"
   # DAM_URL is the expected service URL in GA4GH passports targetted at this service.

@@ -25,18 +25,21 @@ PROJECT=${PROJECT}
 # using a substring search on the merged list.
 SERVICE_NAMES=("_ic_" "_dam_" "_personas_" "_icdemo_" "_damdemo_")
 ENV=""
+EXPERIMENTAL=""
 unset PROMPT
 unset BYPASS_BUILD
 unset CONFIG_ONLY
 
 print_usage() {
-  echo -e ${RED?}'Usage: deploy [-c] [-b] [-e environment] [-f] [-h] [-i] [-p project_id] [service_name service_name ...]'${RESET?}
+  echo -e ${RED?}'Usage: deploy [-c] [-b] [-e environment] [-f] [-h] [-i] [-n] [-p project_id] [service_name service_name ...]'${RESET?}
   echo -e ${RED?}'  -b \t bypass build of services'${RESET?}
   echo -e ${RED?}'  -c \t config generation only'${RESET?}
   echo -e ${RED?}'  -e \t extra environment namespace to include in the deployed service name'${RESET?}
   echo -e ${RED?}'     \t example: "deploy -e staging dam ic" will deploy services as "dam-staging", "ic-staging"'${RESET?}
   echo -e ${RED?}'  -h \t show this help usage'${RESET?}
   echo -e ${RED?}'  -i \t interactive prompts to proceed between steps'${RESET?}
+  echo -e ${RED?}'  -n \t non-prod: deploy services in experimental mode'${RESET?}
+  echo -e ${RED?}'     \t WARNING: not for use with production systems or production data'${RESET?}
   echo -e ${RED?}'  -p \t GCP project_id to deploy to'${RESET?}
   echo
   echo -e ${RED?}'  service names: '"${SERVICE_NAMES[@]//_}"${RESET?}
@@ -73,7 +76,7 @@ if [[ "${#DEPLOY[@]}" == "0" ]]; then
   DEPLOY=("${SERVICE_NAMES[@]}")
 fi
 
-while getopts ':bce:hip:' flag; do
+while getopts ':bce:hinp:' flag; do
   case "${flag}" in
     b) BYPASS_BUILD='true' ;;
     c) CONFIG_ONLY='true' ;;
@@ -81,6 +84,7 @@ while getopts ':bce:hip:' flag; do
     h) print_usage
        exit 1 ;;
     i) PROMPT='true' ;;
+    n) EXPERIMENTAL='true' ;;
     p) PROJECT="${OPTARG}" ;;
     *) echo -e ${RED?}'Unknown flag: -'${flag}${RESET?}
        print_usage
@@ -170,6 +174,12 @@ sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/ic/ic.yaml
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/icdemo/icdemo.yaml
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/dam/dam.yaml
 sed -i 's/${YOUR_ENVIRONMENT}/'${ENV?}'/g' ./deploy/build/damdemo/damdemo.yaml
+
+sed -i 's/${EXPERIMENTAL}/'${EXPERIMENTAL?}'/g' ./deploy/build/personas/personas.yaml
+sed -i 's/${EXPERIMENTAL}/'${EXPERIMENTAL?}'/g' ./deploy/build/ic/ic.yaml
+sed -i 's/${EXPERIMENTAL}/'${EXPERIMENTAL?}'/g' ./deploy/build/icdemo/icdemo.yaml
+sed -i 's/${EXPERIMENTAL}/'${EXPERIMENTAL?}'/g' ./deploy/build/dam/dam.yaml
+sed -i 's/${EXPERIMENTAL}/'${EXPERIMENTAL?}'/g' ./deploy/build/damdemo/damdemo.yaml
 
 if [[ "${CONFIG_ONLY}" != "" ]]; then
   echo -e ${GREEN?}'CONFIG_ONLY flag is set. Skipping all other steps.'${RESET?}
