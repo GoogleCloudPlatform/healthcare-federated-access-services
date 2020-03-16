@@ -20,7 +20,7 @@ GA4GH Passports are a standard way to securely communicate information between d
 
 DAM enables the translation of abstract qualifications (e.g. I am a physician, I am an academic researcher, etc) into platform-specific access management configurations (e.g. I can access this file, I can run this operation). Once an administrator configures DAM with policies describing how qualifications should translate into data access (e.g. academic researchers should have access to files A and B, but not C), verification of those qualifications and the resulting reconfiguration of underlying permissions will occur automatically as data access requests are received.
 
-DAM evaluates identities against policies in real-time, which means data controllers do not need to have a relationship with data accessors – in fact, data controllers and accessors do not need to know one another exist prior to a transaction. DAM provides the option for data accessors to be billed directly for expenses associated with their requests, rather than those costs being incurred by the data controller. DAM is designed to work as a component within a broader data hosting platform, and also as a standalone alone service.
+DAM evaluates identities against policies in real-time, which means data controllers do not need to have a relationship with data accessors – in fact, data controllers and accessors do not need to know one another exist prior to a transaction. DAM provides the option for data accessors to be billed directly for expenses associated with their requests, rather than those costs being incurred by the data controller. DAM is designed to work as a component within a broader data hosting platform, and also as a standalone service.
 
 ### Identity Concentrator
 
