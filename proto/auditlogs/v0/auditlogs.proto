@@ -1,0 +1,126 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Package v1 provides protocol buffer for AuditLogs API.
+package AuditLogs.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/audits/v1";
+
+// AuditLogs service.
+service AuditLogs {
+  // Lists the AuditLogs Logs.
+  rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse) {
+    option (google.api.http) = {
+      get: "/v1/auditlogs"
+    };
+  }
+}
+
+// AuditLog.
+message AuditLog {
+  // Name of the audit log.
+  // Format: `users/{user_id}/logs/{log_id}`.
+  string name = 1;
+
+  AccessLog access_log = 2;
+  PolicyLog policy_log = 3;
+}
+
+// AccessLog is the audit log for auth checks for requests at endpoints.
+message AccessLog {
+  // Decision is the PassAuthCheck if the request passes the auth check.
+  Decision decision = 1;
+  // ErrorType of deny.
+  // TODO: consider making this an enum.
+  string error_type = 2;
+  // The reason for the deny decision.
+  string reason = 3;
+
+  // Time at which the decision was made.
+  google.protobuf.Timestamp time = 4;
+
+  // TokenID is the id of the token, maybe "jti".
+  string token_id = 5;
+  // TokenSubject is the "sub" of the token.
+  string token_subject = 6;
+  // TokenIssuer is the iss of the token.
+  string token_issuer = 7;
+
+  // TracingID is the id of request from proxies.
+  string tracing_id = 8;
+
+  // RequestMethod is the http method of the request.
+  string request_method = 9;
+  // RequestEndpoint is the absolute path of the request.
+  string request_endpoint = 10;
+  // RequestIP is the requester IP.
+  string request_ip = 11;
+  // Request stores the http.Request.
+  google.protobuf.Struct request = 12;
+  // HTTP Response Code.
+  int64 http_response_code = 13;
+}
+
+// PolicyLog is the audit log for dataset access decision.
+message PolicyLog {
+  // Decission if the request pass the auth checker.
+  Decision decision = 1;
+  // ErrorType of deny.
+  // TODO: consider making this an enum.
+  string error_type = 2;
+  // The reason for the deny decision.
+  string reason = 3;
+
+  // Time at which the decision was made.
+  google.protobuf.Timestamp time = 4;
+
+  // TokenID is the id of the token, maybe "jti".
+  string token_id = 5;
+  // TokenSubject is the "sub" of the token.
+  string token_subject = 6;
+  // TokenIssuer is the iss of the token.
+  string token_issuer = 7;
+
+  // Resource identifies the dataset to which the access was requested.
+  string resource = 8;
+  // TTL that user requested for the access.
+  google.protobuf.Duration ttl = 9;
+}
+
+// Decision is the result of an auth check.
+enum Decision {
+  UNSPECIFIED = 0;
+  PASS = 1;
+  FAIL = 2;
+}
+
+message ListAuditLogsRequest {
+  string parent = 1;
+  string filter = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListAuditLogsResponse {
+  repeated AuditLog audit_logs = 1;
+  string next_page_token = 2;
+}
