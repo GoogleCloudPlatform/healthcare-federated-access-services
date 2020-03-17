@@ -23,23 +23,25 @@ import (
 )
 
 // GCPDeleteToken revokes a token.
+// ids are project ID, user ID, and token ID.
 func (s *DAMTokens) GCPDeleteToken(ctx context.Context, ids []string) error {
-	if err := s.saw.DeleteTokens(ctx, ids[1], ids[2], []string{ids[3]}); err != nil {
+	if err := s.saw.DeleteTokens(ctx, ids[0], ids[1], []string{ids[2]}); err != nil {
 		return err
 	}
 	return nil
 }
 
 // GCPListTokens lists the tokens.
+// ids are project ID and user ID.
 func (s *DAMTokens) GCPListTokens(ctx context.Context, ids []string) ([]*tpb.Token, error) {
-	vs, err := s.saw.ListTokenMetadata(ctx, ids[1], ids[2])
+	vs, err := s.saw.ListTokenMetadata(ctx, ids[0], ids[1])
 	if err != nil {
 		return nil, err
 	}
 	var tokens []*tpb.Token
 	for _, v := range vs {
 		t := &tpb.Token{
-			Name:      "projects/" + ids[1] + "/users/" + ids[2] + "/tokens/" + v.GetName(),
+			Name:      "users/" + ids[1] + "/tokens/" + v.GetName(),
 			IssuedAt:  timeutil.ParseRFC3339(v.GetIssuedAt()).Unix(),
 			ExpiresAt: timeutil.ParseRFC3339(v.GetExpires()).Unix(),
 		}

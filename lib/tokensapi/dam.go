@@ -22,20 +22,23 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
+	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
 )
 
 // DAMTokens is implments the tokens API for DAM.
 // Currently support GCP tokens.
 type DAMTokens struct {
-	saw *saw.AccountWarehouse
+	store storage.Store
+	saw   *saw.AccountWarehouse
 }
 
 // NewDAMTokens creates a new DAMTokens.
-func NewDAMTokens(saw *saw.AccountWarehouse) *DAMTokens {
-	return &DAMTokens{saw: saw}
+func NewDAMTokens(store storage.Store, saw *saw.AccountWarehouse) *DAMTokens {
+	return &DAMTokens{store: store, saw: saw}
 }
 
 // GetToken returns the token.
@@ -53,10 +56,15 @@ func (s *DAMTokens) DeleteToken(ctx context.Context, req *tpb.DeleteTokenRequest
 		return nil, status.Errorf(codes.InvalidArgument, "invalud name: %v", name)
 	}
 
+	project, err := saProject(s.store, storage.DefaultRealm)
+	if err != nil {
+		return nil, err
+	}
+	ids[0] = project
+
 	// TODO: demux based on the platform from which the token is from.
 
-	err := s.GCPDeleteToken(ctx, ids)
-	if err != nil {
+	if err := s.GCPDeleteToken(ctx, ids); err != nil {
 		return nil, err
 	}
 
@@ -68,9 +76,15 @@ func (s *DAMTokens) ListTokens(ctx context.Context, req *tpb.ListTokensRequest) 
 	glog.Infof("ListTokensRequest")
 	parent := req.GetParent()
 	ids := parentRE.FindStringSubmatch(parent)
-	if len(ids) < 3 {
+	if len(ids) < 2 {
 		return nil, status.Errorf(codes.InvalidArgument, "invalud parent: %v", parent)
 	}
+
+	project, err := saProject(s.store, storage.DefaultRealm)
+	if err != nil {
+		return nil, err
+	}
+	ids[0] = project
 
 	tokens, err := s.GCPListTokens(ctx, ids)
 	if err != nil {
@@ -83,6 +97,14 @@ func (s *DAMTokens) ListTokens(ctx context.Context, req *tpb.ListTokensRequest) 
 }
 
 var (
-	parentRE   = regexp.MustCompile("^projects/([^/]*)/users/([^/]*)$")
-	resourceRE = regexp.MustCompile("^projects/([^/]*)/users/([^/]*)/tokens/([^/]*)$")
+	parentRE   = regexp.MustCompile("^users/([^/]*)$")
+	resourceRE = regexp.MustCompile("^users/([^/]*)/tokens/([^/]*)$")
 )
+
+func saProject(store storage.Store, realm string) (string, error) {
+	cfg := &dampb.DamConfig{}
+	if err := store.Read(storage.ConfigDatatype, realm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
+		return "", err
+	}
+	return cfg.Options.GcpServiceAccountProject, nil
+}

@@ -26,12 +26,15 @@ import (
 	"google.golang.org/grpc" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakegrpc" /* copybara-comment: fakegrpc */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeiam" /* copybara-comment: fakeiam */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakestore" /* copybara-comment: fakestore */
 
 	iamgrpcpb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_grpc */
 	iampb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_proto */
 	iamcredsgrpcpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: iamcredentials_go_grpc */
+	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
 )
 
@@ -39,7 +42,9 @@ func TestDAMTokens_List(t *testing.T) {
 	ctx := context.Background()
 	f, cleanup := newFix(t)
 	defer cleanup()
-	s := NewDAMTokens(f.saw)
+	MustWriteRealmConfig(t, f.store, storage.DefaultRealm, &dampb.DamConfig{Options: &dampb.ConfigOptions{GcpServiceAccountProject: "fake-project"}})
+
+	s := NewDAMTokens(f.store, f.saw)
 
 	// Create a token on GCP.
 	user := "fake-user"
@@ -49,7 +54,7 @@ func TestDAMTokens_List(t *testing.T) {
 	f.iamSrv.CreateServiceAccountKey(ctx, &iampb.CreateServiceAccountKeyRequest{Name: fakeiam.SAName("fake-project", accountID)})
 	after := time.Now()
 
-	got, err := s.ListTokens(ctx, &tpb.ListTokensRequest{Parent: "projects/fake-project/users/" + user})
+	got, err := s.ListTokens(ctx, &tpb.ListTokensRequest{Parent: "users/" + user})
 	if err != nil {
 		t.Fatalf("ListTokens() failed: %v", err)
 	}
@@ -65,7 +70,7 @@ func TestDAMTokens_List(t *testing.T) {
 	// TODO: use protocmp.IgnoreFields(&tpb.Token{}, "expires_at", "issued_at") instead when it works.
 	got.Tokens[0].IssuedAt = 0
 	got.Tokens[0].ExpiresAt = 0
-	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{{Name: "projects/fake-project/users/fake-user/tokens/fake-key-id-0"}}}
+	want := &tpb.ListTokensResponse{Tokens: []*tpb.Token{{Name: "users/fake-user/tokens/fake-key-id-0"}}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("ListTokens() returned diff (-want +got):\n%s", diff)
 	}
@@ -75,7 +80,9 @@ func TestDAMTokens_Delete(t *testing.T) {
 	ctx := context.Background()
 	f, cleanup := newFix(t)
 	defer cleanup()
-	s := NewDAMTokens(f.saw)
+	MustWriteRealmConfig(t, f.store, storage.DefaultRealm, &dampb.DamConfig{Options: &dampb.ConfigOptions{GcpServiceAccountProject: "fake-project"}})
+
+	s := NewDAMTokens(f.store, f.saw)
 
 	// Create a token on GCP.
 	user := "fake-user"
@@ -83,11 +90,11 @@ func TestDAMTokens_Delete(t *testing.T) {
 	f.iamSrv.CreateServiceAccount(ctx, &iampb.CreateServiceAccountRequest{Name: "projects/fake-project", AccountId: accountID})
 	f.iamSrv.CreateServiceAccountKey(ctx, &iampb.CreateServiceAccountKeyRequest{Name: fakeiam.SAName("fake-project", accountID)})
 
-	if _, err := s.DeleteToken(ctx, &tpb.DeleteTokenRequest{Name: "projects/fake-project/users/" + user + "/tokens/" + "fake-key-id-0"}); err != nil {
+	if _, err := s.DeleteToken(ctx, &tpb.DeleteTokenRequest{Name: "users/" + user + "/tokens/" + "fake-key-id-0"}); err != nil {
 		t.Fatalf("DeleteToken() failed: %v", err)
 	}
 
-	got, err := s.ListTokens(ctx, &tpb.ListTokensRequest{Parent: "projects/fake-project/users/" + user})
+	got, err := s.ListTokens(ctx, &tpb.ListTokensRequest{Parent: "users/" + user})
 	if err != nil {
 		t.Fatalf("ListTokens() failed: %v", err)
 	}
@@ -104,6 +111,7 @@ type Fix struct {
 	creds    *iamcreds.IamCredentialsClient
 	credsSrv *fakeiam.Creds
 	saw      *saw.AccountWarehouse
+	store    *fakestore.Store
 }
 
 func newFix(t *testing.T) (*Fix, func() error) {
@@ -115,6 +123,7 @@ func newFix(t *testing.T) (*Fix, func() error) {
 	)
 
 	f := &Fix{}
+	f.store = fakestore.New()
 	f.rpc, cleanup = fakegrpc.New()
 
 	f.iamSrv = fakeiam.NewAdmin()
@@ -152,35 +161,27 @@ func TestParentRE(t *testing.T) {
 		want []string
 	}{
 		{
-			in:   "projects/fake-project/users/fake-user",
-			want: []string{"projects/fake-project/users/fake-user", "fake-project", "fake-user"},
+			in:   "users/fake-user",
+			want: []string{"users/fake-user", "fake-user"},
 		},
 		{
 			in:   "",
 			want: nil,
 		},
 		{
-			in:   "projects",
+			in:   "users",
 			want: nil,
 		},
 		{
-			in:   "projects/fake-project",
+			in:   "EXTRAusers/fake-user",
 			want: nil,
 		},
 		{
-			in:   "projects/fake-project/users",
+			in:   "EXTRA/users/fake-user",
 			want: nil,
 		},
 		{
-			in:   "EXTRAprojects/fake-project/users/fake-user",
-			want: nil,
-		},
-		{
-			in:   "EXTRA/projects/fake-project/users/fake-user",
-			want: nil,
-		},
-		{
-			in:   "projects/fake-project/users/fake-user/EXTRA",
+			in:   "users/fake-user/EXTRA",
 			want: nil,
 		},
 	}
@@ -199,43 +200,35 @@ func TestResourceRE(t *testing.T) {
 		want []string
 	}{
 		{
-			in:   "projects/fake-project/users/fake-user/tokens/fake-token",
-			want: []string{"projects/fake-project/users/fake-user/tokens/fake-token", "fake-project", "fake-user", "fake-token"},
+			in:   "users/fake-user/tokens/fake-token",
+			want: []string{"users/fake-user/tokens/fake-token", "fake-user", "fake-token"},
 		},
 		{
 			in:   "",
 			want: nil,
 		},
 		{
-			in:   "projects",
+			in:   "users",
 			want: nil,
 		},
 		{
-			in:   "projects/fake-project",
+			in:   "users/fake-user",
 			want: nil,
 		},
 		{
-			in:   "projects/fake-project/users",
+			in:   "users/fake-user/tokens",
 			want: nil,
 		},
 		{
-			in:   "projects/fake-project/users/fake-user",
+			in:   "EXTRAusers/fake-user/tokens/fake-token",
 			want: nil,
 		},
 		{
-			in:   "projects/fake-project/users/fake-user/tokens",
+			in:   "EXTRA/users/fake-user/tokens/fake-token",
 			want: nil,
 		},
 		{
-			in:   "EXTRAprojects/fake-project/users/fake-user/tokens/fake-token",
-			want: nil,
-		},
-		{
-			in:   "EXTRA/projects/fake-project/users/fake-user/tokens/fake-token",
-			want: nil,
-		},
-		{
-			in:   "projects/fake-project/users/fake-user//tokens/fake-token/EXTRA",
+			in:   "users/fake-user//tokens/fake-token/EXTRA",
 			want: nil,
 		},
 	}
@@ -245,5 +238,11 @@ func TestResourceRE(t *testing.T) {
 		if diff := cmp.Diff(tc.want, got); diff != "" {
 			t.Errorf("resourceRE.FindStringSubmatch(%v) = %v, want %v", tc.in, got, tc.want)
 		}
+	}
+}
+
+func MustWriteRealmConfig(t *testing.T, store *fakestore.Store, realm string, cfg *dampb.DamConfig) {
+	if err := store.Write(storage.ConfigDatatype, realm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg, nil); err != nil {
+		t.Fatalf("failed to setup the store")
 	}
 }

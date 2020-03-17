@@ -195,7 +195,7 @@ func New(r *mux.Router, params *Options) *Service {
 		hydraSyncFreq:       syncFreq,
 		visaVerifier:        verifier.New(""),
 		scim:                scim.New(params.Store),
-		tokens:              tokensapi.NewDAMTokens(params.ServiceAccountManager),
+		tokens:              tokensapi.NewDAMTokens(params.Store, params.ServiceAccountManager),
 	}
 
 	if s.httpClient == nil {
