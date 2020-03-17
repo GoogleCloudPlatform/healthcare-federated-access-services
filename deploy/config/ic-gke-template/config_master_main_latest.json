@@ -1,0 +1,59 @@
+{
+  "version": "v0",
+  "revision": "1",
+  "commitTime": "1544824316",
+  "ui": {
+    "label": "Test Identity Concentrator",
+    "description": "Test Identity Concentrator"
+  },
+  "identityProviders": {
+    "google": {
+      "issuer": "https://accounts.google.com",
+      "authorizeUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+      "tokenUrl": "https://oauth2.googleapis.com/token",
+      "clientId": "setup oidc following https://developers.google.com/identity/protocols/OAuth2",
+      "ui": {
+        "label": "Google",
+        "description": "Google identity provider",
+        "iconUrl": "/identity/static/images/google_identity.png"
+      }
+    }
+  },
+  "clients": {
+    "test_page": {
+      "clientId": "903cfaeb-57d9-4ef6-5659-04377794ed65",
+      "redirectUris": [
+        "/",
+        "https://${DOMAIN_FOR_IC}/test"
+      ],
+      "ui": {
+        "label": "Test Page",
+        "description": "Test page"
+      },
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin link",
+      "grantTypes": ["authorization_code", "refresh_token"],
+      "responseTypes": ["token", "code", "id_token"]
+    },
+    "admin_tool": {
+      "clientId": "1b2b57c0-46dc-48ce-bd5b-389f26489bcd",
+      "ui": {
+        "label": "Admin Tool",
+        "description": "Administrator's admin.bash tool"
+      },
+      "redirectUris": ["/"],
+      "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin sync",
+      "grantTypes": ["authorization_code", "refresh_token"],
+      "responseTypes": ["token", "code", "id_token"]
+    }
+  },
+  "options": {
+    "accountNameLength": 25,
+    "readOnlyMasterRealm": true,
+    "authCodeTokenTtl": "5m",
+    "accessTokenTtl": "1d",
+    "refreshTokenTtl": "180d",
+    "defaultPassportTokenTtl": "1d",
+    "maxPassportTokenTtl": "1d",
+    "claimTtlCap": "9125d"
+  }
+}
