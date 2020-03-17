@@ -35,6 +35,7 @@ const (
 
 	AccountDatatype            = "account"
 	AccountLookupDatatype      = "acct_lookup"
+	CliAuthDatatype            = "cli_auth"
 	ClientDatatype             = "client"
 	ConfigDatatype             = "config"
 	GroupDatatype              = "group"
@@ -93,6 +94,8 @@ type Store interface {
 type Tx interface {
 	Finish() error
 	Rollback() error
+	// MakeUpdate will upgrade a read-only transaction to an update transaction.
+	MakeUpdate() error
 	IsUpdate() bool
 }
 

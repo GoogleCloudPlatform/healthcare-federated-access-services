@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ package tokens
 
 import (
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -37,7 +36,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-// PendingDeleteToken stores delete_time for the pending delete token. Use the token id as the key of the entry.
+// PendingDeleteToken stores delete_time for the pending delete token. Use the
+// token id as the key of the entry.
 type PendingDeleteToken struct {
 	// timestamp of user request delete the token.
 	DeleteTime           int64    `protobuf:"varint,1,opt,name=delete_time,json=deleteTime,proto3" json:"delete_time,omitempty"`

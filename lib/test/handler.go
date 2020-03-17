@@ -67,8 +67,8 @@ type serviceHandler interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
-// HandlerTests run tests on a service handler.
-func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL string, cfg *dampb.DamConfig) {
+// HandlerTests run tests on a service handler. Returns map of testName to testOutput strings.
+func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL string, cfg *dampb.DamConfig) map[string]string {
 	t.Helper()
 
 	testOutput := make(map[string]string)
@@ -170,4 +170,5 @@ func HandlerTests(t *testing.T, h serviceHandler, tests []HandlerTest, issuerURL
 			}
 		})
 	}
+	return testOutput
 }

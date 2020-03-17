@@ -80,6 +80,11 @@ a {
   display: none;
 }
 
+.error {
+  color: red;
+  font-weight: bold;
+}
+
 button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
 .mdl-button--primary.mdl-button--primary.mdl-button--fab {
   background-color: #77777a;

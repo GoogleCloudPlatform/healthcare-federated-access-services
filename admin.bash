@@ -49,7 +49,7 @@ declare -A COMMANDS=(
   # DAM commands
   ["check dam clients"]='dam_curl_client "/dam/${API_VERSION?}/${REALM?}/clients:sync"'
   ["print dam config"]='dam_curl_auth "/dam/${API_VERSION?}/${REALM?}/config"'
-  ["print ic config history"]='dam_curl_auth "/dam/${API_VERSION?}/${REALM?}/config/history"'
+  ["print dam config history"]='dam_curl_auth "/dam/${API_VERSION?}/${REALM?}/config/history"'
   ["print dam info"]='curl_public "dam" "/dam"'
   ["print dam processes"]='dam_curl_auth "/dam/${API_VERSION?}/${REALM?}/processes"'
   ["print dam process <name>"]='dam_curl_auth "/dam/${API_VERSION?}/${REALM?}/processes/$4"'
@@ -77,6 +77,8 @@ declare -A COMMANDS=(
   ["print ic users"]='ic_curl_auth "/identity/scim/v2/${REALM?}/Users"'
   ["sync ic clients"]='ic_curl_client "/identity/${API_VERSION?}/${REALM?}/clients:sync" "POST"'
   # Admin state commands
+  # ["login dam"]='curl_login "dam" "/dam" "DAM_ACCESS_TOKEN" "DAM_REFRESH_TOKEN"'
+  ["login ic"]='curl_login "ic" "/identity" "IC_ACCESS_TOKEN" "IC_REFRESH_TOKEN"'
   # ["state_refresh dam"]='state_refresh "dam" "${DAM_CLIENT_ID}" "${DAM_CLIENT_SECRET}"'
   # ["state_refresh ic"]='state_refresh "ic" "${IC_CLIENT_ID}" "${IC_CLIENT_SECRET}"'
   ["set dam access_token <token>"]='state_update "DAM_ACCESS_TOKEN" "$4"'
@@ -98,6 +100,7 @@ declare -A COMMANDS=(
 
 # Only commands on this list are allowed in the COMMANDS list above.
 declare -A COMMAND_WHITELIST=(
+  ["curl_login"]=true
   ["curl_public"]=true
   ["dam_curl_auth"]=true
   ["dam_curl_client"]=true
@@ -234,17 +237,10 @@ curl_public() {
     dash=""
   fi
   RESULT=`curl -s "$1${dash}${ENVIRONMENT}-dot-${PROJECT}.appspot.com$2"`
-  # Check to see if result is JSON, then pretty print in JSON if available.
-  `jq -e <<< "${RESULT}" > /dev/null 2>&1`
-  if [[ "$?" == "0" ]]; then
-    printf "`jq -e <<< "${RESULT}"`"
-  else
-    echo "${RESULT}"
-  fi
-  echo
+  curl_print
 }
 
-# curl_client <dam|ic> <resource_path> <client_id> <client_secret> [method]
+# curl_client <dam|ic> <resource_path> <client_id> <client_secret> [method] [input] [quiet]
 # Generates a URL then performs a GET using curl as part of a RESTful API.
 # Unlike curl_public, this function adds the client id/secret to the request.
 curl_client() {
@@ -260,8 +256,14 @@ curl_client() {
   if [[ "${ENVIRONMENT}" == "" ]]; then
     dash=""
   fi
-  RESULT=`curl ${CURL_OPTIONS} -X "${method}" -H "Content-Length: 0" -H "Content-Type: application/x-www-form-urlencoded" "$1${dash}${ENVIRONMENT}-dot-${PROJECT}.appspot.com$2?client_id=$3&client_secret=$4"`
-  curl_print
+  local input=""
+  if [[ "$6" != "" ]]; then
+    input="&$6"
+  fi
+  RESULT=`curl ${CURL_OPTIONS} -X "${method}" -H "Content-Length: 0" -H "Content-Type: application/x-www-form-urlencoded" "$1${dash}${ENVIRONMENT}-dot-${PROJECT}.appspot.com$2?client_id=$3&client_secret=$4${input}"`
+  if [[ "$7" == "" ]]; then
+    curl_print
+  fi
 }
 
 # curl_auth <dam|ic> <resource_path> <client_id> <client_secret> <access_token>
@@ -314,10 +316,45 @@ ic_curl_auth() {
   curl_auth "ic" "$1" "${IC_CLIENT_ID}" "${IC_CLIENT_SECRET}" "${IC_ACCESS_TOKEN}"
 }
 
-# ic_curl_client <resource_path> [method]
+# ic_curl_client <resource_path> [method] [input] [quiet]
 # Wrapper for curl_client that supplies a set of IC inputs for client id/secret.
 ic_curl_client() {
-  curl_client "ic" "$1" "${IC_CLIENT_ID}" "${IC_CLIENT_SECRET}" "$2"
+  curl_client "ic" "$1" "${IC_CLIENT_ID}" "${IC_CLIENT_SECRET}" "$2" "$3" "$4"
+}
+
+# curl_login <dam|ic> <rootPath> <accessTokenVar> <refreshTokenVar>
+# Walks user through the steps to capture auth access_token and refresh_token.
+curl_login() {
+  local cmd=ic_curl_client
+  if [[ "$1" == "dam" ]]; then
+    cmd=dam_curl_client
+  fi
+  $cmd "$2/cli/register/auto" "POST" "" "quiet"
+  if [[ "$?" != "0" ]]; then
+    curl_print
+    echo
+    echo -e "${RED?}Login failed${RESET?}"
+    exit 2
+  fi
+  local id=`jq -r '.id' <<< "${RESULT}"`
+  local url=`jq -r '.authUrl' <<< "${RESULT}"`
+  local secret=`jq -r '.secret' <<< "${RESULT}"`
+
+  echo "Login via this link in a browser: $url"
+  echo "Press enter after login is successful..."
+  read
+
+  $cmd "/identity/cli/register/${id}" "GET" "login_secret=${secret}" "quiet"
+  if [[ "$?" != "0" ]]; then
+    curl_print
+    echo
+    echo -e "${RED?}Get login state failed${RESET?}"
+    exit 2
+  fi
+
+  export "$3"=`jq -r '.accessToken' <<< "${RESULT}"`
+  export "$4"=`jq -r '.refreshToken' <<< "${RESULT}"`
+  state_save
 }
 
 # refresh_access <dam|ic> <client_id> <client_secret> <refresh_token>

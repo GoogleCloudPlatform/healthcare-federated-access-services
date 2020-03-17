@@ -102,9 +102,11 @@ type Checker struct {
 
 // Context (i.e. auth.Context) is authorization information that is stored within the request context.
 type Context struct {
-	ID       *ga4gh.Identity
-	LinkedID *ga4gh.Identity
-	IsAdmin  bool
+	ID           *ga4gh.Identity
+	LinkedID     *ga4gh.Identity
+	ClientID     string
+	ClientSecret string
+	IsAdmin      bool
 }
 type authContextType struct{}
 
@@ -156,9 +158,11 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 			isAdmin = checker.IsAdmin(id) == nil
 		}
 		a := &Context{
-			ID:       id,
-			LinkedID: linkedID,
-			IsAdmin:  isAdmin,
+			ID:           id,
+			LinkedID:     linkedID,
+			ClientID:     oathclients.ExtractClientID(r),
+			ClientSecret: oathclients.ExtractClientSecret(r),
+			IsAdmin:      isAdmin,
 		}
 		r = r.WithContext(context.WithValue(r.Context(), authContextKey, a))
 

@@ -35,6 +35,14 @@ const (
 	acceptLoginPath = "/identity/loggedin"
 	// Proxy hydra token endpoint.
 	oauthTokenPath = "/oauth2/token"
+	// Hydra's auth endpoint.
+	oauthAuthPath = "oauth2/auth"
+	// CLI to register an auth flow for acquiring tokens.
+	cliRegisterPath = "/identity/cli/register/{name}"
+	// CLI path to start the auth flow for the registered ID.
+	cliAuthPath = "/identity/cli/auth/{name}"
+	// CLI auth flow complete "accept" endpoint to acquire the code and/or tokens.
+	cliAcceptPath = "/identity/cli/accept"
 
 	// ---------------------------------------------------------------------------
 	// The following are administration endpoints for managing DAM.

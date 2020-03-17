@@ -311,11 +311,17 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 	if len(clientID) == 0 {
 		clientID = basicAuthClientID(r)
 	}
-
-	code := strings.Split(httputils.QueryParam(r, "code"), ",")
-	pname := code[0]
-	if len(code) > 1 {
-		clientID = code[1]
+	var code string
+	switch httputils.QueryParam(r, "grant_type") {
+	case "refresh_token":
+		code = httputils.QueryParam(r, "refresh_token")
+	default:
+		code = httputils.QueryParam(r, "code")
+	}
+	parts := strings.SplitN(code, ",", 2)
+	pname := parts[0]
+	if len(parts) > 1 {
+		clientID = parts[1]
 	}
 	persona, ok := s.cfg.TestPersonas[pname]
 	if !ok {
@@ -327,11 +333,16 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.Internal, "error creating access token for persona %q: %v", pname, err))
 		return
 	}
+	refreshTok := pname
+	if len(clientID) > 0 {
+		refreshTok = pname + "," + clientID
+	}
 	resp := &cpb.OidcTokenResponse{
-		AccessToken: string(acTok),
-		TokenType:   "bearer",
-		ExpiresIn:   60 * 60 * 24 * 365,
-		Uid:         uuid.New(),
+		AccessToken:  string(acTok),
+		RefreshToken: refreshTok,
+		TokenType:    "bearer",
+		ExpiresIn:    60 * 60 * 24 * 365,
+		Uid:          uuid.New(),
 	}
 	httputils.WriteResp(w, resp)
 }

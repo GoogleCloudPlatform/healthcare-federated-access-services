@@ -238,6 +238,12 @@ func (tx *FileTx) Rollback() error {
 	return nil
 }
 
+// MakeUpdate will upgrade a read-only transaction to an update transaction.
+func (tx *FileTx) MakeUpdate() error {
+	tx.writer = true
+	return nil
+}
+
 func (tx *FileTx) IsUpdate() bool {
 	return tx.writer
 }

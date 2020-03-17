@@ -17,6 +17,8 @@ syntax = "proto3";
 // Package com defines messages shared between IC and DAM server.
 package common;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
 
 message Descriptor {
@@ -138,6 +140,23 @@ message TokenMetadata {
   string name = 1;
   string issued_at = 2;
   string expires = 3;
+}
+
+message CliState {
+  string id = 1;
+  string email = 2;
+  string client_id = 3;
+  string scope = 4;
+  string auth_url = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  string nonce = 8;
+  bytes encrypted_secret = 9;
+  bytes encrypted_code = 10;
+  string secret = 11;
+  string access_token = 12;
+  string refresh_token = 13;
+  string state = 14;
 }
 
 message HistoryEntry {

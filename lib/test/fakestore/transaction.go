@@ -105,6 +105,15 @@ func (tx *Tx) Rollback() error {
 	return nil
 }
 
+// MakeUpdate will upgrade a read-only transaction to an update transaction.
+func (tx *Tx) MakeUpdate() error {
+	tx.mu.Lock()
+	defer tx.mu.Unlock()
+
+	tx.update = true
+	return nil
+}
+
 // IsUpdate stated if the transaction is a mutation or read-only.
 func (tx *Tx) IsUpdate() bool {
 	tx.mu.Lock()

@@ -513,6 +513,7 @@ func (s *Store) Tx(update bool) (storage.Tx, error) {
 	}
 	return &Tx{
 		update: update,
+		client: s.client,
 		Tx:     dstx,
 	}, nil
 }
@@ -671,6 +672,7 @@ func (s *Store) newHistory(key *datastore.Key, datatype, realm, user, id string,
 // Tx is a transaction.
 type Tx struct {
 	update bool
+	client *datastore.Client
 	Tx     *datastore.Transaction
 }
 
@@ -705,5 +707,22 @@ func (tx *Tx) Rollback() error {
 	}
 	// Transaction cannot be used after a rollback.
 	tx.Tx = nil
+	return nil
+}
+
+// MakeUpdate will upgrade a read-only transaction to an update transaction.
+func (tx *Tx) MakeUpdate() error {
+	if tx.IsUpdate() {
+		return nil
+	}
+	if err := tx.Finish(); err != nil {
+		return err
+	}
+	dstx, err := tx.client.NewTransaction(context.Background() /* TODO: pass ctx from request */)
+	if err != nil {
+		return err
+	}
+	tx.update = true
+	tx.Tx = dstx
 	return nil
 }

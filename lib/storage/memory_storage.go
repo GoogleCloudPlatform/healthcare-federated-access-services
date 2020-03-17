@@ -447,6 +447,12 @@ func (tx *MemTx) Rollback() error {
 	return nil
 }
 
+// MakeUpdate will upgrade a read-only transaction to an update transaction.
+func (tx *MemTx) MakeUpdate() error {
+	tx.update = true
+	return nil
+}
+
 func (tx *MemTx) IsUpdate() bool {
 	return tx.update
 }

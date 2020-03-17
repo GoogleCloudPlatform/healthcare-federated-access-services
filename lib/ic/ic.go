@@ -44,12 +44,15 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/cli" /* copybara-comment: cli */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/consentsapi" /* copybara-comment: consentsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
@@ -226,7 +229,7 @@ type Service struct {
 	hydraPublicURL             string
 	hydraPublicURLProxy        *hydraproxy.Service
 	translators                sync.Map
-	encryption                 Encryption
+	encryption                 kms.Encryption
 	logger                     *logging.Client
 	skipInformationReleasePage bool
 	useHydra                   bool
@@ -237,12 +240,6 @@ type Service struct {
 type ServiceHandler struct {
 	Handler *mux.Router
 	s       *Service
-}
-
-// Encryption abstracts a encryption service for storing visa.
-type Encryption interface {
-	Encrypt(ctx context.Context, data []byte, additionalAuthData string) ([]byte, error)
-	Decrypt(ctx context.Context, encrypted []byte, additionalAuthData string) ([]byte, error)
 }
 
 // Options contains parameters to New IC Service.
@@ -258,7 +255,7 @@ type Options struct {
 	// Store: data storage and configuration storage.
 	Store storage.Store
 	// Encryption: the encryption use for storing tokens safely in database.
-	Encryption Encryption
+	Encryption kms.Encryption
 	// Logger: audit log logger
 	Logger *logging.Client
 	// SkipInformationReleasePage: set true if want to skip the information release page.
@@ -1725,6 +1722,17 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
 
+	if globalflags.Experimental {
+		// CLI login endpoints
+		cliAuthURL := urlPathJoin(s.getDomainURL(), cliAuthPath)
+		hydraAuthURL := urlPathJoin(s.hydraPublicURL, oauthAuthPath)
+		hydraTokenURL := urlPathJoin(s.hydraPublicURL, oauthTokenPath)
+		cliAcceptURL := urlPathJoin(s.getDomainURL(), cliAcceptPath)
+		r.HandleFunc(cliRegisterPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), cli.RegisterFactory(s.GetStore(), cliRegisterPath, s.encryption, cliAuthURL, hydraAuthURL, hydraTokenURL, cliAcceptURL, http.DefaultClient)), checker, auth.RequireClientIDAndSecret))
+		r.HandleFunc(cliAuthPath, auth.MustWithAuth(cli.NewAuthHandler(s.GetStore()).Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
+		r.HandleFunc(cliAcceptPath, auth.MustWithAuth(cli.NewAcceptHandler(s.store, s.encryption, "/identity").Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
+	}
+
 	// info endpoints
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(jwksPath, auth.MustWithAuth(s.JWKS, checker, auth.RequireNone)).Methods(http.MethodGet)
@@ -1773,4 +1781,18 @@ func registerHandlers(r *mux.Router, s *Service) {
 	if s.hydraPublicURLProxy != nil {
 		r.HandleFunc(oauthTokenPath, s.hydraPublicURLProxy.HydraOAuthToken).Methods(http.MethodPost)
 	}
+}
+
+func urlPathJoin(urlStr, pathStr string) string {
+	// Niether path.Join nor url.Parse()...String() does the right thing.
+	// Just append.
+	s1 := strings.HasSuffix(urlStr, "/")
+	s2 := strings.HasPrefix(pathStr, "/")
+	if !s1 && !s2 {
+		return urlStr + "/" + pathStr
+	}
+	if s1 && s2 {
+		return urlStr + pathStr[1:]
+	}
+	return urlStr + pathStr
 }
