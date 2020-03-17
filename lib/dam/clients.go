@@ -209,6 +209,10 @@ func (h *SyncClientsHandler) Setup(r *http.Request, tx storage.Tx) (int, error) 
 		return st, err
 	}
 
+	if getRealm(r) != storage.DefaultRealm {
+		return http.StatusForbidden, status.Errorf(codes.PermissionDenied, "client sync only allow on master realm")
+	}
+
 	cliID := getClientID(r)
 	var scope string
 	for _, c := range cfg.Clients {

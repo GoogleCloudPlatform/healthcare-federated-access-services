@@ -850,14 +850,14 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "PUT",
-			Path:    "/dam/v1alpha/test/clients:sync",
+			Path:    "/dam/v1alpha/master/clients:sync",
 			Persona: "non-admin",
 			Output:  `^.*not allowed`,
 			Status:  http.StatusBadRequest,
 		},
 		{
 			Method:       "PUT",
-			Path:         "/dam/v1alpha/test/clients:sync",
+			Path:         "/dam/v1alpha/master/clients:sync",
 			Persona:      "non-admin",
 			ClientID:     "bad",
 			ClientSecret: "worse",
@@ -866,17 +866,31 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "PATCH",
-			Path:    "/dam/v1alpha/test/clients:sync",
+			Path:    "/dam/v1alpha/master/clients:sync",
 			Persona: "non-admin",
 			Output:  `^.*not allowed`,
 			Status:  http.StatusBadRequest,
 		},
 		{
 			Method:  "DELETE",
-			Path:    "/dam/v1alpha/test/clients:sync",
+			Path:    "/dam/v1alpha/master/clients:sync",
 			Persona: "non-admin",
 			Output:  `^.*not allowed`,
 			Status:  http.StatusBadRequest,
+		},
+		{
+			Method:  "GET",
+			Path:    "/dam/v1alpha/test/clients:sync",
+			Persona: "admin",
+			Output:  `^.*client sync only allow on master realm`,
+			Status:  http.StatusForbidden,
+		},
+		{
+			Method:  "POST",
+			Path:    "/dam/v1alpha/test/clients:sync",
+			Persona: "admin",
+			Output:  `^.*client sync only allow on master realm`,
+			Status:  http.StatusForbidden,
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests, hydraPublicURL, server.Config())
@@ -2113,7 +2127,7 @@ func TestResourceTokens_CartNotExistsInStorage(t *testing.T) {
 	}
 }
 
-func damSendTestRequest(t *testing.T, method, path, pathname, personaName, clientID, clientSecret string, data proto.Message, s *Service, iss *persona.Server) *http.Response {
+func damSendTestRequest(t *testing.T, method, path, pathname, realm, personaName, clientID, clientSecret string, data proto.Message, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2133,7 +2147,7 @@ func damSendTestRequest(t *testing.T, method, path, pathname, personaName, clien
 		}
 	}
 
-	path = strings.ReplaceAll(path, "{realm}", "test")
+	path = strings.ReplaceAll(path, "{realm}", realm)
 	path = strings.ReplaceAll(path, "{name}", pathname)
 	q := url.Values{
 		"client_id":     []string{clientID},
@@ -2153,7 +2167,7 @@ func TestClients_Get(t *testing.T) {
 	pname := "non-admin"
 	cli := cfg.Clients[clientName]
 
-	resp := damSendTestRequest(t, http.MethodGet, clientPath, clientName, pname, cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := damSendTestRequest(t, http.MethodGet, clientPath, clientName, "test", pname, cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	got := &cpb.ClientResponse{}
 	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
@@ -2194,7 +2208,7 @@ func TestClients_Get_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pname := "non-admin"
 
-			resp := damSendTestRequest(t, http.MethodGet, clientPath, tc.clientName, pname, test.TestClientID, test.TestClientSecret, nil, s, iss)
+			resp := damSendTestRequest(t, http.MethodGet, clientPath, tc.clientName, "test", pname, test.TestClientID, test.TestClientSecret, nil, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -2212,7 +2226,7 @@ func TestSyncClients_Get(t *testing.T) {
 	clientName := "test_client"
 	cli := cfg.Clients[clientName]
 
-	resp := damSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := damSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "master", "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	wantStatus := http.StatusOK
 	if resp.StatusCode != wantStatus {
@@ -2236,7 +2250,7 @@ func TestSyncClients_Post(t *testing.T) {
 	clientName := "test_client"
 	cli := cfg.Clients[clientName]
 
-	resp := damSendTestRequest(t, http.MethodPost, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := damSendTestRequest(t, http.MethodPost, syncClientsPath, clientName, "master", "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	wantStatus := http.StatusOK
 	if resp.StatusCode != wantStatus {
@@ -2260,7 +2274,7 @@ func TestSyncClients_ScopeError(t *testing.T) {
 	clientName := "test_client2"
 	cli := cfg.Clients[clientName]
 
-	resp := damSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := damSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "master", "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	wantStatus := http.StatusForbidden
 	if resp.StatusCode != wantStatus {
@@ -2648,7 +2662,7 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
-	return damSendTestRequest(t, http.MethodPatch, configClientPath, clientName, pname, clientID, clientSecret, &cpb.ConfigClientRequest{Item: cli}, s, iss)
+	return damSendTestRequest(t, http.MethodPatch, configClientPath, clientName, "test", pname, clientID, clientSecret, &cpb.ConfigClientRequest{Item: cli}, s, iss)
 }
 
 func TestConfigClients_Update_Success(t *testing.T) {
@@ -3039,7 +3053,7 @@ func TestConfig_Hydra_Put(t *testing.T) {
 	updatedScope := cli.Scope + " new-scope"
 	cli.Scope = updatedScope
 
-	resp := damSendTestRequest(t, http.MethodPut, configPath, "", pname, test.TestClientID, test.TestClientSecret, &pb.ConfigRequest{Item: cfg}, s, iss)
+	resp := damSendTestRequest(t, http.MethodPut, configPath, "", "test", pname, test.TestClientID, test.TestClientSecret, &pb.ConfigRequest{Item: cfg}, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
 		t.Fatalf("damSendTestRequest() status mismatch: got %d, want %d, body: %v", resp.StatusCode, http.StatusOK, string(body))

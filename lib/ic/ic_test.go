@@ -824,14 +824,14 @@ func TestAdminHandlers(t *testing.T) {
 		},
 		{
 			Method:  "PUT",
-			Path:    "/identity/v1alpha/test/clients:sync",
+			Path:    "/identity/v1alpha/master/clients:sync",
 			Persona: "non-admin",
 			Output:  `^.*not allowed`,
 			Status:  http.StatusBadRequest,
 		},
 		{
 			Method:       "PUT",
-			Path:         "/identity/v1alpha/test/clients:sync",
+			Path:         "/identity/v1alpha/master/clients:sync",
 			Persona:      "non-admin",
 			ClientID:     "bad",
 			ClientSecret: "worse",
@@ -840,17 +840,31 @@ func TestAdminHandlers(t *testing.T) {
 		},
 		{
 			Method:  "PATCH",
-			Path:    "/identity/v1alpha/test/clients:sync",
+			Path:    "/identity/v1alpha/master/clients:sync",
 			Persona: "non-admin",
 			Output:  `^.*not allowed`,
 			Status:  http.StatusBadRequest,
 		},
 		{
 			Method:  "DELETE",
-			Path:    "/identity/v1alpha/test/clients:sync",
+			Path:    "/identity/v1alpha/master/clients:sync",
 			Persona: "non-admin",
 			Output:  `^.*not allowed`,
 			Status:  http.StatusBadRequest,
+		},
+		{
+			Method:  "GET",
+			Path:    "/identity/v1alpha/test/clients:sync",
+			Persona: "admin",
+			Output:  `^.*client sync only allow on master realm`,
+			Status:  http.StatusForbidden,
+		},
+		{
+			Method:  "POST",
+			Path:    "/identity/v1alpha/test/clients:sync",
+			Persona: "admin",
+			Output:  `^.*client sync only allow on master realm`,
+			Status:  http.StatusForbidden,
 		},
 	}
 	test.HandlerTests(t, s.Handler, tests, hydraURL, server.Config())
@@ -1900,7 +1914,7 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 	}
 }
 
-func icSendTestRequest(t *testing.T, method, path, pathname, personaName, clientID, clientSecret string, data proto.Message, s *Service, iss *persona.Server) *http.Response {
+func icSendTestRequest(t *testing.T, method, path, pathname, realm, personaName, clientID, clientSecret string, data proto.Message, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1921,7 +1935,7 @@ func icSendTestRequest(t *testing.T, method, path, pathname, personaName, client
 		}
 	}
 
-	path = strings.ReplaceAll(path, "{realm}", "test")
+	path = strings.ReplaceAll(path, "{realm}", realm)
 	path = strings.ReplaceAll(path, "{name}", pathname)
 	q := url.Values{
 		"client_id":     []string{clientID},
@@ -1941,7 +1955,7 @@ func TestClients_Get(t *testing.T) {
 	pname := "non-admin"
 	cli := cfg.Clients[clientName]
 
-	resp := icSendTestRequest(t, http.MethodGet, clientPath, clientName, pname, cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := icSendTestRequest(t, http.MethodGet, clientPath, clientName, "test", pname, cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	got := &cpb.ClientResponse{}
 	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
@@ -1985,7 +1999,7 @@ func TestClients_Get_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pname := "non-admin"
 
-			resp := icSendTestRequest(t, http.MethodGet, clientPath, tc.clientName, pname, tc.clientID, sec.ClientSecrets[tc.clientID], nil, s, iss)
+			resp := icSendTestRequest(t, http.MethodGet, clientPath, tc.clientName, "test", pname, tc.clientID, sec.ClientSecrets[tc.clientID], nil, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -2003,7 +2017,7 @@ func TestSyncClients_Get(t *testing.T) {
 	clientName := "test_client"
 	cli := cfg.Clients[clientName]
 
-	resp := icSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := icSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "master", "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	wantStatus := http.StatusOK
 	if resp.StatusCode != wantStatus {
@@ -2028,7 +2042,7 @@ func TestSyncClients_Post(t *testing.T) {
 	clientName := "test_client"
 	cli := cfg.Clients[clientName]
 
-	resp := icSendTestRequest(t, http.MethodPost, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := icSendTestRequest(t, http.MethodPost, syncClientsPath, clientName, "master", "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	wantStatus := http.StatusOK
 	if resp.StatusCode != wantStatus {
@@ -2052,7 +2066,7 @@ func TestSyncClients_ScopeError(t *testing.T) {
 	clientName := "test_client2"
 	cli := cfg.Clients[clientName]
 
-	resp := icSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := icSendTestRequest(t, http.MethodGet, syncClientsPath, clientName, "master", "", cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	wantStatus := http.StatusForbidden
 	if resp.StatusCode != wantStatus {
@@ -2443,7 +2457,7 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
-	return icSendTestRequest(t, http.MethodPatch, configClientsPath, clientName, pname, clientID, clientSecret, &cpb.ConfigClientRequest{Item: cli}, s, iss)
+	return icSendTestRequest(t, http.MethodPatch, configClientsPath, clientName, "test", pname, clientID, clientSecret, &cpb.ConfigClientRequest{Item: cli}, s, iss)
 }
 
 func TestConfigClients_Update_Success(t *testing.T) {
@@ -2833,7 +2847,7 @@ func TestConfig_Hydra_Put(t *testing.T) {
 	updatedScope := cli.Scope + " new-scope"
 	cli.Scope = updatedScope
 
-	resp := icSendTestRequest(t, http.MethodPut, configPath, "", pname, test.TestClientID, test.TestClientSecret, &pb.ConfigRequest{Item: cfg}, s, iss)
+	resp := icSendTestRequest(t, http.MethodPut, configPath, "", "test", pname, test.TestClientID, test.TestClientSecret, &pb.ConfigRequest{Item: cfg}, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
 		t.Fatalf("icSendTestRequest() status mismatch: got %d, want %d, body: %v", resp.StatusCode, http.StatusOK, string(body))
