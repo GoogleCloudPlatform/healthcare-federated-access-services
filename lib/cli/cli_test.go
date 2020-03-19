@@ -54,15 +54,15 @@ func TestCLIRegister(t *testing.T) {
 		{
 			Method: "POST",
 			Path:   "/test/cli/register/auto",
-			Params: `email=foo@example.org`,
-			Output: `*{"id":"*","email":"foo@example.org","scope":"openid profile email offline","authUrl":"https://cli.example.com/test/cli/auth/*","createdAt":"*","expiresAt":"*","secret":"*"}*`,
+			Params: `email=admin@faculty.example.edu`,
+			Output: `*{"id":"*","email":"admin@faculty.example.edu","scope":"openid profile email offline","authUrl":"https://cli.example.com/test/cli/auth/*","createdAt":"*","expiresAt":"*","secret":"*"}*`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "POST",
 			Path:   "/test/cli/register/be0feb4e-8251-4a53-8903-6484a10d4f78",
-			Params: `email=foo@example.org`,
-			Output: `*{"id":"be0feb4e-8251-4a53-8903-6484a10d4f78","email":"foo@example.org","scope":"openid profile email offline","authUrl":"https://cli.example.com/test/cli/auth/be0feb4e-8251-4a53-8903-6484a10d4f78","createdAt":"*","expiresAt":"*","secret":"*"}*`,
+			Params: `email=admin@faculty.example.edu`,
+			Output: `*{"id":"be0feb4e-8251-4a53-8903-6484a10d4f78","email":"admin@faculty.example.edu","scope":"openid profile email offline","authUrl":"https://cli.example.com/test/cli/auth/be0feb4e-8251-4a53-8903-6484a10d4f78","createdAt":"*","expiresAt":"*","secret":"*"}*`,
 			Status: http.StatusOK,
 		},
 		{
@@ -75,11 +75,32 @@ func TestCLIRegister(t *testing.T) {
 	test.HandlerTests(t, s.Handler, tests, hydraPublicURL, nil)
 }
 
-func TestCLIFlow(t *testing.T) {
+func TestClIFlow_Success(t *testing.T) {
+	email := "admin@faculty.example.edu"
+	tokenOutput := `*{"id":"1a4f6c82-d8a7-433b-9916-12e365efc971","email":"` + email + `","clientId":"*","scope":"*","createdAt":"*","expiresAt":"*","accessToken":"ey*","refreshToken":"*","userProfile":{*"family_name":"*","given_name":"*","name":"*",*"subject":"admin"*}}*`
+	tokenStatus := http.StatusOK
+	if err := cliFlow(t, email, tokenOutput, tokenStatus); err != nil {
+		t.Fatalf("cliFlow(t, %q, _, %d) failed: %v", email, tokenStatus, err)
+	}
+}
+
+func TestClIFlow_EmailMismatch(t *testing.T) {
+	email := "bad_admin@faculty.example.edu"
+	tokenOutput := `*bad_admin@faculty.example.edu*`
+	// TODO: ideally this would return a Unauthorized or Forbidden status.
+	tokenStatus := http.StatusBadRequest
+	if err := cliFlow(t, email, tokenOutput, tokenStatus); err != nil {
+		t.Fatalf("cliFlow(t, %q, _, %d) failed: %v", email, tokenStatus, err)
+	}
+}
+
+func cliFlow(t *testing.T, email, tokenOutput string, tokenStatus int) error {
+	t.Helper()
+
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	server, err := fakeoidcissuer.New(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
 	if err != nil {
-		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
+		return fmt.Errorf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
 	s := serviceNew(store, server.Client())
 
@@ -89,25 +110,25 @@ func TestCLIFlow(t *testing.T) {
 			Name:   "register",
 			Method: "POST",
 			Path:   "/test/cli/register/1a4f6c82-d8a7-433b-9916-12e365efc971",
-			Params: `email=foo@example.org`,
-			Output: `*{"id":"1a4f6c82-d8a7-433b-9916-12e365efc971","email":"foo@example.org","scope":"openid profile email offline","authUrl":"https://cli.example.com/test/cli/auth/1a4f6c82-d8a7-433b-9916-12e365efc971","createdAt":"*","expiresAt":"*","secret":"*"}*`,
+			Params: "email=" + email,
+			Output: `*{"id":"1a4f6c82-d8a7-433b-9916-12e365efc971","email":"` + email + `","scope":"openid profile email offline","authUrl":"https://cli.example.com/test/cli/auth/1a4f6c82-d8a7-433b-9916-12e365efc971","createdAt":"*","expiresAt":"*","secret":"*"}*`,
 			Status: http.StatusOK,
 		},
 		{
 			Name:   "auth",
 			Method: "GET",
 			Path:   "/test/cli/auth/1a4f6c82-d8a7-433b-9916-12e365efc971",
-			Output: `*https://hydra.example.com/authorize?client_id=*grant_type=authorization_code*nonce=*redirect_uri=*response_type=code*scope=openid+profile+email+offline*state=1a4f6c82-d8a7-433b-9916-12e365efc971*`,
+			Output: `*https://hydra.example.com/authorize?client_id=*grant_type=authorization_code*redirect_uri=*response_type=code*scope=openid+profile+email+offline*state=1a4f6c82-d8a7-433b-9916-12e365efc971*`,
 			Status: http.StatusTemporaryRedirect,
 		},
 	}
 	regResp := test.HandlerTests(t, s.Handler, regReq, hydraPublicURL, nil)["register"]
 	if regResp == "" {
-		t.Fatalf("register failed (see errors above)")
+		return fmt.Errorf("register failed (see errors above)")
 	}
 	reg := &cpb.CliState{}
 	if err = jsonpb.UnmarshalString(regResp, reg); err != nil {
-		t.Fatalf("register jsonpb.UnmarshalString(%q, reg) failed: %v", regResp, err)
+		return fmt.Errorf("register jsonpb.UnmarshalString(%q, reg) failed: %v", regResp, err)
 	}
 	t.Logf("registration: %+v", reg)
 
@@ -132,11 +153,12 @@ func TestCLIFlow(t *testing.T) {
 			Method: "GET",
 			Path:   "/test/cli/register/1a4f6c82-d8a7-433b-9916-12e365efc971",
 			Params: fmt.Sprintf("login_secret=%s", reg.Secret),
-			Output: `*{"id":"1a4f6c82-d8a7-433b-9916-12e365efc971","email":"foo@example.org","clientId":"*","scope":"*","createdAt":"*","expiresAt":"*","nonce":"*","accessToken":"ey*","refreshToken":"*"}*`,
-			Status: http.StatusOK,
+			Output: tokenOutput,
+			Status: tokenStatus,
 		},
 	}
 	test.HandlerTests(t, s.Handler, tokReq, hydraPublicURL, nil)
+	return nil
 }
 
 type service struct {
@@ -156,7 +178,7 @@ func serviceNew(store storage.Store, client *http.Client) *service {
 	crypt := fakeencryption.New()
 
 	r := mux.NewRouter()
-	r.HandleFunc(cliRegisterPath, auth.MustWithAuth(handlerfactory.MakeHandler(store, RegisterFactory(store, cliRegisterPath, crypt, domainURL+cliAuthPath, hydraAuthURL, hydraTokenURL, cliAcceptPath, client)), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(cliRegisterPath, auth.MustWithAuth(handlerfactory.MakeHandler(store, RegisterFactory(store, cliRegisterPath, crypt, domainURL+cliAuthPath, hydraPublicURL, hydraAuthURL, hydraTokenURL, cliAcceptPath, client)), checker, auth.RequireClientIDAndSecret))
 	r.HandleFunc(cliAuthPath, auth.MustWithAuth(NewAuthHandler(store).Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(cliAcceptPath, auth.MustWithAuth(NewAcceptHandler(store, crypt, "/test").Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
 

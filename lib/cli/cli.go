@@ -35,11 +35,13 @@ import (
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
@@ -55,7 +57,7 @@ var (
 )
 
 // RegisterFactory creates handlers for shell login requests.
-func RegisterFactory(store storage.Store, path string, crypt kms.Encryption, cliAuthURL, oauthURL, tokenURL, accept string, httpClient *http.Client) *handlerfactory.Options {
+func RegisterFactory(store storage.Store, path string, crypt kms.Encryption, cliAuthURL, issuerURL, authURL, tokenURL, accept string, httpClient *http.Client) *handlerfactory.Options {
 	return &handlerfactory.Options{
 		TypeName:            "registerLogin",
 		PathPrefix:          path,
@@ -63,7 +65,7 @@ func RegisterFactory(store storage.Store, path string, crypt kms.Encryption, cli
 		NameChecker: map[string]*regexp.Regexp{
 			"name": regexp.MustCompile(`^(auto|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`),
 		},
-		Service: NewRegisterHandler(store, crypt, cliAuthURL, oauthURL, tokenURL, accept, httpClient),
+		Service: NewRegisterHandler(store, crypt, cliAuthURL, issuerURL, authURL, tokenURL, accept, httpClient),
 	}
 }
 
@@ -72,7 +74,8 @@ type RegisterHandler struct {
 	store      storage.Store
 	crypt      kms.Encryption
 	cliAuthURL string
-	oauthURL   string
+	issuerURL  string
+	authURL    string
 	tokenURL   string
 	accept     string
 	item       *cpb.CliState
@@ -82,12 +85,13 @@ type RegisterHandler struct {
 }
 
 // NewRegisterHandler handles one shell login request.
-func NewRegisterHandler(store storage.Store, crypt kms.Encryption, cliAuthURL, oauthURL, tokenURL, accept string, httpClient *http.Client) *RegisterHandler {
+func NewRegisterHandler(store storage.Store, crypt kms.Encryption, cliAuthURL, issuerURL, authURL, tokenURL, accept string, httpClient *http.Client) *RegisterHandler {
 	return &RegisterHandler{
 		store:      store,
 		crypt:      crypt,
 		cliAuthURL: cliAuthURL,
-		oauthURL:   oauthURL,
+		issuerURL:  issuerURL,
+		authURL:    authURL,
 		tokenURL:   tokenURL,
 		accept:     accept,
 		item:       &cpb.CliState{},
@@ -97,13 +101,14 @@ func NewRegisterHandler(store storage.Store, crypt kms.Encryption, cliAuthURL, o
 
 // Setup sets up the handler.
 func (h *RegisterHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	h.item.Reset()
 	h.tx = tx
 	return http.StatusOK, nil
 }
 
 // LookupItem looks up the item in the storage layer.
 func (h *RegisterHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
-	if name == autoGenerate && r.Method == http.MethodPost {
+	if name == autoGenerate {
 		return false
 	}
 	if err := h.store.ReadTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, h.item, h.tx); err != nil {
@@ -183,18 +188,49 @@ func (h *RegisterHandler) exchangeCode(r *http.Request, name string, a *auth.Con
 	}
 	code := string(decrypted)
 	q := fmt.Sprintf("grant_type=authorization_code&redirect_uri=%s&code=%s", url.QueryEscape(h.accept), url.QueryEscape(code))
-	authZ := base64.StdEncoding.EncodeToString([]byte(a.ClientID + ":" + a.ClientSecret))
+	authZ := "Basic " + base64.StdEncoding.EncodeToString([]byte(a.ClientID+":"+a.ClientSecret))
+	tokens := &cpb.OidcTokenResponse{}
 
-	req, err := http.NewRequest(http.MethodPost, h.tokenURL, strings.NewReader(q))
+	if err = h.oidcFetch(http.MethodPost, h.tokenURL, q, authZ, "fetch tokens", tokens); err != nil {
+		return err
+	}
+
+	id := &ga4gh.Identity{Issuer: h.issuerURL}
+	info, err := translator.FetchUserinfoClaims(r.Context(), h.client, id, tokens.AccessToken, nil)
 	if err != nil {
-		return status.Errorf(codes.Internal, "prepare RPC to fetch tokens failed: %v", err)
+		return status.Errorf(codes.Unavailable, "fetch user info claims failed: %v", err)
+	}
+	if info.Email == "" {
+		return status.Errorf(codes.Unauthenticated, "user email claim not provided, cannot verify email match")
+	}
+	if info.Email != h.item.Email {
+		return status.Errorf(codes.Unauthenticated, "unexpected user: registered for user %q, got user %q", h.item.Email, id.Email)
+	}
+
+	h.item.AccessToken = tokens.AccessToken
+	h.item.RefreshToken = tokens.RefreshToken
+	h.item.UserProfile = map[string]string{
+		"email":       info.Email,
+		"family_name": info.FamilyName,
+		"given_name":  info.GivenName,
+		"name":        info.Name,
+		"nickname":    info.Nickname,
+		"subject":     info.Subject,
+	}
+	return nil
+}
+
+func (h *RegisterHandler) oidcFetch(method, url, input, authZ, label string, msg proto.Message) error {
+	req, err := http.NewRequest(method, url, strings.NewReader(input))
+	if err != nil {
+		return status.Errorf(codes.Internal, "%s prepare RPC failed: %v", label, err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Basic "+authZ)
+	req.Header.Set("Authorization", authZ)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return status.Errorf(codes.Unavailable, "fetch tokens failed: %v", err)
+		return status.Errorf(codes.Unavailable, "%s failed: %v", label, err)
 	}
 	if !httputils.IsHTTPSuccess(resp.StatusCode) {
 		body, _ := ioutil.ReadAll(resp.Body)
@@ -202,16 +238,12 @@ func (h *RegisterHandler) exchangeCode(r *http.Request, name string, a *auth.Con
 		if str == "" {
 			str = "<empty response>"
 		}
-		return status.Errorf(codes.Unavailable, "fetch tokens failed (status code %d): %v", resp.StatusCode, str)
+		return status.Errorf(codes.Unavailable, "%s failed (status code %d): %v", label, resp.StatusCode, str)
 	}
-	tokens := &cpb.OidcTokenResponse{}
 	defer resp.Body.Close()
-	if err = httputils.DecodeJSON(resp.Body, tokens); err != nil {
-		return status.Errorf(codes.Unavailable, "decode token response failed: %v", err)
+	if err = httputils.DecodeJSON(resp.Body, msg); err != nil {
+		return status.Errorf(codes.Unavailable, "%s decode response failed: %v", label, err)
 	}
-
-	h.item.AccessToken = tokens.AccessToken
-	h.item.RefreshToken = tokens.RefreshToken
 	return nil
 }
 
@@ -221,10 +253,11 @@ func (h *RegisterHandler) Post(r *http.Request, name string) (proto.Message, err
 		name = uuid.New()
 	}
 	email := httputils.QueryParam(r, "email")
-	if len(email) > 0 {
-		if _, err := mail.ParseAddress(email); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid email address %q: %v", email, err)
-		}
+	if len(email) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "missing email address parameter")
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid email address %q: %v", email, err)
 	}
 	scope := httputils.QueryParamWithDefault(r, "scope", "openid profile email offline")
 	cat := time.Now()
@@ -246,11 +279,10 @@ func (h *RegisterHandler) Post(r *http.Request, name string) (proto.Message, err
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "cannot obtain request context: %v", err)
 	}
-	u, err := url.Parse(h.oauthURL)
+	u, err := url.Parse(h.authURL)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "invalid redirect URL: %v", err)
 	}
-	nonce := uuid.New()
 	q := u.Query()
 	q.Set("grant_type", "authorization_code")
 	q.Set("response_type", "code")
@@ -258,7 +290,6 @@ func (h *RegisterHandler) Post(r *http.Request, name string) (proto.Message, err
 	q.Set("scope", scope)
 	q.Set("state", name)
 	q.Set("redirect_uri", h.accept)
-	q.Set("nonce", nonce)
 	u.RawQuery = q.Encode()
 	h.save = &cpb.CliState{
 		Id:              name,
@@ -267,7 +298,6 @@ func (h *RegisterHandler) Post(r *http.Request, name string) (proto.Message, err
 		ClientId:        a.ClientID,
 		Scope:           scope,
 		AuthUrl:         u.String(),
-		Nonce:           nonce,
 		CreatedAt:       catProto,
 		ExpiresAt:       expProto,
 		State:           storage.StateActive,
@@ -391,6 +421,23 @@ func (h *AcceptHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		writeAcceptPage(w, h.page, status.Errorf(codes.Unavailable, "load login %q failed: storage is unavailable", name))
 		return
 	}
+
+	// Make sure the item can only be used once by checking if it was accepted previously.
+	if item.AcceptedAt != nil || len(item.EncryptedCode) > 0 || item.State != storage.StateActive {
+		if item.State == storage.StateActive {
+			item.State = storage.StateDisabled
+			h.store.WriteTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, item, nil, nil)
+		}
+		writeAcceptPage(w, h.page, status.Errorf(codes.Unauthenticated, "login %q has already been accepted by another login flow", name))
+		return
+	}
+	atProto, err := ptypes.TimestampProto(time.Now())
+	if err != nil {
+		writeAcceptPage(w, h.page, status.Errorf(codes.Internal, "login %q cannot generate timestamp: %v", name, err))
+		return
+	}
+	item.AcceptedAt = atProto
+
 	nonce := httputils.QueryParam(r, "nonce")
 	if nonce != "" && nonce != item.Nonce {
 		writeAcceptPage(w, h.page, status.Errorf(codes.InvalidArgument, "login failed: nonce mismatch"))
@@ -407,7 +454,8 @@ func (h *AcceptHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 	code := httputils.QueryParam(r, "code")
 	if len(code) == 0 {
-		h.store.DeleteTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, nil)
+		item.State = storage.StateDisabled
+		h.store.WriteTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, item, nil, nil)
 		writeAcceptPage(w, h.page, status.Errorf(codes.InvalidArgument, "login %q failed: no auth code provided", name))
 		return
 	}

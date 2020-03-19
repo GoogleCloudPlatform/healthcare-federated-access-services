@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"strings"
 
-	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
@@ -34,10 +33,10 @@ type Translator interface {
 }
 
 // FetchUserinfoClaims calls the /userinfo endpoint of an issuer to fetch additional claims.
-func FetchUserinfoClaims(ctx context.Context, id *ga4gh.Identity, tok string, translator Translator) (*ga4gh.Identity, error) {
+func FetchUserinfoClaims(ctx context.Context, client *http.Client, id *ga4gh.Identity, tok string, translator Translator) (*ga4gh.Identity, error) {
 	// Issue a Get request to the issuer's /userinfo endpoint.
 	// TODO: use JWKS to discover the /userinfo endpoint.
-	contentType, userInfo, err := issueGetRequest(ctx, strings.TrimSuffix(id.Issuer, "/")+"/userinfo", tok)
+	contentType, userInfo, err := issueGetRequest(ctx, client, strings.TrimSuffix(id.Issuer, "/")+"/userinfo", tok)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +49,9 @@ func FetchUserinfoClaims(ctx context.Context, id *ga4gh.Identity, tok string, tr
 			return nil, fmt.Errorf("inspecting user info claims: %v", err)
 		}
 	case "application/jwt":
+		if translator == nil {
+			return nil, fmt.Errorf("unpack application/jwt failed: translator not provided")
+		}
 		tok, err := translator.TranslateToken(ctx, string(userInfo))
 		if err != nil {
 			return nil, fmt.Errorf("inspecting signed user info claims: %v", err)
@@ -151,17 +153,13 @@ func mergeIdentityWithUserinfo(id *ga4gh.Identity, userinfo *ga4gh.Identity) {
 	}
 }
 
-func issueGetRequest(ctx context.Context, url, acTok string) (string, []byte, error) {
+func issueGetRequest(ctx context.Context, client *http.Client, url, acTok string) (string, []byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", []byte{}, fmt.Errorf("failed to create request: %v", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+acTok)
 
-	client := http.DefaultClient
-	if c, ok := ctx.Value(oauth2.HTTPClient).(*http.Client); ok {
-		client = c
-	}
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return "", []byte{}, fmt.Errorf("failed to send request: %v", err)

@@ -78,7 +78,7 @@ func TestServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translator.NewOIDCIdentityTranslator(ctx, %q, _) failed: %v", issuerURL, err)
 	}
-	id, err := translator.FetchUserinfoClaims(ctx, &ga4gh.Identity{Issuer: issuerURL}, string(acTok), trans)
+	id, err := translator.FetchUserinfoClaims(ctx, server.Client(), &ga4gh.Identity{Issuer: issuerURL}, string(acTok), trans)
 	if err != nil {
 		t.Fatalf("translator.FetchUserinfoClaims(ctx, tok, %q, %q, trans) failed: %v", issuerURL, sub, err)
 	}

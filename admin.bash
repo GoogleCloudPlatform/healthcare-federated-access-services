@@ -85,11 +85,13 @@ declare -A COMMANDS=(
   ["set dam client <client_id>"]='state_update "DAM_CLIENT_ID" "$4"'
   ["set dam refresh_token <token>"]='state_update "DAM_REFRESH_TOKEN" "$4"'
   ["set dam secret <secret>"]='state_update "DAM_CLIENT_SECRET" "$4"'
+  ["set dam user <email>"]='state_update "DAM_USER_EMAIL" "$4"'
   ["set env <environment>"]='state_update "ENVIRONMENT" "$3"'
   ["set ic access_token <token>"]='state_update "IC_ACCESS_TOKEN" "$4"'
   ["set ic client <client_id>"]='state_update "IC_CLIENT_ID" "$4"'
   ["set ic refresh_token <token>"]='state_update "IC_REFRESH_TOKEN" "$4"'
   ["set ic secret <secret>"]='state_update "IC_CLIENT_SECRET" "$4"'
+  ["set ic user <email>"]='state_update "IC_USER_EMAIL" "$4"'
   ["set project <project_id>"]='state_update "PROJECT" "$3"'
   ["set realm <realm>"]='state_update "REALM" "$3"'
   ["print state"]='state_print'
@@ -148,7 +150,7 @@ state_load() {
       # This check prevents injecting commands into this script by ensuring
       # that input is simple identifier characters and doesn't a means to
       # manipulate/escape string quote state, etc.
-      if grep '^[-0-9a-zA-Z_.=]*$' <<<${setting} > /dev/null; then
+      if grep '^[-0-9a-zA-Z_.@=]*$' <<<${setting} > /dev/null; then
         export "$NAME"="$VALUE"
       else
         echo -e "${RED?}invalid characters in state \"${setting}\": recommend running \"admin.bash state reset\"${RESET?}"
@@ -160,7 +162,7 @@ state_load() {
 
 # Generates the contents of the state as a string to be saved or printed.
 state_string() {
-  STATE_STRING="PROJECT=${PROJECT}\nENVIRONMENT=${ENVIRONMENT}\nREALM=${REALM}\nDAM_CLIENT_ID=${DAM_CLIENT_ID}\nDAM_CLIENT_SECRET=${DAM_CLIENT_SECRET}\nIC_CLIENT_ID=${IC_CLIENT_ID}\nIC_CLIENT_SECRET=${IC_CLIENT_SECRET}\nDAM_REFRESH_TOKEN=${DAM_REFRESH_TOKEN}\nDAM_ACCESS_TOKEN=${DAM_ACCESS_TOKEN}\nIC_REFRESH_TOKEN=${IC_REFRESH_TOKEN}\nIC_ACCESS_TOKEN=${IC_ACCESS_TOKEN}\n"
+  STATE_STRING="PROJECT=${PROJECT}\nENVIRONMENT=${ENVIRONMENT}\nREALM=${REALM}\nDAM_CLIENT_ID=${DAM_CLIENT_ID}\nDAM_CLIENT_SECRET=${DAM_CLIENT_SECRET}\nIC_CLIENT_ID=${IC_CLIENT_ID}\nIC_CLIENT_SECRET=${IC_CLIENT_SECRET}\nDAM_REFRESH_TOKEN=${DAM_REFRESH_TOKEN}\nDAM_ACCESS_TOKEN=${DAM_ACCESS_TOKEN}\nIC_REFRESH_TOKEN=${IC_REFRESH_TOKEN}\nIC_ACCESS_TOKEN=${IC_ACCESS_TOKEN}\nDAM_USER_EMAIL=${DAM_USER_EMAIL}\nIC_USER_EMAIL=${IC_USER_EMAIL}\n"
 }
 
 # Generate all state as a string and print it.
@@ -326,10 +328,16 @@ ic_curl_client() {
 # Walks user through the steps to capture auth access_token and refresh_token.
 curl_login() {
   local cmd=ic_curl_client
+  local user=${IC_USER_EMAIL}
   if [[ "$1" == "dam" ]]; then
     cmd=dam_curl_client
+    user=${DAM_USER_EMAIL}
   fi
-  $cmd "$2/cli/register/auto" "POST" "" "quiet"
+  if [[ "${user}" == "" ]]; then
+    echo -e "${RED?}Must set user first using 'admin.bash set $1 user <email>'${RESET?}"
+    exit 2
+  fi
+  $cmd "$2/cli/register/auto" "POST" "email=${user}" "quiet"
   if [[ "$?" != "0" ]]; then
     curl_print
     echo
@@ -348,12 +356,23 @@ curl_login() {
   if [[ "$?" != "0" ]]; then
     curl_print
     echo
-    echo -e "${RED?}Get login state failed${RESET?}"
+    echo -e "${RED?}Get login state curl command failed${RESET?}"
     exit 2
   fi
 
-  export "$3"=`jq -r '.accessToken' <<< "${RESULT}"`
-  export "$4"=`jq -r '.refreshToken' <<< "${RESULT}"`
+  local atok=`jq -r '.accessToken' <<< "${RESULT}"`
+  local rtok=`jq -r '.refreshToken' <<< "${RESULT}"`
+
+  if [[ "${atok}" == "" || "${atok}" == "null" || "${rtok}" == "" || "${rtok}" == "null" ]]; then
+    curl_print
+    echo
+    echo -e "${RED?}Get login state values failed${RESET?}"
+    exit 2
+  fi
+
+  export "$3"="${atok}"
+  export "$4"="${rtok}"
+
   state_save
 }
 

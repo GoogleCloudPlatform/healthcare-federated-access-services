@@ -157,6 +157,8 @@ message CliState {
   string access_token = 12;
   string refresh_token = 13;
   string state = 14;
+  google.protobuf.Timestamp accepted_at = 15;
+  map<string, string> user_profile = 16;
 }
 
 message HistoryEntry {

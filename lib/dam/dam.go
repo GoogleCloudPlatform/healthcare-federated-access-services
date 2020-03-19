@@ -354,7 +354,7 @@ func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.D
 		return nil, fmt.Errorf("translating token from issuer %q: %v", iss, err)
 	}
 	if ga4gh.HasUserinfoClaims(id) {
-		id, err = translator.FetchUserinfoClaims(ctx, id, tok, t)
+		id, err = translator.FetchUserinfoClaims(ctx, s.httpClient, id, tok, t)
 		if err != nil {
 			return nil, fmt.Errorf("fetching user info from issuer %q: %v", iss, err)
 		}

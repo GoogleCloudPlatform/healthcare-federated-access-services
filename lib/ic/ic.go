@@ -47,7 +47,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/cli" /* copybara-comment: cli */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/consentsapi" /* copybara-comment: consentsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -848,7 +847,7 @@ func (s *Service) loginTokenToIdentity(acTok, idTok string, idp *cpb.IdentityPro
 		if !ga4gh.HasUserinfoClaims(tid) {
 			return tid, http.StatusOK, nil
 		}
-		id, err := translator.FetchUserinfoClaims(r.Context(), tid, acTok, t)
+		id, err := translator.FetchUserinfoClaims(r.Context(), s.httpClient, tid, acTok, t)
 		if err != nil {
 			return nil, http.StatusUnauthorized, fmt.Errorf("fetching user info from issuer %q: %v", idp.Issuer, err)
 		}
@@ -1722,16 +1721,14 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, checker, auth.RequireNone)).Methods(http.MethodGet)
 	r.HandleFunc(hydraConsentPath, auth.MustWithAuth(s.HydraConsent, checker, auth.RequireNone)).Methods(http.MethodGet)
 
-	if globalflags.Experimental {
-		// CLI login endpoints
-		cliAuthURL := urlPathJoin(s.getDomainURL(), cliAuthPath)
-		hydraAuthURL := urlPathJoin(s.hydraPublicURL, oauthAuthPath)
-		hydraTokenURL := urlPathJoin(s.hydraPublicURL, oauthTokenPath)
-		cliAcceptURL := urlPathJoin(s.getDomainURL(), cliAcceptPath)
-		r.HandleFunc(cliRegisterPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), cli.RegisterFactory(s.GetStore(), cliRegisterPath, s.encryption, cliAuthURL, hydraAuthURL, hydraTokenURL, cliAcceptURL, http.DefaultClient)), checker, auth.RequireClientIDAndSecret))
-		r.HandleFunc(cliAuthPath, auth.MustWithAuth(cli.NewAuthHandler(s.GetStore()).Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
-		r.HandleFunc(cliAcceptPath, auth.MustWithAuth(cli.NewAcceptHandler(s.store, s.encryption, "/identity").Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
-	}
+	// CLI login endpoints
+	cliAuthURL := urlPathJoin(s.getDomainURL(), cliAuthPath)
+	hydraAuthURL := urlPathJoin(s.hydraPublicURL, oauthAuthPath)
+	hydraTokenURL := urlPathJoin(s.hydraPublicURL, oauthTokenPath)
+	cliAcceptURL := urlPathJoin(s.getDomainURL(), cliAcceptPath)
+	r.HandleFunc(cliRegisterPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), cli.RegisterFactory(s.GetStore(), cliRegisterPath, s.encryption, cliAuthURL, s.hydraPublicURL, hydraAuthURL, hydraTokenURL, cliAcceptURL, http.DefaultClient)), checker, auth.RequireClientIDAndSecret))
+	r.HandleFunc(cliAuthPath, auth.MustWithAuth(cli.NewAuthHandler(s.GetStore()).Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(cliAcceptPath, auth.MustWithAuth(cli.NewAcceptHandler(s.store, s.encryption, "/identity").Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// info endpoints
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)
