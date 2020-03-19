@@ -27,6 +27,12 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 )
 
+var (
+	// LogSync ensure that logs are written sync.
+	// Useful for testing.
+	LogSync bool
+)
+
 // AccessLog logs the http endpoint accessing.
 type AccessLog struct {
 	// TokenID is the id of the token, maybe "jti".
@@ -131,6 +137,7 @@ func WritePolicyDecisionLog(client *logging.Client, log *PolicyDecisionLog) {
 }
 
 func writeLog(client *logging.Client, e logging.Entry) {
+	ctx := context.Background() /* TODO: pass context to here */
 	if globalflags.DisableAuditLog {
 		return
 	}
@@ -140,5 +147,9 @@ func writeLog(client *logging.Client, e logging.Entry) {
 		return
 	}
 
-	client.Logger("federated-access-audit").Log(e)
+	if LogSync {
+		client.Logger("federated-access-audit").LogSync(ctx, e)
+	} else {
+		client.Logger("federated-access-audit").Log(e)
+	}
 }
