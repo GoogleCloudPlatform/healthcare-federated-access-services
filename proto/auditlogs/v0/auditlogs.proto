@@ -34,7 +34,15 @@ service AuditLogs {
   }
 }
 
-// AuditLog.
+// An AuditLog records request for access. They contain the following
+// information:
+// - Where:    the name of the service that made the decision.
+// - What:     the requested Action (e.g. read/write/...) and
+//             the Resource (e.g. GCS bucket, a resource at an endpoint).
+// - When:     the time the decision was made.
+// - Who:      the identity and authentication information for the requester.
+// - Decision: the authorization decision, and the reason for it.
+// - Metadata: the request, response, status code, tracing id, etc.
 message AuditLog {
   // Name of the audit log.
   // Format: `users/{user_id}/logs/{log_id}`.
@@ -46,63 +54,73 @@ message AuditLog {
 
 // AccessLog is the audit log for auth checks for requests at endpoints.
 message AccessLog {
-  // Decision is the PassAuthCheck if the request passes the auth check.
-  Decision decision = 1;
-  // ErrorType of deny.
-  // TODO: consider making this an enum.
-  string error_type = 2;
-  // The reason for the deny decision.
-  string reason = 3;
-
-  // Time at which the decision was made.
-  google.protobuf.Timestamp time = 4;
+  // ServiceName is the name of the service which made the decision.
+  string service_name = 1;
+  // ServiceType is the type of the service which made the decision.
+  string service_type = 2;
 
   // TokenID is the id of the token, maybe "jti".
-  string token_id = 5;
+  string token_id = 3;
   // TokenSubject is the "sub" of the token.
-  string token_subject = 6;
+  string token_subject = 4;
   // TokenIssuer is the iss of the token.
-  string token_issuer = 7;
+  string token_issuer = 5;
+
+  // Decision is the PassAuthCheck if the request passes the auth check.
+  Decision decision = 6;
+  // ErrorType of deny.
+  // TODO: consider making this an enum.
+  string error_type = 7;
+  // The reason for the deny decision.
+  string reason = 8;
+
+  // Time at which the decision was made.
+  google.protobuf.Timestamp time = 9;
+
+  // MethodName is the name of the service method or operation.
+  string method_name = 10;
+  // ResourceName is the name of the resource that was target of the operation.
+  string resource_name = 11;
 
   // TracingID is the id of request from proxies.
-  string tracing_id = 8;
-
-  // RequestMethod is the http method of the request.
-  string request_method = 9;
-  // RequestEndpoint is the absolute path of the request.
-  string request_endpoint = 10;
-  // RequestIP is the requester IP.
-  string request_ip = 11;
-  // Request stores the http.Request.
-  google.protobuf.Struct request = 12;
+  string tracing_id = 12;
+  // Requester's IP.
+  string caller_ip = 13;
   // HTTP Response Code.
-  int64 http_response_code = 13;
+  int64 http_response_code = 14;
+  // HTTP Request.
+  google.protobuf.Struct http_request = 15;
 }
 
 // PolicyLog is the audit log for dataset access decision.
 message PolicyLog {
-  // Decission if the request pass the auth checker.
-  Decision decision = 1;
-  // ErrorType of deny.
-  // TODO: consider making this an enum.
-  string error_type = 2;
-  // The reason for the deny decision.
-  string reason = 3;
-
-  // Time at which the decision was made.
-  google.protobuf.Timestamp time = 4;
+  // ServiceName is the name of the service which made the decision.
+  string service_name = 1;
+  // ServiceType is the type of the service which made the decision.
+  string service_type = 2;
 
   // TokenID is the id of the token, maybe "jti".
-  string token_id = 5;
+  string token_id = 3;
   // TokenSubject is the "sub" of the token.
-  string token_subject = 6;
+  string token_subject = 4;
   // TokenIssuer is the iss of the token.
-  string token_issuer = 7;
+  string token_issuer = 5;
 
-  // Resource identifies the dataset to which the access was requested.
-  string resource = 8;
+  // Decission if the request pass the auth checker.
+  Decision decision = 6;
+  // ErrorType of deny.
+  // TODO: consider making this an enum.
+  string error_type = 7;
+  // The reason for the deny decision.
+  string reason = 8;
+
+  // Time at which the decision was made.
+  google.protobuf.Timestamp time = 9;
+
+  // ResourceName identifies the dataset to which the access was requested.
+  string resource_name = 10;
   // TTL that user requested for the access.
-  google.protobuf.Duration ttl = 9;
+  google.protobuf.Duration ttl = 11;
 }
 
 // Decision is the result of an auth check.
