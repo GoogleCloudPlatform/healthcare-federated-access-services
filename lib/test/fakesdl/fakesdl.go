@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,48 +18,13 @@ package fakesdl
 import (
 	"context"
 
-	"cloud.google.com/go/logging" /* copybara-comment: logging */
-	"google.golang.org/api/option" /* copybara-comment: option */
-	"google.golang.org/grpc" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakegrpc" /* copybara-comment: fakegrpc */
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
 	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
 )
-
-// Fake contains a server and client.
-type Fake struct {
-	GRPC   *fakegrpc.Fake
-	Server *Server
-	Client *logging.Client
-}
-
-// New creates a new Fake.
-func New() (*Fake, func()) {
-	ctx := context.Background()
-
-	rpc, cleanup := fakegrpc.New()
-
-	s := &Server{}
-	lgrpcpb.RegisterLoggingServiceV2Server(rpc.Server, s)
-
-	rpc.Start()
-
-	c, err := logging.NewClient(ctx, "projects/fake-project-id", option.WithGRPCConn(rpc.Client), option.WithoutAuthentication(), option.WithGRPCDialOption(grpc.WithInsecure()))
-	if err != nil {
-		glog.Fatalf("Creating Stackdriver Logging client failed: %v", err)
-	}
-
-	return &Fake{
-			GRPC:   rpc,
-			Server: s,
-			Client: c,
-		}, func() {
-			cleanup()
-		}
-}
 
 // Server is a fake logging server.
 type Server struct {
@@ -68,11 +33,23 @@ type Server struct {
 
 	// Logs that have been sent to the server.
 	Logs []*lpb.WriteLogEntriesRequest
+
+	Enteries []*lepb.LogEntry
 }
 
 // WriteLogEntries stores the logs.
-func (l *Server) WriteLogEntries(ctx context.Context, req *lpb.WriteLogEntriesRequest) (*lpb.WriteLogEntriesResponse, error) {
+func (s *Server) WriteLogEntries(ctx context.Context, req *lpb.WriteLogEntriesRequest) (*lpb.WriteLogEntriesResponse, error) {
 	glog.Infof("Logger.WriteLogEntries Request: %+v", req)
-	l.Logs = append(l.Logs, proto.Clone(req).(*lpb.WriteLogEntriesRequest))
+	s.Logs = append(s.Logs, proto.Clone(req).(*lpb.WriteLogEntriesRequest))
+	s.Enteries = append(s.Enteries, req.GetEntries()...)
 	return &lpb.WriteLogEntriesResponse{}, nil
+}
+
+func (s *Server) ListLogEntries(ctx context.Context, req *lpb.ListLogEntriesRequest) (*lpb.ListLogEntriesResponse, error) {
+	glog.Infof("Logger.ListLogEntries Request: %+v", req)
+	resp := &lpb.ListLogEntriesResponse{}
+	for _, e := range s.Enteries {
+		resp.Entries = append(resp.Entries, proto.Clone(e).(*lepb.LogEntry))
+	}
+	return resp, nil
 }
