@@ -14,7 +14,7 @@
 
 // Binary itest is an integration test for the API with the Stackdriver.
 // To run the test:
-//   go run lib/auditlogsapi/itest/main.go --alsologtostderr --project=${PROJECT_ID?} --user=${USER_ID?}
+//   go run lib/auditlogsapi/itest/main.go --alsologtostderr --project=ghasemloo-hcls-fa8 --user="subject"
 package main
 
 import (
@@ -61,8 +61,7 @@ func main() {
 	sdlc := lgrpcpb.NewLoggingServiceV2Client(conn)
 	logger := NewLogger(ctx, conn, *projectID)
 
-	s := auditlogsapi.NewAuditLogs(sdlc)
-	s.ProjectID = *projectID
+	s := auditlogsapi.NewAuditLogs(sdlc, *projectID)
 
 	TestListLogEntriesRequest(ctx, sdlc, projectName, *userID)
 	TestListAuditLogFromProject(ctx, s, projectName, *userID)

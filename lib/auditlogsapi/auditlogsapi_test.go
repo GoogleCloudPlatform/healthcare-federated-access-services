@@ -39,10 +39,12 @@ import (
 func Test_AccessLog(t *testing.T) {
 	ctx := context.Background()
 
-	f, close := newFix(t)
+	project := "fake-project-id"
+
+	f, close := newFix(t, project)
 	defer close()
 
-	s := NewAuditLogs(f.logs)
+	s := NewAuditLogs(f.logs, project)
 
 	before := time.Now()
 	auditlog.LogSync = true
@@ -150,7 +152,7 @@ type Fix struct {
 	logger *logging.Client
 }
 
-func newFix(t *testing.T) (*Fix, func() error) {
+func newFix(t *testing.T, project string) (*Fix, func() error) {
 	t.Helper()
 	ctx := context.Background()
 	var cleanup func() error
@@ -172,7 +174,7 @@ func newFix(t *testing.T) (*Fix, func() error) {
 	f.logs = lgrpcpb.NewLoggingServiceV2Client(f.rpc.Client)
 
 	var err error
-	f.logger, err = logging.NewClient(ctx, "projects/fake-project-id", opts...)
+	f.logger, err = logging.NewClient(ctx, "projects/"+project, opts...)
 	if err != nil {
 		t.Fatalf("logging.NewClient() failed: %v", err)
 	}

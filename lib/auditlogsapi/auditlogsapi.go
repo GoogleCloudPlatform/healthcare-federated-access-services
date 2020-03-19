@@ -34,12 +34,13 @@ type AuditLogs struct {
 	// sdl is the Stackdriver Logging Client.
 	sdl lgrpcpb.LoggingServiceV2Client
 
-	ProjectID string
+	// projectID identifies the GCP project where the auditlogs are located.
+	projectID string
 }
 
 // NewAuditLogs creates a new AuditLogs.
-func NewAuditLogs(sdl lgrpcpb.LoggingServiceV2Client) *AuditLogs {
-	return &AuditLogs{sdl: sdl, ProjectID: "fake-project-id"}
+func NewAuditLogs(sdl lgrpcpb.LoggingServiceV2Client, projectID string) *AuditLogs {
+	return &AuditLogs{sdl: sdl, projectID: projectID}
 }
 
 // ListAuditLogs lists the audit logs.
@@ -51,14 +52,11 @@ func (s *AuditLogs) ListAuditLogs(ctx context.Context, req *apb.ListAuditLogsReq
 		return nil, status.Errorf(codes.InvalidArgument, "invalud parent: %v", parent)
 	}
 
-	// TODO: read project ID from realm config.
-	project := s.ProjectID
-
 	subject := ids[1]
 	// TODO: consider adding a userID to logs that contains both issuer and subject.
 
 	filters := []string{
-		`logName="projects/` + project + `/logs/federated-access-audit"`,
+		`logName="projects/` + s.projectID + `/logs/federated-access-audit"`,
 		`labels.token_subject="` + subject + `"`,
 	}
 
@@ -68,7 +66,7 @@ func (s *AuditLogs) ListAuditLogs(ctx context.Context, req *apb.ListAuditLogsReq
 	}
 
 	sdlReq := &lpb.ListLogEntriesRequest{
-		ResourceNames: []string{"projects/" + project},
+		ResourceNames: []string{"projects/" + s.projectID},
 		PageSize:      req.GetPageSize(),
 		PageToken:     req.GetPageToken(),
 		OrderBy:       "timestamp desc",
