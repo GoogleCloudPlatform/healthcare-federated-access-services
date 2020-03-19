@@ -59,11 +59,6 @@ func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 	default:
 		glog.Warningf("invalid log decition value")
 	}
-	if _, ok := e.GetPayload().(*lepb.LogEntry_TextPayload); !ok {
-		// TODO: support other types of payload.
-		glog.Warningf("invalid log payload, only text payload is supported right now")
-	}
-	reason := e.GetTextPayload()
 
 	l := &apb.AccessLog{
 		ServiceName: labels["service_name"],
@@ -75,7 +70,7 @@ func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 
 		Decision:  decision,
 		ErrorType: labels["error_type"],
-		Reason:    reason,
+		Reason:    extractPayload(e),
 
 		Time: e.GetTimestamp(),
 
@@ -106,11 +101,6 @@ func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 	default:
 		glog.Warningf("invalid log decition value")
 	}
-	if _, ok := e.GetPayload().(*lepb.LogEntry_TextPayload); !ok {
-		// TODO: support other types of payload.
-		glog.Warningf("invalid log payload, only text payload is supported right now")
-	}
-	reason := e.GetTextPayload()
 
 	ttl, err := timeutil.ParseDuration(labels["ttl"])
 	if err != nil {
@@ -127,7 +117,7 @@ func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 
 		Decision:  decision,
 		ErrorType: labels["error_type"],
-		Reason:    reason,
+		Reason:    extractPayload(e),
 
 		Time: e.GetTimestamp(),
 
@@ -135,4 +125,18 @@ func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 		Ttl:          timeutil.DurationProto(ttl),
 	}
 	return &apb.AuditLog{Name: name, PolicyLog: l}, nil
+}
+
+func extractPayload(e *lepb.LogEntry) string {
+	switch e.GetPayload().(type) {
+	case *lepb.LogEntry_TextPayload:
+		return e.GetTextPayload()
+	case *lepb.LogEntry_ProtoPayload:
+		return e.GetProtoPayload().String()
+	case *lepb.LogEntry_JsonPayload:
+		return e.GetJsonPayload().String()
+	default:
+		glog.Warningf("invalid audit log entry payload type: %T", e.GetPayload())
+		return ""
+	}
 }
