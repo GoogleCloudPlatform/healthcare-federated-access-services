@@ -33,11 +33,13 @@ import (
 type AuditLogs struct {
 	// sdl is the Stackdriver Logging Client.
 	sdl lgrpcpb.LoggingServiceV2Client
+
+	ProjectID string
 }
 
 // NewAuditLogs creates a new AuditLogs.
 func NewAuditLogs(sdl lgrpcpb.LoggingServiceV2Client) *AuditLogs {
-	return &AuditLogs{sdl: sdl}
+	return &AuditLogs{sdl: sdl, ProjectID: "fake-project-id"}
 }
 
 // ListAuditLogs lists the audit logs.
@@ -50,10 +52,16 @@ func (s *AuditLogs) ListAuditLogs(ctx context.Context, req *apb.ListAuditLogsReq
 	}
 
 	// TODO: read project ID from realm config.
-	project := "fake-project-id"
+	project := s.ProjectID
 
-	filters := []string{`logName="projects/` + project + `/logs/federated-access-audit"`}
-	// TODO: Add filter for the user.
+	subject := ids[1]
+	// TODO: consider adding a userID to logs that contains both issuer and subject.
+
+	filters := []string{
+		`logName="projects/` + project + `/logs/federated-access-audit"`,
+		`labels.token_subject="` + subject + `"`,
+	}
+
 	// TODO: Parse the filter into pieces and only allow AND and required subset.
 	if req.GetFilter() != "" {
 		filters = append(filters, "("+req.GetFilter()+")")

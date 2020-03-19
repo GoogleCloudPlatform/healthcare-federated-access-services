@@ -16,7 +16,6 @@ package auditlogsapi
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"google.golang.org/grpc" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakegrpc" /* copybara-comment: fakegrpc */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -58,7 +58,7 @@ func Test_AccessLog(t *testing.T) {
 		PassAuthCheck:   false,
 		ResponseCode:    http.StatusUnauthorized,
 		Payload:         "This is message",
-		Request:         MustNewHTTPRequest(t, http.MethodGet, "http://example.com/path/of/endpoint", nil),
+		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/endpoint", nil),
 	}
 	auditlog.WriteAccessLog(ctx, f.logger, al)
 	pl := &auditlog.PolicyDecisionLog{
@@ -178,12 +178,4 @@ func newFix(t *testing.T) (*Fix, func() error) {
 	}
 
 	return f, cleanup
-}
-
-func MustNewHTTPRequest(t *testing.T, method string, url string, body io.Reader) *http.Request {
-	req, err := http.NewRequest(method, url, nil)
-	if err != nil {
-		t.Fatalf("http.NewRequest() failed: %v", err)
-	}
-	return req
 }
