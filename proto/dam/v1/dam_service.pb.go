@@ -17,7 +17,6 @@
 
 // Package dam provides protocol buffer versions of the DAM API, allowing
 // end points to receive requests and returns responses using these messages.
-
 package v1
 
 import (
@@ -4496,7 +4495,9 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "dam.v1.ResourceResults.ResourceAccess.LabelsEntry")
 }
 
-func init() { proto.RegisterFile("proto/dam/v1/dam_service.proto", fileDescriptor_b1b3693f36078fb7) }
+func init() {
+	proto.RegisterFile("proto/dam/v1/dam_service.proto", fileDescriptor_b1b3693f36078fb7)
+}
 
 var fileDescriptor_b1b3693f36078fb7 = []byte{
 	// 4252 bytes of a gzipped FileDescriptorProto

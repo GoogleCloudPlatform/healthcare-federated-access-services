@@ -17,7 +17,6 @@
 
 // Package v1 ic provides protocol buffer versions of the DAM API, allowing
 // end points to receive requests and returns responses using these messages.
-
 package v1
 
 import (
@@ -1735,7 +1734,9 @@ func init() {
 	proto.RegisterType((*GetPersonasResponse_Meta)(nil), "ic.v1.GetPersonasResponse.Meta")
 }
 
-func init() { proto.RegisterFile("proto/ic/v1/ic_service.proto", fileDescriptor_4034d8e2323af80a) }
+func init() {
+	proto.RegisterFile("proto/ic/v1/ic_service.proto", fileDescriptor_4034d8e2323af80a)
+}
 
 var fileDescriptor_4034d8e2323af80a = []byte{
 	// 1663 bytes of a gzipped FileDescriptorProto

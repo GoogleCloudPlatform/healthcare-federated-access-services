@@ -17,7 +17,6 @@
 
 // Package v1 provides protocol buffer versions of OAuth Consents API for
 // listing and revoking OAuth consents.
-
 package v1
 
 import (
@@ -347,7 +346,9 @@ func init() {
 	proto.RegisterType((*ListConsentsResponse)(nil), "consents.v1.ListConsentsResponse")
 }
 
-func init() { proto.RegisterFile("proto/consents/v1/consents.proto", fileDescriptor_0bb2e176a5b7c192) }
+func init() {
+	proto.RegisterFile("proto/consents/v1/consents.proto", fileDescriptor_0bb2e176a5b7c192)
+}
 
 var fileDescriptor_0bb2e176a5b7c192 = []byte{
 	// 535 bytes of a gzipped FileDescriptorProto
@@ -389,11 +390,11 @@ var fileDescriptor_0bb2e176a5b7c192 = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConn
+var _ grpc.ClientConnInterface
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion6
 
 // ConsentsClient is the client API for Consents service.
 //
@@ -406,10 +407,10 @@ type ConsentsClient interface {
 }
 
 type consentsClient struct {
-	cc *grpc.ClientConn
+	cc grpc.ClientConnInterface
 }
 
-func NewConsentsClient(cc *grpc.ClientConn) ConsentsClient {
+func NewConsentsClient(cc grpc.ClientConnInterface) ConsentsClient {
 	return &consentsClient{cc}
 }
 
