@@ -2860,6 +2860,83 @@ func TestConfig_Hydra_Put(t *testing.T) {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
+	cfg, err := s.loadConfig(nil, "master")
+	if err != nil {
+		t.Fatalf(`s.loadConfig(_, "master") failed: %v`, err)
+	}
+	sec, err := s.loadSecrets(nil)
+	if err != nil {
+		t.Fatalf(`s.loadSecrets(_) failed: %v`, err)
+	}
+	clientName := "test_client"
+	cli, ok := cfg.Clients[clientName]
+	if !ok {
+		t.Fatalf("client %q not defined in config", clientName)
+	}
+
+	existing := []*hydraapi.Client{}
+	for name, c := range cfg.Clients {
+		existing = append(existing, &hydraapi.Client{
+			Name:          name,
+			ClientID:      c.ClientId,
+			Secret:        sec.ClientSecrets[c.ClientId],
+			RedirectURIs:  c.RedirectUris,
+			Scope:         c.Scope,
+			GrantTypes:    c.GrantTypes,
+			ResponseTypes: c.ResponseTypes,
+		})
+	}
+	h.ListClientsResp = existing
+	h.UpdateClientResp = &hydraapi.Client{
+		Name:          clientName,
+		ClientID:      cli.ClientId,
+		Secret:        sec.ClientSecrets[cli.ClientId],
+		RedirectURIs:  cli.RedirectUris,
+		Scope:         cli.Scope,
+		GrantTypes:    cli.GrantTypes,
+		ResponseTypes: cli.ResponseTypes,
+	}
+
+	pname := "admin"
+	updatedScope := cli.Scope + " new-scope"
+	cli.Scope = updatedScope
+
+	// call update config
+	resp := icSendTestRequest(t, http.MethodPut, configPath, "", "master", pname, test.TestClientID, test.TestClientSecret, &pb.ConfigRequest{Item: cfg}, s, iss)
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+		t.Fatalf("damSendTestRequest().StatusCode = %d, want %d\n body: %v", resp.StatusCode, http.StatusOK, string(body))
+	}
+
+	got := &pb.ConfigResponse{}
+	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
+		t.Fatalf("jsonpb.Unmarshal() failed: %v", err)
+	}
+
+	wantReq := &hydraapi.Client{
+		Name:          clientName,
+		GrantTypes:    cli.GrantTypes,
+		ResponseTypes: cli.ResponseTypes,
+		Scope:         updatedScope,
+		RedirectURIs:  cli.RedirectUris,
+		Audience:      []string{cli.ClientId},
+	}
+	if diff := diffOfHydraClientIgnoreClientIDAndSecret(wantReq, h.UpdateClientReq); len(diff) > 0 {
+		t.Errorf("client (-want, +got): %s", diff)
+	}
+
+	wantResp := &pb.ConfigResponse{}
+	if diff := cmp.Diff(wantResp, got, protocmp.Transform()); len(diff) > 0 {
+		t.Errorf("response (-want, +got): %s", diff)
+	}
+}
+
+func TestConfig_Hydra_Put_NotMasterRealmError(t *testing.T) {
+	s, _, _, h, iss, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
 	cfg, err := s.loadConfig(nil, "test")
 	if err != nil {
 		t.Fatalf(`s.loadConfig(_, "test") failed: %v`, err)
@@ -2901,32 +2978,11 @@ func TestConfig_Hydra_Put(t *testing.T) {
 	updatedScope := cli.Scope + " new-scope"
 	cli.Scope = updatedScope
 
+	// call update config
 	resp := icSendTestRequest(t, http.MethodPut, configPath, "", "test", pname, test.TestClientID, test.TestClientSecret, &pb.ConfigRequest{Item: cfg}, s, iss)
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusBadRequest {
 		body, _ := ioutil.ReadAll(resp.Body)
-		t.Fatalf("icSendTestRequest() status mismatch: got %d, want %d, body: %v", resp.StatusCode, http.StatusOK, string(body))
-	}
-
-	got := &pb.ConfigResponse{}
-	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
-		t.Fatalf("jsonpb.Unmarshal() failed: %v", err)
-	}
-
-	wantReq := &hydraapi.Client{
-		Name:          clientName,
-		GrantTypes:    cli.GrantTypes,
-		ResponseTypes: cli.ResponseTypes,
-		Scope:         updatedScope,
-		RedirectURIs:  cli.RedirectUris,
-		Audience:      []string{cli.ClientId},
-	}
-	if diff := diffOfHydraClientIgnoreClientIDAndSecret(wantReq, h.UpdateClientReq); len(diff) > 0 {
-		t.Errorf("client (-want, +got): %s", diff)
-	}
-
-	wantResp := &pb.ConfigResponse{}
-	if diff := cmp.Diff(wantResp, got, protocmp.Transform()); len(diff) > 0 {
-		t.Errorf("response (-want, +got): %s", diff)
+		t.Fatalf("damSendTestRequest().StatusCode = %d, want %d\n body: %v", resp.StatusCode, http.StatusBadRequest, string(body))
 	}
 }
 
@@ -2968,7 +3024,7 @@ func TestConfigReset_Hydra(t *testing.T) {
 		"client_id":     []string{testClientID},
 		"client_secret": []string{testClientSecret},
 	}
-	path := strings.ReplaceAll(configResetPath, "{realm}", "test")
+	path := strings.ReplaceAll(configResetPath, "{realm}", "master")
 	header := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
 	resp := testhttp.SendTestRequest(t, s.Handler, http.MethodGet, path, q, nil, header)
 

@@ -90,6 +90,10 @@ func (c *config) Post(r *http.Request, name string) (proto.Message, error) {
 	return nil, fmt.Errorf("POST not allowed")
 }
 func (c *config) Put(r *http.Request, name string) (proto.Message, error) {
+	if getRealm(r) != storage.DefaultRealm && !check.ClientsEqual(c.input.Item.Clients, c.cfg.Clients) {
+		return nil, fmt.Errorf("modify clients is only allowed on master realm")
+	}
+
 	if c.cfg.Version != c.input.Item.Version {
 		// TODO: consider upgrading older config versions automatically.
 		return nil, fmt.Errorf("PUT of config version %q mismatched with existing config version %q", c.input.Item.Version, c.cfg.Version)
@@ -403,6 +407,9 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 
 	// Reset clients in Hyrdra
 	if s.useHydra {
+		if getRealm(r) != storage.DefaultRealm {
+			return
+		}
 		conf, err := s.loadConfig(nil, storage.DefaultRealm)
 		if err != nil {
 			httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
