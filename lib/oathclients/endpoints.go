@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/mux" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -67,6 +69,10 @@ func NewClientHandler(s ClientService) *clientHandler {
 }
 
 func (c *clientHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	if realm(r) != storage.DefaultRealm {
+		return http.StatusForbidden, status.Errorf(codes.PermissionDenied, "client api only allow on master realm")
+	}
+
 	clientID := ExtractClientID(r)
 	if len(clientID) == 0 {
 		return http.StatusBadRequest, fmt.Errorf("request requires clientID")
@@ -164,6 +170,9 @@ func NewAdminClientHandler(s ClientService, useHydra bool, httpClient *http.Clie
 }
 
 func (c *adminClientHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	if realm(r) != storage.DefaultRealm {
+		return http.StatusForbidden, status.Errorf(codes.PermissionDenied, "client api only allow on master realm")
+	}
 	id, status, err := c.s.HandlerSetup(tx, r)
 	c.id = id
 	c.tx = tx
@@ -346,4 +355,8 @@ func fromHydraClient(c *hydraapi.Client) (*pb.Client, string) {
 		ResponseTypes: c.ResponseTypes,
 		RedirectUris:  c.RedirectURIs,
 	}, c.Secret
+}
+
+func realm(r *http.Request) string {
+	return mux.Vars(r)["realm"]
 }

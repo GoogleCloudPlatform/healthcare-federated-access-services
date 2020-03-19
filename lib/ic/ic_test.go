@@ -1955,7 +1955,7 @@ func TestClients_Get(t *testing.T) {
 	pname := "non-admin"
 	cli := cfg.Clients[clientName]
 
-	resp := icSendTestRequest(t, http.MethodGet, clientPath, clientName, "test", pname, cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
+	resp := icSendTestRequest(t, http.MethodGet, clientPath, clientName, "master", pname, cli.ClientId, sec.ClientSecrets[cli.ClientId], nil, s, iss)
 
 	got := &cpb.ClientResponse{}
 	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
@@ -1977,21 +1977,31 @@ func TestClients_Get_Error(t *testing.T) {
 
 	tests := []struct {
 		name       string
+		realm      string
 		clientID   string
 		clientName string
 		status     int
 	}{
 		{
 			name:       "client not exists",
+			realm:      "master",
 			clientID:   testClientID,
 			clientName: "invalid",
 			status:     http.StatusNotFound,
 		},
 		{
 			name:       "client id and client name not match",
+			realm:      "master",
 			clientID:   testClientID,
 			clientName: "test_client2",
 			status:     http.StatusNotFound,
+		},
+		{
+			name:       "not master realm",
+			realm:      "test",
+			clientID:   testClientID,
+			clientName: "test_client",
+			status:     http.StatusForbidden,
 		},
 	}
 
@@ -1999,7 +2009,7 @@ func TestClients_Get_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pname := "non-admin"
 
-			resp := icSendTestRequest(t, http.MethodGet, clientPath, tc.clientName, "test", pname, tc.clientID, sec.ClientSecrets[tc.clientID], nil, s, iss)
+			resp := icSendTestRequest(t, http.MethodGet, clientPath, tc.clientName, tc.realm, pname, tc.clientID, sec.ClientSecrets[tc.clientID], nil, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -2074,7 +2084,7 @@ func TestSyncClients_ScopeError(t *testing.T) {
 	}
 }
 
-func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
+func sendConfigClientsGet(t *testing.T, pname, clientName, realm, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2087,7 +2097,7 @@ func sendConfigClientsGet(t *testing.T, pname, clientName, clientID, clientSecre
 		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
-	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
+	path := strings.ReplaceAll(configClientsPath, "{realm}", realm)
 	path = strings.ReplaceAll(path, "{name}", clientName)
 	q := url.Values{
 		"client_id":     []string{clientID},
@@ -2107,7 +2117,7 @@ func TestConfigClients_Get(t *testing.T) {
 	pname := "admin"
 	cli := cfg.Clients[clientName]
 
-	resp := sendConfigClientsGet(t, pname, clientName, cli.ClientId, sec.ClientSecrets[cli.ClientId], s, iss)
+	resp := sendConfigClientsGet(t, pname, clientName, "master", cli.ClientId, sec.ClientSecrets[cli.ClientId], s, iss)
 
 	got := &cpb.ConfigClientResponse{}
 	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
@@ -2130,6 +2140,7 @@ func TestConfigClients_Get_Error(t *testing.T) {
 	tests := []struct {
 		name       string
 		persona    string
+		realm      string
 		clientID   string
 		clientName string
 		status     int
@@ -2137,6 +2148,7 @@ func TestConfigClients_Get_Error(t *testing.T) {
 		{
 			name:       "client not exists",
 			persona:    "admin",
+			realm:      "master",
 			clientID:   testClientID,
 			clientName: "invalid",
 			status:     http.StatusNotFound,
@@ -2144,15 +2156,24 @@ func TestConfigClients_Get_Error(t *testing.T) {
 		{
 			name:       "not admin",
 			persona:    "non-admin",
+			realm:      "master",
 			clientID:   testClientID,
 			clientName: "test_client",
 			status:     http.StatusUnauthorized,
+		},
+		{
+			name:       "not master realm",
+			persona:    "admin",
+			realm:      "test",
+			clientID:   testClientID,
+			clientName: "test_client",
+			status:     http.StatusForbidden,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := sendConfigClientsGet(t, tc.persona, tc.clientName, tc.clientID, sec.ClientSecrets[tc.clientID], s, iss)
+			resp := sendConfigClientsGet(t, tc.persona, tc.clientName, tc.realm, tc.clientID, sec.ClientSecrets[tc.clientID], s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -2165,7 +2186,7 @@ func diffOfHydraClientIgnoreClientIDAndSecret(c1 *hydraapi.Client, c2 *hydraapi.
 	return cmp.Diff(c1, c2, cmpopts.IgnoreFields(hydraapi.Client{}, "ClientID", "Secret"), cmpopts.IgnoreUnexported(strfmt.DateTime{}))
 }
 
-func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
+func sendConfigClientsCreate(t *testing.T, pname, clientName, realm, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2184,7 +2205,7 @@ func sendConfigClientsCreate(t *testing.T, pname, clientName, clientID, clientSe
 		t.Fatal(err)
 	}
 
-	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
+	path := strings.ReplaceAll(configClientsPath, "{realm}", realm)
 	path = strings.ReplaceAll(path, "{name}", clientName)
 	q := url.Values{
 		"client_id":     []string{clientID},
@@ -2223,7 +2244,7 @@ func TestConfigClients_Create_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
+	resp := sendConfigClientsCreate(t, pname, clientName, "master", testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -2303,12 +2324,12 @@ func TestConfigClients_Create_Success_Storage(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsCreate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
+	resp := sendConfigClientsCreate(t, pname, clientName, "master", testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
 
-	conf, err := s.loadConfig(nil, "test")
+	conf, err := s.loadConfig(nil, "master")
 	if err != nil {
 		t.Fatalf("s.loadConfig() failed %v", err)
 	}
@@ -2347,6 +2368,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 		name       string
 		persona    string
 		clientName string
+		realm      string
 		client     *cpb.Client
 		status     int
 	}{
@@ -2354,6 +2376,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 			name:       "client exists",
 			persona:    "admin",
 			clientName: "test_client",
+			realm:      "master",
 			client:     cli,
 			status:     http.StatusConflict,
 		},
@@ -2361,6 +2384,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: clientName,
+			realm:      "master",
 			client:     cli,
 			status:     http.StatusUnauthorized,
 		},
@@ -2368,6 +2392,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 			name:       "no redirect",
 			persona:    "admin",
 			clientName: clientName,
+			realm:      "master",
 			client:     &cpb.Client{Ui: cli.Ui},
 			status:     http.StatusBadRequest,
 		},
@@ -2375,8 +2400,17 @@ func TestConfigClients_Create_Error(t *testing.T) {
 			name:       "no ui",
 			persona:    "admin",
 			clientName: clientName,
+			realm:      "master",
 			client:     &cpb.Client{RedirectUris: cli.RedirectUris},
 			status:     http.StatusBadRequest,
+		},
+		{
+			name:       "not master realm",
+			persona:    "admin",
+			clientName: clientName,
+			realm:      "test",
+			client:     cli,
+			status:     http.StatusForbidden,
 		},
 	}
 
@@ -2389,7 +2423,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 				Secret:   "secret",
 			}
 
-			resp := sendConfigClientsCreate(t, tc.persona, tc.clientName, testClientID, testClientSecret, tc.client, s, iss)
+			resp := sendConfigClientsCreate(t, tc.persona, tc.clientName, tc.realm, testClientID, testClientSecret, tc.client, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -2399,7 +2433,7 @@ func TestConfigClients_Create_Error(t *testing.T) {
 				t.Errorf("should not call create client to hydra")
 			}
 
-			conf, err := s.loadConfig(nil, "test")
+			conf, err := s.loadConfig(nil, tc.realm)
 			if err != nil {
 				t.Fatalf("s.loadConfig() failed %v", err)
 			}
@@ -2438,14 +2472,14 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 	}
 	h.CreateClientErr = &hydraapi.GenericError{Code: http.StatusServiceUnavailable}
 
-	resp := sendConfigClientsCreate(t, "admin", clientName, testClientID, testClientSecret, cli, s, iss)
+	resp := sendConfigClientsCreate(t, "admin", clientName, "master", testClientID, testClientSecret, cli, s, iss)
 
 	// TODO should use better http status.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
 	}
 
-	conf, err := s.loadConfig(nil, "test")
+	conf, err := s.loadConfig(nil, "master")
 	if err != nil {
 		t.Fatalf("s.loadConfig() failed %v", err)
 	}
@@ -2454,10 +2488,10 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsUpdate(t *testing.T, pname, clientName, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
+func sendConfigClientsUpdate(t *testing.T, pname, clientName, realm, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
-	return icSendTestRequest(t, http.MethodPatch, configClientsPath, clientName, "test", pname, clientID, clientSecret, &cpb.ConfigClientRequest{Item: cli}, s, iss)
+	return icSendTestRequest(t, http.MethodPatch, configClientsPath, clientName, realm, pname, clientID, clientSecret, &cpb.ConfigClientRequest{Item: cli}, s, iss)
 }
 
 func TestConfigClients_Update_Success(t *testing.T) {
@@ -2489,7 +2523,7 @@ func TestConfigClients_Update_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, pname, clientName, "master", testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -2541,12 +2575,12 @@ func TestConfigClients_Update_Success_Storage(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsUpdate(t, pname, clientName, testClientID, testClientSecret, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, pname, clientName, "master", testClientID, testClientSecret, cli, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
 
-	conf, err := s.loadConfig(nil, "test")
+	conf, err := s.loadConfig(nil, "master")
 	if err != nil {
 		t.Fatalf("s.loadConfig() failed %v", err)
 	}
@@ -2580,19 +2614,29 @@ func TestConfigClients_Update_Error(t *testing.T) {
 		name       string
 		persona    string
 		clientName string
+		realm      string
 		status     int
 	}{
 		{
 			name:       "client not exists",
 			persona:    "admin",
 			clientName: "invalid",
+			realm:      "master",
 			status:     http.StatusNotFound,
 		},
 		{
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: clientName,
+			realm:      "master",
 			status:     http.StatusUnauthorized,
+		},
+		{
+			name:       "not master realm",
+			persona:    "admin",
+			clientName: clientName,
+			realm:      "test",
+			status:     http.StatusForbidden,
 		},
 	}
 
@@ -2609,7 +2653,7 @@ func TestConfigClients_Update_Error(t *testing.T) {
 				ResponseTypes: defaultResponseTypes,
 			}
 
-			resp := sendConfigClientsUpdate(t, tc.persona, tc.clientName, testClientID, testClientSecret, cli, s, iss)
+			resp := sendConfigClientsUpdate(t, tc.persona, tc.clientName, tc.realm, testClientID, testClientSecret, cli, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
@@ -2619,7 +2663,7 @@ func TestConfigClients_Update_Error(t *testing.T) {
 				t.Errorf("should not call Update client to hydra")
 			}
 
-			conf, err := s.loadConfig(nil, "test")
+			conf, err := s.loadConfig(nil, tc.realm)
 			if err != nil {
 				t.Fatalf("s.loadConfig() failed %v", err)
 			}
@@ -2653,14 +2697,14 @@ func TestConfigClients_Update_Hydra_Error(t *testing.T) {
 	}
 	h.UpdateClientErr = &hydraapi.GenericError{Code: http.StatusServiceUnavailable}
 
-	resp := sendConfigClientsUpdate(t, "admin", clientName, testClientID, testClientSecret, cli, s, iss)
+	resp := sendConfigClientsUpdate(t, "admin", clientName, "master", testClientID, testClientSecret, cli, s, iss)
 
 	// TODO should use better http status.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
 	}
 
-	conf, err := s.loadConfig(nil, "test")
+	conf, err := s.loadConfig(nil, "master")
 	if err != nil {
 		t.Fatalf("s.loadConfig() failed %v", err)
 	}
@@ -2669,7 +2713,7 @@ func TestConfigClients_Update_Hydra_Error(t *testing.T) {
 	}
 }
 
-func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
+func sendConfigClientsDelete(t *testing.T, pname, clientName, realm, clientID, clientSecret string, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -2682,7 +2726,7 @@ func sendConfigClientsDelete(t *testing.T, pname, clientName, clientID, clientSe
 		t.Fatalf("persona.NewAccessToken(%q, %q, _, _) failed: %v", pname, hydraURL, err)
 	}
 
-	path := strings.ReplaceAll(configClientsPath, "{realm}", "test")
+	path := strings.ReplaceAll(configClientsPath, "{realm}", realm)
 	path = strings.ReplaceAll(path, "{name}", clientName)
 	q := url.Values{
 		"client_id":     []string{clientID},
@@ -2702,13 +2746,13 @@ func TestConfigClients_Delete_Success(t *testing.T) {
 
 	pname := "admin"
 
-	resp := sendConfigClientsDelete(t, pname, clientName, testClientID, testClientSecret, s, iss)
+	resp := sendConfigClientsDelete(t, pname, clientName, "master", testClientID, testClientSecret, s, iss)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusOK)
 	}
 
-	conf, err := s.loadConfig(nil, "test")
+	conf, err := s.loadConfig(nil, "master")
 	if err != nil {
 		t.Fatalf("s.loadConfig() failed %v", err)
 	}
@@ -2737,19 +2781,29 @@ func TestConfigClients_Delete_Error(t *testing.T) {
 		name       string
 		persona    string
 		clientName string
+		realm      string
 		status     int
 	}{
 		{
 			name:       "client not exists",
 			persona:    "admin",
 			clientName: "invalid",
+			realm:      "master",
 			status:     http.StatusNotFound,
 		},
 		{
 			name:       "not admin",
 			persona:    "non-admin",
 			clientName: clientName,
+			realm:      "master",
 			status:     http.StatusUnauthorized,
+		},
+		{
+			name:       "not master realm",
+			persona:    "admin",
+			clientName: clientName,
+			realm:      "test",
+			status:     http.StatusForbidden,
 		},
 	}
 
@@ -2757,13 +2811,13 @@ func TestConfigClients_Delete_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h.Clear()
 
-			resp := sendConfigClientsDelete(t, tc.persona, tc.clientName, testClientID, testClientSecret, s, iss)
+			resp := sendConfigClientsDelete(t, tc.persona, tc.clientName, tc.realm, testClientID, testClientSecret, s, iss)
 
 			if resp.StatusCode != tc.status {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, tc.status)
 			}
 
-			conf, err := s.loadConfig(nil, "test")
+			conf, err := s.loadConfig(nil, tc.realm)
 			if err != nil {
 				t.Fatalf("s.loadConfig() failed %v", err)
 			}
@@ -2784,14 +2838,14 @@ func TestConfigClients_Delete_Hydra_Error(t *testing.T) {
 
 	h.DeleteClientErr = &hydraapi.GenericError{Code: http.StatusServiceUnavailable}
 
-	resp := sendConfigClientsDelete(t, "admin", clientName, testClientID, testClientSecret, s, iss)
+	resp := sendConfigClientsDelete(t, "admin", clientName, "master", testClientID, testClientSecret, s, iss)
 
 	// TODO should use better http status.
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
 	}
 
-	conf, err := s.loadConfig(nil, "test")
+	conf, err := s.loadConfig(nil, "master")
 	if err != nil {
 		t.Fatalf("s.loadConfig() failed %v", err)
 	}
