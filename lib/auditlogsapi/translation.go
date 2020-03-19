@@ -79,12 +79,12 @@ func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 
 		Time: e.GetTimestamp(),
 
-		MethodName:   "TODO", // TODO: populate the method name.
+		MethodName:   e.GetHttpRequest().GetRequestMethod(),
 		ResourceName: labels["request_path"],
 
 		TracingId:        labels["tracing_id"],
-		CallerIp:         "TODO", // TODO: populate the caller IP.
-		HttpResponseCode: 0,
+		CallerIp:         e.GetHttpRequest().GetRemoteIp(),
+		HttpResponseCode: int64(e.GetHttpRequest().GetStatus()),
 		HttpRequest:      nil,
 	}
 
