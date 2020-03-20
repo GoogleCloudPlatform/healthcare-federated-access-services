@@ -39,6 +39,7 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlogsapi" /* copybara-comment: auditlogsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/consentsapi" /* copybara-comment: consentsapi */
@@ -61,6 +62,8 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/verifier" /* copybara-comment: verifier */
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
+	agrpcpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/auditlogs/v0" /* copybara-comment: auditlogs_go_grpc_proto */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 	tgrpcpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto_grpc */
@@ -112,6 +115,7 @@ type Service struct {
 	visaVerifier        *verifier.Verifier
 	scim                *scim.Scim
 	tokens              tgrpcpb.TokensServer
+	auditlogs           agrpcpb.AuditLogsServer
 }
 
 type ServiceHandler struct {
@@ -136,6 +140,10 @@ type Options struct {
 	ServiceAccountManager *saw.AccountWarehouse
 	// Logger: audit log logger
 	Logger *logging.Client
+	// SDLC: gRPC client to StackDriver Logging.
+	SDLC lgrpcpb.LoggingServiceV2Client
+	// AuditLogProject is the GCP project id where audit logs are written to.
+	AuditLogProject string
 	// UseHydra: service use hydra integrated OIDC.
 	UseHydra bool
 	// HydraAdminURL: hydra admin endpoints url
@@ -196,6 +204,7 @@ func New(r *mux.Router, params *Options) *Service {
 		visaVerifier:        verifier.New(""),
 		scim:                scim.New(params.Store),
 		tokens:              tokensapi.NewDAMTokens(params.Store, params.ServiceAccountManager),
+		auditlogs:           auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject),
 	}
 
 	if s.httpClient == nil {
@@ -1408,6 +1417,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
 	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+
+	// audit logs endpoints
+	r.HandleFunc(auditlogsPath, auth.MustWithAuth(auditlogsapi.NewAuditLogsHandler(s.auditlogs).ListAuditLogs, checker, auth.RequireUserToken)).Methods(http.MethodGet)
 
 	// proxy hydra oauth token endpoint
 	if s.hydraPublicURLProxy != nil {

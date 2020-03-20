@@ -16,6 +16,7 @@ package auditlogsapi
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
@@ -35,7 +36,8 @@ func NewAuditLogsHandler(s agpb.AuditLogsServer) *AuditLogsHandler {
 
 // ListAuditLogs handles ListAuditLogs HTTP requests.
 func (h *AuditLogsHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
-	req := &apb.ListAuditLogsRequest{Parent: r.RequestURI}
+	parent := strings.TrimSuffix(r.RequestURI, "/auditlogs")
+	req := &apb.ListAuditLogsRequest{Parent: parent}
 	resp, err := h.s.ListAuditLogs(r.Context(), req)
 	if err != nil {
 		httputils.WriteError(w, err)

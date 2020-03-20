@@ -31,7 +31,7 @@ func TestListAuditLogs(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(ts.ListAuditLogs))
 	defer s.Close()
 
-	name := "/users/fake-user/logs"
+	name := "/users/fake-user/auditlogs"
 	resp, err := s.Client().Get(s.URL + name)
 	if err != nil {
 		t.Fatalf("ListAuditLogs failed: %v", err)
