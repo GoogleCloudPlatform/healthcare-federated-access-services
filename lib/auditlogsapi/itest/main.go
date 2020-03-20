@@ -230,7 +230,7 @@ func TestAuditLog(ctx context.Context, s *auditlogsapi.AuditLogs, c lgrpcpb.Logg
 // NewGRPCClient creates a new GRPC client connect to the provided address.
 func NewGRPCClient(ctx context.Context, addr string, opts ...grpc.DialOption) *grpc.ClientConn {
 	opts = append(opts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
-	creds, err := oauth.NewApplicationDefault(ctx)
+	creds, err := oauth.NewApplicationDefault(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		glog.Exitf("oauth.NewApplicationDefault() failed: %v", err)
 	}
