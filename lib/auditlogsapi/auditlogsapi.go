@@ -60,10 +60,11 @@ func (s *AuditLogs) ListAuditLogs(ctx context.Context, req *apb.ListAuditLogsReq
 		`labels.token_subject="` + subject + `"`,
 	}
 
-	// TODO: Parse the filter into pieces and only allow AND and required subset.
-	if req.GetFilter() != "" {
-		filters = append(filters, "("+req.GetFilter()+")")
+	f, err := extractFilters(req.GetFilter())
+	if err != nil {
+		return nil, err
 	}
+	filters = append(filters, f)
 
 	sdlReq := &lpb.ListLogEntriesRequest{
 		ResourceNames: []string{"projects/" + s.projectID},
