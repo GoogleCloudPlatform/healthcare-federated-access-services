@@ -53,7 +53,9 @@
         "label": "Admin Tool",
         "description": "Administrator's admin.bash tool"
       },
-      "redirectUris": ["/"],
+      "redirectUris": [
+        "https://ic${YOUR_ENVIRONMENT}-dot-${YOUR_PROJECT_ID}.appspot.com/identity/cli/accept"
+      ],
       "scope": "openid offline ga4gh_passport_v1 profile email identities account_admin sync",
       "grantTypes": ["authorization_code", "refresh_token"],
       "responseTypes": ["token", "code", "id_token"]
