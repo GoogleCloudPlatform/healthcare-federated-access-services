@@ -18,16 +18,20 @@ package cli
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/mail"
 	"net/url"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/sha3" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -86,6 +90,8 @@ type RegisterHandler struct {
 
 // NewRegisterHandler handles one shell login request.
 func NewRegisterHandler(store storage.Store, crypt kms.Encryption, cliAuthURL, issuerURL, authURL, tokenURL, accept string, httpClient *http.Client) *RegisterHandler {
+	// Better distribution for algorithms using rand by using a different seed.
+	rand.Seed(time.Now().UnixNano() + int64(rand.Int31()))
 	return &RegisterHandler{
 		store:      store,
 		crypt:      crypt,
@@ -270,7 +276,9 @@ func (h *RegisterHandler) Post(r *http.Request, name string) (proto.Message, err
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "cannot generate exp timestamp: %v", err)
 	}
-	secret := uuid.New()
+	unique := uuid.New() + "/" + cat.Format(time.RFC3339Nano) + "/" + strconv.FormatUint(rand.Uint64(), 16)
+	hash := sha3.Sum256([]byte(unique))
+	secret := hex.EncodeToString(hash[:])
 	encrypted, err := h.crypt.Encrypt(r.Context(), []byte(secret), "")
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "cannot generate secret: %v", err)
