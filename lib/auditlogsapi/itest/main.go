@@ -29,13 +29,12 @@ import (
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */
-	"google.golang.org/grpc/credentials" /* copybara-comment: credentials */
-	"google.golang.org/grpc/credentials/oauth" /* copybara-comment: oauth */
 	"google.golang.org/grpc" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlogsapi" /* copybara-comment: auditlogsapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/grpcutil" /* copybara-comment: grpcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
 	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
@@ -53,7 +52,7 @@ var (
 func main() {
 	ctx := context.Background()
 	flag.Parse()
-	conn := NewGRPCClient(ctx, *sdlAddr)
+	conn := grpcutil.NewGRPCClient(ctx, *sdlAddr)
 	defer conn.Close()
 
 	projectName := "projects/" + *projectID
@@ -225,21 +224,6 @@ func TestAuditLog(ctx context.Context, s *auditlogsapi.AuditLogs, c lgrpcpb.Logg
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		glog.Errorf("ListAuditLogs() returned diff (-want +got):\n%s", diff)
 	}
-}
-
-// NewGRPCClient creates a new GRPC client connect to the provided address.
-func NewGRPCClient(ctx context.Context, addr string, opts ...grpc.DialOption) *grpc.ClientConn {
-	opts = append(opts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
-	creds, err := oauth.NewApplicationDefault(ctx, "https://www.googleapis.com/auth/cloud-platform")
-	if err != nil {
-		glog.Exitf("oauth.NewApplicationDefault() failed: %v", err)
-	}
-	opts = append(opts, grpc.WithPerRPCCredentials(creds))
-	conn, err := grpc.Dial(addr, opts...)
-	if err != nil {
-		glog.Exitf("Failed to connect to %q: %v", addr, err)
-	}
-	return conn
 }
 
 // NewLogger creates a new logger.
