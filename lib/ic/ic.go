@@ -449,7 +449,7 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 }
 
 func (s *Service) idpAuthorize(in loginIn, idp *cpb.IdentityProvider, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
-	stateID, err := s.buildState(in.idpName, in.realm, in.challenge, tx)
+	stateID, err := s.buildState(in.provider, in.realm, in.challenge, tx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -482,9 +482,10 @@ func idpConfig(idp *cpb.IdentityProvider, domainURL string, secrets *pb.IcSecret
 
 func (s *Service) buildState(idpName, realm, challenge string, tx storage.Tx) (string, error) {
 	login := &cpb.LoginState{
-		IdpName:   idpName,
-		Realm:     realm,
-		Challenge: challenge,
+		Provider:       idpName,
+		Realm:          realm,
+		LoginChallenge: challenge,
+		Step:           cpb.LoginState_LOGIN,
 	}
 
 	id := uuid.New()
@@ -525,7 +526,7 @@ func (s *Service) idpUsesClientLoginPage(idpName, realm string, cfg *pb.IcConfig
 }
 
 type loginIn struct {
-	idpName   string
+	provider  string
 	loginHint string
 	realm     string
 	challenge string
@@ -536,9 +537,9 @@ type loginIn struct {
 func (s *Service) login(in loginIn, cfg *pb.IcConfig) (string, error) {
 	var err error
 
-	idp, ok := cfg.IdentityProviders[in.idpName]
+	idp, ok := cfg.IdentityProviders[in.provider]
 	if !ok {
-		return "", status.Errorf(codes.NotFound, "login service %q not found", in.idpName)
+		return "", status.Errorf(codes.NotFound, "login service %q not found", in.provider)
 	}
 
 	idpc, state, err := s.idpAuthorize(in, idp, cfg, nil)

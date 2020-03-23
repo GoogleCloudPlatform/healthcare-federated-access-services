@@ -110,20 +110,20 @@ message Permissions {
 
 // LoginState records states for login and login callback.
 message LoginState {
-  string idp_name = 1;
-  string realm = 2;
-  string challenge = 3;
-}
-
-// AuthTokenState records states for create auth token.
-message AuthTokenState {
-  string subject = 1;
-  string scope = 2;
-  string provider = 3;
-  string realm = 4;
-  string login_hint = 5;
-  string consent_challenge = 6;
-  repeated string audience = 7;
+  // Step Of login flow.
+  enum Step {
+    LOGIN = 0;
+    CONSENT = 1;
+  }
+  Step step = 1;
+  string provider = 2;
+  string realm = 3;
+  string login_challenge = 4;
+  string subject = 5;
+  string scope = 6;
+  string login_hint = 7;
+  string consent_challenge = 8;
+  repeated string audience = 9;
 }
 
 message TokenMetadata {

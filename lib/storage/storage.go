@@ -43,7 +43,6 @@ const (
 	LockDatatype               = "lock"
 	LoginStateDatatype         = "login_state"
 	ProcessDataType            = "process"
-	AuthTokenStateDatatype     = "auth_token_state"
 	PermissionsDatatype        = "permissions"
 	SecretsDatatype            = "secrets"
 	TokensDatatype             = "tokens"

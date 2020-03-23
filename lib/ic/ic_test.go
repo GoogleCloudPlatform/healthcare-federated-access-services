@@ -1118,11 +1118,11 @@ func TestHydraLogin_LoginHint_Hydra(t *testing.T) {
 		return
 	}
 
-	if loginState.Challenge != loginChallenge {
-		t.Errorf("state.Challenge wants %s got %s", loginChallenge, loginState.Challenge)
+	if loginState.LoginChallenge != loginChallenge {
+		t.Errorf("state.LoginChallenge wants %s got %s", loginChallenge, loginState.LoginChallenge)
 	}
-	if loginState.IdpName != idpName {
-		t.Errorf("state.IdpName wants %s got %s", idpName, loginState.IdpName)
+	if loginState.Provider != idpName {
+		t.Errorf("state.Provider wants %s got %s", idpName, loginState.Provider)
 	}
 }
 
@@ -1189,11 +1189,11 @@ func TestLogin_Hydra(t *testing.T) {
 		return
 	}
 
-	if loginState.Challenge != loginChallenge {
-		t.Errorf("state.Challenge wants %s got %s", loginChallenge, loginState.Challenge)
+	if loginState.LoginChallenge != loginChallenge {
+		t.Errorf("state.LoginChallenge wants %s got %s", loginChallenge, loginState.LoginChallenge)
 	}
-	if loginState.IdpName != idpName {
-		t.Errorf("state.IdpName wants %s got %s", idpName, loginState.IdpName)
+	if loginState.Provider != idpName {
+		t.Errorf("state.Provider wants %s got %s", idpName, loginState.Provider)
 	}
 }
 
@@ -1219,9 +1219,9 @@ func TestLogin_Hydra_invalid_idp_Error(t *testing.T) {
 func sendAcceptLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, code, state, errName, errDesc string) (*http.Response, error) {
 	// Ensure login state exists before request.
 	login := &cpb.LoginState{
-		IdpName:   idpName,
-		Realm:     storage.DefaultRealm,
-		Challenge: loginChallenge,
+		Provider:       idpName,
+		Realm:          storage.DefaultRealm,
+		LoginChallenge: loginChallenge,
 	}
 
 	err := s.store.Write(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, login, nil)
@@ -1357,12 +1357,17 @@ func TestAcceptLogin_Hydra_InvalidState(t *testing.T) {
 	}
 }
 
-func sendFinishLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, idp, code, state string) (*http.Response, error) {
+func sendFinishLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, idp, code, state string, step cpb.LoginState_Step) (*http.Response, error) {
 	// Ensure login state exists before request.
 	login := &cpb.LoginState{
-		IdpName:   idpName,
-		Realm:     storage.DefaultRealm,
-		Challenge: loginChallenge,
+		Provider:       idpName,
+		Realm:          storage.DefaultRealm,
+		LoginChallenge: loginChallenge,
+		Step:           step,
+	}
+
+	if step == cpb.LoginState_CONSENT {
+		login.ConsentChallenge = consentChallenge
 	}
 
 	err := s.store.Write(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, login, nil)
@@ -1397,9 +1402,9 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 		authCode = persona + ",cid"
 	)
 
-	resp, err := sendFinishLogin(s, cfg, h, idpName, authCode, loginStateID)
+	resp, err := sendFinishLogin(s, cfg, h, idpName, authCode, loginStateID, cpb.LoginState_LOGIN)
 	if err != nil {
-		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s) failed: %v", idpName, authCode, loginStateID, err)
+		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s, login) failed: %v", idpName, authCode, loginStateID, err)
 	}
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
@@ -1420,10 +1425,10 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 		t.Errorf("AcceptLoginReq.Context[%s] is wrong type", hydra.StateIDKey)
 	}
 
-	state := &cpb.AuthTokenState{}
-	err = s.store.Read(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state)
+	state := &cpb.LoginState{}
+	err = s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state)
 	if err != nil {
-		t.Fatalf("read AuthTokenState failed: %v", err)
+		t.Fatalf("read LoginState failed: %v", err)
 	}
 
 	if state.Provider != idpName {
@@ -1433,12 +1438,15 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 	if state.LoginHint != loginHint {
 		t.Errorf("state.LoginHint wants %s got %s", loginHint, state.LoginHint)
 	}
+	if state.Step != cpb.LoginState_CONSENT {
+		t.Errorf("state.Step wants %v got %v", cpb.LoginState_CONSENT, state.Step)
+	}
 	if *h.AcceptLoginReq.Subject != state.Subject {
 		t.Errorf("subject send to hydra and subject in state should be equals. got %s, %s", *h.AcceptLoginReq.Subject, state.Subject)
 	}
 }
 
-func TestFinishLogin_Hydra_Invalid(t *testing.T) {
+func TestFinishLogin_Hydra_Error(t *testing.T) {
 	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
@@ -1452,32 +1460,28 @@ func TestFinishLogin_Hydra_Invalid(t *testing.T) {
 	tests := []struct {
 		name   string
 		idp    string
-		code   string
 		state  string
 		status int
 	}{
 		{
 			name:   "invalid idp",
 			idp:    "invalid",
-			code:   authCode,
 			state:  loginStateID,
 			status: http.StatusUnauthorized,
 		},
 		{
-			name:  "invalid state",
-			idp:   idpName,
-			code:  authCode,
-			state: "invalid",
-			// TODO: this case should also consider StatusUnauthorized.
+			name:   "invalid state",
+			idp:    idpName,
+			state:  "invalid",
 			status: http.StatusInternalServerError,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, err := sendFinishLogin(s, cfg, h, tc.idp, tc.code, tc.state)
+			resp, err := sendFinishLogin(s, cfg, h, tc.idp, authCode, tc.state, cpb.LoginState_LOGIN)
 			if err != nil {
-				t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s) failed: %v", tc.idp, tc.code, tc.state, err)
+				t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s, login) failed: %v", tc.idp, authCode, tc.state, err)
 			}
 
 			if resp.StatusCode != tc.status {
@@ -1491,7 +1495,7 @@ func TestFinishLogin_Hydra_Invalid(t *testing.T) {
 	}
 }
 
-func TestFinishLogin_Hydra_Invalid_auth_code(t *testing.T) {
+func TestFinishLogin_Hydra_Error_AuthCode(t *testing.T) {
 	s, cfg, _, h, _, err := setupHydraTest()
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
@@ -1499,9 +1503,9 @@ func TestFinishLogin_Hydra_Invalid_auth_code(t *testing.T) {
 
 	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
 
-	resp, err := sendFinishLogin(s, cfg, h, idpName, "invalid", loginStateID)
+	resp, err := sendFinishLogin(s, cfg, h, idpName, "invalid", loginStateID, cpb.LoginState_LOGIN)
 	if err != nil {
-		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s) failed: %v", idpName, "invalid", loginStateID, err)
+		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s, login) failed: %v", idpName, "invalid", loginStateID, err)
 	}
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
@@ -1510,6 +1514,28 @@ func TestFinishLogin_Hydra_Invalid_auth_code(t *testing.T) {
 
 	if h.RejectLoginReq.Code != http.StatusUnauthorized {
 		t.Errorf("RejectLoginReq.Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestFinishLogin_Hydra_Error_Step(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	h.RejectConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	resp, err := sendFinishLogin(s, cfg, h, idpName, "invalid", loginStateID, cpb.LoginState_CONSENT)
+	if err != nil {
+		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s, consent) failed: %v", idpName, "invalid", loginStateID, err)
+	}
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	}
+
+	if h.RejectConsentReq.Code != http.StatusUnauthorized {
+		t.Errorf("RejectConsentReq.Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusUnauthorized)
 	}
 }
 
@@ -1524,10 +1550,10 @@ func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, reqStateID 
 		RequestedAudience: []string{"another_aud"},
 	}
 
-	state := &cpb.AuthTokenState{Realm: "test", Subject: "admin"}
-	err := s.store.Write(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, state, nil)
+	state := &cpb.LoginState{Realm: "test", Subject: "admin"}
+	err := s.store.Write(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, state, nil)
 	if err != nil {
-		t.Fatalf("write AuthTokenState failed: %v", err)
+		t.Fatalf("write LoginState failed: %v", err)
 	}
 
 	// Ensure identity exists before request.
@@ -1575,10 +1601,10 @@ func TestConsent_Hydra(t *testing.T) {
 		t.Errorf("contentType = %s want text/html", contentType)
 	}
 
-	state := &cpb.AuthTokenState{}
-	err = s.store.Read(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, state)
+	state := &cpb.LoginState{}
+	err = s.store.Read(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, loginStateID, storage.LatestRev, state)
 	if err != nil {
-		t.Fatalf("read AuthTokenState failed: %v", err)
+		t.Fatalf("read LoginState failed: %v", err)
 	}
 
 	if state.ConsentChallenge != consentChallenge {
@@ -1657,14 +1683,14 @@ func TestConsent_Hydra_skipInformationRelease(t *testing.T) {
 
 func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, scope, stateID, agree string) (*http.Response, error) {
 	// Ensure auth token state exists before request.
-	tokState := &cpb.AuthTokenState{
+	tokState := &cpb.LoginState{
 		Realm:            storage.DefaultRealm,
 		Scope:            scope,
 		ConsentChallenge: consentChallenge,
 		Subject:          LoginSubject,
 	}
 
-	err := s.store.Write(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, authTokenStateID, storage.LatestRev, tokState, nil)
+	err := s.store.Write(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, authTokenStateID, storage.LatestRev, tokState, nil)
 	if err != nil {
 		return nil, err
 	}
