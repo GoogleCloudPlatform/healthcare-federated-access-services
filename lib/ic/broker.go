@@ -256,12 +256,6 @@ func (s *Service) doFinishLogin(r *http.Request) (_ string, _ *htmlPageOrRedirec
 		return challenge, nil, status.Errorf(codes.Unauthenticated, "missing auth code")
 	}
 
-	redirect := loginState.Redirect
-	scope := loginState.Scope
-	state := loginState.State
-	nonce := loginState.Nonce
-	clientID := loginState.ClientId
-
 	if idpName != loginState.IdpName {
 		return challenge, nil, status.Errorf(codes.Unauthenticated, "request idp does not match login state, want %q, got %q", loginState.IdpName, idpName)
 	}
@@ -290,15 +284,7 @@ func (s *Service) doFinishLogin(r *http.Request) (_ string, _ *htmlPageOrRedirec
 		return challenge, nil, status.Errorf(httputils.RPCCode(st), "%v", err)
 	}
 
-	// If Idp does not support nonce field, use nonce in state instead.
-	if len(login.Nonce) == 0 {
-		login.Nonce = nonce
-	}
-	if nonce != login.Nonce {
-		return challenge, nil, status.Errorf(httputils.RPCCode(st), "nonce in id token is not equal to nonce linked to auth code")
-	}
-
-	res, err := s.finishLogin(login, idpName, redirect, scope, clientID, state, loginState.Challenge, tx, cfg, secrets, r)
+	res, err := s.finishLogin(login, idpName, loginState.Challenge, tx, cfg, secrets, r)
 	return challenge, res, err
 }
 

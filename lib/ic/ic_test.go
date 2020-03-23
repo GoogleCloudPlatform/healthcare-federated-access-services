@@ -1217,13 +1217,10 @@ func TestLogin_Hydra_invalid_idp_Error(t *testing.T) {
 }
 
 func sendAcceptLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, code, state, errName, errDesc string) (*http.Response, error) {
-	idpc := cfg.IdentityProviders[idpName]
-
 	// Ensure login state exists before request.
 	login := &cpb.LoginState{
 		IdpName:   idpName,
 		Realm:     storage.DefaultRealm,
-		Scope:     strings.Join(idpc.Scopes, " "),
 		Challenge: loginChallenge,
 	}
 
@@ -1361,13 +1358,10 @@ func TestAcceptLogin_Hydra_InvalidState(t *testing.T) {
 }
 
 func sendFinishLogin(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, idp, code, state string) (*http.Response, error) {
-	idpc := cfg.IdentityProviders[idpName]
-
 	// Ensure login state exists before request.
 	login := &cpb.LoginState{
 		IdpName:   idpName,
 		Realm:     storage.DefaultRealm,
-		Scope:     strings.Join(idpc.Scopes, " "),
 		Challenge: loginChallenge,
 	}
 

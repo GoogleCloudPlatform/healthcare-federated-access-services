@@ -450,8 +450,7 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 }
 
 func (s *Service) idpAuthorize(in loginIn, idp *cpb.IdentityProvider, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
-	scope := strings.Join(in.scope, " ")
-	stateID, err := s.buildState(in.idpName, in.realm, scope, in.challenge, tx)
+	stateID, err := s.buildState(in.idpName, in.realm, in.challenge, tx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -482,11 +481,10 @@ func idpConfig(idp *cpb.IdentityProvider, domainURL string, secrets *pb.IcSecret
 	}
 }
 
-func (s *Service) buildState(idpName, realm, scope, challenge string, tx storage.Tx) (string, error) {
+func (s *Service) buildState(idpName, realm, challenge string, tx storage.Tx) (string, error) {
 	login := &cpb.LoginState{
 		IdpName:   idpName,
 		Realm:     realm,
-		Scope:     scope,
 		Challenge: challenge,
 	}
 
@@ -595,7 +593,7 @@ func (s *Service) getAndValidateStateRedirect(r *http.Request, cfg *pb.IcConfig)
 }
 
 // finishLogin returns html page or redirect url and status error
-func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, clientID, state, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request) (*htmlPageOrRedirectURL, error) {
+func (s *Service) finishLogin(id *ga4gh.Identity, provider, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request) (*htmlPageOrRedirectURL, error) {
 	realm := getRealm(r)
 	lookup, err := s.scim.LoadAccountLookup(realm, id.Subject, tx)
 	if err != nil {
@@ -643,13 +641,9 @@ func (s *Service) finishLogin(id *ga4gh.Identity, provider, redirect, scope, cli
 
 	// redirect to information release page.
 	auth := &cpb.AuthTokenState{
-		Redirect:  redirect,
 		Subject:   subject,
-		Scope:     scope,
 		Provider:  provider,
 		Realm:     realm,
-		State:     state,
-		Nonce:     id.Nonce,
 		LoginHint: loginHint,
 	}
 

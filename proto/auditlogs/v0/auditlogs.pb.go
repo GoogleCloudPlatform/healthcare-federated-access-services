@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC.
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ package v1
 import (
 	context "context"
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	_struct "github.com/golang/protobuf/ptypes/struct"
@@ -29,7 +31,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -72,13 +73,15 @@ func (Decision) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_1be582115e76de27, []int{0}
 }
 
-// And AuditLog records request for access. They contain the following infomration:
-//   Where (the name of the service that made the decision)
-//   What Action (e.g. read/write/...) and Resource (e.g. GCS bucket, a resource at an endpoint)
-//   When (the time the decision was made)
-//   Who (the authentication information)
-//   Decision (the authorization decision, and the reason for it)
-//   Metadata (e.g. request, response, status code, tracing id, ...)
+// An AuditLog records request for access. They contain the following
+// information:
+// - Where:    the name of the service that made the decision.
+// - What:     the requested Action (e.g. read/write/...) and
+//             the Resource (e.g. GCS bucket, a resource at an endpoint).
+// - When:     the time the decision was made.
+// - Who:      the identity and authentication information for the requester.
+// - Decision: the authorization decision, and the reason for it.
+// - Metadata: the request, response, status code, tracing id, etc.
 type AuditLog struct {
 	// Name of the audit log.
 	// Format: `users/{user_id}/logs/{log_id}`.

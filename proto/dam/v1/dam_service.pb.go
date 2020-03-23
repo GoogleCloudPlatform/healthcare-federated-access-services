@@ -21,10 +21,11 @@ package v1
 
 import (
 	fmt "fmt"
+	math "math"
+
 	v1 "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1"
 	v11 "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1"
 	proto "github.com/golang/protobuf/proto"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
