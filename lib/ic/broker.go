@@ -21,13 +21,16 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
 )
 
 // Login is the HTTP handler for ".../login/{name}" endpoint.
@@ -286,6 +289,80 @@ func (s *Service) doFinishLogin(r *http.Request) (_ string, _ *htmlPageOrRedirec
 
 	res, err := s.finishLogin(login, idpName, loginState.Challenge, tx, cfg, secrets, r)
 	return challenge, res, err
+}
+
+// finishLogin returns html page or redirect url and status error
+func (s *Service) finishLogin(id *ga4gh.Identity, provider, challenge string, tx storage.Tx, cfg *pb.IcConfig, secrets *pb.IcSecrets, r *http.Request) (*htmlPageOrRedirectURL, error) {
+	realm := getRealm(r)
+	lookup, err := s.scim.LoadAccountLookup(realm, id.Subject, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "%v", err)
+	}
+	var subject string
+	if isLookupActive(lookup) {
+		subject = lookup.Subject
+		acct, _, err := s.scim.LoadAccount(subject, realm, true, tx)
+		if err != nil {
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
+		}
+		if acct.State == storage.StateDisabled {
+			// Reject using a DISABLED account.
+			return nil, status.Errorf(codes.PermissionDenied, "this account has been disabled, please contact the system administrator")
+		}
+		visas, err := s.accountLinkToVisas(r.Context(), acct, id.Subject, provider, cfg, secrets)
+		if err != nil {
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
+		}
+		if !visasAreEqual(visas, id.VisaJWTs) {
+			// Refresh the claims in the storage layer.
+			if err := s.populateAccountVisas(r.Context(), acct, id, provider); err != nil {
+				return nil, status.Errorf(codes.Unavailable, "%v", err)
+			}
+			err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
+			if err != nil {
+				return nil, status.Errorf(codes.Unavailable, "%v", err)
+			}
+		}
+	} else {
+		// Create an account for the identity automatically.
+		acct, err := s.newAccountWithLink(r.Context(), id, provider, cfg)
+		if err != nil {
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
+		}
+
+		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
+		}
+		subject = acct.Properties.Subject
+	}
+
+	loginHint := makeLoginHint(provider, id.Subject)
+
+	// redirect to information release page.
+	auth := &cpb.AuthTokenState{
+		Subject:   subject,
+		Provider:  provider,
+		Realm:     realm,
+		LoginHint: loginHint,
+	}
+
+	stateID := uuid.New()
+
+	err = s.store.WriteTx(storage.AuthTokenStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, auth, nil, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "%v", err)
+	}
+
+	if s.useHydra {
+		// send login success to hydra and redirect to hydra, hydra will come back to /identity/consent for information release.
+		redirect, err := hydra.LoginSuccess(r, s.httpClient, s.hydraAdminURL, challenge, subject, stateID, nil)
+		if err != nil {
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
+		}
+		return &htmlPageOrRedirectURL{redirect: redirect}, nil
+	}
+
+	return nil, status.Errorf(codes.Unimplemented, "Unimplemented oidc provider")
 }
 
 // AcceptInformationRelease is the HTTP handler for ".../inforelease" endpoint.
