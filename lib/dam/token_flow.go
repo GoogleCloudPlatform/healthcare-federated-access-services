@@ -65,14 +65,6 @@ func extractBearerToken(r *http.Request) (string, error) {
 	return parts[1], nil
 }
 
-func extractAuthCode(r *http.Request) (string, error) {
-	code := httputils.QueryParam(r, "code")
-	if len(code) != 0 {
-		return code, nil
-	}
-	return "", fmt.Errorf("auth code not found")
-}
-
 func parseTTL(maxAgeStr, ttlStr string) (time.Duration, error) {
 	if len(maxAgeStr) > 0 {
 		return timeutil.ParseSeconds(maxAgeStr)
@@ -373,6 +365,8 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut
 type loggedInHandlerIn struct {
 	authCode string
 	stateID  string
+	errStr   string
+	errDesc  string
 }
 
 type loggedInHandlerOut struct {
@@ -397,7 +391,18 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (_ *logged
 	state := &pb.ResourceTokenRequestState{}
 	err = s.store.ReadTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, in.stateID, storage.LatestRev, state, tx)
 	if err != nil {
+		if storage.ErrNotFound(err) {
+			return nil, "", status.Errorf(codes.InvalidArgument, err.Error())
+		}
 		return nil, "", status.Errorf(codes.Unavailable, err.Error())
+	}
+
+	if len(in.errStr) > 0 || len(in.errDesc) > 0 {
+		return nil, state.Challenge, errutil.WithErrorReason(in.errStr, status.Errorf(codes.Unauthenticated, in.errDesc))
+	}
+
+	if len(in.authCode) == 0 {
+		return nil, state.Challenge, status.Errorf(codes.InvalidArgument, "no auth code")
 	}
 
 	sec, err := s.loadSecrets(tx)
@@ -638,18 +643,16 @@ func (s *Service) resourceTokenState(stateID string, tx storage.Tx) (*pb.Resourc
 // LoggedInHandler implements endpoint "/loggedin" for broker auth code redirect.
 func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	code, err := extractAuthCode(r)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "%v", err))
-		return
-	}
 
 	stateID := httputils.QueryParam(r, "state")
 	if len(stateID) == 0 {
 		httputils.WriteError(w, status.Errorf(codes.InvalidArgument, "request must include state"))
 	}
+	code := httputils.QueryParam(r, "code")
+	errStr := httputils.QueryParam(r, "error")
+	errDesc := httputils.QueryParam(r, "error_description")
 
-	out, challenge, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID})
+	out, challenge, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID, errStr: errStr, errDesc: errDesc})
 	if err != nil {
 		if s.useHydra && len(challenge) > 0 {
 			hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
