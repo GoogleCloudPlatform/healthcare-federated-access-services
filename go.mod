@@ -1,6 +1,6 @@
 module github.com/GoogleCloudPlatform/healthcare-federated-access-services
 
-go 1.13
+go 1.14
 
 require (
   bitbucket.org/creachadair/stringset v0.0.8

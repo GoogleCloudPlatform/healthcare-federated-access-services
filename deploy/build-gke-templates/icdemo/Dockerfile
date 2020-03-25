@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.13.5-buster
+FROM golang:1.14.1-buster
 
 # Copy IC
 COPY . /hcls-fa
