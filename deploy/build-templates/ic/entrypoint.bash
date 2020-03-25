@@ -75,7 +75,7 @@ function start_hydra() {
   export URLS_CONSENT="${URL?}/identity/consent"
   export URLS_LOGIN="${URL?}/identity/login"
   # Database connect
-  export DSN="postgres://hydra:hydra@172.17.0.1:1234/${TYPE?}?sslmode=disable"
+  export DSN="postgres://hydra:hydra@172.17.0.1:1234/${SERVICE_NAME?}?sslmode=disable"
 
   # Setup database for hydra.
   cd /hydra
