@@ -554,7 +554,7 @@ func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, f
 	if s.useHydra {
 		cart, err = s.extractCartFromAccessToken(auth)
 		if err != nil {
-			return nil, status.Errorf(codes.Unauthenticated, "%v", err)
+			return nil, err
 		}
 	} else {
 		return nil, status.Errorf(codes.Unimplemented, "Unimplemented oidc provider")

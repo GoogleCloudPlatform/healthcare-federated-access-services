@@ -21,7 +21,6 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux" /* copybara-comment */
-	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
@@ -124,10 +123,7 @@ func (s *Server) write(w http.ResponseWriter, code int, e *hydraapi.GenericError
 		code = int(e.Code)
 		body = e
 	}
-	err := status.Errorf(httputils.RPCCode(code), "")
-	if err != nil {
-		httputils.WriteError(w, err)
-	}
+	w.WriteHeader(code)
 	httputils.WriteNonProtoResp(w, body)
 }
 

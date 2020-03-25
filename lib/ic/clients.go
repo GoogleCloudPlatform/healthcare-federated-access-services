@@ -200,7 +200,7 @@ func (h *syncClientsHandler) Get(r *http.Request, name string) (proto.Message, e
 
 	state, err := oathclients.SyncState(h.s.httpClient, h.s.hydraAdminURL, h.cfg.Clients, secrets.ClientSecrets)
 	if err != nil {
-		return nil, status.Errorf(codes.Aborted, "getting client sync state failed: %v", err)
+		return nil, status.Errorf(status.Code(err), "getting client sync state failed: %v", err)
 	}
 	return state, nil
 }

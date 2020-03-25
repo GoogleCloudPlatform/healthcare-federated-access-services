@@ -132,8 +132,7 @@ func TestOAuthToken_refresh_error(t *testing.T) {
 			introspectErr: &hydraapi.GenericError{
 				Code: http.StatusUnauthorized,
 			},
-			// TODO: should convert hydra err to status err.
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusUnauthorized,
 		},
 	}
 
@@ -174,8 +173,8 @@ func TestOAuthToken_refresh_deleted_err(t *testing.T) {
 
 	resp := sendExchangeToken(s, "refresh_token", "", "tok")
 
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusInternalServerError)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 
 	if f.ExchangeTokenReq != nil {

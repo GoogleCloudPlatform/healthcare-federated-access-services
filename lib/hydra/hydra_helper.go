@@ -121,7 +121,7 @@ func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, logi
 	// Now it's time to grant the login request. You could also deny the request if something went terribly wrong
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, err)
 		return true
 	}
 
@@ -183,7 +183,7 @@ func LoginSuccess(r *http.Request, client *http.Client, hydraAdminURL, challenge
 
 	resp, err := AcceptLogin(client, hydraAdminURL, challenge, req)
 	if err != nil {
-		return "", status.Errorf(codes.Unavailable, "%v", err)
+		return "", err
 	}
 	return resp.RedirectTo, nil
 }

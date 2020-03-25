@@ -48,7 +48,7 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 
 	login, err := hydra.GetLoginRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, err)
 		return
 	}
 
@@ -141,7 +141,7 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 
 	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
+		httputils.WriteError(w, err)
 		return
 	}
 
@@ -329,7 +329,7 @@ func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.LoginState, cfg
 
 	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
 	if err != nil {
-		return "", status.Errorf(codes.Unavailable, "%v", err)
+		return "", err
 	}
 
 	return resp.RedirectTo, nil
