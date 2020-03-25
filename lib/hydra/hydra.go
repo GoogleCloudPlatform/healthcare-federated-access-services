@@ -23,12 +23,13 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // GetLoginRequest fetches information on a login request.
@@ -228,7 +229,7 @@ func httpResponse(resp *http.Response, response interface{}) error {
 			return status.Errorf(codes.Internal, "DecodeJSON() failed: %v", err)
 		}
 		// TODO: figure out what error from hydra should handle.
-		log.Errorf("error from hydra: %v, debug info: %s", gErr, gErr.Debug)
+		glog.Errorf("error from hydra: %v, debug info: %s", gErr, gErr.Debug)
 		return toStatusErr(gErr)
 	}
 
