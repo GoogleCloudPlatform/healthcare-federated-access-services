@@ -1,0 +1,59 @@
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Package consents provides Remembered Consents PB for storage
+package consents;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/proto/store/consents";
+
+// RememberedConsentPreference contains the consent a user has given for release
+// of visas to a specific OAuth client.
+message RememberedConsentPreference {
+  // RequestMatchType defines what request is valid to use this consent.
+  enum RequestMatchType {
+    UNSPECIFIED = 0;
+    // SUBSET : request resource and scopes are subset of resource and scopes in
+    // this item.
+    SUBSET = 1;
+    // ANYTHING : request anything.
+    ANYTHING = 2;
+  }
+  // ReleaseType defines what to release.
+  enum ReleaseType {
+    UNKNOWN = 0;
+    // SELECTED : release selected visas of this item.
+    SELECTED = 1;
+    // ANYTHING_NEEDED: release anything request needed.
+    ANYTHING_NEEDED = 2;
+  }
+  // Visa contains fields to match released visas user have.
+  message Visa {
+    string type = 1;
+    string source = 2;
+    string by = 3;
+    string iss = 4;
+  }
+  string client_name = 1;
+  google.protobuf.Timestamp create_time = 2;
+  google.protobuf.Timestamp expire_time = 3;
+  RequestMatchType request_match_type = 4;
+  repeated string requested_resources = 5;
+  repeated string requested_scopes = 6;
+  ReleaseType release_type = 7;
+  repeated Visa selected_visas = 8;
+}

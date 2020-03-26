@@ -1687,6 +1687,10 @@ func registerHandlers(r *mux.Router, s *Service) {
 
 	// consents service endpoints
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
+	r.HandleFunc(listConsentPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(deleteConsentPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+
+	// TODO: delete the mocked endpoints when complete.
 	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 

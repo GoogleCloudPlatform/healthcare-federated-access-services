@@ -18,10 +18,12 @@ import (
 	"context"
 	"net/http"
 
-	glog "github.com/golang/glog" /* copybara-comment */
-	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
+	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+
+	glog "github.com/golang/glog" /* copybara-comment */
+	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
 	tgpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_grpc_proto */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
 )
@@ -38,17 +40,21 @@ func NewConsentsHandler(s tgpb.ConsentsServer) *ConsentsHandler {
 
 // DeleteConsent handles DeleteConsent HTTP requests.
 func (h *ConsentsHandler) DeleteConsent(w http.ResponseWriter, r *http.Request) {
-	req := &cpb.DeleteConsentRequest{Name: r.RequestURI}
-	resp, err := h.s.DeleteConsent(r.Context(), req)
+	userID := mux.Vars(r)["user"]
+	consentID := mux.Vars(r)["id"]
+
+	req := &cpb.DeleteConsentRequest{UserId: userID, ConsentId: consentID}
+	_, err := h.s.DeleteConsent(r.Context(), req)
 	if err != nil {
 		httputils.WriteError(w, err)
 	}
-	httputils.WriteResp(w, resp)
 }
 
 // ListConsents handles ListConsents HTTP requests.
 func (h *ConsentsHandler) ListConsents(w http.ResponseWriter, r *http.Request) {
-	req := &cpb.ListConsentsRequest{Parent: r.RequestURI}
+	userID := mux.Vars(r)["user"]
+
+	req := &cpb.ListConsentsRequest{UserId: userID}
 	resp, err := h.s.ListConsents(r.Context(), req)
 	if err != nil {
 		httputils.WriteError(w, err)

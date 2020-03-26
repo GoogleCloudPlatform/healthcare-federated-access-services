@@ -14,8 +14,8 @@
 
 syntax = "proto3";
 
-// Package v1 provides protocol buffer versions of OAuth Consents API for
-// listing and revoking OAuth consents.
+// Package v1 provides protocol buffer versions of Remembered Consents API for
+// listing and revoking Remembered consents.
 package consents.v1;
 
 import "google/api/annotations.proto";
@@ -26,25 +26,28 @@ option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-
 
 ///////////////////////////////////////////////////
 
-// OAuth Consents service.
+// Remembered Consents service.
 service Consents {
-  // Deletes the specified OAuth Consent.
+  // Deletes the specified Remembered Consent.
   rpc DeleteConsent(DeleteConsentRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/v1/{name=consents/*}"
+      delete: "/v1/users/{user_id}/consents/{consent_id}"
     };
   }
 
-  // Lists the OAuth Consents.
+  // Lists the Remembered Consents.
   rpc ListConsents(ListConsentsRequest) returns (ListConsentsResponse) {
     option (google.api.http) = {
-      get: "/v1/consents"
+      get: "/v1/users/{user_id}/consents"
     };
   }
 }
 
 // OAuth Consent.
 message Consent {
+  // Deprecated: use RememberedConsentPreference
+  option deprecated = true;
+
   // Name of the OAuth Consent.
   // Format: `consents/{consent_id}`.
   string name = 1;
@@ -73,16 +76,13 @@ message Consent {
   google.protobuf.Timestamp update_time = 8;
 }
 
-message GetConsentRequest {
-  string name = 1;
-}
-
 message DeleteConsentRequest {
-  string name = 1;
+  string user_id = 1;
+  string consent_id = 2;
 }
 
 message ListConsentsRequest {
-  string parent = 1;
+  string user_id = 1;
   string filter = 2;
   int32 page_size = 3;
   string page_token = 4;
@@ -91,4 +91,49 @@ message ListConsentsRequest {
 message ListConsentsResponse {
   repeated Consent consents = 1;
   string next_page_token = 2;
+}
+
+// ConsentV1 contains the consent a user has given for release of visas to a
+// specific OAuth client.
+message ConsentV1 {
+  // RequestMatchType defines what request is valid to use this consent.
+  enum RequestMatchType {
+    UNSPECIFIED = 0;
+    // SUBSET : request resource and scopes are subset of resource and scopes in
+    // this item.
+    SUBSET = 1;
+    // ANYTHING : request anything.
+    ANYTHING = 2;
+  }
+  // ReleaseType defines what to release.
+  enum ReleaseType {
+    UNKNOWN = 0;
+    // SELECTED : release selected visas of this item.
+    SELECTED = 1;
+    // ANYTHING_NEEDED: release anything request needed.
+    ANYTHING_NEEDED = 2;
+  }
+  // Visa contains fields to match released visas user have.
+  message Visa {
+    string type = 1;
+    string source = 2;
+    string by = 3;
+    string iss = 4;
+  }
+  // Client : remember the consent for this client.
+  message Client {
+    string client_id = 1;
+    string name = 2;
+    map<string, string> ui = 3;
+  }
+  // name iin format: /users/{user_id}/consents/{consent_id}
+  string name = 1;
+  Client client = 2;
+  google.protobuf.Timestamp create_time = 3;
+  google.protobuf.Timestamp expire_time = 4;
+  RequestMatchType request_match_type = 5;
+  repeated string requested_resources = 6;
+  repeated string requested_scopes = 7;
+  ReleaseType release_type = 8;
+  repeated Visa selected_visas = 9;
 }
