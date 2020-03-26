@@ -268,18 +268,14 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 	if !httputils.IsJSON(params.TokenFormat) {
 		return &clouds.ResourceTokenResult{
 			Account: email,
-			Token:   string(key.PrivateKeyData),
+			Token:   base64.StdEncoding.EncodeToString(key.PrivateKeyData),
 			Format:  "base64",
 		}, nil
 	}
 
-	bytes, err := base64.StdEncoding.DecodeString(string(key.PrivateKeyData))
-	if err != nil {
-		return nil, fmt.Errorf("decoding key: %v", err)
-	}
 	return &clouds.ResourceTokenResult{
 		Account: email,
-		Token:   string(bytes),
+		Token:   string(key.PrivateKeyData),
 		Format:  params.TokenFormat,
 	}, nil
 }
