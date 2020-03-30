@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"net/url"
@@ -217,7 +218,7 @@ type Service struct {
 	httpClient                 *http.Client
 	loginPage                  string
 	clientLoginPage            string
-	infomationReleasePage      string
+	infomationReleasePageTmpl  *template.Template
 	startTime                  int64
 	permissions                *permissions.Permissions
 	domain                     string
@@ -292,9 +293,9 @@ func New(r *mux.Router, params *Options) *Service {
 	if err != nil {
 		glog.Exitf("cannot load client login page: %v", err)
 	}
-	irp, err := srcutil.LoadFile(informationReleasePageFile)
+	infomationReleasePageTmpl, err := httputils.TemplateFromFile("info_release", informationReleasePageFile)
 	if err != nil {
-		glog.Exitf("cannot load information release page: %v", err)
+		glog.Exitf("cannot create template for information release page: %v", err)
 	}
 	syncFreq := time.Minute
 	if params.HydraSyncFreq > 0 {
@@ -311,7 +312,7 @@ func New(r *mux.Router, params *Options) *Service {
 		httpClient:                 params.HTTPClient,
 		loginPage:                  lp,
 		clientLoginPage:            clp,
-		infomationReleasePage:      irp,
+		infomationReleasePageTmpl:  infomationReleasePageTmpl,
 		startTime:                  time.Now().Unix(),
 		permissions:                perms,
 		domain:                     params.Domain,
@@ -645,17 +646,26 @@ func (s *Service) informationReleasePage(id *ga4gh.Identity, stateID, clientName
 		}
 	}
 
-	for i := range info {
-		info[i] = "\"" + info[i] + "\""
+	args := informationReleasePageArgs{
+		ApplicationName: clientName,
+		AssetDir:        assetPath,
+		Information:     info,
+		State:           stateID,
+		Path:            strings.ReplaceAll(acceptInformationReleasePath, "{realm}", realm),
 	}
 
-	page := strings.Replace(s.infomationReleasePage, "${APPLICATION_NAME}", clientName, -1)
-	page = strings.ReplaceAll(page, "${ASSET_DIR}", assetPath)
-	page = strings.ReplaceAll(page, "${INFORMATION}", strings.Join(info, ","))
-	page = strings.ReplaceAll(page, "${STATE}", stateID)
-	page = strings.ReplaceAll(page, "${PATH}", strings.ReplaceAll(acceptInformationReleasePath, "{realm}", realm))
+	sb := &strings.Builder{}
+	s.infomationReleasePageTmpl.Execute(sb, args)
 
-	return page
+	return sb.String()
+}
+
+type informationReleasePageArgs struct {
+	ApplicationName string
+	AssetDir        string
+	Information     []string
+	State           string
+	Path            string
 }
 
 //////////////////////////////////////////////////////////////////

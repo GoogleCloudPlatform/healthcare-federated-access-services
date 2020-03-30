@@ -3,19 +3,6 @@
  */
 
 /**
- * onInit ...
- * @param {string} lst
- */
-function onInit(lst) {
-  let ul = document.getElementById('list');
-  for (let i of lst) {
-    let li = document.createElement('li');
-    li.appendChild(document.createTextNode(i));
-    ul.appendChild(li);
-  }
-}
-
-/**
  * agree ...
  * @param {string} state
  * @param {string} path

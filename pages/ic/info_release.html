@@ -18,18 +18,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${APPLICATION_NAME}: Permissions</title>
-  <link rel="icon" href="${ASSET_DIR}/images/favicon.ico" type="image/png"/>
+  <title>{{.ApplicationName}}: Permissions</title>
+  <link rel="icon" href="{{.AssetDir}}/images/favicon.ico" type="image/png"/>
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css">
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <script src="${ASSET_DIR}/js/info_release.js"></script>
-  <link rel="stylesheet" href="${ASSET_DIR}/css/info_release.css">
+  <script src="{{.AssetDir}}/js/info_release.js"></script>
+  <link rel="stylesheet" href="{{.AssetDir}}/css/info_release.css">
   <script>
-    var info = [${INFORMATION}];
-    var state = '${STATE}';
-    var path = '${PATH}';
+    var info = [{{.Information}}];
+    var state = '{{.State}}';
+    var path = '{{.Path}}';
   </script>
 </head>
 <body onLoad="onInit(info);">
@@ -39,8 +39,11 @@
         <h2 class="mdl-card__title-text">We need your permission</h2>
       </div>
       <div class="mdl-card__supporting-text">
-        <p>By clicking "Agree", you agree to release your following information to ${APPLICATION_NAME}</p>
+        <p>By clicking "Agree", you agree to release your following information to {{.ApplicationName}}</p>
         <ul id="list">
+        {{range $it := .Information}}
+          <li>{{$it}}</li>
+        {{end}}
         </ul>
       </div>
       <div class="mdl-card__actions actions">
