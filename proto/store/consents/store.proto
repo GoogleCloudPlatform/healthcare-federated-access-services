@@ -19,7 +19,7 @@ package consents;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/proto/store/consents";
+option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/store/consents";
 
 // RememberedConsentPreference contains the consent a user has given for release
 // of visas to a specific OAuth client.
