@@ -1681,7 +1681,7 @@ func TestConsent_Hydra_skipInformationRelease(t *testing.T) {
 	}
 }
 
-func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, scope, stateID, agree string) (*http.Response, error) {
+func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, scope, stateID string) (*http.Response, error) {
 	// Ensure auth token state exists before request.
 	tokState := &cpb.LoginState{
 		Realm:            storage.DefaultRealm,
@@ -1718,10 +1718,61 @@ func sendAcceptInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Ser
 	h.RejectConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
 
 	// Send Request.
-	query := fmt.Sprintf("?agree=%s&state=%s", agree, stateID)
-	u := "https://" + domain + acceptInformationReleasePath + query
+	query := url.Values{}
+	query.Set("state", stateID)
+	u := "https://" + domain + acceptInformationReleasePath
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, u, nil)
+	r := httptest.NewRequest(http.MethodPost, u, bytes.NewBufferString(query.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	s.Handler.ServeHTTP(w, r)
+
+	return w.Result(), nil
+}
+
+func sendRejectInformationRelease(s *Service, cfg *pb.IcConfig, h *fakehydra.Server, scope, stateID string) (*http.Response, error) {
+	// Ensure auth token state exists before request.
+	tokState := &cpb.LoginState{
+		Realm:            storage.DefaultRealm,
+		Scope:            scope,
+		ConsentChallenge: consentChallenge,
+		Subject:          LoginSubject,
+	}
+
+	err := s.store.Write(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, authTokenStateID, storage.LatestRev, tokState, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure identity exists before request.
+	acct := &cpb.Account{
+		Properties: &cpb.AccountProperties{Subject: LoginSubject},
+		State:      "ACTIVE",
+		ConnectedAccounts: []*cpb.ConnectedAccount{
+			{
+				Properties: &cpb.AccountProperties{
+					Subject: "foo@bar.com",
+				},
+			},
+		},
+	}
+	err = s.store.Write(storage.AccountDatatype, storage.DefaultRealm, storage.DefaultUser, LoginSubject, storage.LatestRev, acct, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Clear fakehydra server and set reject response.
+	h.Clear()
+	h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+	h.RejectConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+	// Send Request.
+	query := url.Values{}
+	query.Set("state", stateID)
+	u := "https://" + domain + rejectInformationReleasePath
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, u, bytes.NewBufferString(query.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	s.Handler.ServeHTTP(w, r)
 
 	return w.Result(), nil
@@ -1735,9 +1786,9 @@ func TestAcceptInformationRelease_Hydra_Accept(t *testing.T) {
 
 	const scope = "openid profile"
 
-	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID, agree)
+	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID)
 	if err != nil {
-		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, agree, err)
+		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s) failed: %v", scope, authTokenStateID, err)
 	}
 
 	if resp.StatusCode != http.StatusSeeOther {
@@ -1789,9 +1840,9 @@ func TestAcceptInformationRelease_Hydra_Accept_Scoped(t *testing.T) {
 
 	const scope = "openid"
 
-	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID, agree)
+	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID)
 	if err != nil {
-		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, agree, err)
+		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s) failed: %v", scope, authTokenStateID, err)
 	}
 
 	if resp.StatusCode != http.StatusSeeOther {
@@ -1837,9 +1888,9 @@ func TestAcceptInformationRelease_Hydra_Reject(t *testing.T) {
 
 	const scope = "openid profile"
 
-	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID, deny)
+	resp, err := sendRejectInformationRelease(s, cfg, h, scope, authTokenStateID)
 	if err != nil {
-		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, deny, err)
+		t.Fatalf("sendRejectInformationRelease(s, cfg, h, %s, %s) failed: %v", scope, authTokenStateID, err)
 	}
 
 	if resp.StatusCode != http.StatusSeeOther {
@@ -1867,9 +1918,9 @@ func TestAcceptInformationRelease_Hydra_Endpoint(t *testing.T) {
 
 	const scope = "openid profile identities"
 
-	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID, agree)
+	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, authTokenStateID)
 	if err != nil {
-		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, agree, err)
+		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s) failed: %v", scope, authTokenStateID, err)
 	}
 
 	if resp.StatusCode != http.StatusSeeOther {
@@ -1916,9 +1967,9 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 
 	const scope = "openid profile"
 
-	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, "invalid", agree)
+	resp, err := sendAcceptInformationRelease(s, cfg, h, scope, "invalid")
 	if err != nil {
-		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, 'invalid', %s) failed: %v", scope, agree, err)
+		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, 'invalid') failed: %v", scope, err)
 	}
 
 	if resp.StatusCode != http.StatusInternalServerError {

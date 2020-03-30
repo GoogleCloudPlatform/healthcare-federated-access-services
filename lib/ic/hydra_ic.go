@@ -250,7 +250,7 @@ func (s *Service) hydraConsentReturnInformationReleasePage(r *http.Request, cons
 
 	id.Scope = strings.Join(consent.RequestedScope, " ")
 
-	page := s.informationReleasePage(id, stateID, clientName, id.Scope, state.Realm, cfg)
+	page := s.informationReleasePage(id, stateID, clientName, id.Scope)
 	return page, nil
 }
 

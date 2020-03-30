@@ -31,7 +31,7 @@ body {
 #information-release {
     padding: 2rem;
     width: 65%;
-    max-width: 40rem;
+    max-width: 60rem;
     background: #ffffff;
 }
 #list {
@@ -52,10 +52,19 @@ body {
     background: #e2e2e2;
     margin-right: 0.2rem;
 }
+#reject-form {
+    visibility: hidden;
+}
 .mdl-card__title-text{
     font-size: 2rem;
     font-weight: bold;
 }
 .mdl-card__supporting-text {
     color: rgba(0,0,0,.64);
+}
+
+.scrollable {
+    max-height: 18rem;
+    overflow-y: scroll;
+    overflow-x: hidden;
 }

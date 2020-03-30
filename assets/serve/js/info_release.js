@@ -2,15 +2,15 @@
  * @fileoverview Description of this file.
  */
 
+
 /**
- * agree ...
- * @param {string} state
- * @param {string} path
- * @param {string} yes
+ * changeSelectAny handles checkbox #select-anything state change.
+ * disables all autoselected checkbox when checked #select-anything
  */
-function agree(state, path, yes) {
-  var url = [location.protocol, '//', location.host, path].join('');
-  url += '?state=' + encodeURIComponent(state) +
-      '&agree=' + encodeURIComponent(yes ? 'y' : 'n');
-  window.location.href = url;
+function changeSelectAnything() {
+  let e = document.getElementById("select-anything");
+  let cbs = document.querySelectorAll(".autoselected");
+  for (i = 0; i < cbs.length; ++i) {
+    cbs[i].disabled = e.checked;
+  }
 }
