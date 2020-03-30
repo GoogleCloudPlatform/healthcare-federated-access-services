@@ -119,7 +119,7 @@ func cliFlow(t *testing.T, email, tokenOutput string, tokenStatus int) error {
 			Method: "GET",
 			Path:   "/test/cli/auth/1a4f6c82-d8a7-433b-9916-12e365efc971",
 			Output: `*https://hydra.example.com/authorize?client_id=*grant_type=authorization_code*redirect_uri=*response_type=code*scope=openid+profile+email+offline*state=1a4f6c82-d8a7-433b-9916-12e365efc971*`,
-			Status: http.StatusTemporaryRedirect,
+			Status: http.StatusSeeOther,
 		},
 	}
 	regResp := test.HandlerTests(t, s.Handler, regReq, hydraPublicURL, nil)["register"]

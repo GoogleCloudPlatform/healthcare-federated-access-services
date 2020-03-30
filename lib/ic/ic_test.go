@@ -1072,8 +1072,8 @@ func TestHydraLogin_LoginHint_Hydra(t *testing.T) {
 
 	resp := w.Result()
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	idpc := cfg.IdentityProviders[idpName]
@@ -1147,8 +1147,8 @@ func TestLogin_Hydra(t *testing.T) {
 
 	resp := sendLogin(s, idpName)
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	idpc := cfg.IdentityProviders[idpName]
@@ -1207,8 +1207,8 @@ func TestLogin_Hydra_invalid_idp_Error(t *testing.T) {
 
 	resp := sendLogin(s, "invalid")
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
 	}
 
 	if h.RejectLoginReq.Code != http.StatusNotFound {
@@ -1285,8 +1285,8 @@ func TestAcceptLogin_Hydra_ToFinishLogin(t *testing.T) {
 				t.Errorf("RejectLoginReq wants nil got %v", h.RejectLoginReq)
 			}
 
-			if resp.StatusCode != http.StatusTemporaryRedirect {
-				t.Errorf("statusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+			if resp.StatusCode != http.StatusSeeOther {
+				t.Errorf("statusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 			}
 
 			l := resp.Header.Get("Location")
@@ -1326,8 +1326,8 @@ func TestAcceptLogin_Hydra_Reject(t *testing.T) {
 		t.Errorf("RejectLoginReq.Description wants %s got %s", wantDesc, h.RejectLoginReq.Description)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("status code wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("status code wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	l := resp.Header.Get("Location")
@@ -1407,8 +1407,8 @@ func TestFinishLogin_Hydra_Success(t *testing.T) {
 		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s, login) failed: %v", idpName, authCode, loginStateID, err)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	l := resp.Header.Get("Location")
@@ -1508,8 +1508,8 @@ func TestFinishLogin_Hydra_Error_AuthCode(t *testing.T) {
 		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s, login) failed: %v", idpName, "invalid", loginStateID, err)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
 	}
 
 	if h.RejectLoginReq.Code != http.StatusUnauthorized {
@@ -1530,8 +1530,8 @@ func TestFinishLogin_Hydra_Error_Step(t *testing.T) {
 		t.Fatalf("sendFinishLogin(s, cfg, h, %s, %s, %s, consent) failed: %v", idpName, "invalid", loginStateID, err)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
 	}
 
 	if h.RejectConsentReq.Code != http.StatusUnauthorized {
@@ -1632,8 +1632,8 @@ func TestConsent_Hydra_StateInvalid(t *testing.T) {
 
 	resp := sendHydraConsent(t, s, h, "invalid")
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode = %d, wants %d,", resp.StatusCode, http.StatusTemporaryRedirect)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode = %d, wants %d,", resp.StatusCode, http.StatusSeeOther)
 	}
 
 	if h.RejectConsentReq.Code != http.StatusInternalServerError {
@@ -1653,8 +1653,8 @@ func TestConsent_Hydra_skipInformationRelease(t *testing.T) {
 	resp := sendHydraConsent(t, s, h, loginStateID)
 
 	// return consent page
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	if l := resp.Header.Get("Location"); l != hydraURL {
@@ -1740,8 +1740,8 @@ func TestAcceptInformationRelease_Hydra_Accept(t *testing.T) {
 		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, agree, err)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	if l := resp.Header.Get("Location"); l != hydraURL {
@@ -1794,8 +1794,8 @@ func TestAcceptInformationRelease_Hydra_Accept_Scoped(t *testing.T) {
 		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, agree, err)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	if l := resp.Header.Get("Location"); l != hydraURL {
@@ -1842,8 +1842,8 @@ func TestAcceptInformationRelease_Hydra_Reject(t *testing.T) {
 		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, deny, err)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	if l := resp.Header.Get("Location"); l != hydraURL {
@@ -1872,8 +1872,8 @@ func TestAcceptInformationRelease_Hydra_Endpoint(t *testing.T) {
 		t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s, %s) failed: %v", scope, authTokenStateID, agree, err)
 	}
 
-	if resp.StatusCode != http.StatusTemporaryRedirect {
-		t.Errorf("resp.StatusCode wants %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 	}
 
 	if l := resp.Header.Get("Location"); l != hydraURL {

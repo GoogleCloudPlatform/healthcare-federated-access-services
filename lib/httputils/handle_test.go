@@ -162,7 +162,7 @@ func TestWriteRedirect(t *testing.T) {
 			"Location":                     {dst},
 		},
 		Body: RedirectHTMLPage(dst),
-		Code: http.StatusTemporaryRedirect,
+		Code: http.StatusSeeOther,
 	}
 	if diff := cmp.Diff(w, want); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
@@ -195,7 +195,7 @@ func TestWriteRedirect_ParsedDestination(t *testing.T) {
 			"Location":                     {raw},
 		},
 		Body: RedirectHTMLPage(dst),
-		Code: http.StatusTemporaryRedirect,
+		Code: http.StatusSeeOther,
 	}
 	if diff := cmp.Diff(w, want); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
@@ -223,7 +223,7 @@ func TestWriteRedirect_RelativeDestination(t *testing.T) {
 			"Location":                     {"/srcresources/" + dst},
 		},
 		Body: RedirectHTMLPage("/srcresources/" + dst),
-		Code: http.StatusTemporaryRedirect,
+		Code: http.StatusSeeOther,
 	}
 	if diff := cmp.Diff(w, want); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
@@ -251,7 +251,7 @@ func TestWriteRedirect_RelativeDestinationAtRoot(t *testing.T) {
 			"Location":                     {dst},
 		},
 		Body: RedirectHTMLPage(dst),
-		Code: http.StatusTemporaryRedirect,
+		Code: http.StatusSeeOther,
 	}
 	if diff := cmp.Diff(w, want); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
@@ -298,7 +298,7 @@ func TestWriteRedirect_FullyEncodedRedirectURLParameter(t *testing.T) {
 			"Location":                     {dst},
 		},
 		Body: RedirectHTMLPage(dst),
-		Code: http.StatusTemporaryRedirect,
+		Code: http.StatusSeeOther,
 	}
 	if diff := cmp.Diff(w, want); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
