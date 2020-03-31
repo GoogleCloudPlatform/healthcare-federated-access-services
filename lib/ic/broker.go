@@ -397,38 +397,38 @@ func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr e
 
 	tx, err := s.store.Tx(true)
 	if err != nil {
-		return "", "", status.Errorf(codes.Unavailable, "%v", err)
+		return "", "", status.Errorf(codes.Unavailable, "accept info release transaction creation failed: %v", err)
 	}
 	defer func() {
 		err := tx.Finish()
 		if ferr == nil && err != nil {
-			ferr = status.Errorf(codes.Internal, "%v", err)
+			ferr = status.Errorf(codes.Internal, "accept info release transaction finish failed: %v", err)
 		}
 	}()
 
 	state := &cpb.LoginState{}
 	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
 	if err != nil {
-		return "", "", status.Errorf(codes.Internal, "%v", err)
+		return "", "", status.Errorf(codes.Internal, "accept info release datastore read failed: %v", err)
 	}
 
 	// The temporary state for information releasing process can be only used once.
 	err = s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
 	if err != nil {
-		return "", "", status.Errorf(codes.Internal, "%v", err)
+		return "", "", status.Errorf(codes.Internal, "accept info release datastore delete failed: %v", err)
 	}
 
 	challenge := state.ConsentChallenge
 
 	cfg, err := s.loadConfig(tx, state.Realm)
 	if err != nil {
-		return challenge, "", status.Errorf(codes.Internal, "%v", err)
+		return challenge, "", status.Errorf(codes.Internal, "accept info release loadConfig() failed: %v", err)
 	}
 
 	if s.useHydra {
 		addr, err := s.hydraAcceptConsent(r, state, cfg, tx)
 		if err != nil {
-			return challenge, "", status.Errorf(codes.Internal, "%v", err)
+			return challenge, "", status.Errorf(codes.Internal, "accept info release hydraAcceptConsent() failed: %v", err)
 		}
 		return challenge, addr, nil
 	}
@@ -474,13 +474,13 @@ func (s *Service) rejectInformationRelease(r *http.Request) (_ string, ferr erro
 	state := &cpb.LoginState{}
 	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
+		return "", status.Errorf(codes.Internal, "reject info release datastore read failed: %v", err)
 	}
 
 	// The temporary state for information releasing process can be only used once.
 	err = s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
+		return "", status.Errorf(codes.Internal, "reject info release datastore delete failed: %v", err)
 	}
 
 	challenge := state.ConsentChallenge
