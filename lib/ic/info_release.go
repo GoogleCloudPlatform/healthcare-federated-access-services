@@ -16,13 +16,21 @@ package ic
 
 import (
 	"encoding/base64"
+	"net/http"
 	"strings"
 
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	cspb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/store/consents" /* copybara-comment: go_proto */
 )
 
@@ -197,4 +205,119 @@ func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string,
 	}
 
 	return claims
+}
+
+// AcceptInformationRelease is the HTTP handler for ".../inforelease/accept" endpoint.
+func (s *Service) AcceptInformationRelease(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	challenge, redirect, err := s.acceptInformationRelease(r)
+	if err == nil {
+		httputils.WriteRedirect(w, r, redirect)
+		return
+	}
+
+	if s.useHydra && len(challenge) > 0 {
+		hydra.SendConsentReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
+	} else {
+		httputils.WriteError(w, err)
+	}
+}
+
+// acceptInformationRelease returns challenge, redirect and status error
+func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr error) {
+	stateID := httputils.QueryParam(r, "state")
+	if len(stateID) == 0 {
+		return "", "", status.Errorf(codes.InvalidArgument, "missing %q parameter", "state")
+	}
+
+	tx, err := s.store.Tx(true)
+	if err != nil {
+		return "", "", status.Errorf(codes.Unavailable, "accept info release transaction creation failed: %v", err)
+	}
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil && err != nil {
+			ferr = status.Errorf(codes.Internal, "accept info release transaction finish failed: %v", err)
+		}
+	}()
+
+	state := &cpb.LoginState{}
+	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
+	if err != nil {
+		return "", "", status.Errorf(codes.Internal, "accept info release datastore read failed: %v", err)
+	}
+
+	// The temporary state for information releasing process can be only used once.
+	err = s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
+	if err != nil {
+		return "", "", status.Errorf(codes.Internal, "accept info release datastore delete failed: %v", err)
+	}
+
+	challenge := state.ConsentChallenge
+
+	cfg, err := s.loadConfig(tx, state.Realm)
+	if err != nil {
+		return challenge, "", status.Errorf(codes.Internal, "accept info release loadConfig() failed: %v", err)
+	}
+
+	if s.useHydra {
+		addr, err := s.hydraAcceptConsent(r, state, cfg, tx)
+		if err != nil {
+			return challenge, "", status.Errorf(codes.Internal, "accept info release hydraAcceptConsent() failed: %v", err)
+		}
+		return challenge, addr, nil
+	}
+
+	return challenge, "", status.Errorf(codes.Unimplemented, "oidc service not supported")
+}
+
+// RejectInformationRelease is the HTTP handler for ".../inforelease/reject" endpoint.
+func (s *Service) RejectInformationRelease(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	challenge, err := s.rejectInformationRelease(r)
+
+	if err == nil {
+		glog.Errorln("rejectInformationRelease() should return err")
+		err = status.Errorf(codes.Internal, "unknown err from rejectInformationRelease()")
+	}
+
+	if s.useHydra && len(challenge) > 0 {
+		hydra.SendConsentReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
+	} else {
+		httputils.WriteError(w, err)
+	}
+}
+
+// rejectInformationRelease returns challenge and status error
+func (s *Service) rejectInformationRelease(r *http.Request) (_ string, ferr error) {
+	stateID := httputils.QueryParam(r, "state")
+	if len(stateID) == 0 {
+		return "", status.Errorf(codes.InvalidArgument, "missing %q parameter", "state")
+	}
+
+	tx, err := s.store.Tx(true)
+	if err != nil {
+		return "", status.Errorf(codes.Unavailable, "reject info release transaction creation failed: %v", err)
+	}
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil && err != nil {
+			ferr = status.Errorf(codes.Internal, "reject info release transaction finish failed: %v", err)
+		}
+	}()
+
+	state := &cpb.LoginState{}
+	err = s.store.ReadTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
+	if err != nil {
+		return "", status.Errorf(codes.Internal, "reject info release datastore read failed: %v", err)
+	}
+
+	// The temporary state for information releasing process can be only used once.
+	err = s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
+	if err != nil {
+		return "", status.Errorf(codes.Internal, "reject info release datastore delete failed: %v", err)
+	}
+
+	challenge := state.ConsentChallenge
+	return challenge, errutil.WithErrorReason("user_denied", status.Errorf(codes.Unauthenticated, "User denied releasing consent"))
 }
