@@ -1620,6 +1620,10 @@ func TestConsent_Hydra(t *testing.T) {
 	if diff := cmp.Diff(wantAud, state.Audience); len(diff) > 0 {
 		t.Errorf("state.Audience (-want +got) %s", diff)
 	}
+
+	if state.ClientName != "test-client" {
+		t.Errorf("state.ClientName = %s wants test-client", state.ClientName)
+	}
 }
 
 func TestConsent_Hydra_StateInvalid(t *testing.T) {

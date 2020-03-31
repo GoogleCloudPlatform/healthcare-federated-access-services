@@ -183,6 +183,7 @@ func (s *Service) hydraConsent(r *http.Request, challenge string, consent *hydra
 	state.ConsentChallenge = challenge
 	state.Scope = strings.Join(consent.RequestedScope, " ")
 	state.Audience = append(consent.RequestedAudience, consent.Client.ClientID)
+	state.ClientName = consent.Client.Name
 
 	cfg, err := s.loadConfig(tx, state.Realm)
 	if err != nil {
