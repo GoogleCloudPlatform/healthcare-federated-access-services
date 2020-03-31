@@ -75,6 +75,13 @@ func toInformationReleasePageArgs(id *ga4gh.Identity, stateID, clientName, scope
 					Value: id.Email,
 				})
 			}
+			if len(id.Picture) > 0 || len(id.Locale) > 0 {
+				args.Information["Profile"] = append(args.Information["Profile"], &informationItem{
+					ID:    "profile.others",
+					Title: "Others",
+					Value: "Picture,Locale",
+				})
+			}
 
 		case s == passportScope || s == ga4ghScope:
 			for _, v := range id.VisaJWTs {

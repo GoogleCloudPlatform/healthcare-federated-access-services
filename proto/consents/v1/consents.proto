@@ -98,7 +98,8 @@ message ListConsentsResponse {
 message ConsentV1 {
   // RequestMatchType defines what request is valid to use this consent.
   enum RequestMatchType {
-    UNSPECIFIED = 0;
+    // NONE : do not remember.
+    NONE = 0;
     // SUBSET : request resource and scopes are subset of resource and scopes in
     // this item.
     SUBSET = 1;
@@ -107,7 +108,7 @@ message ConsentV1 {
   }
   // ReleaseType defines what to release.
   enum ReleaseType {
-    UNKNOWN = 0;
+    UNSPECIFIED = 0;
     // SELECTED : release selected visas of this item.
     SELECTED = 1;
     // ANYTHING_NEEDED: release anything request needed.
@@ -136,4 +137,10 @@ message ConsentV1 {
   repeated string requested_scopes = 7;
   ReleaseType release_type = 8;
   repeated Visa selected_visas = 9;
+  bool release_profile_name = 10;
+  bool release_profile_email = 11;
+  bool release_profile_other = 12;
+  bool release_account_admin = 13;
+  bool release_link = 14;
+  bool release_identities = 15;
 }
