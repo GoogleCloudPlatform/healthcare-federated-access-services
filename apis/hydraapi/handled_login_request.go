@@ -54,10 +54,12 @@ type HandledLoginRequest struct {
 	// Remember, if set to true, tells ORY Hydra to remember this user by telling the user agent (browser) to store
 	// a cookie with authentication data. If the same user performs another OAuth 2.0 Authorization Request, he/she
 	// will not be asked to log in again.
+	// Deprecated: we built our own consent remember feature, do not use hydra remember feature.
 	Remember bool `json:"remember,omitempty"`
 
 	// RememberFor sets how long the authentication should be remembered for in seconds. If set to `0`, the
 	// authorization will be remembered for the duration of the browser session (using a session cookie).
+	// Deprecated: we built our own consent remember feature, do not use hydra remember feature.
 	RememberFor int64 `json:"remember_for,omitempty"`
 
 	// Subject is the user ID of the end-user that authenticated.

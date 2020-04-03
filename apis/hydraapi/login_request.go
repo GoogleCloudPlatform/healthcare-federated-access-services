@@ -48,6 +48,7 @@ type LoginRequest struct {
 	// If true, you can skip asking the user to grant the requested scopes, and simply forward the user to the redirect URL.
 	//
 	// This feature allows you to update / set session information.
+	// Deprecated: we built our own consent remember feature, do not use hydra remember feature.
 	Skip bool `json:"skip,omitempty"`
 
 	// Subject is the user ID of the end-user that authenticated. Now, that end user needs to grant or deny the scope

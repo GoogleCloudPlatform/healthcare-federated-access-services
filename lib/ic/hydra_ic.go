@@ -52,10 +52,6 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if hydra.LoginSkip(w, r, s.httpClient, login, s.hydraAdminURL, challenge) {
-		return
-	}
-
 	res, err := s.hydraLogin(challenge, login)
 	if err != nil {
 		hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
@@ -142,10 +138,6 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 	consent, err := hydra.GetConsentRequest(s.httpClient, s.hydraAdminURL, challenge)
 	if err != nil {
 		httputils.WriteError(w, err)
-		return
-	}
-
-	if hydra.ConsentSkip(w, r, s.httpClient, consent, s.hydraAdminURL, challenge) {
 		return
 	}
 

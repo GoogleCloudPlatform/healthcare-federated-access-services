@@ -31,10 +31,12 @@ type HandledConsentRequest struct {
 
 	// Remember, if set to true, tells ORY Hydra to remember this consent authorization and reuse it if the same
 	// client asks the same user for the same, or a subset of, scope.
+	// Deprecated: we built our own consent remember feature, do not use hydra remember feature.
 	Remember bool `json:"remember,omitempty"`
 
 	// RememberFor sets how long the consent authorization should be remembered for in seconds. If set to `0`, the
 	// authorization will be remembered indefinitely.
+	// Deprecated: we built our own consent remember feature, do not use hydra remember feature.
 	RememberFor int64 `json:"remember_for,omitempty"`
 
 	// session

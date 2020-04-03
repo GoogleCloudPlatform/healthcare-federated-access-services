@@ -108,54 +108,6 @@ func ExtractTokenIDInIntrospect(in *hydraapi.Introspection) (string, error) {
 	return tid, nil
 }
 
-// LoginSkip if hydra was already able to authenticate the user, skip will be true and we do not need to re-authenticate the user.
-func LoginSkip(w http.ResponseWriter, r *http.Request, client *http.Client, login *hydraapi.LoginRequest, hydraAdminURL, challenge string) bool {
-	if !login.Skip {
-		return false
-	}
-
-	// You can apply logic here, for example update the number of times the user logged in.
-
-	// TODO: provide metrics / audit logs for this case
-
-	// Now it's time to grant the login request. You could also deny the request if something went terribly wrong
-	resp, err := AcceptLogin(client, hydraAdminURL, challenge, &hydraapi.HandledLoginRequest{Subject: &login.Subject})
-	if err != nil {
-		httputils.WriteError(w, err)
-		return true
-	}
-
-	httputils.WriteRedirect(w, r, resp.RedirectTo)
-	return true
-}
-
-// ConsentSkip if hydra was already able to consent the user, skip will be true and we do not need to re-consent the user.
-// Returns whether a consent is required
-func ConsentSkip(w http.ResponseWriter, r *http.Request, client *http.Client, consent *hydraapi.ConsentRequest, hydraAdminURL, challenge string) bool {
-	if !consent.Skip {
-		return false
-	}
-
-	// You can apply logic here, for example update the number of times the user consent.
-
-	// TODO: provide metrics / audit logs for this case
-
-	// Now it's time to grant the consent request. You could also deny the request if something went terribly wrong
-	consentReq := &hydraapi.HandledConsentRequest{
-		GrantedAudience: append(consent.RequestedAudience, consent.Client.ClientID),
-		GrantedScope:    consent.RequestedScope,
-		// TODO: need double check token has correct info.
-	}
-	resp, err := AcceptConsent(client, hydraAdminURL, challenge, consentReq)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
-		return false
-	}
-
-	httputils.WriteRedirect(w, r, resp.RedirectTo)
-	return true
-}
-
 // SendLoginSuccess sends login success to hydra.
 func SendLoginSuccess(w http.ResponseWriter, r *http.Request, client *http.Client, hydraAdminURL, challenge, subject, stateID string, extra map[string]interface{}) {
 	addr, err := LoginSuccess(r, client, hydraAdminURL, challenge, subject, stateID, extra)

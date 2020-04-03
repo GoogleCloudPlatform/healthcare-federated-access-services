@@ -53,10 +53,6 @@ func (s *Service) HydraLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if hydra.LoginSkip(w, r, s.httpClient, login, s.hydraAdminURL, challenge) {
-		return
-	}
-
 	redirect, err := s.hydraLogin(r.Context(), challenge, login)
 	if err != nil {
 		hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)

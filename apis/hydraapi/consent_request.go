@@ -58,6 +58,7 @@ type ConsentRequest struct {
 	// Skip, if true, implies that the client has requested the same scopes from the same user previously.
 	// If true, you must not ask the user to grant the requested scopes. You must however either allow or deny the
 	// consent request using the usual API call.
+	// Deprecated: we built our own consent remember feature, do not use hydra remember feature.
 	Skip bool `json:"skip,omitempty"`
 
 	// Subject is the user ID of the end-user that authenticated. Now, that end user needs to grant or deny the scope
