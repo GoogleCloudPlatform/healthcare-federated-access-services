@@ -19,7 +19,7 @@ COPY . /hcls-fa
 RUN cd /hcls-fa && \
     go build ./gcp/ic
 
-COPY deploy/build-gke/ic/entrypoint.bash /entrypoint.sh
+COPY deploy/build-gke-template/ic/entrypoint.bash /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 
