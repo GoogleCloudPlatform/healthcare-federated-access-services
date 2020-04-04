@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -193,10 +192,25 @@ func (s *Service) hydraConsent(r *http.Request, challenge string, consent *hydra
 func (s *Service) hydraConsentSkipInformationReleasePage(r *http.Request, stateID string, state *cpb.LoginState, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
 	err := s.store.DeleteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
+		return "", status.Errorf(codes.Internal, "skip information release page delete state failed: %v", err)
 	}
 
-	redirect, err := s.hydraAcceptConsent(r, state, cfg, tx)
+	secrets, err := s.loadSecrets(tx)
+	if err != nil {
+		return "", status.Errorf(codes.Internal, "skip information release page loadSecrets() failed: %v", err)
+	}
+
+	acct, st, err := s.scim.LoadAccount(state.Subject, state.Realm, false, tx)
+	if err != nil {
+		return "", status.Errorf(httputils.RPCCode(st), "skip information release page LoadAccount() failed: %v", err)
+	}
+
+	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
+	if err != nil {
+		return "", status.Errorf(codes.Internal, "skip information release page accountToIdentity() failed: %v", err)
+	}
+
+	redirect, err := s.hydraAcceptConsent(id, state)
 	if err != nil {
 		return "", err
 	}
@@ -267,34 +281,10 @@ func identityToHydraMap(id *ga4gh.Identity) (map[string]interface{}, error) {
 	return m, err
 }
 
-func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.LoginState, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
-	secrets, err := s.loadSecrets(tx)
+func (s *Service) hydraAcceptConsent(id *ga4gh.Identity, state *cpb.LoginState) (string, error) {
+	m, err := identityToHydraMap(id)
 	if err != nil {
-		return "", status.Errorf(codes.Unavailable, "%v", err)
-	}
-	a, err := auth.FromContext(r.Context())
-	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
-	}
-
-	acct, st, err := s.scim.LoadAccount(state.Subject, state.Realm, a.IsAdmin, tx)
-	if err != nil {
-		return "", status.Errorf(httputils.RPCCode(st), "%v", err)
-	}
-
-	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
-	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
-	}
-
-	now := time.Now().Unix()
-
-	// TODO: scope maybe different after optional information release.
-	// scope down the identity.
-	scoped := scopedIdentity(id, state.Scope, s.getIssuerString(), state.Subject, "", now, id.NotBefore, id.Expiry, []string{}, "")
-	m, err := identityToHydraMap(scoped)
-	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
+		return "", status.Errorf(codes.Internal, "hydraAcceptConsent identityToHydraMap() failed: %v", err)
 	}
 
 	tokenID := uuid.New()
@@ -311,9 +301,9 @@ func (s *Service) hydraAcceptConsent(r *http.Request, state *cpb.LoginState, cfg
 		},
 	}
 
-	if len(scoped.Identities) != 0 {
+	if len(id.Identities) != 0 {
 		var identities []string
-		for k := range scoped.Identities {
+		for k := range id.Identities {
 			identities = append(identities, k)
 		}
 

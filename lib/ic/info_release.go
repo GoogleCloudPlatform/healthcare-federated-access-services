@@ -16,8 +16,10 @@ package ic
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -28,10 +30,15 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	cspb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/store/consents" /* copybara-comment: go_proto */
+)
+
+const (
+	rememberedConsentExpires = 90 * 24 * time.Hour
 )
 
 func (s *Service) informationReleasePage(id *ga4gh.Identity, stateID, clientName, scope string) string {
@@ -177,41 +184,124 @@ type informationReleasePageArgs struct {
 	State           string
 }
 
-func scopedIdentity(identity *ga4gh.Identity, scope, iss, subject, nonce string, iat, nbf, exp int64, aud []string, azp string) *ga4gh.Identity {
+// normalizeRememberedConsentPreference change ANYTHING_NEEDED to release item.
+func normalizeRememberedConsentPreference(rcp *cspb.RememberedConsentPreference) {
+	if rcp.ReleaseType != cspb.RememberedConsentPreference_ANYTHING_NEEDED {
+		return
+	}
+
+	rcp.ReleaseProfileName = true
+	rcp.ReleaseProfileEmail = true
+	rcp.ReleaseProfileOther = true
+	rcp.ReleaseAccountAdmin = true
+	rcp.ReleaseLink = true
+	rcp.ReleaseIdentities = true
+}
+
+func scopedIdentity(identity *ga4gh.Identity, rcp *cspb.RememberedConsentPreference, scope, iss, subject string, iat, nbf, exp int64) (*ga4gh.Identity, error) {
+	normalizeRememberedConsentPreference(rcp)
+	var scopes []string
+	for _, s := range strings.Split(scope, " ") {
+		switch s {
+		case "link":
+			if !rcp.ReleaseLink {
+				continue
+			}
+		case "account_admin":
+			if !rcp.ReleaseAccountAdmin {
+				continue
+			}
+		}
+		scopes = append(scopes, s)
+	}
+
 	claims := &ga4gh.Identity{
 		Issuer:           iss,
 		Subject:          subject,
-		Audiences:        ga4gh.Audiences(aud),
 		IssuedAt:         iat,
 		NotBefore:        nbf,
 		ID:               uuid.New(),
-		AuthorizedParty:  azp,
 		Expiry:           exp,
-		Scope:            scope,
+		Scope:            strings.Join(scopes, " "),
 		IdentityProvider: identity.IdentityProvider,
-		Nonce:            nonce,
 	}
-	if !hasScopes("refresh", scope, matchFullScope) {
-		// TODO: remove this extra "ga4gh" check once DDAP is compatible.
-		if hasScopes("identities", scope, matchFullScope) || hasScopes(passportScope, scope, matchFullScope) || hasScopes(ga4ghScope, scope, matchFullScope) {
+	// TODO: remove this extra "ga4gh" check once DDAP is compatible.
+	if hasScopes("identities", scope, matchFullScope) || hasScopes(passportScope, scope, matchFullScope) || hasScopes(ga4ghScope, scope, matchFullScope) {
+		if rcp.ReleaseIdentities {
 			claims.Identities = identity.Identities
 		}
-		if hasScopes("profile", scope, matchFullScope) {
+	}
+	if hasScopes("profile", scope, matchFullScope) {
+		if rcp.ReleaseProfileName {
 			claims.Name = identity.Name
 			claims.FamilyName = identity.FamilyName
 			claims.GivenName = identity.GivenName
 			claims.Username = identity.Username
+		}
+		if rcp.ReleaseProfileEmail {
+			claims.Email = identity.Email
+		}
+		if rcp.ReleaseProfileOther {
 			claims.Picture = identity.Picture
 			claims.Locale = identity.Locale
-			claims.Email = identity.Email
-			claims.Picture = identity.Picture
 		}
-		if hasScopes("ga4gh_passport_v1", scope, matchFullScope) {
+	}
+	if hasScopes("ga4gh_passport_v1", scope, matchFullScope) {
+		if rcp.ReleaseType == cspb.RememberedConsentPreference_ANYTHING_NEEDED {
 			claims.VisaJWTs = identity.VisaJWTs
+		} else {
+			visas, err := releasedVisas(identity.VisaJWTs, rcp.SelectedVisas)
+			if err != nil {
+				return nil, err
+			}
+			claims.VisaJWTs = visas
 		}
 	}
 
-	return claims
+	return claims, nil
+}
+
+// releasedVisas finds all released visa.
+func releasedVisas(visas []string, rVisas []*cspb.RememberedConsentPreference_Visa) ([]string, error) {
+	var res []string
+	for _, visa := range visas {
+		match, err := matchVisa(visa, rVisas)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			res = append(res, visa)
+		}
+	}
+
+	return res, nil
+}
+
+// matchVisa checks if the given visa is in the released list.
+func matchVisa(visaStr string, rVisas []*cspb.RememberedConsentPreference_Visa) (bool, error) {
+	v, err := ga4gh.NewVisaFromJWT(ga4gh.VisaJWT(visaStr))
+	if err != nil {
+		return false, err
+	}
+
+	visa := visaToConsentVisa(v)
+	for _, rv := range rVisas {
+		if visa.Type != rv.Type {
+			continue
+		}
+		if visa.Source != rv.Source {
+			continue
+		}
+		if visa.By != rv.By {
+			continue
+		}
+		if visa.Iss != rv.Iss {
+			continue
+		}
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // AcceptInformationRelease is the HTTP handler for ".../inforelease/accept" endpoint.
@@ -230,11 +320,85 @@ func (s *Service) AcceptInformationRelease(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// checkboxIDToConsentVisa convert ConsentVisa from base64 json string.
+func checkboxIDToConsentVisa(s string) (*cspb.RememberedConsentPreference_Visa, error) {
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return nil, fmt.Errorf("base64 decoding remembered consent preference failed: %v", err)
+	}
+
+	visa := &cspb.RememberedConsentPreference_Visa{}
+	if err := jsonpb.UnmarshalString(string(b), visa); err != nil {
+		return nil, fmt.Errorf("json decoding remembered consent preference failed: %v", err)
+	}
+
+	return visa, nil
+}
+
+// toRememberedConsentPreference reads RememberedConsentPreference from request.
+func toRememberedConsentPreference(r *http.Request) (*cspb.RememberedConsentPreference, error) {
+	now := time.Now()
+	rcp := &cspb.RememberedConsentPreference{
+		RequestMatchType: cspb.RememberedConsentPreference_NONE,
+		ReleaseType:      cspb.RememberedConsentPreference_SELECTED,
+		CreateTime:       timeutil.TimestampProto(now),
+		ExpireTime:       timeutil.TimestampProto(now.Add(rememberedConsentExpires)),
+	}
+	for k, v := range r.PostForm {
+		switch k {
+		case "state":
+			continue
+		case "profile.name":
+			rcp.ReleaseProfileName = true
+		case "profile.email":
+			rcp.ReleaseProfileEmail = true
+		case "profile.others":
+			rcp.ReleaseProfileOther = true
+		case "account_admin":
+			rcp.ReleaseAccountAdmin = true
+		case "link":
+			rcp.ReleaseLink = true
+		case "identities":
+			rcp.ReleaseIdentities = true
+		case "select-anything":
+			rcp.ReleaseType = cspb.RememberedConsentPreference_ANYTHING_NEEDED
+		case "remember":
+			if len(v) == 0 {
+				return nil, fmt.Errorf("remember format invalid")
+			}
+			switch v[0] {
+			case "remember-samesubset":
+				rcp.RequestMatchType = cspb.RememberedConsentPreference_SUBSET
+			case "remember-any":
+				rcp.RequestMatchType = cspb.RememberedConsentPreference_ANYTHING
+			case "remember-none":
+				rcp.RequestMatchType = cspb.RememberedConsentPreference_NONE
+			default:
+				return nil, fmt.Errorf("remember value invalid: %v", v[0])
+
+			}
+		default:
+			visa, err := checkboxIDToConsentVisa(k)
+			if err != nil {
+				return nil, err
+			}
+			rcp.SelectedVisas = append(rcp.SelectedVisas, visa)
+		}
+	}
+
+	return rcp, nil
+}
+
 // acceptInformationRelease returns challenge, redirect and status error
 func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr error) {
 	stateID := httputils.QueryParam(r, "state")
 	if len(stateID) == 0 {
 		return "", "", status.Errorf(codes.InvalidArgument, "missing %q parameter", "state")
+	}
+
+	rcp, err := toRememberedConsentPreference(r)
+	if err != nil {
+		return "", "", status.Errorf(codes.InvalidArgument, "accept info release read consent failed: %v", err)
 	}
 
 	tx, err := s.store.Tx(true)
@@ -262,13 +426,46 @@ func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr e
 
 	challenge := state.ConsentChallenge
 
+	rcp.ClientName = state.ClientName
+	// Save RememberedConsent if user select remember it.
+	if rcp.RequestMatchType != cspb.RememberedConsentPreference_NONE {
+		rID := uuid.New()
+		rcp.RequestedScopes = strings.Split(state.Scope, " ")
+		err = s.store.WriteTx(storage.RememberedConsentDatatype, state.Realm, state.Subject, rID, storage.LatestRev, rcp, nil, tx)
+		if err != nil {
+			return challenge, "", status.Errorf(codes.Internal, "accept info release datastore write remember consent failed: %v", err)
+		}
+	}
+
 	cfg, err := s.loadConfig(tx, state.Realm)
 	if err != nil {
 		return challenge, "", status.Errorf(codes.Internal, "accept info release loadConfig() failed: %v", err)
 	}
 
+	secrets, err := s.loadSecrets(tx)
+	if err != nil {
+		return challenge, "", status.Errorf(codes.Internal, "accept info release loadSecrets() failed: %v", err)
+	}
+
+	acct, st, err := s.scim.LoadAccount(state.Subject, state.Realm, false, tx)
+	if err != nil {
+		return challenge, "", status.Errorf(httputils.RPCCode(st), "accept info release LoadAccount() failed: %v", err)
+	}
+
+	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
+	if err != nil {
+		return challenge, "", status.Errorf(codes.Internal, "accept info release accountToIdentity() failed: %v", err)
+	}
+
+	now := time.Now().Unix()
+
+	scoped, err := scopedIdentity(id, rcp, state.Scope, s.getIssuerString(), state.Subject, now, id.NotBefore, id.Expiry)
+	if err != nil {
+		return challenge, "", status.Errorf(codes.Internal, "accept info release scopedIdentity() failed: %v", err)
+	}
+
 	if s.useHydra {
-		addr, err := s.hydraAcceptConsent(r, state, cfg, tx)
+		addr, err := s.hydraAcceptConsent(scoped, state)
 		if err != nil {
 			return challenge, "", status.Errorf(codes.Internal, "accept info release hydraAcceptConsent() failed: %v", err)
 		}
