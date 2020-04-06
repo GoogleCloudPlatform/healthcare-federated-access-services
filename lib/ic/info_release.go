@@ -18,6 +18,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -432,6 +433,10 @@ func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr e
 	rcp.ClientName = state.ClientName
 	// Save RememberedConsent if user select remember it.
 	if rcp.RequestMatchType != cspb.RememberedConsentPreference_NONE {
+		if err := s.cleanupRememberedConsent(state.Subject, state.Realm, tx); err != nil {
+			return challenge, "", err
+		}
+
 		rID := uuid.New()
 		rcp.RequestedScopes = strings.Split(state.Scope, " ")
 		err = s.store.WriteTx(storage.RememberedConsentDatatype, state.Realm, state.Subject, rID, storage.LatestRev, rcp, nil, tx)
@@ -476,6 +481,52 @@ func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr e
 	}
 
 	return challenge, "", status.Errorf(codes.Unimplemented, "oidc service not supported")
+}
+
+// cleanupRememberedConsent delete expired RememberedConsent or oldest RememberedConsent if count of RememberedConsent over maxRememberedConsent
+func (s *Service) cleanupRememberedConsent(user, realm string, tx storage.Tx) error {
+	rcs, err := s.findRememberedConsentsByUser(user, realm, "", 0, maxRememberedConsent+10, tx)
+	if err != nil {
+		return status.Errorf(codes.Unavailable, "cleanupRememberedConsent %v", err)
+	}
+
+	var list []*rememberedConsentPreferenceWithID
+	for k, v := range rcs {
+		list = append(list, &rememberedConsentPreferenceWithID{id: k, rcp: v})
+	}
+
+	// order by expire time.
+	sort.Slice(list, func(i int, j int) bool {
+		return list[i].rcp.ExpireTime.Seconds < list[j].rcp.ExpireTime.Seconds
+	})
+
+	i := 0
+
+	// delete item over limit not matter if it still valid.
+	for ; len(list)-i >= maxRememberedConsent; i++ {
+		if err := s.store.DeleteTx(storage.RememberedConsentDatatype, realm, user, list[i].id, storage.LatestRev, tx); err != nil {
+			return status.Errorf(codes.Unavailable, "cleanupRememberedConsent delete item over limit failed: %v", err)
+		}
+	}
+
+	now := time.Now().Unix()
+
+	// delete expired item.
+	for ; i < len(list); i++ {
+		if list[i].rcp.ExpireTime.Seconds > now {
+			break
+		}
+		if err := s.store.DeleteTx(storage.RememberedConsentDatatype, realm, user, list[i].id, storage.LatestRev, tx); err != nil {
+			return status.Errorf(codes.Unavailable, "cleanupRememberedConsent delete expired item failed: %v", err)
+		}
+	}
+
+	return nil
+}
+
+type rememberedConsentPreferenceWithID struct {
+	rcp *cspb.RememberedConsentPreference
+	id  string
 }
 
 // RejectInformationRelease is the HTTP handler for ".../inforelease/reject" endpoint.
@@ -600,7 +651,7 @@ func (s *Service) findRememberedConsentsByUser(subject, realm, clientName string
 			continue
 		}
 		// filter for clientName
-		if rcp.ClientName != clientName {
+		if len(clientName) > 0 && rcp.ClientName != clientName {
 			continue
 		}
 

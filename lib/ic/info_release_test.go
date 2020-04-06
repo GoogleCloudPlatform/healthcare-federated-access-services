@@ -17,6 +17,7 @@ package ic
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1009,6 +1010,86 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 
 	if h.RejectConsentReq != nil {
 		t.Errorf("RejectConsentReq wants nil got %v", h.RejectConsentReq)
+	}
+}
+
+func TestAcceptInformationRelease_Hydra_cleanupRememberedConsent(t *testing.T) {
+	tests := []struct {
+		name           string
+		expiredCount   int
+		unexpiredCount int
+		want           int
+	}{
+		{
+			name:         "not over limit remove expired",
+			expiredCount: 2,
+			want:         1,
+		},
+		{
+			name:           "over limit no expired",
+			unexpiredCount: maxRememberedConsent + 1,
+			want:           maxRememberedConsent,
+		},
+		{
+			name:           "remove over limit and remove expired",
+			expiredCount:   2,
+			unexpiredCount: maxRememberedConsent + 1,
+			want:           maxRememberedConsent,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, cfg, _, h, _, err := setupHydraTest()
+			if err != nil {
+				t.Fatalf("setupHydraTest() failed: %v", err)
+			}
+
+			var list []*rememberedConsentPreferenceWithID
+			for i := 0; i < tc.expiredCount; i++ {
+				list = append(list, &rememberedConsentPreferenceWithID{
+					id: fmt.Sprintf("e-%d", i),
+					rcp: &cspb.RememberedConsentPreference{
+						ExpireTime: timeutil.TimestampProto(time.Time{}),
+					},
+				})
+			}
+
+			validTime := time.Now().Add(time.Hour)
+
+			for i := 0; i < tc.unexpiredCount; i++ {
+				list = append(list, &rememberedConsentPreferenceWithID{
+					id: fmt.Sprintf("v-%d", i),
+					rcp: &cspb.RememberedConsentPreference{
+						ExpireTime: timeutil.TimestampProto(validTime),
+					},
+				})
+			}
+
+			for _, it := range list {
+				if err := s.store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, LoginSubject, it.id, storage.LatestRev, it.rcp, nil); err != nil {
+					t.Fatalf("Write RememberedConsentDatatype failed: %v", err)
+				}
+			}
+
+			resp, err := sendAcceptInformationRelease(s, cfg, h, "openid profile", authTokenStateID, cspb.RememberedConsentPreference_ANYTHING)
+			if err != nil {
+				t.Fatalf("sendAcceptInformationRelease(s, cfg, h, %s, %s) failed: %v", "openid profile", authTokenStateID, err)
+			}
+
+			if resp.StatusCode != http.StatusSeeOther {
+				t.Errorf("StatusCode = %d, wants = %d", resp.StatusCode, http.StatusSeeOther)
+			}
+
+			rcs, err := s.findRememberedConsentsByUser(LoginSubject, storage.DefaultRealm, "", 0, maxRememberedConsent+10, nil)
+			if err != nil {
+				t.Fatalf("findRememberedConsentsByUser() failed: %d", err)
+			}
+
+			if len(rcs) != tc.want {
+				t.Errorf("len(rcs) = %d, wants %d", len(rcs), tc.want)
+			}
+		})
 	}
 }
 
