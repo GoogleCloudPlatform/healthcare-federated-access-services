@@ -47,10 +47,12 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/testhttp" /* copybara-comment: testhttp */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
+	cspb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/store/consents" /* copybara-comment: go_proto */
 )
 
 const (
@@ -1656,7 +1658,6 @@ func TestConsent_Hydra_skipInformationRelease(t *testing.T) {
 
 	resp := sendHydraConsent(t, s, h, loginStateID)
 
-	// return consent page
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Errorf("resp.StatusCode wants %d, got %d", http.StatusSeeOther, resp.StatusCode)
 	}
@@ -1682,6 +1683,141 @@ func TestConsent_Hydra_skipInformationRelease(t *testing.T) {
 	wantEmail := "admin@" + domain
 	if email != wantEmail {
 		t.Errorf("Email in id token wants %s got %s", wantEmail, email)
+	}
+}
+
+func TestConsent_Hydra_RememberedConsentOrInformationRelease(t *testing.T) {
+	client := "test-client"
+	expired := &cspb.RememberedConsentPreference{
+		ClientName: client,
+		ExpireTime: timeutil.TimestampProto(time.Time{}),
+	}
+	anything := &cspb.RememberedConsentPreference{
+		ClientName:       client,
+		ExpireTime:       timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		RequestMatchType: cspb.RememberedConsentPreference_ANYTHING,
+	}
+	scopeSame := &cspb.RememberedConsentPreference{
+		ClientName:       client,
+		ExpireTime:       timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		RequestMatchType: cspb.RememberedConsentPreference_SUBSET,
+		RequestedScopes:  []string{"openid", "profile"},
+	}
+	scopeSubset := &cspb.RememberedConsentPreference{
+		ClientName:       client,
+		ExpireTime:       timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		RequestMatchType: cspb.RememberedConsentPreference_SUBSET,
+		RequestedScopes:  []string{"openid"},
+	}
+	scopeNotMatch := &cspb.RememberedConsentPreference{
+		ClientName:       client,
+		ExpireTime:       timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		RequestMatchType: cspb.RememberedConsentPreference_SUBSET,
+		RequestedScopes:  []string{"a1"},
+	}
+
+	tests := []struct {
+		name          string
+		remembered    map[string]*cspb.RememberedConsentPreference
+		status        int
+		consentAccept bool
+	}{
+		{
+			name:   "no RememberedConsent",
+			status: http.StatusOK,
+		},
+		{
+			name: "expired RememberedConsent",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired": expired,
+			},
+			status: http.StatusOK,
+		},
+		{
+			name: "not match",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"notmatch": scopeNotMatch,
+			},
+			status: http.StatusOK,
+		},
+		{
+			name: "select anything",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired":  expired,
+				"anything": anything,
+				"notmatch": scopeNotMatch,
+				"subset":   scopeSubset,
+			},
+			status:        http.StatusSeeOther,
+			consentAccept: true,
+		},
+		{
+			name: "select anything",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired":  expired,
+				"anything": anything,
+				"same":     scopeSame,
+				"notmatch": scopeNotMatch,
+				"subset":   scopeSubset,
+			},
+			status:        http.StatusSeeOther,
+			consentAccept: true,
+		},
+		{
+			name: "scope same",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired":  expired,
+				"same":     scopeSame,
+				"notmatch": scopeNotMatch,
+				"subset":   scopeSubset,
+			},
+			status:        http.StatusSeeOther,
+			consentAccept: true,
+		},
+		{
+			name: "scope subset",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired":  expired,
+				"notmatch": scopeNotMatch,
+				"subset":   scopeSubset,
+			},
+			status:        http.StatusSeeOther,
+			consentAccept: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, _, _, h, _, err := setupHydraTest()
+			if err != nil {
+				t.Fatalf("setupHydraTest() failed: %v", err)
+			}
+
+			for k, v := range tc.remembered {
+				err := s.store.Write(storage.RememberedConsentDatatype, "test", "admin", k, storage.LatestRev, v, nil)
+				if err != nil {
+					t.Fatalf("Write RememberedConsentDatatype failed: %v", err)
+				}
+			}
+
+			h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraURL}
+
+			resp := sendHydraConsent(t, s, h, loginStateID)
+
+			if resp.StatusCode != tc.status {
+				t.Errorf("resp.StatusCode wants %d, got %d", tc.status, resp.StatusCode)
+			}
+
+			if tc.consentAccept {
+				if h.AcceptConsentReq == nil {
+					t.Errorf("should call AcceptConsentReq")
+				}
+			} else {
+				if h.AcceptConsentReq != nil {
+					t.Errorf("should not call AcceptConsentReq")
+				}
+			}
+		})
 	}
 }
 

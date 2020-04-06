@@ -24,6 +24,8 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -39,6 +41,7 @@ import (
 
 const (
 	rememberedConsentExpires = 90 * 24 * time.Hour
+	maxRememberedConsent     = 200
 )
 
 func (s *Service) informationReleasePage(id *ga4gh.Identity, stateID, clientName, scope string) string {
@@ -524,4 +527,85 @@ func (s *Service) rejectInformationRelease(r *http.Request) (_ string, ferr erro
 
 	challenge := state.ConsentChallenge
 	return challenge, errutil.WithErrorReason("user_denied", status.Errorf(codes.Unauthenticated, "User denied releasing consent"))
+}
+
+// findRememberedConsent for user and consent request.
+// will match the remembered consent and incoming request in order:
+// 1. match type = anything remembered consent
+// 2. remembered consent has exact the same scope with request
+// 3. request scope is subset of remembered consent scope
+func (s *Service) findRememberedConsent(requestedScope []string, subject, realm, clientName string, tx storage.Tx) (*cspb.RememberedConsentPreference, error) {
+	rcps, err := s.findRememberedConsentsByUser(subject, realm, clientName, 0, maxRememberedConsent, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	var matchSame *cspb.RememberedConsentPreference
+	var matchSubset *cspb.RememberedConsentPreference
+
+	reqScope := scopesToStringSet(requestedScope)
+	for _, rcp := range rcps {
+		if rcp.RequestMatchType == cspb.RememberedConsentPreference_ANYTHING {
+			return rcp, nil
+		}
+
+		sco := scopesToStringSet(rcp.RequestedScopes)
+		// do not early return here to keep stable order: ANYTHING, SAME, SUBSET
+		if sco.Equals(reqScope) {
+			matchSame = rcp
+		}
+
+		if sco.IsSubset(reqScope) {
+			matchSubset = rcp
+		}
+	}
+
+	if matchSame != nil {
+		return matchSame, nil
+	}
+
+	return matchSubset, nil
+}
+
+func scopesToStringSet(scopes []string) stringset.Set {
+	set := stringset.Set{}
+	for _, s := range scopes {
+		set.Add(s)
+	}
+
+	return set
+}
+
+// findRememberedConsentsByUser returns all RememberedConsents of user of client.
+func (s *Service) findRememberedConsentsByUser(subject, realm, clientName string, offset, pageSize int, tx storage.Tx) (map[string]*cspb.RememberedConsentPreference, error) {
+	content := make(map[string]map[string]proto.Message)
+	count, err := s.store.MultiReadTx(storage.RememberedConsentDatatype, realm, subject, nil, offset, pageSize, content, &cspb.RememberedConsentPreference{}, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "findRememberedConsentsByUser MultiReadTx() failed: %v", err)
+	}
+
+	res := map[string]*cspb.RememberedConsentPreference{}
+	if count == 0 {
+		return res, nil
+	}
+
+	now := time.Now().Unix()
+	for k, v := range content[subject] {
+		rcp, ok := v.(*cspb.RememberedConsentPreference)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "findRememberedConsentsByUser obj type incorrect: user=%s, id=%s", subject, k)
+		}
+		// remove expired items
+		if rcp.ExpireTime.Seconds < now {
+			continue
+		}
+		// filter for clientName
+		if rcp.ClientName != clientName {
+			continue
+		}
+
+		res[k] = rcp
+	}
+
+	return res, nil
 }

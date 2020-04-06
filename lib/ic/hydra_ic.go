@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -185,8 +186,7 @@ func (s *Service) hydraConsent(r *http.Request, challenge string, consent *hydra
 		redirect, err := s.hydraConsentSkipInformationReleasePage(r, stateID, state, cfg, tx)
 		return &htmlPageOrRedirectURL{redirect: redirect}, err
 	}
-	page, err := s.hydraConsentReturnInformationReleasePage(r, consent, stateID, state, cfg, tx)
-	return &htmlPageOrRedirectURL{page: page}, err
+	return s.hydraConsentRememberConsentOrInformationReleasePage(r, consent, stateID, state, cfg, tx)
 }
 
 func (s *Service) hydraConsentSkipInformationReleasePage(r *http.Request, stateID string, state *cpb.LoginState, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
@@ -217,48 +217,66 @@ func (s *Service) hydraConsentSkipInformationReleasePage(r *http.Request, stateI
 	return redirect, nil
 }
 
-func (s *Service) hydraConsentReturnInformationReleasePage(r *http.Request, consent *hydraapi.ConsentRequest, stateID string, state *cpb.LoginState, cfg *pb.IcConfig, tx storage.Tx) (string, error) {
+func (s *Service) hydraConsentRememberConsentOrInformationReleasePage(r *http.Request, consent *hydraapi.ConsentRequest, stateID string, state *cpb.LoginState, cfg *pb.IcConfig, tx storage.Tx) (*htmlPageOrRedirectURL, error) {
 	clientName := consent.Client.Name
 	if len(clientName) == 0 {
 		clientName = consent.Client.ClientID
 	}
 	if len(clientName) == 0 {
-		return "", status.Errorf(codes.Unavailable, "consent.Client.Name empty")
+		return nil, status.Errorf(codes.Unavailable, "consent.Client.Name empty")
 	}
 
 	sub := consent.Subject
 	if len(sub) == 0 {
-		return "", status.Errorf(codes.Unavailable, "consent.Subject empty")
+		return nil, status.Errorf(codes.Unavailable, "consent.Subject empty")
 	}
 
 	err := s.store.WriteTx(storage.LoginStateDatatype, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	a, err := auth.FromContext(r.Context())
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 
 	acct, st, err := s.scim.LoadAccount(sub, state.Realm, a.IsAdmin, tx)
 	if err != nil {
-		return "", status.Errorf(httputils.RPCCode(st), "%v", err)
+		return nil, status.Errorf(httputils.RPCCode(st), "%v", err)
 	}
 
 	secrets, err := s.loadSecrets(tx)
 	if err != nil {
-		return "", status.Errorf(codes.Unavailable, "%v", err)
+		return nil, status.Errorf(codes.Unavailable, "%v", err)
 	}
 
 	id, err := s.accountToIdentity(r.Context(), acct, cfg, secrets)
 	if err != nil {
-		return "", status.Errorf(codes.Internal, "%v", err)
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 
 	id.Scope = strings.Join(consent.RequestedScope, " ")
 
+	rcp, err := s.findRememberedConsent(consent.RequestedScope, id.Subject, state.Realm, state.ClientName, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if rcp != nil {
+		scoped, err := scopedIdentity(id, rcp, id.Scope, s.getIssuerString(), id.Subject, time.Now().Unix(), id.NotBefore, id.Expiry)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "accept info release scopedIdentity() failed: %v", err)
+		}
+
+		redirect, err := s.hydraAcceptConsent(scoped, state)
+		if err != nil {
+			return nil, err
+		}
+		return &htmlPageOrRedirectURL{redirect: redirect}, nil
+	}
+
 	page := s.informationReleasePage(id, stateID, clientName, id.Scope)
-	return page, nil
+	return &htmlPageOrRedirectURL{page: page}, nil
 }
 
 func identityToHydraMap(id *ga4gh.Identity) (map[string]interface{}, error) {

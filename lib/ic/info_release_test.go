@@ -20,8 +20,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
@@ -29,9 +31,11 @@ import (
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/fakeencryption" /* copybara-comment: fakeencryption */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra" /* copybara-comment: fakehydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -257,6 +261,12 @@ func Test_toRememberedConsentPreference(t *testing.T) {
 
 			got.CreateTime = nil
 			got.ExpireTime = nil
+			sort.Slice(got.SelectedVisas, func(i int, j int) bool {
+				return got.SelectedVisas[i].Type < got.SelectedVisas[j].Type
+			})
+			sort.Slice(tc.want.SelectedVisas, func(i int, j int) bool {
+				return tc.want.SelectedVisas[i].Type < tc.want.SelectedVisas[j].Type
+			})
 			if d := cmp.Diff(tc.want, got, protocmp.Transform()); len(d) > 0 {
 				t.Errorf("toRememberedConsentPreference() (-want, +got): %v", d)
 			}
@@ -999,5 +1009,187 @@ func TestAcceptInformationRelease_Hydra_InvalidState(t *testing.T) {
 
 	if h.RejectConsentReq != nil {
 		t.Errorf("RejectConsentReq wants nil got %v", h.RejectConsentReq)
+	}
+}
+
+func setupForFindRememberedConsentsByUser() *Service {
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
+
+	s := NewService(&Options{
+		Domain:         domain,
+		ServiceName:    "ic",
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     fakeencryption.New(),
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+		HydraSyncFreq:  time.Nanosecond,
+	})
+
+	return s
+}
+
+func Test_findRememberedConsentsByUser(t *testing.T) {
+	s := setupForFindRememberedConsentsByUser()
+
+	rcps := map[string]*cspb.RememberedConsentPreference{
+		"expired": {
+			ClientName: "cli",
+			ExpireTime: timeutil.TimestampProto(time.Time{}),
+		},
+		"other-cli": {
+			ClientName: "other",
+			ExpireTime: timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		},
+		"want-1": {
+			ClientName: "cli",
+			ExpireTime: timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		},
+		"want-2": {
+			ClientName: "cli",
+			ExpireTime: timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		},
+	}
+
+	for k, v := range rcps {
+		err := s.store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, LoginSubject, k, storage.LatestRev, v, nil)
+		if err != nil {
+			t.Fatalf("Write RememberedConsentDatatype failed: %v", err)
+		}
+	}
+
+	// Ensure expired and different client got filtered.
+	got, err := s.findRememberedConsentsByUser(LoginSubject, storage.DefaultRealm, "cli", 0, maxRememberedConsent, nil)
+	if err != nil {
+		t.Fatalf("findRememberedConsentsByUser() failed: %v", err)
+	}
+
+	want := map[string]*cspb.RememberedConsentPreference{
+		"want-1": rcps["want-1"],
+		"want-2": rcps["want-2"],
+	}
+
+	if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
+		t.Errorf("findRememberedConsentsByUser() (-want,+got): %s", d)
+	}
+}
+
+func Test_findRememberedConsent(t *testing.T) {
+	expired := &cspb.RememberedConsentPreference{
+		ClientName: "cli",
+		ExpireTime: timeutil.TimestampProto(time.Time{}),
+	}
+	anything := &cspb.RememberedConsentPreference{
+		ClientName:       "cli",
+		ExpireTime:       timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		RequestMatchType: cspb.RememberedConsentPreference_ANYTHING,
+	}
+	scopeA1 := &cspb.RememberedConsentPreference{
+		ClientName:       "cli",
+		ExpireTime:       timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		RequestMatchType: cspb.RememberedConsentPreference_SUBSET,
+		RequestedScopes:  []string{"a1"},
+	}
+	scopeA1A2 := &cspb.RememberedConsentPreference{
+		ClientName:       "cli",
+		ExpireTime:       timeutil.TimestampProto(time.Now().Add(time.Hour)),
+		RequestMatchType: cspb.RememberedConsentPreference_SUBSET,
+		RequestedScopes:  []string{"a1", "a2"},
+	}
+
+	tests := []struct {
+		name           string
+		remembered     map[string]*cspb.RememberedConsentPreference
+		requestedScope []string
+		want           *cspb.RememberedConsentPreference
+	}{
+		{
+			name:           "no RememberedConsent",
+			requestedScope: []string{"a1", "a2"},
+			want:           nil,
+		},
+		{
+			name: "expired RememberedConsent",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired": expired,
+			},
+			requestedScope: []string{"a1", "a2"},
+			want:           nil,
+		},
+		{
+			name: "select anything",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired":  expired,
+				"anything": anything,
+				"a1a2":     scopeA1A2,
+				"a1":       scopeA1,
+			},
+			requestedScope: []string{"a1", "a2"},
+			want:           anything,
+		},
+		{
+			name: "same scope",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired": expired,
+				"a1a2":    scopeA1A2,
+				"a1":      scopeA1,
+			},
+			requestedScope: []string{"a1", "a2"},
+			want:           scopeA1A2,
+		},
+		{
+			name: "subset scope",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired": expired,
+				"a1a2":    scopeA1A2,
+			},
+			requestedScope: []string{"a1", "a2", "a3"},
+			want:           scopeA1A2,
+		},
+		{
+			name: "no match",
+			remembered: map[string]*cspb.RememberedConsentPreference{
+				"expired": expired,
+				"a1a2":    scopeA1A2,
+				"a1":      scopeA1,
+			},
+			requestedScope: []string{"a2"},
+			want:           nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := storage.NewMemoryStorage("ic-min", "testdata/config")
+
+			s := NewService(&Options{
+				Domain:         domain,
+				ServiceName:    "ic",
+				AccountDomain:  domain,
+				Store:          store,
+				Encryption:     fakeencryption.New(),
+				UseHydra:       useHydra,
+				HydraAdminURL:  hydraAdminURL,
+				HydraPublicURL: hydraURL,
+				HydraSyncFreq:  time.Nanosecond,
+			})
+
+			for k, v := range tc.remembered {
+				err := s.store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, LoginSubject, k, storage.LatestRev, v, nil)
+				if err != nil {
+					t.Fatalf("Write RememberedConsentDatatype failed: %v", err)
+				}
+			}
+
+			got, err := s.findRememberedConsent(tc.requestedScope, LoginSubject, storage.DefaultRealm, "cli", nil)
+			if err != nil {
+				t.Fatalf("findRememberedConsent failed: %v", err)
+			}
+
+			if d := cmp.Diff(tc.want, got, protocmp.Transform()); len(d) > 0 {
+				t.Errorf("findRememberedConsent() (-want,+got): %s", d)
+			}
+		})
 	}
 }
