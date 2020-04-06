@@ -24,7 +24,7 @@ RUN git clone https://github.com/ory/hydra.git && \
     git checkout ${HYDRA_VERSION} && \
     go build
 
-COPY deploy/build-gke/hydra-ic/entrypoint.bash /entrypoint.sh
+COPY deploy/build-gke-templates/hydra-ic/entrypoint.bash /entrypoint.sh
 
 EXPOSE 4444 4445
 

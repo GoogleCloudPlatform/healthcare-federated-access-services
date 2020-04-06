@@ -16,6 +16,6 @@
 
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'build', '-f', "deploy/build-gke-template/ic/Dockerfile", '-t', 'gcr.io/$PROJECT_ID/hcls-fa-gke-ic', '.' ]
+    args: [ 'build', '-f', "deploy/build-gke-templates/ic/Dockerfile", '-t', 'gcr.io/$PROJECT_ID/hcls-fa-gke-ic', '.' ]
 images:
   - 'gcr.io/$PROJECT_ID/hcls-fa-gke-ic'
