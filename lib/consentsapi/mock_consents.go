@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package consentsapi contains a service manages user's remembered consent
 package consentsapi
 
 import (
@@ -28,34 +29,34 @@ import (
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
 )
 
-// ConsentsHandler is a HTTP handler wrapping a GRPC server.
-type ConsentsHandler struct {
+// MockConsentsHandler is a HTTP handler wrapping a GRPC server.
+type MockConsentsHandler struct {
 	s tgpb.ConsentsServer
 }
 
-// NewConsentsHandler returns a new ConsentsHandler.
-func NewConsentsHandler(s tgpb.ConsentsServer) *ConsentsHandler {
-	return &ConsentsHandler{s: s}
+// NewMockConsentsHandler returns a new MockConsentsHandler.
+func NewMockConsentsHandler(s tgpb.ConsentsServer) *MockConsentsHandler {
+	return &MockConsentsHandler{s: s}
 }
 
 // DeleteConsent handles DeleteConsent HTTP requests.
-func (h *ConsentsHandler) DeleteConsent(w http.ResponseWriter, r *http.Request) {
+func (h *MockConsentsHandler) DeleteConsent(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["user"]
 	consentID := mux.Vars(r)["id"]
 
 	req := &cpb.DeleteConsentRequest{UserId: userID, ConsentId: consentID}
-	_, err := h.s.DeleteConsent(r.Context(), req)
+	_, err := h.s.MockDeleteConsent(r.Context(), req)
 	if err != nil {
 		httputils.WriteError(w, err)
 	}
 }
 
 // ListConsents handles ListConsents HTTP requests.
-func (h *ConsentsHandler) ListConsents(w http.ResponseWriter, r *http.Request) {
+func (h *MockConsentsHandler) ListConsents(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["user"]
 
 	req := &cpb.ListConsentsRequest{UserId: userID}
-	resp, err := h.s.ListConsents(r.Context(), req)
+	resp, err := h.s.MockListConsents(r.Context(), req)
 	if err != nil {
 		httputils.WriteError(w, err)
 	}
@@ -64,24 +65,34 @@ func (h *ConsentsHandler) ListConsents(w http.ResponseWriter, r *http.Request) {
 
 // StubConsents is a stub implementation.
 type StubConsents struct {
-	Consent *cpb.Consent
+	Consent *cpb.MockConsent
 }
 
 // DeleteConsent revokes a consent.
 func (s *StubConsents) DeleteConsent(_ context.Context, req *cpb.DeleteConsentRequest) (*epb.Empty, error) {
-	glog.Infof("DeleteConsent %v", req)
 	return &epb.Empty{}, nil
 }
 
 // ListConsents lists the consents.
 func (s *StubConsents) ListConsents(_ context.Context, req *cpb.ListConsentsRequest) (*cpb.ListConsentsResponse, error) {
+	return nil, nil
+}
+
+// MockDeleteConsent revokes a consent.
+func (s *StubConsents) MockDeleteConsent(_ context.Context, req *cpb.DeleteConsentRequest) (*epb.Empty, error) {
+	glog.Infof("DeleteConsent %v", req)
+	return &epb.Empty{}, nil
+}
+
+// MockListConsents lists the consents.
+func (s *StubConsents) MockListConsents(_ context.Context, req *cpb.ListConsentsRequest) (*cpb.MockListConsentsResponse, error) {
 	glog.Infof("ListConsents %v", req)
-	return &cpb.ListConsentsResponse{Consents: []*cpb.Consent{s.Consent}}, nil
+	return &cpb.MockListConsentsResponse{Consents: []*cpb.MockConsent{s.Consent}}, nil
 }
 
 // FakeConsent is a fake consent.
 // TODO: move these fakes to test file once implemented.
-var FakeConsent = &cpb.Consent{
+var FakeConsent = &cpb.MockConsent{
 	Name:       "consents/fake-consent",
 	User:       "fake-user",
 	Client:     "fake-client",

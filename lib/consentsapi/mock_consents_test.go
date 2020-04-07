@@ -1,4 +1,4 @@
-// Copyright 2019 Google LLC
+// Copyright 2020 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 )
 
 func TestListConsents(t *testing.T) {
-	ts := NewConsentsHandler(&StubConsents{Consent: FakeConsent})
+	ts := NewMockConsentsHandler(&StubConsents{Consent: FakeConsent})
 	s := httptest.NewServer(http.HandlerFunc(ts.ListConsents))
 	defer s.Close()
 
@@ -40,10 +40,10 @@ func TestListConsents(t *testing.T) {
 		t.Fatalf("ListConsents failed: %v", resp.Status)
 	}
 
-	got := &cpb.ListConsentsResponse{}
+	got := &cpb.MockListConsentsResponse{}
 	httputils.MustDecodeJSONPBResp(t, resp, got)
 
-	want := &cpb.ListConsentsResponse{Consents: []*cpb.Consent{FakeConsent}}
+	want := &cpb.MockListConsentsResponse{Consents: []*cpb.MockConsent{FakeConsent}}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("ListConsents(%s) returned diff (-want +got):\n%s", name, diff)
 	}

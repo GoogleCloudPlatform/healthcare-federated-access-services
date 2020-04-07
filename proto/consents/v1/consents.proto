@@ -29,6 +29,22 @@ option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-
 // Remembered Consents service.
 service Consents {
   // Deletes the specified Remembered Consent.
+  // Deprecated: keep for +1 backward compatibility
+  rpc MockDeleteConsent(DeleteConsentRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/users/{user_id}/consents/{consent_id}"
+    };
+  }
+
+  // Lists the Remembered Consents.
+  // Deprecated: keep for +1 backward compatibility
+  rpc MockListConsents(ListConsentsRequest) returns (MockListConsentsResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}/consents"
+    };
+  }
+
+  // Deletes the specified Remembered Consent.
   rpc DeleteConsent(DeleteConsentRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/v1/users/{user_id}/consents/{consent_id}"
@@ -44,7 +60,7 @@ service Consents {
 }
 
 // OAuth Consent.
-message Consent {
+message MockConsent {
   // Deprecated: use RememberedConsentPreference
   option deprecated = true;
 
@@ -88,14 +104,20 @@ message ListConsentsRequest {
   string page_token = 4;
 }
 
+message MockListConsentsResponse {
+  // Deprecated: keep for +1 backward compatibility
+  repeated MockConsent consents = 1;
+  string next_page_token = 2;
+}
+
 message ListConsentsResponse {
   repeated Consent consents = 1;
   string next_page_token = 2;
 }
 
-// ConsentV1 contains the consent a user has given for release of visas to a
+// Consent contains the consent a user has given for release of visas to a
 // specific OAuth client.
-message ConsentV1 {
+message Consent {
   // RequestMatchType defines what request is valid to use this consent.
   enum RequestMatchType {
     // NONE : do not remember.
