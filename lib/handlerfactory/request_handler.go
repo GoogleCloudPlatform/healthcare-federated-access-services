@@ -23,8 +23,11 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // extractVars extracts variables from a request.
@@ -76,6 +79,15 @@ func MakeHandler(s storage.Store, opts *Options) http.HandlerFunc {
 
 // Process computes the response for a request.
 func Process(s storage.Store, opts *Options, r *http.Request) (_ proto.Message, ferr error) {
+	defer func() {
+		if c := recover(); c != nil {
+			glog.Errorf("CRASH %s %s: %v", r.Method, r.URL.Path, c)
+			if ferr == nil {
+				ferr = status.Errorf(codes.Internal, "internal error")
+			}
+		}
+	}()
+
 	hi := opts.Service
 	var op func(*http.Request, string) (proto.Message, error)
 	switch r.Method {
@@ -143,7 +155,7 @@ func Process(s storage.Store, opts *Options, r *http.Request) (_ proto.Message, 
 	if r.Method == http.MethodGet {
 		resp, err := op(r, name)
 		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+			return nil, toStatusErr(codes.InvalidArgument, err, r)
 		}
 		return resp, nil
 	}
@@ -190,7 +202,7 @@ func RunRMWTx(
 ) (proto.Message, error) {
 	resp, err := op(r, name)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, toStatusErr(codes.InvalidArgument, err, r)
 	}
 	if st := check(r); st != nil {
 		tx.Rollback()
@@ -201,4 +213,72 @@ func RunRMWTx(
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 	return resp, nil
+}
+
+// toStatusErr make a status err with given code, if err already status err, just return.
+// TODO: use status err as early as possible, than we can get rid of this func.
+func toStatusErr(code codes.Code, err error, r *http.Request) error {
+	if _, ok := status.FromError(err); ok {
+		return err
+	}
+
+	if globalflags.EnableDevLog {
+		glog.WarningDepthf(1, "%s %s still using non status err", r.Method, r.URL.Path)
+	}
+
+	return status.Errorf(code, "%v", err)
+}
+
+// Empty is a empty Service implementation for mixin.
+type Empty struct {
+}
+
+// Setup empty impl
+func (s *Empty) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	return 0, nil
+}
+
+// LookupItem empty impl
+func (s *Empty) LookupItem(r *http.Request, name string, vars map[string]string) bool {
+	return r.Method != http.MethodPost
+}
+
+// NormalizeInput empty impl
+func (s *Empty) NormalizeInput(r *http.Request, name string, vars map[string]string) error {
+	return nil
+}
+
+// Get return 404
+func (s *Empty) Get(r *http.Request, name string) (proto.Message, error) {
+	return nil, status.Errorf(codes.NotFound, "GET %s not exist", r.URL.Path)
+}
+
+// Post return 404
+func (s *Empty) Post(r *http.Request, name string) (proto.Message, error) {
+	return nil, status.Errorf(codes.NotFound, "POST %s not exist", r.URL.Path)
+}
+
+// Put return 404
+func (s *Empty) Put(r *http.Request, name string) (proto.Message, error) {
+	return nil, status.Errorf(codes.NotFound, "PUT %s not exist", r.URL.Path)
+}
+
+// Patch return 404
+func (s *Empty) Patch(r *http.Request, name string) (proto.Message, error) {
+	return nil, status.Errorf(codes.NotFound, "PATCH %s not exist", r.URL.Path)
+}
+
+// Remove return 404
+func (s *Empty) Remove(r *http.Request, name string) (proto.Message, error) {
+	return nil, status.Errorf(codes.NotFound, "DELETE %s not exist", r.URL.Path)
+}
+
+// CheckIntegrity empty impl
+func (s *Empty) CheckIntegrity(r *http.Request) *status.Status {
+	return nil
+}
+
+// Save empty impl
+func (s *Empty) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	return nil
 }

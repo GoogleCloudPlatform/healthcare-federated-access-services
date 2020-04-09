@@ -27,4 +27,8 @@ var (
 	// DisableAuditLog is a global flag determining if you want to disable audit log.
 	// Set from env var: `export FEDERATED_ACCESS_DISABLE_AUDIT_LOG=true`
 	DisableAuditLog = os.Getenv("FEDERATED_ACCESS_DISABLE_AUDIT_LOG") == "true"
+
+	// EnableDevLog is a global flag determining if you want to enable dev log.
+	// Set from env var: `export ENABLE_DEV_LOG=true`
+	EnableDevLog = os.Getenv("ENABLE_DEV_LOG") == "true"
 )

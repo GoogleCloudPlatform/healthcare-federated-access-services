@@ -2704,9 +2704,8 @@ func TestConfigClients_Create_Hydra_Error(t *testing.T) {
 
 	resp := sendConfigClientsCreate(t, "admin", clientName, "master", test.TestClientID, test.TestClientSecret, cli, s, iss)
 
-	// TODO should use better http status.
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusServiceUnavailable)
 	}
 
 	conf, err := s.loadConfig(nil, "master")
@@ -2929,9 +2928,8 @@ func TestConfigClients_Update_Hydra_Error(t *testing.T) {
 
 	resp := sendConfigClientsUpdate(t, "admin", clientName, "master", test.TestClientID, test.TestClientSecret, cli, s, iss)
 
-	// TODO should use better http status.
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusServiceUnavailable)
 	}
 
 	conf, err := s.loadConfig(nil, "master")
@@ -3070,9 +3068,8 @@ func TestConfigClients_Delete_Hydra_Error(t *testing.T) {
 
 	resp := sendConfigClientsDelete(t, "admin", clientName, "master", test.TestClientID, test.TestClientSecret, s, iss)
 
-	// TODO should use better http status.
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusServiceUnavailable)
 	}
 
 	conf, err := s.loadConfig(nil, "master")
@@ -3212,9 +3209,9 @@ func TestConfig_Hydra_Put_NotMasterRealmError(t *testing.T) {
 
 	// Call update config.
 	resp := damSendTestRequest(t, http.MethodPut, configPath, "", "test", pname, test.TestClientID, test.TestClientSecret, &pb.ConfigRequest{Item: cfg}, s, iss)
-	if resp.StatusCode != http.StatusBadRequest {
+	if resp.StatusCode != http.StatusForbidden {
 		body, _ := ioutil.ReadAll(resp.Body)
-		t.Fatalf("damSendTestRequest().StatusCode = %d, want %d\n body: %v", resp.StatusCode, http.StatusBadRequest, string(body))
+		t.Fatalf("damSendTestRequest().StatusCode = %d, want %d\n body: %v", resp.StatusCode, http.StatusForbidden, string(body))
 	}
 }
 

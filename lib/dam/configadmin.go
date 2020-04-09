@@ -96,7 +96,7 @@ func (h *configHandler) Post(r *http.Request, name string) (proto.Message, error
 }
 func (h *configHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	if getRealm(r) != storage.DefaultRealm && !check.ClientsEqual(h.cfg.Clients, h.input.Item.Clients) {
-		return nil, fmt.Errorf("modify clients is only allowed on master realm")
+		return nil, status.Errorf(codes.PermissionDenied, "modify clients is only allowed on master realm")
 	}
 
 	if h.cfg.Version != h.input.Item.Version {

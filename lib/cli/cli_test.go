@@ -87,8 +87,7 @@ func TestClIFlow_Success(t *testing.T) {
 func TestClIFlow_EmailMismatch(t *testing.T) {
 	email := "bad_admin@faculty.example.edu"
 	tokenOutput := `*bad_admin@faculty.example.edu*`
-	// TODO: ideally this would return a Unauthorized or Forbidden status.
-	tokenStatus := http.StatusBadRequest
+	tokenStatus := http.StatusUnauthorized
 	if err := cliFlow(t, email, tokenOutput, tokenStatus); err != nil {
 		t.Fatalf("cliFlow(t, %q, _, %d) failed: %v", email, tokenStatus, err)
 	}

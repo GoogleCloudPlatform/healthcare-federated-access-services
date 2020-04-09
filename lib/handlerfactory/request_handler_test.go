@@ -15,11 +15,12 @@
 package handlerfactory
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -29,6 +30,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakestore" /* copybara-comment: fakestore */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 )
 
@@ -278,4 +280,103 @@ func (s *fakeService) CheckIntegrity(r *http.Request) *status.Status {
 
 func (s *fakeService) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
 	return tx.Finish()
+}
+
+func TestEmptyService(t *testing.T) {
+	extractVars = extractVarsFake
+
+	s := fakestore.New()
+	hf := &Options{
+		TypeName:            "duration",
+		NameField:           "duration",
+		PathPrefix:          "durations/{duration}",
+		HasNamedIdentifiers: true,
+		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
+		Service:             &Empty{},
+	}
+	h := MakeHandler(s, hf)
+
+	methods := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
+
+	for _, m := range methods {
+		t.Run(m, func(t *testing.T) {
+			r := httputils.MustNewReq(m, "https://example.org/durations/fake-duration-id", httputils.MustEncodeProto(&dpb.Duration{Seconds: 60}))
+			w := httputils.NewFakeWriter()
+			h.ServeHTTP(w, r)
+
+			if w.Code != http.StatusNotFound {
+				t.Errorf("code = %d, wants %d", w.Code, http.StatusNotFound)
+			}
+
+			bodyContain := m + " /durations/fake-duration-id not exist"
+			if !strings.Contains(w.Body, bodyContain) {
+				t.Errorf("body = %s, wants contains(%s)", w.Body, bodyContain)
+			}
+		})
+	}
+}
+
+func TestSetupError(t *testing.T) {
+	extractVars = extractVarsFake
+
+	s := fakestore.New()
+	hf := &Options{
+		TypeName:            "duration",
+		NameField:           "duration",
+		PathPrefix:          "durations/{duration}",
+		HasNamedIdentifiers: true,
+		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
+		Service:             &serviceSetupErr{},
+	}
+	h := MakeHandler(s, hf)
+
+	r := httputils.MustNewReq(http.MethodPost, "https://example.org/durations/fake-duration-id", httputils.MustEncodeProto(&dpb.Duration{Seconds: 60}))
+	w := httputils.NewFakeWriter()
+	h.ServeHTTP(w, r)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("code = %d, wants %d", w.Code, http.StatusUnauthorized)
+	}
+}
+
+type serviceSetupErr struct {
+	Empty
+}
+
+func (s *serviceSetupErr) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	return 0, status.Error(codes.Unauthenticated, "error")
+}
+
+func TestCrash(t *testing.T) {
+	extractVars = extractVarsFake
+
+	s := fakestore.New()
+	hf := &Options{
+		TypeName:            "duration",
+		NameField:           "duration",
+		PathPrefix:          "durations/{duration}",
+		HasNamedIdentifiers: true,
+		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
+		Service:             &serviceGetCrash{},
+	}
+	h := MakeHandler(s, hf)
+
+	r := httputils.MustNewReq(http.MethodGet, "https://example.org/durations/fake-duration-id", httputils.MustEncodeProto(&dpb.Duration{Seconds: 60}))
+	w := httputils.NewFakeWriter()
+	h.ServeHTTP(w, r)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("code = %d, wants %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+type serviceGetCrash struct {
+	Empty
+}
+
+func (s *serviceGetCrash) Get(r *http.Request, name string) (proto.Message, error) {
+	a := []string{}
+	// crash, access index of slice out of range.
+	fmt.Println(a[1])
+	return nil, nil
 }
