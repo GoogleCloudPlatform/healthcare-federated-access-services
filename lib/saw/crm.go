@@ -17,8 +17,11 @@ package saw
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/api/cloudresourcemanager/v1" /* copybara-comment: cloudresourcemanager */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 )
 
 // CRMPolicyClient is used to manage IAM policy on CRM projects.
@@ -27,7 +30,13 @@ type CRMPolicyClient struct {
 }
 
 func (c *CRMPolicyClient) Get(ctx context.Context, project string) (*cloudresourcemanager.Policy, error) {
-	return c.crmc.Projects.GetIamPolicy(project, &cloudresourcemanager.GetIamPolicyRequest{}).Context(ctx).Do()
+	req := &cloudresourcemanager.GetIamPolicyRequest{
+		Options: &cloudresourcemanager.GetPolicyOptions{
+			// use policy version 3 to support iam condition.
+			RequestedPolicyVersion: 3,
+		},
+	}
+	return c.crmc.Projects.GetIamPolicy(project, req).Context(ctx).Do()
 }
 
 func (c *CRMPolicyClient) Set(ctx context.Context, project string, policy *cloudresourcemanager.Policy) error {
@@ -35,7 +44,7 @@ func (c *CRMPolicyClient) Set(ctx context.Context, project string, policy *cloud
 	return err
 }
 
-func applyCRMChange(ctx context.Context, crmc CRMPolicy, email string, project string, roles []string, state *backoffState) error {
+func applyCRMChange(ctx context.Context, crmc CRMPolicy, email string, project string, roles []string, ttl time.Duration, state *backoffState) error {
 	policy, err := crmc.Get(ctx, project)
 	if err != nil {
 		return convertToPermanentErrorIfApplicable(err, fmt.Errorf("getting IAM policy for project %q: %v", project, err))
@@ -50,7 +59,7 @@ func applyCRMChange(ctx context.Context, crmc CRMPolicy, email string, project s
 	}
 
 	for _, role := range roles {
-		crmPolicyAdd(policy, role, "serviceAccount:"+email)
+		crmPolicyAdd(policy, role, "serviceAccount:"+email, ttl)
 	}
 
 	if err := crmc.Set(ctx, project, policy); err != nil {
@@ -61,7 +70,16 @@ func applyCRMChange(ctx context.Context, crmc CRMPolicy, email string, project s
 }
 
 // crmPolicyAdd adds a member to a role in a CRM policy.
-func crmPolicyAdd(policy *cloudresourcemanager.Policy, role, member string) {
+func crmPolicyAdd(policy *cloudresourcemanager.Policy, role, member string, ttl time.Duration) {
+	if globalflags.DisableIAMConditionExpiry {
+		crmPolicyAddWithConditionExpDisabled(policy, role, member)
+		return
+	}
+	crmPolicyAddWithConditionExpEnabled(policy, role, member, ttl)
+}
+
+// crmPolicyAddWithConditionExpDisabled adds a member to a role in a CRM policy.
+func crmPolicyAddWithConditionExpDisabled(policy *cloudresourcemanager.Policy, role, member string) {
 	// Retrieve the existing binding for the given role if available, otherwise
 	// create one.
 	var binding *cloudresourcemanager.Binding
@@ -84,4 +102,40 @@ func crmPolicyAdd(policy *cloudresourcemanager.Policy, role, member string) {
 		}
 	}
 	binding.Members = append(binding.Members, member)
+}
+
+// crmPolicyAddWithConditionExpEnabled adds a member to role in a GCS policy with iam condition managed expiry.
+func crmPolicyAddWithConditionExpEnabled(policy *cloudresourcemanager.Policy, role, member string, ttl time.Duration) {
+	var binding *cloudresourcemanager.Binding
+	for _, b := range policy.Bindings {
+		if b.Role == role && strutil.SliceOnlyContains(b.Members, member) {
+			binding = b
+			break
+		}
+	}
+	if binding == nil {
+		binding = &cloudresourcemanager.Binding{
+			Role:    role,
+			Members: []string{member},
+		}
+		policy.Bindings = append(policy.Bindings, binding)
+	}
+
+	// add the expiry condition to binding.
+	// if condition already has expiry after thr new request, do not modify.
+	newExp := timeNow().Add(ttl)
+	exp := time.Time{}
+
+	if binding.Condition != nil {
+		exp = expiryInCondition(binding.Condition.Expression)
+	}
+
+	if exp.After(newExp) {
+		return
+	}
+
+	binding.Condition = &cloudresourcemanager.Expr{
+		Title:      "Expiry",
+		Expression: toExpiryConditionExpr(newExp),
+	}
 }

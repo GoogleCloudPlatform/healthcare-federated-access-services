@@ -672,3 +672,45 @@ func TestContainsWord(t *testing.T) {
 		})
 	}
 }
+
+func TestSliceOnlyContains(t *testing.T) {
+	tests := []struct {
+		name string
+		list []string
+		s    string
+		want bool
+	}{
+		{
+			name: "yes",
+			list: []string{"a"},
+			s:    "a",
+			want: true,
+		},
+		{
+			name: "empty slice",
+			list: []string{},
+			s:    "a",
+			want: false,
+		},
+		{
+			name: "len of slice not 1",
+			list: []string{"a", "b"},
+			s:    "a",
+			want: false,
+		},
+		{
+			name: "slice not match string",
+			list: []string{"b"},
+			s:    "a",
+			want: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if SliceOnlyContains(tc.list, tc.s) != tc.want {
+				t.Errorf("SliceOnlyContains(%v, %s) wants %v", tc.list, tc.s, tc.want)
+			}
+		})
+	}
+}

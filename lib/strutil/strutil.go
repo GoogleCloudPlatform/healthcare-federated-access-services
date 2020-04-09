@@ -184,3 +184,12 @@ func QuoteSplit(str, separator string, stripQuotes bool) []string {
 	}
 	return out
 }
+
+// SliceOnlyContains checks if the string slice only contains the given string.
+func SliceOnlyContains(list []string, s string) bool {
+	if len(list) != 1 {
+		return false
+	}
+
+	return list[0] == s
+}

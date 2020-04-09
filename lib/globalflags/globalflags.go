@@ -31,4 +31,8 @@ var (
 	// EnableDevLog is a global flag determining if you want to enable dev log.
 	// Set from env var: `export ENABLE_DEV_LOG=true`
 	EnableDevLog = os.Getenv("ENABLE_DEV_LOG") == "true"
+
+	// DisableIAMConditionExpiry is a global flag determining if you want to use IAM condition to manage user IAM expiry.
+	// Set from env var: `export DISABLE_IAM_CONDITION_EXPIRY=true`
+	 DisableIAMConditionExpiry = os.Getenv("DISABLE_IAM_CONDITION_EXPIRY") == "true"
 )
