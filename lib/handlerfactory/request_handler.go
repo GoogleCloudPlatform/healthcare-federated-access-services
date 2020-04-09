@@ -18,6 +18,7 @@ package handlerfactory
 import (
 	"net/http"
 	"regexp"
+	"runtime/debug"
 
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
@@ -81,7 +82,7 @@ func MakeHandler(s storage.Store, opts *Options) http.HandlerFunc {
 func Process(s storage.Store, opts *Options, r *http.Request) (_ proto.Message, ferr error) {
 	defer func() {
 		if c := recover(); c != nil {
-			glog.Errorf("CRASH %s %s: %v", r.Method, r.URL.Path, c)
+			glog.Errorf("CRASH %s %s: %v\n%s", r.Method, r.URL.Path, c, string(debug.Stack()))
 			if ferr == nil {
 				ferr = status.Errorf(codes.Internal, "internal error")
 			}
@@ -223,7 +224,7 @@ func toStatusErr(code codes.Code, err error, r *http.Request) error {
 	}
 
 	if globalflags.EnableDevLog {
-		glog.WarningDepthf(1, "%s %s still using non status err", r.Method, r.URL.Path)
+		glog.WarningDepth(1, r.Method, r.URL.Path, "still using non status err")
 	}
 
 	return status.Errorf(code, "%v", err)
