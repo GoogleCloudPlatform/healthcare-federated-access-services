@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
 )
 
@@ -32,14 +33,17 @@ type GCSPolicyClient struct {
 
 func (c *GCSPolicyClient) Get(ctx context.Context, bkt string, billingProject string) (*gcs.Policy, error) {
 	get := c.gcsc.Buckets.GetIamPolicy(bkt)
-	// use policy version 3 to support iam condition.
-	get.OptionsRequestedPolicyVersion(3)
+	get.OptionsRequestedPolicyVersion(iamVersion)
 	if billingProject != "" {
 		get = get.UserProject(billingProject)
 	}
 	policy, err := get.Context(ctx).Do()
 	if err != nil {
 		return nil, err
+	}
+	// force policy upgrade.
+	if policy.Version < iamVersion {
+		policy.Version = iamVersion
 	}
 	return policy, nil
 }
@@ -71,6 +75,7 @@ func applyGCSChange(ctx context.Context, gcsc GCSPolicy, email string, bkt strin
 	if err := gcsc.Set(ctx, bkt, billingProject, policy); err != nil {
 		state.failedEtag = policy.Etag
 		state.prevErr = err
+		glog.Errorf("set iam for gcs failed: %v", err)
 	}
 	return err
 }

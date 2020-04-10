@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+const (
+	// iamVersion use 3 to support iam condition.
+	iamVersion = 3
+)
+
 var (
 	expiryConditionRE   = regexp.MustCompile(`^request\.time < timestamp\("(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\"\)$`)
 	expiryTimeFormat    = "2006-01-02T15:04:05Z"

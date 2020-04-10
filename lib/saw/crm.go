@@ -22,6 +22,8 @@ import (
 	"google.golang.org/api/cloudresourcemanager/v1" /* copybara-comment: cloudresourcemanager */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // CRMPolicyClient is used to manage IAM policy on CRM projects.
@@ -32,11 +34,19 @@ type CRMPolicyClient struct {
 func (c *CRMPolicyClient) Get(ctx context.Context, project string) (*cloudresourcemanager.Policy, error) {
 	req := &cloudresourcemanager.GetIamPolicyRequest{
 		Options: &cloudresourcemanager.GetPolicyOptions{
-			// use policy version 3 to support iam condition.
-			RequestedPolicyVersion: 3,
+			RequestedPolicyVersion: iamVersion,
 		},
 	}
-	return c.crmc.Projects.GetIamPolicy(project, req).Context(ctx).Do()
+	policy, err := c.crmc.Projects.GetIamPolicy(project, req).Context(ctx).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	// force policy upgrade.
+	if policy.Version < iamVersion {
+		policy.Version = iamVersion
+	}
+	return policy, nil
 }
 
 func (c *CRMPolicyClient) Set(ctx context.Context, project string, policy *cloudresourcemanager.Policy) error {
@@ -65,6 +75,7 @@ func applyCRMChange(ctx context.Context, crmc CRMPolicy, email string, project s
 	if err := crmc.Set(ctx, project, policy); err != nil {
 		state.failedEtag = policy.Etag
 		state.prevErr = err
+		glog.Errorf("set iam for crm failed: %v", err)
 	}
 	return err
 }
