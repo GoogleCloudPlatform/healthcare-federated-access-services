@@ -108,6 +108,7 @@ tempdir=`mktemp -d`
 pushd $tempdir
 echo "This is an example" > example.txt
 gsutil cp -p=${PROJECT?} example.txt gs://${PROJECT?}-test-dataset
+gsutil uniformbucketlevelaccess set on gs://${PROJECT?}-test-dataset
 popd
 rm -rf $tempdir
 
