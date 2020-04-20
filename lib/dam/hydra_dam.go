@@ -26,6 +26,7 @@ import (
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -184,13 +185,8 @@ func (s *Service) hydraConsent(challenge string, consent *hydraapi.ConsentReques
 	return resp.RedirectTo, nil
 }
 
-func (s *Service) extractCartFromAccessToken(token string) (string, error) {
-	claims, err := hydra.Introspect(s.httpClient, s.hydraAdminURL, token)
-	if err != nil {
-		return "", err
-	}
-
-	v, ok := claims.Extra["cart"]
+func (s *Service) extractCartFromAccessToken(id *ga4gh.Identity) (string, error) {
+	v, ok := id.Extra["cart"]
 	if !ok {
 		return "", status.Errorf(codes.Unauthenticated, "token does not have 'cart' claim")
 	}
@@ -198,6 +194,10 @@ func (s *Service) extractCartFromAccessToken(token string) (string, error) {
 	cart, ok := v.(string)
 	if !ok {
 		return "", status.Errorf(codes.Internal, "token 'cart' claim have unwanted type")
+	}
+
+	if len(cart) == 0 {
+		return "", status.Errorf(codes.Unauthenticated, "token has empty 'cart' claim")
 	}
 
 	return cart, nil

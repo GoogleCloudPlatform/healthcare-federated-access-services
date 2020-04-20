@@ -2060,7 +2060,7 @@ func TestHydraConsent_Error(t *testing.T) {
 	}
 }
 
-func sendResourceTokens(t *testing.T, s *Service, broker *persona.Server, cartID string) *http.Response {
+func sendResourceTokens(t *testing.T, s *Service, broker *persona.Server, cartID string, expired bool) *http.Response {
 	t.Helper()
 
 	state := &pb.ResourceTokenRequestState{
@@ -2090,16 +2090,25 @@ func sendResourceTokens(t *testing.T, s *Service, broker *persona.Server, cartID
 	}
 
 	now := time.Now().Unix()
-	tok, err := broker.Sign(nil, &ga4gh.Identity{
+
+	id := &ga4gh.Identity{
 		Issuer:    hydraPublicURL,
 		Subject:   "subject",
 		IssuedAt:  now,
 		Expiry:    now + 10000,
 		Audiences: ga4gh.NewAudience(test.TestClientID),
-		Extra: map[string]interface{}{
-			"cart": cartID,
-		},
-	})
+		Extra: map[string]interface{}{},
+	}
+
+	if expired {
+		id.Expiry = 0
+	}
+
+	if len(cartID) > 0 {
+		id.Extra["cart"] = cartID
+	}
+
+	tok, err := broker.Sign(nil, id)
 	if err != nil {
 		t.Fatalf("broker.Sign() failed: %v", err)
 	}
@@ -2109,48 +2118,50 @@ func sendResourceTokens(t *testing.T, s *Service, broker *persona.Server, cartID
 }
 
 func TestResourceTokens(t *testing.T) {
-	s, _, _, h, broker, err := setupHydraTest(true)
+	s, _, _, _, broker, err := setupHydraTest(true)
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
-	// TODO: can use the "cart" in access token instead of read from Introspection.
-	h.IntrospectionResp = &hydraapi.Introspection{
-		Extra: map[string]interface{}{"cart": consentStateID},
-	}
-
-	resp := sendResourceTokens(t, s, broker, consentStateID)
+	resp := sendResourceTokens(t, s, broker, consentStateID, false)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
 	}
 }
 
 func TestResourceTokens_CartNotExistsInToken(t *testing.T) {
-	s, _, _, h, broker, err := setupHydraTest(true)
+	s, _, _, _, broker, err := setupHydraTest(true)
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
-	h.IntrospectionResp = &hydraapi.Introspection{}
-	resp := sendResourceTokens(t, s, broker, "")
+	resp := sendResourceTokens(t, s, broker, "", false)
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 }
 
 func TestResourceTokens_CartNotExistsInStorage(t *testing.T) {
-	s, _, _, h, broker, err := setupHydraTest(true)
+	s, _, _, _, broker, err := setupHydraTest(true)
 	if err != nil {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
-	h.IntrospectionResp = &hydraapi.Introspection{
-		Extra: map[string]interface{}{"cart": "invalid"},
-	}
-
-	resp := sendResourceTokens(t, s, broker, "invalid")
+	resp := sendResourceTokens(t, s, broker, "invalid", false)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
+	}
+}
+
+func TestResourceTokens_TokenExpiry(t *testing.T) {
+	s, _, _, _, broker, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendResourceTokens(t, s, broker, "invalid", true)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 }
 
