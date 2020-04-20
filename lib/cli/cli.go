@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -43,7 +44,6 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
@@ -387,25 +387,25 @@ func (h *AuthHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 // AcceptHandler handles one CLI auth request.
 type AcceptHandler struct {
-	store storage.Store
-	crypt kms.Encryption
-	page  string
+	store     storage.Store
+	crypt     kms.Encryption
+	pageTmpl  *template.Template
+	assetPath string
 }
 
 // NewAcceptHandler creates a new AcceptHandler.
-func NewAcceptHandler(store storage.Store, crypt kms.Encryption, rootPath string) *AcceptHandler {
-	page, err := srcutil.LoadFile(cliPageFile)
+func NewAcceptHandler(store storage.Store, crypt kms.Encryption, rootPath string) (*AcceptHandler, error) {
+	tmpl, err := httputils.TemplateFromFiles(cliPageFile)
 	if err != nil {
-		page = "<html><body>CLI Login: did not load page correctly.</body></html>"
+		return nil, err
 	}
-	assetPath := path.Join(rootPath, staticPath)
-	page = strings.Replace(page, "${ASSET_DIR}", assetPath, -1)
 
 	return &AcceptHandler{
-		store: store,
-		crypt: crypt,
-		page:  page,
-	}
+		store:     store,
+		crypt:     crypt,
+		pageTmpl:  tmpl,
+		assetPath: path.Join(rootPath, staticPath),
+	}, nil
 }
 
 // Handle handles an accept redirect request.
@@ -413,20 +413,20 @@ func (h *AcceptHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	name := httputils.QueryParam(r, "state")
 	if name == "" {
 		// Error state, provide page content to display error (hash messages on page can override).
-		writeAcceptPage(w, h.page, status.Errorf(codes.InvalidArgument, "missing state parameter"))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.InvalidArgument, "missing state parameter"))
 		return
 	}
 	if name == "" {
-		writeAcceptPage(w, h.page, status.Errorf(codes.InvalidArgument, "login failed: missing state query parameter"))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.InvalidArgument, "login failed: missing state query parameter"))
 		return
 	}
 	item := &cpb.CliState{}
 	if err := h.store.ReadTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, item, nil); err != nil {
 		if storage.ErrNotFound(err) {
-			writeAcceptPage(w, h.page, status.Errorf(codes.NotFound, "login %q not found", name))
+			writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.NotFound, "login %q not found", name))
 			return
 		}
-		writeAcceptPage(w, h.page, status.Errorf(codes.Unavailable, "load login %q failed: storage is unavailable", name))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.Unavailable, "load login %q failed: storage is unavailable", name))
 		return
 	}
 
@@ -436,19 +436,19 @@ func (h *AcceptHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			item.State = storage.StateDisabled
 			h.store.WriteTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, item, nil, nil)
 		}
-		writeAcceptPage(w, h.page, status.Errorf(codes.Unauthenticated, "login %q has already been accepted by another login flow", name))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.Unauthenticated, "login %q has already been accepted by another login flow", name))
 		return
 	}
 	atProto, err := ptypes.TimestampProto(time.Now())
 	if err != nil {
-		writeAcceptPage(w, h.page, status.Errorf(codes.Internal, "login %q cannot generate timestamp: %v", name, err))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.Internal, "login %q cannot generate timestamp: %v", name, err))
 		return
 	}
 	item.AcceptedAt = atProto
 
 	nonce := httputils.QueryParam(r, "nonce")
 	if nonce != "" && nonce != item.Nonce {
-		writeAcceptPage(w, h.page, status.Errorf(codes.InvalidArgument, "login failed: nonce mismatch"))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.InvalidArgument, "login failed: nonce mismatch"))
 		return
 	}
 	exp, err := ptypes.Timestamp(item.ExpiresAt)
@@ -457,26 +457,26 @@ func (h *AcceptHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if time.Now().Sub(exp) > 0 {
-		writeAcceptPage(w, h.page, status.Errorf(codes.DeadlineExceeded, "login %q failed: the login state has expired", name))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.DeadlineExceeded, "login %q failed: the login state has expired", name))
 		return
 	}
 	code := httputils.QueryParam(r, "code")
 	if len(code) == 0 {
 		item.State = storage.StateDisabled
 		h.store.WriteTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, item, nil, nil)
-		writeAcceptPage(w, h.page, status.Errorf(codes.InvalidArgument, "login %q failed: no auth code provided", name))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.InvalidArgument, "login %q failed: no auth code provided", name))
 		return
 	}
 	cryptcode, err := h.crypt.Encrypt(r.Context(), []byte(code), "")
 	if err != nil {
-		writeAcceptPage(w, h.page, status.Errorf(codes.Internal, "cannot generate secret: %v", err))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.Internal, "cannot generate secret: %v", err))
 	}
 	item.EncryptedCode = cryptcode
 	if err := h.store.WriteTx(storage.CliAuthDatatype, getRealm(r), storage.DefaultUser, name, storage.LatestRev, item, nil, nil); err != nil {
-		writeAcceptPage(w, h.page, status.Errorf(codes.Unavailable, "write login %q failed: storage is unavailable", name))
+		writeAcceptPage(w, h.pageTmpl, h.assetPath, status.Errorf(codes.Unavailable, "write login %q failed: storage is unavailable", name))
 		return
 	}
-	writeAcceptPage(w, h.page, nil)
+	writeAcceptPage(w, h.pageTmpl, h.assetPath, nil)
 }
 
 ////////////////////////////////////////////////////////////
@@ -485,7 +485,7 @@ func getRealm(r *http.Request) string {
 	return storage.DefaultRealm
 }
 
-func writeAcceptPage(w http.ResponseWriter, page string, err error) {
+func writeAcceptPage(w http.ResponseWriter, pageTmpl *template.Template, assetPath string, err error) {
 	code := codes.OK
 	e := ""
 	desc := ""
@@ -499,8 +499,19 @@ func writeAcceptPage(w http.ResponseWriter, page string, err error) {
 			hint = parts[1]
 		}
 	}
-	page = strings.Replace(page, "${ERROR}", e, -1)
-	page = strings.Replace(page, "${DESC}", desc, -1)
-	page = strings.Replace(page, "${HINT}", hint, -1)
-	httputils.WriteHTMLResp(w, page)
+
+	args := &cliPageArgs{
+		AssetDir: assetPath,
+		Error:    e,
+		Desc:     desc,
+		Hint:     hint,
+	}
+	pageTmpl.Execute(w, args)
+}
+
+type cliPageArgs struct {
+	AssetDir string
+	Error    string
+	Desc     string
+	Hint     string
 }

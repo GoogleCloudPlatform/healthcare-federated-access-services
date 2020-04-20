@@ -18,11 +18,11 @@ package persona
 import (
 	"encoding/base64"
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -36,6 +36,8 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 	ipb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
@@ -55,11 +57,11 @@ const (
 // WARNING: ONLY for use with synthetic or test data.
 //          Do not use unless you fully understand the security and privacy implications.
 type Server struct {
-	issuerURL string
-	key       *testkeys.Key
-	cfg       *dampb.DamConfig
-	Handler   *mux.Router
-	loginPage string
+	issuerURL     string
+	key           *testkeys.Key
+	cfg           *dampb.DamConfig
+	Handler       *mux.Router
+	loginPageTmpl *template.Template
 }
 
 // NewBroker returns a Persona Broker Server
@@ -72,21 +74,16 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOID
 			return nil, err
 		}
 	}
-	lp, err := srcutil.LoadFile(loginPageFile)
+	loginPageTmpl, err := httputils.TemplateFromFiles(loginPageFile, loginPageInfoFile)
 	if err != nil {
-		glog.Fatalf("cannot load login page %q: %v", loginPageFile, err)
+		glog.Exitf("cannot create template for login page: %v", err)
 	}
-	lpi, err := srcutil.LoadFile(loginPageInfoFile)
-	if err != nil {
-		glog.Fatalf("cannot load login page info %q: %v", loginPageInfoFile, err)
-	}
-	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
 
 	s := &Server{
-		issuerURL: issuerURL,
-		key:       key,
-		cfg:       cfg,
-		loginPage: lp,
+		issuerURL:     issuerURL,
+		key:           key,
+		cfg:           cfg,
+		loginPageTmpl: loginPageTmpl,
 	}
 
 	r := mux.NewRouter()
@@ -282,11 +279,23 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 		return
 	}
 
-	page := strings.Replace(s.loginPage, "${PROVIDER_LIST}", json, -1)
-	page = strings.Replace(page, "${ASSET_DIR}", "/static", -1)
-	page = strings.Replace(page, "${SERVICE_TITLE}", serviceTitle, -1)
-	page = strings.Replace(page, "${LOGIN_INFO_TITLE}", loginInfoTitle, -1)
-	httputils.WriteHTMLResp(w, page)
+	args := &loginPageArgs{
+		ProviderList:   json,
+		AssetDir:       "/static",
+		ServiceTitle:   serviceTitle,
+		LoginInfoTitle: loginInfoTitle,
+	}
+
+	if err := s.loginPageTmpl.Execute(w, args); err != nil {
+		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
+	}
+}
+
+type loginPageArgs struct {
+	ProviderList   string
+	AssetDir       string
+	ServiceTitle   string
+	LoginInfoTitle string
 }
 
 func basicAuthClientID(r *http.Request) string {

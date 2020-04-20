@@ -32,6 +32,11 @@ import (
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
 )
 
+type clientLoginPageArgs struct {
+	AssetDir     string
+	Instructions string
+}
+
 // Login is the HTTP handler for ".../login/{name}" endpoint.
 func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
@@ -95,10 +100,13 @@ func (s *Service) AcceptLogin(w http.ResponseWriter, r *http.Request) {
 
 		// Some IdPs need state extracted from html anchor.
 		if len(stateParam) == 0 && len(extract) == 0 {
-			page := s.clientLoginPage
-			page = strings.Replace(page, "${INSTRUCTIONS}", `""`, -1)
-			page = pageVariableRE.ReplaceAllString(page, `""`)
-			httputils.WriteHTMLResp(w, page)
+			args := &clientLoginPageArgs{
+				AssetDir:     assetPath,
+				Instructions: "",
+			}
+			if err := s.clientLoginPageTmpl.Execute(w, args); err != nil {
+				httputils.WriteError(w, status.Errorf(codes.Internal, "render client login page failed: %v", err))
+			}
 			return
 		}
 	}
@@ -224,12 +232,17 @@ func (s *Service) doFinishLogin(r *http.Request) (_ *challenge, _ *htmlPageOrRed
 			if len(idp.TokenUrl) > 0 && !strings.HasPrefix(idp.TokenUrl, "http") {
 				// Allow the client login page to follow instructions encoded in the TokenUrl.
 				// This enables support for some non-OIDC clients.
-				instructions = `"` + idp.TokenUrl + `"`
+				instructions = idp.TokenUrl
 			}
-			page := s.clientLoginPage
-			page = strings.Replace(page, "${INSTRUCTIONS}", instructions, -1)
-			page = pageVariableRE.ReplaceAllString(page, `""`)
-			return nil, &htmlPageOrRedirectURL{page: page}, nil
+			args := &clientLoginPageArgs{
+				AssetDir:     assetPath,
+				Instructions: instructions,
+			}
+			sb := &strings.Builder{}
+			if err := s.clientLoginPageTmpl.Execute(sb, args); err != nil {
+				return nil, nil, status.Errorf(codes.Internal, "render client login page failed: %v", err)
+			}
+			return nil, &htmlPageOrRedirectURL{page: sb.String()}, nil
 		}
 	} else {
 		// Experimental allows non OIDC auth code flow which code or stateParam can be empty.

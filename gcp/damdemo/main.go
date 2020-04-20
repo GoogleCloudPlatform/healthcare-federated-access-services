@@ -49,20 +49,30 @@ func main() {
 	serviceinfo.Type = "damdemo"
 	serviceinfo.Name = srvName
 
-	b, err := srcutil.Read(htmlFile)
+	tmpl, err := httputils.TemplateFromFiles(htmlFile)
 	if err != nil {
-		glog.Exitf("srcutil.Read(%v) failed: %v", htmlFile, err)
+		glog.Exitf("TemplateFromFiles(%v) failed: %v", htmlFile, err)
 	}
 
-	page := string(b)
-	page = strings.ReplaceAll(page, "${HYDRA_URL}", hydraURL)
-	page = strings.ReplaceAll(page, "${DAM_URL}", damURL)
+	sb := &strings.Builder{}
+	args := &pageArgs{
+		HydraURL: hydraURL,
+		DamURL:   damURL,
+	}
+	if err := tmpl.Execute(sb, args); err != nil {
+		glog.Exitf("template.Execute() failed: %v", err)
+	}
 
-	http.HandleFunc("/test", httputils.NewPageHandler(page))
+	http.HandleFunc("/test", httputils.NewPageHandler(sb.String()))
 	http.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(
 		http.Dir(srcutil.Path(staticDirectory)))))
 
 	glog.Infof("DAM Demo listing on port %s", port)
 	glog.Exit(http.ListenAndServe(":"+port, nil))
+}
+
+type pageArgs struct {
+	HydraURL string
+	DamURL   string
 }

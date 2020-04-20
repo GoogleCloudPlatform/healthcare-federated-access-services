@@ -63,11 +63,6 @@
           $("#auth_code_div").addClass("available");
         }
         var damUrl = $("#dam_url").val();
-        if (damUrl.includes("//localhost:")) {
-          var port = new URL(damUrl).port;
-          damUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
-          $("#dam_url").val(damUrl);
-        }
         populateResources();
         var error = params.get('error');
         if (error) {
@@ -434,9 +429,9 @@
       </select>
       <h3>2. Select Resource on DAM</h3>
       <label for="hydra_url">Hydra URL: </label>
-      <input id="hydra_url" style="width:40%" value="${HYDRA_URL}">
+      <input id="hydra_url" style="width:40%" value="{{.HydraURL}}">
       <label for="dam_url">DAM URL: </label>
-      <input id="dam_url" style="width:40%" value="${DAM_URL}" onchange="populateResources()">
+      <input id="dam_url" style="width:40%" value="{{.DamURL}}" onchange="populateResources()">
 
       <select id="resource_name" style="width:24%" onchange="resourceChanged()"></select>
       <select id="resource_view" style="width:24%" onchange="viewChanged()"></select>

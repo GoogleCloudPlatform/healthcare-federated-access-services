@@ -30,6 +30,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -179,7 +180,11 @@ func serviceNew(store storage.Store, client *http.Client) *service {
 	r := mux.NewRouter()
 	r.HandleFunc(cliRegisterPath, auth.MustWithAuth(handlerfactory.MakeHandler(store, RegisterFactory(store, cliRegisterPath, crypt, domainURL+cliAuthPath, hydraPublicURL, hydraAuthURL, hydraTokenURL, cliAcceptPath, client)), checker, auth.RequireClientIDAndSecret))
 	r.HandleFunc(cliAuthPath, auth.MustWithAuth(NewAuthHandler(store).Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
-	r.HandleFunc(cliAcceptPath, auth.MustWithAuth(NewAcceptHandler(store, crypt, "/test").Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
+	accept, err := NewAcceptHandler(store, crypt, "/test")
+	if err != nil {
+		glog.Fatalf("NewAcceptHandler() failed: %v", err)
+	}
+	r.HandleFunc(cliAcceptPath, auth.MustWithAuth(accept.Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	return &service{
 		Handler: r,

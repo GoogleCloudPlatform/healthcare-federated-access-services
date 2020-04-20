@@ -49,16 +49,21 @@ func main() {
 	serviceinfo.Type = "icdemo"
 	serviceinfo.Name = srvName
 
-	b, err := srcutil.Read(htmlFile)
+	tmpl, err := httputils.TemplateFromFiles(htmlFile)
 	if err != nil {
-		glog.Exitf("srcutil.Read(%v) failed: %v", htmlFile, err)
+		glog.Exitf("TemplateFromFiles(%v) failed: %v", htmlFile, err)
 	}
 
-	page := string(b)
-	page = strings.ReplaceAll(page, "${HYDRA_URL}", hydraURL)
-	page = strings.ReplaceAll(page, "${IC_URL}", icURL)
+	sb := &strings.Builder{}
+	args := &pageArgs{
+		HydraURL: hydraURL,
+		IcURL:    icURL,
+	}
+	if err := tmpl.Execute(sb, args); err != nil {
+		glog.Exitf("template.Execute() failed: %v", err)
+	}
 
-	http.HandleFunc("/test", httputils.NewPageHandler(page))
+	http.HandleFunc("/test", httputils.NewPageHandler(sb.String()))
 	http.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(
@@ -66,4 +71,9 @@ func main() {
 
 	glog.Infof("IC Demo listening on port %s", port)
 	glog.Exit(http.ListenAndServe(":"+port, nil))
+}
+
+type pageArgs struct {
+	HydraURL string
+	IcURL    string
 }

@@ -21,19 +21,18 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 )
 
-// TemplateFromFile constructs the html safe template from given file.
+// TemplateFromFiles constructs the html safe template from given file.
 // name: name of temaplate.
 // path: path of the template file.
-func TemplateFromFile(name, path string) (*template.Template, error) {
-	b, err := srcutil.LoadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("srcutil.LoadFile(%s) failed: %v", path, err)
+func TemplateFromFiles(paths ...string) (*template.Template, error) {
+	var ps []string
+	for _, p := range paths {
+		ps = append(ps, srcutil.Path(p))
 	}
 
-	t := template.New(name)
-	t, err = t.Parse(string(b))
+	t, err := template.ParseFiles(ps...)
 	if err != nil {
-		return nil, fmt.Errorf("template.Parse() failed: %v", err)
+		return nil, fmt.Errorf("template.ParseFiles() failed: %v", err)
 	}
 
 	return t, nil

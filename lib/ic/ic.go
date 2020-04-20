@@ -216,8 +216,8 @@ type Service struct {
 	store                      storage.Store
 	Handler                    *ServiceHandler
 	httpClient                 *http.Client
-	loginPage                  string
-	clientLoginPage            string
+	loginPageTmpl              *template.Template
+	clientLoginPageTmpl        *template.Template
 	infomationReleasePageTmpl  *template.Template
 	startTime                  int64
 	permissions                *permissions.Permissions
@@ -234,6 +234,7 @@ type Service struct {
 	useHydra                   bool
 	hydraSyncFreq              time.Duration
 	scim                       *scim.Scim
+	cliAcceptHandler           *cli.AcceptHandler
 }
 
 type ServiceHandler struct {
@@ -280,20 +281,15 @@ func NewService(params *Options) *Service {
 // New creats a new IC and registers it on r.
 func New(r *mux.Router, params *Options) *Service {
 	sh := &ServiceHandler{}
-	lp, err := srcutil.LoadFile(loginPageFile)
+	loginPageTmpl, err := httputils.TemplateFromFiles(loginPageFile, loginPageInfoFile)
 	if err != nil {
-		glog.Exitf("cannot load login page: %v", err)
+		glog.Exitf("cannot create template for login page: %v", err)
 	}
-	lpi, err := srcutil.LoadFile(loginPageInfoFile)
+	clientLoginPageTmpl, err := httputils.TemplateFromFiles(clientLoginPageFile)
 	if err != nil {
-		glog.Exitf("cannot load login page info %q: %v", loginPageInfoFile, err)
+		glog.Exitf("cannot create template for client login page: %v", err)
 	}
-	lp = strings.Replace(lp, "${LOGIN_INFO_HTML}", lpi, -1)
-	clp, err := srcutil.LoadFile(clientLoginPageFile)
-	if err != nil {
-		glog.Exitf("cannot load client login page: %v", err)
-	}
-	infomationReleasePageTmpl, err := httputils.TemplateFromFile("info_release", informationReleasePageFile)
+	infomationReleasePageTmpl, err := httputils.TemplateFromFiles(informationReleasePageFile)
 	if err != nil {
 		glog.Exitf("cannot create template for information release page: %v", err)
 	}
@@ -306,12 +302,18 @@ func New(r *mux.Router, params *Options) *Service {
 	if err != nil {
 		glog.Exitf("cannot load permissions:%v", err)
 	}
+
+	cliAcceptHandler, err := cli.NewAcceptHandler(params.Store, params.Encryption, "/identity")
+	if err != nil {
+		glog.Exitf("cli.NewAcceptHandler() failed: %v", err)
+	}
+
 	s := &Service{
 		store:                      params.Store,
 		Handler:                    sh,
 		httpClient:                 params.HTTPClient,
-		loginPage:                  lp,
-		clientLoginPage:            clp,
+		loginPageTmpl:              loginPageTmpl,
+		clientLoginPageTmpl:        clientLoginPageTmpl,
 		infomationReleasePageTmpl:  infomationReleasePageTmpl,
 		startTime:                  time.Now().Unix(),
 		permissions:                perms,
@@ -327,6 +329,7 @@ func New(r *mux.Router, params *Options) *Service {
 		useHydra:                   params.UseHydra,
 		hydraSyncFreq:              syncFreq,
 		scim:                       scim.New(params.Store),
+		cliAcceptHandler:           cliAcceptHandler,
 	}
 
 	if s.httpClient == nil {
@@ -425,6 +428,13 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sh.Handler.ServeHTTP(w, r)
 }
 
+type loginPageArgs struct {
+	ProviderList   string
+	AssetDir       string
+	ServiceTitle   string
+	LoginInfoTitle string
+}
+
 func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, queryParams string) (string, error) {
 	list := &pb.LoginPageProviders{
 		Idps:     make(map[string]*pb.LoginPageProviders_ProviderEntry),
@@ -442,11 +452,20 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 	if err != nil {
 		return "", err
 	}
-	page := strings.Replace(s.loginPage, "${PROVIDER_LIST}", json, -1)
-	page = strings.Replace(page, "${ASSET_DIR}", assetPath, -1)
-	page = strings.Replace(page, "${SERVICE_TITLE}", serviceTitle, -1)
-	page = strings.Replace(page, "${LOGIN_INFO_TITLE}", loginInfoTitle, -1)
-	return page, nil
+
+	args := &loginPageArgs{
+		ProviderList:   json,
+		AssetDir:       assetPath,
+		ServiceTitle:   serviceTitle,
+		LoginInfoTitle: loginInfoTitle,
+	}
+
+	sb := &strings.Builder{}
+	if err := s.loginPageTmpl.Execute(sb, args); err != nil {
+		return "", err
+	}
+
+	return sb.String(), nil
 }
 
 func (s *Service) idpAuthorize(in loginIn, idp *cpb.IdentityProvider, cfg *pb.IcConfig, tx storage.Tx) (*oauth2.Config, string, error) {
@@ -1563,7 +1582,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	cliAcceptURL := urlPathJoin(s.getDomainURL(), cliAcceptPath)
 	r.HandleFunc(cliRegisterPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), cli.RegisterFactory(s.GetStore(), cliRegisterPath, s.encryption, cliAuthURL, s.hydraPublicURL, hydraAuthURL, hydraTokenURL, cliAcceptURL, http.DefaultClient)), checker, auth.RequireClientIDAndSecret))
 	r.HandleFunc(cliAuthPath, auth.MustWithAuth(cli.NewAuthHandler(s.GetStore()).Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
-	r.HandleFunc(cliAcceptPath, auth.MustWithAuth(cli.NewAcceptHandler(s.store, s.encryption, "/identity").Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(cliAcceptPath, auth.MustWithAuth(s.cliAcceptHandler.Handle, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// info endpoints
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.Status, checker, auth.RequireNone)).Methods(http.MethodGet)

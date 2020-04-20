@@ -20,16 +20,16 @@
   <meta charset="UTF-8">
   <title>CLI Login</title>
 
-  <link rel="icon" href="${ASSET_DIR}/images/favicon.ico" type="image/png"/>
+  <link rel="icon" href="{{.AssetDir}}/images/favicon.ico" type="image/png"/>
 
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css">
-  <link rel="stylesheet" href="${ASSET_DIR}/css/login.css">
+  <link rel="stylesheet" href="{{.AssetDir}}/css/login.css">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"></script>
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <script src="${ASSET_DIR}/js/cli.js"></script>
+  <script src="{{.AssetDir}}/js/cli.js"></script>
 </head>
 <body class="flex" onload="onInit()">
   <main class="flex stretch">
@@ -46,15 +46,15 @@
           <div id="fail" class="hidden">
             <p>
               <span class="error">ERROR: </span>
-              <span id="error" class="error">${ERROR}</span>
+              <span id="error" class="error">{{.Error}}</span>
             </p>
             <p>
               <span class="error">Description: </span>
-              <span id="desc">${DESC}</span>
+              <span id="desc">{{.Desc}}</span>
             </p>
             <p>
               <span class="error">Hint: </span>
-              <span id="hint">${HINT}</span>
+              <span id="hint">{{.Hint}}</span>
             </p>
           </div>
         </div>

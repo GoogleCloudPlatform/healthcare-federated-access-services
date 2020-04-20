@@ -17,9 +17,9 @@
 <html>
   <head>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="${ASSET_DIR}/js/client_login.js"></script>
+    <script src="{{.AssetDir}}/js/client_login.js"></script>
     <script>
-      var instructions = ${INSTRUCTIONS};
+      var instructions = "{{.Instructions}}";
     </script>
   </head>
   <body onload="onInit(instructions);">

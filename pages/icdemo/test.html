@@ -308,12 +308,12 @@
     </div>
     <div class="box">
       <h3>1. Auth using Hydra</h3>
-      <input id="hydra_url" style="width:50%" value="${HYDRA_URL}">
-      <input id="ic_url" style="width:49%" value="${IC_URL}">
+      <input id="hydra_url" style="width:50%" value="{{.HydraURL}}">
+      <input id="ic_url" style="width:49%" value="{{.IcURL}}">
       <div>
         <a class="btn blue" onclick="auth()">Login</a>
         <a class="btn black" onclick="linkauth()">Link Account</a>
-        <a class="btn white" onclick="$('#hydra_url').val('${HYDRA_URL}');">Default Hydra</a>
+        <a class="btn white" onclick="$('#hydra_url').val('{{.HydraURL}}');">Default Hydra</a>
         <a class="btn white" onclick="clearPage()">Clear</a>
       </div>
     </div>
