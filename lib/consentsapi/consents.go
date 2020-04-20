@@ -21,11 +21,14 @@ import (
 	"sort"
 
 	"github.com/gorilla/mux" /* copybara-comment */
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
+	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	cspb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/consents/v1" /* copybara-comment: consents_go_proto */
 	storepb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/store/consents" /* copybara-comment: go_proto */
@@ -138,4 +141,41 @@ func toConsentVisas(list []*storepb.RememberedConsentPreference_Visa) []*cspb.Co
 		})
 	}
 	return res
+}
+
+// DeleteConsentFactory http handler for "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}"
+func DeleteConsentFactory(serv *Service, consentPath string) *handlerfactory.Options {
+	return &handlerfactory.Options{
+		TypeName:            "consent",
+		PathPrefix:          consentPath,
+		HasNamedIdentifiers: false,
+		Service:             &deleteConsentHandler{s: serv},
+	}
+}
+
+type deleteConsentHandler struct {
+	handlerfactory.Empty
+	s *Service
+
+	userID    string
+	realm     string
+	consentID string
+}
+
+func (s *deleteConsentHandler) Remove(r *http.Request, name string) (proto.Message, error) {
+	s.userID = mux.Vars(r)["user"]
+	s.consentID = mux.Vars(r)["consent_id"]
+	s.realm = mux.Vars(r)["realm"]
+
+	return &epb.Empty{}, nil
+}
+
+func (s *deleteConsentHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
+	if err := s.s.Store.DeleteTx(storage.RememberedConsentDatatype, s.realm, s.userID, s.consentID, storage.LatestRev, tx); err != nil {
+		if storage.ErrNotFound(err) {
+			return status.Errorf(codes.NotFound, "delete consent item not found")
+		}
+		return status.Errorf(codes.Unavailable, "delete consent DeleteTx failed: %v", err)
+	}
+	return nil
 }

@@ -275,6 +275,9 @@ The following implements a subset of [SCIM V2 API](https://tools.ietf.org/html/r
 
 See the IC's SCIM notes for limitations of use that also apply to the DAM.
 
+*  "/identity/v1alpha/{realm}/users/{user}/consents": list user remembered consents.
+*  "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}": revoke user remembered consent.
+
 ### Non-Admin Configuration Endpoints
 
 The following provide read-only access to non-admins for various parts of

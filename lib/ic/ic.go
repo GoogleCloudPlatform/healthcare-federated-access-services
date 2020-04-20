@@ -1601,12 +1601,12 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(tokenPath, auth.MustWithAuth(tokensapi.NewTokensHandler(tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// consents service endpoints
-	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
 	consentService := s.consentService()
 	r.HandleFunc(listConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.ListConsentsFactory(consentService, listConsentPath)), checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(deleteConsentPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	r.HandleFunc(deleteConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.DeleteConsentFactory(consentService, deleteConsentPath)), checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// TODO: delete the mocked endpoints when complete.
+	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
 	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 

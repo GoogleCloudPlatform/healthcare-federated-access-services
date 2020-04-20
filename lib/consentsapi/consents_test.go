@@ -239,6 +239,56 @@ func TestListConsents(t *testing.T) {
 	}
 }
 
+func TestDeleteConsent(t *testing.T) {
+	stub := &stub{}
+
+	store := fakestore.New()
+	handler := handlerfactory.MakeHandler(store, DeleteConsentFactory(&Service{
+		Store:                        store,
+		FindRememberedConsentsByUser: stub.findRememberedConsentsByUser,
+		Clients:                      stub.clients,
+	}, "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}"))
+
+	tests := []struct {
+		name      string
+		consentID string
+		want      int
+	}{
+		{
+			name:      "delete success",
+			consentID: "consent1",
+			want:      http.StatusOK,
+		},
+		{
+			name:      "not found",
+			consentID: "invalid",
+			want:      http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, "user1", "consent1", storage.LatestRev, &storepb.RememberedConsentPreference{}, nil); err != nil {
+				t.Fatalf("Write RememberedConsentDatatype failed: %v", err)
+			}
+
+			r := httptest.NewRequest(http.MethodDelete, "/identity/v1alpha/masterusers/user1/consents/"+tc.consentID, nil)
+			r = mux.SetURLVars(r, map[string]string{
+				"user":       "user1",
+				"realm":      "master",
+				"consent_id": tc.consentID,
+			})
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
+
+			resp := w.Result()
+			if resp.StatusCode != tc.want {
+				t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, tc.want)
+			}
+		})
+	}
+}
+
 type stub struct {
 	consents map[string]*storepb.RememberedConsentPreference
 	clis     map[string]*cpb.Client

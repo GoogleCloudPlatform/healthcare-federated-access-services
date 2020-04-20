@@ -346,6 +346,9 @@ func (s *Store) DeleteTx(datatype, realm, user, id string, rev int64, tx storage
 
 func (s *Store) delete(datatype, realm, user, id string, rev int64, state State) error {
 	key := Key{datatype, realm, user, id, Rev(rev)}
+	if _, ok := state.Data[key]; !ok {
+		return fmt.Errorf("not found")
+	}
 	delete(state.Data, key)
 	return nil
 }

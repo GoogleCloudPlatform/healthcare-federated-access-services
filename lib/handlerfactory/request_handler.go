@@ -211,7 +211,7 @@ func RunRMWTx(
 	}
 	if err := save(r, tx, name, vars, desc, typ); err != nil {
 		tx.Rollback()
-		return nil, status.Errorf(codes.Internal, "%v", err)
+		return nil, toStatusErr(codes.Internal, err, r)
 	}
 	return resp, nil
 }
