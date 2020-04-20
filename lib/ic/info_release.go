@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/consentsapi" /* copybara-comment: consentsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
@@ -485,7 +486,7 @@ func (s *Service) acceptInformationRelease(r *http.Request) (_, _ string, ferr e
 
 // cleanupRememberedConsent delete expired RememberedConsent or oldest RememberedConsent if count of RememberedConsent over maxRememberedConsent
 func (s *Service) cleanupRememberedConsent(user, realm string, tx storage.Tx) error {
-	rcs, err := s.findRememberedConsentsByUser(user, realm, "", 0, maxRememberedConsent+10, tx)
+	rcs, err := findRememberedConsentsByUser(s.store, user, realm, "", 0, maxRememberedConsent+10, tx)
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "cleanupRememberedConsent %v", err)
 	}
@@ -585,8 +586,8 @@ func (s *Service) rejectInformationRelease(r *http.Request) (_ string, ferr erro
 // 1. match type = anything remembered consent
 // 2. remembered consent has exact the same scope with request
 // 3. request scope is subset of remembered consent scope
-func (s *Service) findRememberedConsent(requestedScope []string, subject, realm, clientName string, tx storage.Tx) (*cspb.RememberedConsentPreference, error) {
-	rcps, err := s.findRememberedConsentsByUser(subject, realm, clientName, 0, maxRememberedConsent, tx)
+func findRememberedConsent(store storage.Store, requestedScope []string, subject, realm, clientName string, tx storage.Tx) (*cspb.RememberedConsentPreference, error) {
+	rcps, err := findRememberedConsentsByUser(store, subject, realm, clientName, 0, maxRememberedConsent, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -628,9 +629,9 @@ func scopesToStringSet(scopes []string) stringset.Set {
 }
 
 // findRememberedConsentsByUser returns all RememberedConsents of user of client.
-func (s *Service) findRememberedConsentsByUser(subject, realm, clientName string, offset, pageSize int, tx storage.Tx) (map[string]*cspb.RememberedConsentPreference, error) {
+func findRememberedConsentsByUser(store storage.Store, subject, realm, clientName string, offset, pageSize int, tx storage.Tx) (map[string]*cspb.RememberedConsentPreference, error) {
 	content := make(map[string]map[string]proto.Message)
-	count, err := s.store.MultiReadTx(storage.RememberedConsentDatatype, realm, subject, nil, offset, pageSize, content, &cspb.RememberedConsentPreference{}, tx)
+	count, err := store.MultiReadTx(storage.RememberedConsentDatatype, realm, subject, nil, offset, pageSize, content, &cspb.RememberedConsentPreference{}, tx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "findRememberedConsentsByUser MultiReadTx() failed: %v", err)
 	}
@@ -659,4 +660,22 @@ func (s *Service) findRememberedConsentsByUser(subject, realm, clientName string
 	}
 
 	return res, nil
+}
+
+// clients fetchs oauth clients
+func (s *Service) clients(tx storage.Tx) (map[string]*cpb.Client, error) {
+	cfg, err := s.loadConfig(tx, storage.DefaultRealm)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "load clients failed: %v", err)
+	}
+
+	return cfg.Clients, nil
+}
+
+func (s *Service) consentService() *consentsapi.Service {
+	return &consentsapi.Service{
+		Store:                        s.store,
+		FindRememberedConsentsByUser: findRememberedConsentsByUser,
+		Clients:                      s.clients,
+	}
 }

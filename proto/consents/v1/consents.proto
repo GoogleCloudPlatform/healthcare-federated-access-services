@@ -47,14 +47,14 @@ service Consents {
   // Deletes the specified Remembered Consent.
   rpc DeleteConsent(DeleteConsentRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/v1/users/{user_id}/consents/{consent_id}"
+      delete: "/v1/{realm}/users/{user_id}/consents/{consent_id}"
     };
   }
 
   // Lists the Remembered Consents.
   rpc ListConsents(ListConsentsRequest) returns (ListConsentsResponse) {
     option (google.api.http) = {
-      get: "/v1/users/{user_id}/consents"
+      get: "/v1/{realm}/users/{user_id}/consents"
     };
   }
 }
@@ -93,15 +93,17 @@ message MockConsent {
 }
 
 message DeleteConsentRequest {
-  string user_id = 1;
-  string consent_id = 2;
+  string realm = 1;
+  string user_id = 2;
+  string consent_id = 3;
 }
 
 message ListConsentsRequest {
-  string user_id = 1;
-  string filter = 2;
-  int32 page_size = 3;
-  string page_token = 4;
+  string realm = 1;
+  string user_id = 2;
+  string filter = 3;
+  int32 page_size = 4;
+  string page_token = 5;
 }
 
 message MockListConsentsResponse {

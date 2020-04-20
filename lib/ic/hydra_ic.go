@@ -257,7 +257,7 @@ func (s *Service) hydraConsentRememberConsentOrInformationReleasePage(r *http.Re
 
 	id.Scope = strings.Join(consent.RequestedScope, " ")
 
-	rcp, err := s.findRememberedConsent(consent.RequestedScope, id.Subject, state.Realm, state.ClientName, tx)
+	rcp, err := findRememberedConsent(s.store, consent.RequestedScope, id.Subject, state.Realm, state.ClientName, tx)
 	if err != nil {
 		return nil, err
 	}

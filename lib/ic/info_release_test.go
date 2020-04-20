@@ -1081,7 +1081,7 @@ func TestAcceptInformationRelease_Hydra_cleanupRememberedConsent(t *testing.T) {
 				t.Errorf("StatusCode = %d, wants = %d", resp.StatusCode, http.StatusSeeOther)
 			}
 
-			rcs, err := s.findRememberedConsentsByUser(LoginSubject, storage.DefaultRealm, "", 0, maxRememberedConsent+10, nil)
+			rcs, err := findRememberedConsentsByUser(s.store, LoginSubject, storage.DefaultRealm, "", 0, maxRememberedConsent+10, nil)
 			if err != nil {
 				t.Fatalf("findRememberedConsentsByUser() failed: %d", err)
 			}
@@ -1141,7 +1141,7 @@ func Test_findRememberedConsentsByUser(t *testing.T) {
 	}
 
 	// Ensure expired and different client got filtered.
-	got, err := s.findRememberedConsentsByUser(LoginSubject, storage.DefaultRealm, "cli", 0, maxRememberedConsent, nil)
+	got, err := findRememberedConsentsByUser(s.store, LoginSubject, storage.DefaultRealm, "cli", 0, maxRememberedConsent, nil)
 	if err != nil {
 		t.Fatalf("findRememberedConsentsByUser() failed: %v", err)
 	}
@@ -1263,7 +1263,7 @@ func Test_findRememberedConsent(t *testing.T) {
 				}
 			}
 
-			got, err := s.findRememberedConsent(tc.requestedScope, LoginSubject, storage.DefaultRealm, "cli", nil)
+			got, err := findRememberedConsent(s.store, tc.requestedScope, LoginSubject, storage.DefaultRealm, "cli", nil)
 			if err != nil {
 				t.Fatalf("findRememberedConsent failed: %v", err)
 			}
