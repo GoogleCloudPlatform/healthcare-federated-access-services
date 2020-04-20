@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"google.golang.org/api/cloudresourcemanager/v1" /* copybara-comment: cloudresourcemanager */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 )
@@ -83,71 +81,69 @@ func applyCRMChange(ctx context.Context, crmc CRMPolicy, email string, project s
 
 // crmPolicyAdd adds a member to a role in a CRM policy.
 func crmPolicyAdd(policy *cloudresourcemanager.Policy, role, member string, ttl time.Duration) {
-	if globalflags.DisableIAMConditionExpiry {
-		crmPolicyAddWithConditionExpDisabled(policy, role, member)
-		return
-	}
-	crmPolicyAddWithConditionExpEnabled(policy, role, member, ttl)
+	bindings := fromCRMBindings(policy.Bindings)
+	bindings = addPolicyBinding(bindings, role, member, ttl)
+	policy.Bindings = toCRMBindings(bindings)
 }
 
-// crmPolicyAddWithConditionExpDisabled adds a member to a role in a CRM policy.
-func crmPolicyAddWithConditionExpDisabled(policy *cloudresourcemanager.Policy, role, member string) {
-	// Retrieve the existing binding for the given role if available, otherwise
-	// create one.
-	var binding *cloudresourcemanager.Binding
-	for _, b := range policy.Bindings {
-		if b.Role == role {
-			binding = b
-			break
-		}
+func fromCRMBindings(in []*cloudresourcemanager.Binding) []*iamBinding {
+	var res []*iamBinding
+	for _, b := range in {
+		res = append(res, fromCRMBinding(b))
 	}
-	if binding == nil {
-		binding = &cloudresourcemanager.Binding{
-			Role:    role,
-			Members: []string{},
-		}
-		policy.Bindings = append(policy.Bindings, binding)
-	}
-	for _, m := range binding.Members {
-		if m == member {
-			return
-		}
-	}
-	binding.Members = append(binding.Members, member)
+	return res
 }
 
-// crmPolicyAddWithConditionExpEnabled adds a member to role in a GCS policy with iam condition managed expiry.
-func crmPolicyAddWithConditionExpEnabled(policy *cloudresourcemanager.Policy, role, member string, ttl time.Duration) {
-	var binding *cloudresourcemanager.Binding
-	for _, b := range policy.Bindings {
-		if b.Role == role && strutil.SliceOnlyContains(b.Members, member) {
-			binding = b
-			break
-		}
+func fromCRMBinding(in *cloudresourcemanager.Binding) *iamBinding {
+	if in == nil {
+		return nil
 	}
-	if binding == nil {
-		binding = &cloudresourcemanager.Binding{
-			Role:    role,
-			Members: []string{member},
-		}
-		policy.Bindings = append(policy.Bindings, binding)
+	return &iamBinding{
+		role:      in.Role,
+		members:   in.Members,
+		condition: fromCRMCondition(in.Condition),
 	}
+}
 
-	// add the expiry condition to binding.
-	// if condition already has expiry after thr new request, do not modify.
-	newExp := timeNow().Add(ttl)
-	exp := time.Time{}
-
-	if binding.Condition != nil {
-		exp = expiryInCondition(binding.Condition.Expression)
+func fromCRMCondition(in *cloudresourcemanager.Expr) *iamCondition {
+	if in == nil {
+		return nil
 	}
-
-	if exp.After(newExp) {
-		return
+	return &iamCondition{
+		title:       in.Title,
+		description: in.Description,
+		location:    in.Location,
+		expression:  in.Expression,
 	}
+}
 
-	binding.Condition = &cloudresourcemanager.Expr{
-		Title:      "Expiry",
-		Expression: toExpiryConditionExpr(newExp),
+func toCRMBindings(in []*iamBinding) []*cloudresourcemanager.Binding {
+	var res []*cloudresourcemanager.Binding
+	for _, b := range in {
+		res = append(res, toCRMBinding(b))
+	}
+	return res
+}
+
+func toCRMBinding(in *iamBinding) *cloudresourcemanager.Binding {
+	if in == nil {
+		return nil
+	}
+	return &cloudresourcemanager.Binding{
+		Role:      in.role,
+		Members:   in.members,
+		Condition: toCRMCondition(in.condition),
+	}
+}
+
+func toCRMCondition(in *iamCondition) *cloudresourcemanager.Expr {
+	if in == nil {
+		return nil
+	}
+	return &cloudresourcemanager.Expr{
+		Title:       in.title,
+		Description: in.description,
+		Location:    in.location,
+		Expression:  in.expression,
 	}
 }

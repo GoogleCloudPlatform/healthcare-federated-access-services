@@ -19,9 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
-
 	glog "github.com/golang/glog" /* copybara-comment */
 	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
 )
@@ -83,67 +80,69 @@ func applyGCSChange(ctx context.Context, gcsc GCSPolicy, email string, bkt strin
 
 // gcsPolicyAdd adds a member to role in a GCS policy.
 func gcsPolicyAdd(policy *gcs.Policy, role, member string, ttl time.Duration) {
-	if globalflags.DisableIAMConditionExpiry {
-		gcsPolicyAddWithConditionExpDisabled(policy, role, member)
-		return
-	}
-	gcsPolicyAddWithConditionExpEnabled(policy, role, member, ttl)
+	bindings := fromGCSBindings(policy.Bindings)
+	bindings = addPolicyBinding(bindings, role, member, ttl)
+	policy.Bindings = toGCSBindings(bindings)
 }
 
-// gcsPolicyAddWithConditionExpDisabled adds a member to role in a GCS policy.
-func gcsPolicyAddWithConditionExpDisabled(policy *gcs.Policy, role, member string) {
-	var binding *gcs.PolicyBindings
-	for _, b := range policy.Bindings {
-		if b.Role == role {
-			binding = b
-			break
-		}
+func fromGCSBindings(in []*gcs.PolicyBindings) []*iamBinding {
+	var res []*iamBinding
+	for _, b := range in {
+		res = append(res, fromGCSBinding(b))
 	}
-	if binding == nil {
-		binding = &gcs.PolicyBindings{Role: role}
-		policy.Bindings = append(policy.Bindings, binding)
-	}
-
-	for _, m := range binding.Members {
-		if m == member {
-			return
-		}
-	}
-	binding.Members = append(binding.Members, member)
+	return res
 }
 
-// gcsPolicyAddWithConditionExpEnabled adds a member to role in a GCS policy with iam condition managed expiry.
-func gcsPolicyAddWithConditionExpEnabled(policy *gcs.Policy, role, member string, ttl time.Duration) {
-	var binding *gcs.PolicyBindings
-	for _, b := range policy.Bindings {
-		if b.Role == role && strutil.SliceOnlyContains(b.Members, member) {
-			binding = b
-			break
-		}
+func fromGCSBinding(in *gcs.PolicyBindings) *iamBinding {
+	if in == nil {
+		return nil
 	}
-	if binding == nil {
-		binding = &gcs.PolicyBindings{
-			Role:    role,
-			Members: []string{member},
-		}
-		policy.Bindings = append(policy.Bindings, binding)
+	return &iamBinding{
+		role:      in.Role,
+		members:   in.Members,
+		condition: fromGCSCondition(in.Condition),
 	}
+}
 
-	// add the expiry condition to binding.
-	// if condition already has expiry after thr new request, do not modify.
-	newExp := timeNow().Add(ttl)
-	exp := time.Time{}
-
-	if binding.Condition != nil {
-		exp = expiryInCondition(binding.Condition.Expression)
+func fromGCSCondition(in *gcs.Expr) *iamCondition {
+	if in == nil {
+		return nil
 	}
-
-	if exp.After(newExp) {
-		return
+	return &iamCondition{
+		title:       in.Title,
+		description: in.Description,
+		location:    in.Location,
+		expression:  in.Expression,
 	}
+}
 
-	binding.Condition = &gcs.Expr{
-		Title:      "Expiry",
-		Expression: toExpiryConditionExpr(newExp),
+func toGCSBindings(in []*iamBinding) []*gcs.PolicyBindings {
+	var res []*gcs.PolicyBindings
+	for _, b := range in {
+		res = append(res, toGCSBinding(b))
+	}
+	return res
+}
+
+func toGCSBinding(in *iamBinding) *gcs.PolicyBindings {
+	if in == nil {
+		return nil
+	}
+	return &gcs.PolicyBindings{
+		Role:      in.role,
+		Members:   in.members,
+		Condition: toGCSCondition(in.condition),
+	}
+}
+
+func toGCSCondition(in *iamCondition) *gcs.Expr {
+	if in == nil {
+		return nil
+	}
+	return &gcs.Expr{
+		Title:       in.title,
+		Description: in.description,
+		Location:    in.location,
+		Expression:  in.expression,
 	}
 }
