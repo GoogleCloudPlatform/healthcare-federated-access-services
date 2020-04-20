@@ -16,7 +16,7 @@ FROM golang:1.14.1-buster
 
 WORKDIR /
 
-ARG HYDRA_VERSION=v1.0.9
+ARG HYDRA_VERSION=v1.4.2
 
 # Install depends and nginx
 RUN export JQ_VERSION=1.5+dfsg-2+b1 && \

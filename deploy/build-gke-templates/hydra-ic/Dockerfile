@@ -16,7 +16,7 @@ FROM golang:1.14.1-buster
 
 WORKDIR /
 
-ARG HYDRA_VERSION=v1.0.9
+ARG HYDRA_VERSION=v1.4.2
 
 # Install Hydra
 RUN git clone https://github.com/ory/hydra.git && \
