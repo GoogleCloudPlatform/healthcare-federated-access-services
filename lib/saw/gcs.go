@@ -75,9 +75,10 @@ func applyGCSChange(ctx context.Context, gcsc GCSPolicy, email string, bkt strin
 	if err := gcsc.Set(ctx, bkt, billingProject, policy); err != nil {
 		state.failedEtag = policy.Etag
 		state.prevErr = err
-		glog.Errorf("set iam for gcs failed: %v", err)
+		glog.Errorf("set iam for gcs failed: etag=%s err=%v", policy.Etag, err)
+		return err
 	}
-	return err
+	return nil
 }
 
 // gcsPolicyAdd adds a member to role in a GCS policy.

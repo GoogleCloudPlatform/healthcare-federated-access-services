@@ -75,9 +75,10 @@ func applyCRMChange(ctx context.Context, crmc CRMPolicy, email string, project s
 	if err := crmc.Set(ctx, project, policy); err != nil {
 		state.failedEtag = policy.Etag
 		state.prevErr = err
-		glog.Errorf("set iam for crm failed: %v", err)
+		glog.Errorf("set iam for crm failed: etag=%s err=%v", policy.Etag, err)
+		return err
 	}
-	return err
+	return nil
 }
 
 // crmPolicyAdd adds a member to a role in a CRM policy.

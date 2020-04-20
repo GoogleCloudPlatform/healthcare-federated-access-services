@@ -451,27 +451,32 @@ func (wh *AccountWarehouse) configureRoles(ctx context.Context, email string, pa
 	}
 
 	for project, roles := range prMap {
+		state := &backoffState{}
 		f := func() error {
-			return applyCRMChange(ctx, wh.crm, email, project, roles, ttl, &backoffState{})
+			return applyCRMChange(ctx, wh.crm, email, project, roles, ttl, state)
 		}
-		if err := backoff.Retry(f, exponentialBackoff); err != nil {
+		if err := backoff.Retry(f, exponentialBackoff()); err != nil {
 			return err
 		}
 	}
 
 	for bkt, roles := range bktMap {
+		state := &backoffState{}
 		f := func() error {
-			return applyGCSChange(ctx, wh.gcs, email, bkt, roles, params.BillingProject, ttl, &backoffState{})
+			return applyGCSChange(ctx, wh.gcs, email, bkt, roles, params.BillingProject, ttl, state)
 		}
-		if err := backoff.Retry(f, exponentialBackoff); err != nil {
+		if err := backoff.Retry(f, exponentialBackoff()); err != nil {
 			return err
 		}
 	}
 
 	for project, drMap := range bqMap {
 		for dataset, roles := range drMap {
-			f := func() error { return applyBQDSChange(ctx, wh.bqds, email, project, dataset, roles, &backoffState{}) }
-			if err := backoff.Retry(f, exponentialBackoff); err != nil {
+			state := &backoffState{}
+			f := func() error {
+				return applyBQDSChange(ctx, wh.bqds, email, project, dataset, roles, state)
+			}
+			if err := backoff.Retry(f, exponentialBackoff()); err != nil {
 				return err
 			}
 		}

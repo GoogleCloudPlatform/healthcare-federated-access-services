@@ -399,34 +399,43 @@ func newFix(t *testing.T) (*Fix, func() error) {
 }
 
 type fakeGCS struct {
+	getResponse    *gcs.Policy
+	getResponseErr error
+	setResponseErr error
 }
 
 func (f *fakeGCS) Get(ctx context.Context, bkt string, billingProject string) (*gcs.Policy, error) {
-	return nil, nil
+	return f.getResponse, f.getResponseErr
 }
 
 func (f *fakeGCS) Set(ctx context.Context, bkt string, billingProject string, policy *gcs.Policy) error {
-	return nil
+	return f.setResponseErr
 }
 
 type fakeBQ struct {
+	getResponse    *bigquery.Dataset
+	getResponseErr error
+	setResponseErr error
 }
 
 func (f *fakeBQ) Get(ctx context.Context, project string, dataset string) (*bigquery.Dataset, error) {
-	return nil, nil
+	return f.getResponse, f.getResponseErr
 }
 
 func (f *fakeBQ) Set(ctx context.Context, project string, dataset string, ds *bigquery.Dataset) error {
-	return nil
+	return f.setResponseErr
 }
 
 type fakeCRM struct {
+	getResponse    *cloudresourcemanager.Policy
+	getResponseErr error
+	setResponseErr error
 }
 
 func (f *fakeCRM) Get(ctx context.Context, project string) (*cloudresourcemanager.Policy, error) {
-	return nil, nil
+	return f.getResponse, f.getResponseErr
 }
 
 func (f *fakeCRM) Set(ctx context.Context, project string, policy *cloudresourcemanager.Policy) error {
-	return nil
+	return f.setResponseErr
 }

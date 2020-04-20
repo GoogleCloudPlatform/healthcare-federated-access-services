@@ -19,6 +19,8 @@ import (
 	"fmt"
 
 	"google.golang.org/api/bigquery/v2" /* copybara-comment: bigquery */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 // BQPolicyClient is used to manage IAM policy on BQ Datasets.
@@ -52,8 +54,10 @@ func applyBQDSChange(ctx context.Context, bqdsc BQPolicy, email string, project 
 	if err := bqdsc.Set(ctx, project, dataset, ds); err != nil {
 		state.failedEtag = ds.Etag
 		state.prevErr = err
+		glog.Errorf("set iam for bq failed: etag=%s err=%v", ds.Etag, err)
+		return err
 	}
-	return err
+	return nil
 }
 
 func bqdsAddPolicy(ds *bigquery.Dataset, role string, email string) {
