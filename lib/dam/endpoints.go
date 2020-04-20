@@ -125,4 +125,11 @@ const (
 	// infoPath: metadata about the service, like versions of various services.
 	// Required permission: none
 	infoPath = "/dam"
+
+	// OIDC gatekeeper config endpoints
+
+	gatekeeperIssuer    = "/dam/gatekeeper"
+	oidcWellKnownPrefix = gatekeeperIssuer + "/.well-known"
+	oidcConfiguarePath  = oidcWellKnownPrefix + "/openid-configuration"
+	oidcJwksPath        = oidcWellKnownPrefix + "/jwks"
 )

@@ -1356,6 +1356,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 
 	// info endpoint
 	r.HandleFunc(infoPath, auth.MustWithAuth(s.GetInfo, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(oidcConfiguarePath, auth.MustWithAuth(s.OidcWellKnownConfig, checker, auth.RequireNone)).Methods(http.MethodGet)
+	r.HandleFunc(oidcJwksPath, auth.MustWithAuth(s.OidcKeys, checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// readonly config endpoints
 	r.HandleFunc(clientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.clientFactory()), checker, auth.RequireClientIDAndSecret))

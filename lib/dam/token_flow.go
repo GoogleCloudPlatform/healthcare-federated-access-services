@@ -127,7 +127,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 	adapterAction := &adapter.Action{
 		Aggregates:      aggregates,
 		Identity:        id,
-		Issuer:          s.getIssuerString(),
+		Issuer:          s.gatekeeperTokenIssuerURL(),
 		ClientID:        clientID,
 		Config:          cfg,
 		GrantRole:       role,
