@@ -47,21 +47,23 @@ const (
 )
 
 func (s *Service) informationReleasePage(id *ga4gh.Identity, stateID, clientName, scope string) string {
-	args := toInformationReleasePageArgs(id, stateID, clientName, scope)
+	args := toInformationReleasePageArgs(id, stateID, clientName, scope, s.consentDashboardURL)
 	sb := &strings.Builder{}
 	s.infomationReleasePageTmpl.Execute(sb, args)
 
 	return sb.String()
 }
 
-func toInformationReleasePageArgs(id *ga4gh.Identity, stateID, clientName, scope string) *informationReleasePageArgs {
+func toInformationReleasePageArgs(id *ga4gh.Identity, stateID, clientName, scope, consentDashboard string) *informationReleasePageArgs {
+	dashboardURL := strings.ReplaceAll(consentDashboard, "${USER_ID}", id.Subject)
 	args := &informationReleasePageArgs{
-		ID:              id.Subject,
-		ApplicationName: clientName,
-		Scope:           scope,
-		AssetDir:        assetPath,
-		Information:     map[string][]*informationItem{},
-		State:           stateID,
+		ID:                  id.Subject,
+		ApplicationName:     clientName,
+		Scope:               scope,
+		AssetDir:            assetPath,
+		Information:         map[string][]*informationItem{},
+		State:               stateID,
+		ConsentDashboardURL: dashboardURL,
 	}
 
 	for _, s := range strings.Split(scope, " ") {
@@ -180,13 +182,14 @@ type informationItem struct {
 }
 
 type informationReleasePageArgs struct {
-	ApplicationName string
-	Scope           string
-	AssetDir        string
-	ID              string
-	Offline         bool
-	Information     map[string][]*informationItem
-	State           string
+	ApplicationName     string
+	Scope               string
+	AssetDir            string
+	ID                  string
+	Offline             bool
+	Information         map[string][]*informationItem
+	State               string
+	ConsentDashboardURL string
 }
 
 // normalizeRememberedConsentPreference change ANYTHING_NEEDED to release item.

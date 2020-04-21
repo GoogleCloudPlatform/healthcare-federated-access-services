@@ -103,6 +103,11 @@ SCIM-like endpoints have the following user management limitations:
 *  Only a limited number of object attributes (i.e. object fields) are available
    for PATCH. For example, `primary` for emails and `value` for photos.
 
+The following are Consents Management endpoints:
+
+*  "/identity/v1alpha/{realm}/users/{user}/consents": list user remembered consents.
+*  "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}": revoke user remembered consent.
+
 #### Account Linking
 
 You can link accounts using the following extension to SCIM V2:
@@ -274,9 +279,6 @@ The following implements a subset of [SCIM V2 API](https://tools.ietf.org/html/r
    [SCIM V2 Group Resource Schema](https://tools.ietf.org/html/rfc7643#section-4.2).
 
 See the IC's SCIM notes for limitations of use that also apply to the DAM.
-
-*  "/identity/v1alpha/{realm}/users/{user}/consents": list user remembered consents.
-*  "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}": revoke user remembered consent.
 
 ### Non-Admin Configuration Endpoints
 

@@ -63,6 +63,11 @@ var (
 	// Use env var "SKIP_INFORMATION_RELEASE_PAGE" = true to set.
 	skipInformationReleasePage = os.Getenv("SKIP_INFORMATION_RELEASE_PAGE") == "true"
 
+	// consentDashboardURL is url to frontend consent dashboard, will replace
+	// ${USER_ID} with userID. If it is not set point to howto doc on github
+	// repo.
+	consentDashboardURL = osenv.VarWithDefault("CONSENT_DASHBOARD_URL", "https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/0f366e73284377571bc314da7666e4b14233c3fa/howto.md#how-do-i-revoke-a-remembered-consent")
+
 	useHydra = os.Getenv("USE_HYDRA") != ""
 	// hydraAdminAddr is the address for the Hydra admin endpoint.
 	hydraAdminAddr = ""
@@ -140,6 +145,7 @@ func main() {
 		HydraAdminURL:              hydraAdminAddr,
 		HydraPublicURL:             hydraPublicAddr,
 		HydraPublicProxy:           hyproxy,
+		ConsentDashboardURL:        consentDashboardURL,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

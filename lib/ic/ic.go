@@ -235,6 +235,7 @@ type Service struct {
 	hydraSyncFreq              time.Duration
 	scim                       *scim.Scim
 	cliAcceptHandler           *cli.AcceptHandler
+	consentDashboardURL        string
 }
 
 type ServiceHandler struct {
@@ -270,6 +271,9 @@ type Options struct {
 	HydraPublicProxy *hydraproxy.Service
 	// HydraSyncFreq: how often to allow clients:sync to be called
 	HydraSyncFreq time.Duration
+	// ConsentDashboardURL is url to frontend consent dashboard, will replace
+	// ${USER_ID} with userID.
+	ConsentDashboardURL string
 }
 
 // NewService create new IC service.
@@ -330,6 +334,7 @@ func New(r *mux.Router, params *Options) *Service {
 		hydraSyncFreq:              syncFreq,
 		scim:                       scim.New(params.Store),
 		cliAcceptHandler:           cliAcceptHandler,
+		consentDashboardURL:        params.ConsentDashboardURL,
 	}
 
 	if s.httpClient == nil {

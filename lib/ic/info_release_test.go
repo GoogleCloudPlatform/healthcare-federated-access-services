@@ -86,7 +86,7 @@ func Test_toInformationReleasePageArgs(t *testing.T) {
 	}
 
 	t.Run("default", func(t *testing.T) {
-		got := toInformationReleasePageArgs(id, "state", "client", "openid offline ga4gh_passport_v1 profile identities account_admin")
+		got := toInformationReleasePageArgs(id, "state", "client", "openid offline ga4gh_passport_v1 profile identities account_admin", "http://example.com/consents/${USER_ID}")
 		want := &informationReleasePageArgs{
 			ApplicationName: "client",
 			Scope:           "openid offline ga4gh_passport_v1 profile identities account_admin",
@@ -114,7 +114,8 @@ func Test_toInformationReleasePageArgs(t *testing.T) {
 					},
 				},
 			},
-			State: "state",
+			State:               "state",
+			ConsentDashboardURL: "http://example.com/consents/sub",
 		}
 		if d := cmp.Diff(want, got); len(d) != 0 {
 			t.Errorf("toInformationReleasePageArgs (-want, +got): %s", d)
@@ -122,15 +123,16 @@ func Test_toInformationReleasePageArgs(t *testing.T) {
 	})
 
 	t.Run("less scope", func(t *testing.T) {
-		got := toInformationReleasePageArgs(id, "state", "client", "openid offline")
+		got := toInformationReleasePageArgs(id, "state", "client", "openid offline", "http://example.com/consents/${USER_ID}")
 		want := &informationReleasePageArgs{
-			ApplicationName: "client",
-			Scope:           "openid offline",
-			AssetDir:        "/identity/static",
-			ID:              "sub",
-			Offline:         true,
-			Information:     map[string][]*informationItem{},
-			State:           "state",
+			ApplicationName:     "client",
+			Scope:               "openid offline",
+			AssetDir:            "/identity/static",
+			ID:                  "sub",
+			Offline:             true,
+			Information:         map[string][]*informationItem{},
+			State:               "state",
+			ConsentDashboardURL: "http://example.com/consents/sub",
 		}
 		if d := cmp.Diff(want, got); len(d) != 0 {
 			t.Errorf("toInformationReleasePageArgs (-want, +got): %s", d)
@@ -141,15 +143,36 @@ func Test_toInformationReleasePageArgs(t *testing.T) {
 		id := &ga4gh.Identity{
 			Subject: "sub",
 		}
-		got := toInformationReleasePageArgs(id, "state", "client", "openid offline ga4gh_passport_v1 profile identities")
+		got := toInformationReleasePageArgs(id, "state", "client", "openid offline ga4gh_passport_v1 profile identities", "http://example.com/consents/${USER_ID}")
 		want := &informationReleasePageArgs{
-			ApplicationName: "client",
-			Scope:           "openid offline ga4gh_passport_v1 profile identities",
-			AssetDir:        "/identity/static",
-			ID:              "sub",
-			Offline:         true,
-			Information:     map[string][]*informationItem{},
-			State:           "state",
+			ApplicationName:     "client",
+			Scope:               "openid offline ga4gh_passport_v1 profile identities",
+			AssetDir:            "/identity/static",
+			ID:                  "sub",
+			Offline:             true,
+			Information:         map[string][]*informationItem{},
+			State:               "state",
+			ConsentDashboardURL: "http://example.com/consents/sub",
+		}
+		if d := cmp.Diff(want, got); len(d) != 0 {
+			t.Errorf("toInformationReleasePageArgs (-want, +got): %s", d)
+		}
+	})
+
+	t.Run("no user_id in ConsentDashboardURL", func(t *testing.T) {
+		id := &ga4gh.Identity{
+			Subject: "sub",
+		}
+		got := toInformationReleasePageArgs(id, "state", "client", "openid offline ga4gh_passport_v1 profile identities", "http://example.com/consents")
+		want := &informationReleasePageArgs{
+			ApplicationName:     "client",
+			Scope:               "openid offline ga4gh_passport_v1 profile identities",
+			AssetDir:            "/identity/static",
+			ID:                  "sub",
+			Offline:             true,
+			Information:         map[string][]*informationItem{},
+			State:               "state",
+			ConsentDashboardURL: "http://example.com/consents",
 		}
 		if d := cmp.Diff(want, got); len(d) != 0 {
 			t.Errorf("toInformationReleasePageArgs (-want, +got): %s", d)
