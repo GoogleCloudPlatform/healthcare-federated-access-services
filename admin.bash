@@ -76,6 +76,8 @@ declare -A COMMANDS=(
   ["print ic user <name>"]='ic_curl_auth "/identity/scim/v2/${REALM?}/Users/$4"'
   ["print ic users"]='ic_curl_auth "/identity/scim/v2/${REALM?}/Users"'
   ["sync ic clients"]='ic_curl_client "/identity/${API_VERSION?}/${REALM?}/clients:sync" "POST"'
+  ["print ic user <name> consent"]='ic_curl_auth "/identity/${API_VERSION?}/${REALM?}/users/$4/consents"'
+  ["delete ic user <name> consent <consent_id>"]='ic_curl_auth "/identity/${API_VERSION?}/${REALM?}/users/$4/consents/$6" "DELETE"'
   # Admin state commands
   # ["login dam"]='curl_login "dam" "/dam" "DAM_ACCESS_TOKEN" "DAM_REFRESH_TOKEN"'
   ["login ic"]='curl_login "ic" "/identity" "IC_ACCESS_TOKEN" "IC_REFRESH_TOKEN"'
@@ -268,7 +270,7 @@ curl_client() {
   fi
 }
 
-# curl_auth <dam|ic> <resource_path> <client_id> <client_secret> <access_token>
+# curl_auth <dam|ic> <resource_path> <client_id> <client_secret> <access_token> [method]
 # Generates a URL then performs a GET using curl as part of a RESTful API.
 # Unlike curl_public, this function adds the auth headers and client id/secret
 # to the request.
@@ -281,7 +283,11 @@ curl_auth() {
   if [[ "${ENVIRONMENT}" == "" ]]; then
     dash=""
   fi
-  RESULT=`curl ${CURL_OPTIONS} -X "GET" -H "Authorization: bearer $5" -H "Content-Type: application/x-www-form-urlencoded" "$1${dash}${ENVIRONMENT}-dot-${PROJECT}.appspot.com$2?client_id=$3&client_secret=$4"`
+  local method="GET"
+  if [[ "$6" != "" ]]; then
+    method=$6
+  fi
+  RESULT=`curl ${CURL_OPTIONS} -X "${method}" -H "Authorization: bearer $5" -H "Content-Type: application/x-www-form-urlencoded" "$1${dash}${ENVIRONMENT}-dot-${PROJECT}.appspot.com$2?client_id=$3&client_secret=$4"`
   curl_print
  }
 
@@ -301,7 +307,7 @@ curl_print() {
 # and access token that were loaded from disk. Makes it easier to write COMMANDS
 # by abstracting all of these details.
 dam_curl_auth() {
-  curl_auth "dam" "$1" "${DAM_CLIENT_ID}" "${DAM_CLIENT_SECRET}" "${DAM_ACCESS_TOKEN}"
+  curl_auth "dam" "$1" "${DAM_CLIENT_ID}" "${DAM_CLIENT_SECRET}" "${DAM_ACCESS_TOKEN}" "$2"
 }
 
 # dam_curl_client <resource_path> [method]
@@ -315,7 +321,7 @@ dam_curl_client() {
 # and access token that were loaded from disk. Makes it easier to write COMMANDS
 # by abstracting all of these details.
 ic_curl_auth() {
-  curl_auth "ic" "$1" "${IC_CLIENT_ID}" "${IC_CLIENT_SECRET}" "${IC_ACCESS_TOKEN}"
+  curl_auth "ic" "$1" "${IC_CLIENT_ID}" "${IC_CLIENT_SECRET}" "${IC_ACCESS_TOKEN}" "$2"
 }
 
 # ic_curl_client <resource_path> [method] [input] [quiet]

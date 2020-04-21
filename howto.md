@@ -35,6 +35,21 @@ console to filter service account keys by account name and delete the keys.
 If you don't have administrator permissions on the GCP project, you can contact
 your IC/DAM administrator to revoke them for you.
 
+## How do I revoke a Remembered Consent?
+
+To revoke a Remembered Consent without a consent dashboard:
+
+1. Login to the IC as an administrator or as the user that has the consent to revoke
+2. List all remembered consent for the user
+3. Delete the remembered consent by consent_id
+
+```
+./admin.bash set ic user $email
+./admin.bash login ic
+./admin.bash print ic user $user_id consent
+./admin.bash delete ic user $user_id consent $consent_id
+```
+
 ## How do I recover a deleted Service Account?
 
 If you accidently deleted a service account and want to undelete it, complete
