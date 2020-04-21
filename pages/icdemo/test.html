@@ -60,13 +60,6 @@
 
       function init() {
         var hydraUrl = $("#hydra_url").val();
-        if (hydraUrl.includes("//localhost:")) {
-          var port = new URL(hydraUrl).port;
-          hydraUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
-          $("#hydra_url").val(hydraUrl);
-          port = new URL($("#ic_url").val()).port;
-          $("#ic_url").val(`${window.location.protocol}//${window.location.hostname}:${port}`);
-        }
         var code = winParams.get('code');
         if (code) {
           $("#auth_code").val(code);
