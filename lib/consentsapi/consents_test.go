@@ -249,6 +249,9 @@ func TestDeleteConsent(t *testing.T) {
 		Clients:                      stub.clients,
 	}, "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}"))
 
+	consentID := "00000000-0000-0000-0000-000000000001"
+	invalidConsentID := "00000000-0000-0000-0000-000000000000"
+
 	tests := []struct {
 		name      string
 		consentID string
@@ -256,19 +259,19 @@ func TestDeleteConsent(t *testing.T) {
 	}{
 		{
 			name:      "delete success",
-			consentID: "consent1",
+			consentID: consentID,
 			want:      http.StatusOK,
 		},
 		{
 			name:      "not found",
-			consentID: "invalid",
+			consentID: invalidConsentID,
 			want:      http.StatusNotFound,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, "user1", "consent1", storage.LatestRev, &storepb.RememberedConsentPreference{}, nil); err != nil {
+			if err := store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, "user1", consentID, storage.LatestRev, &storepb.RememberedConsentPreference{}, nil); err != nil {
 				t.Fatalf("Write RememberedConsentDatatype failed: %v", err)
 			}
 

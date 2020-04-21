@@ -18,6 +18,7 @@ package consentsapi
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 
 	"github.com/gorilla/mux" /* copybara-comment */
@@ -36,6 +37,10 @@ import (
 
 const (
 	maxRememberedConsent = 200
+)
+
+var (
+	uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 )
 
 // Service contains store and funcs to access data.
@@ -150,6 +155,9 @@ func DeleteConsentFactory(serv *Service, consentPath string) *handlerfactory.Opt
 		PathPrefix:          consentPath,
 		HasNamedIdentifiers: false,
 		Service:             &deleteConsentHandler{s: serv},
+		NameChecker: map[string]*regexp.Regexp{
+			"consent_id": uuidRE,
+		},
 	}
 }
 
