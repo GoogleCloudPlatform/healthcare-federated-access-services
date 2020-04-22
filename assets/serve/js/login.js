@@ -31,6 +31,7 @@ function populateProviderHtml(id, items) {
 
 /**
  * getProviderHeaderHtml ...
+ * For other Identity providers and Persona Playground
  * @param {string} id
  * @return {string}
  */
