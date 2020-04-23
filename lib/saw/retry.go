@@ -15,34 +15,9 @@
 package saw
 
 import (
-	"time"
-
 	"github.com/cenkalti/backoff" /* copybara-comment */
 	"google.golang.org/api/googleapi" /* copybara-comment: googleapi */
 )
-
-const (
-	backoffInitialInterval     = 1 * time.Second
-	backoffRandomizationFactor = 0.5
-	backoffMultiplier          = 1.5
-	backoffMaxInterval         = 3 * time.Second
-	backoffMaxElapsedTime      = 10 * time.Second
-)
-
-var (
-	maxAccessTokenTTL  = 1 * time.Hour
-)
-
-func exponentialBackoff() *backoff.ExponentialBackOff {
-	return &backoff.ExponentialBackOff{
-		InitialInterval:     backoffInitialInterval,
-		RandomizationFactor: backoffRandomizationFactor,
-		Multiplier:          backoffMultiplier,
-		MaxInterval:         backoffMaxInterval,
-		MaxElapsedTime:      backoffMaxElapsedTime,
-		Clock:               backoff.SystemClock,
-	}
-}
 
 func convertToPermanentErrorIfApplicable(err error, formattedErr error) error {
 	if googleErr, ok := err.(*googleapi.Error); ok {
