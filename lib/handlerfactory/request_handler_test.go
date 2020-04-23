@@ -60,7 +60,9 @@ func Test_HTTPHandler_Get(t *testing.T) {
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		Service:             &fakeService{store: s},
+		Service: func() Service {
+			return &fakeService{store: s}
+		},
 	}
 	h := MakeHandler(s, hf)
 
@@ -97,7 +99,9 @@ func Test_HTTPHandler_Get_NotFound(t *testing.T) {
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		Service:             &fakeService{store: s},
+		Service: func() Service {
+			return &fakeService{store: s}
+		},
 	}
 	h := MakeHandler(s, hf)
 
@@ -130,7 +134,9 @@ func Test_HTTPHandler_Post(t *testing.T) {
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		Service:             &fakeService{store: s},
+		Service: func() Service {
+			return &fakeService{store: s}
+		},
 	}
 	h := MakeHandler(s, hf)
 
@@ -173,7 +179,9 @@ func Test_HTTPHandler_Delete(t *testing.T) {
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		Service:             &fakeService{store: s},
+		Service: func() Service {
+			return &fakeService{store: s}
+		},
 	}
 	h := MakeHandler(s, hf)
 
@@ -292,7 +300,9 @@ func TestEmptyService(t *testing.T) {
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		Service:             &Empty{},
+		Service: func() Service {
+			return &Empty{}
+		},
 	}
 	h := MakeHandler(s, hf)
 
@@ -326,7 +336,9 @@ func TestSetupError(t *testing.T) {
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		Service:             &serviceSetupErr{},
+		Service: func() Service {
+			return &serviceSetupErr{}
+		},
 	}
 	h := MakeHandler(s, hf)
 
@@ -357,7 +369,9 @@ func TestCrash(t *testing.T) {
 		PathPrefix:          "durations/{duration}",
 		HasNamedIdentifiers: true,
 		NameChecker:         map[string]*regexp.Regexp{"duration": regexp.MustCompile(".*")},
-		Service:             &serviceGetCrash{},
+		Service: func() Service {
+			return &serviceGetCrash{}
+		},
 	}
 	h := MakeHandler(s, hf)
 

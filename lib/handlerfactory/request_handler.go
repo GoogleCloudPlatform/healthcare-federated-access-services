@@ -45,7 +45,7 @@ type Options struct {
 	PathPrefix          string
 	HasNamedIdentifiers bool
 	NameChecker         map[string]*regexp.Regexp
-	Service             Service
+	Service             func() Service
 }
 
 // Service is the role interface for a service that will be wrapped.
@@ -89,7 +89,7 @@ func Process(s storage.Store, opts *Options, r *http.Request) (_ proto.Message, 
 		}
 	}()
 
-	hi := opts.Service
+	hi := opts.Service()
 	var op func(*http.Request, string) (proto.Message, error)
 	switch r.Method {
 	case http.MethodGet:

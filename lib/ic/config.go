@@ -59,6 +59,8 @@ func (s *Service) clientFactory() *handlerfactory.Options {
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		Service:             oathclients.NewClientHandler(c),
+		Service: func() handlerfactory.Service {
+			return oathclients.NewClientHandler(c)
+		},
 	}
 }

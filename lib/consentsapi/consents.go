@@ -56,7 +56,9 @@ func ListConsentsFactory(serv *Service, consentsPath string) *handlerfactory.Opt
 		TypeName:            "consent",
 		PathPrefix:          consentsPath,
 		HasNamedIdentifiers: false,
-		Service:             &listConsentsHandler{s: serv},
+		Service: func() handlerfactory.Service {
+			return &listConsentsHandler{s: serv}
+		},
 	}
 }
 
@@ -154,9 +156,11 @@ func DeleteConsentFactory(serv *Service, consentPath string) *handlerfactory.Opt
 		TypeName:            "consent",
 		PathPrefix:          consentPath,
 		HasNamedIdentifiers: false,
-		Service:             &deleteConsentHandler{s: serv},
 		NameChecker: map[string]*regexp.Regexp{
 			"consent_id": uuidRE,
+		},
+		Service: func() handlerfactory.Service {
+			return &deleteConsentHandler{s: serv}
 		},
 	}
 }

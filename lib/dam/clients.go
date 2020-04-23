@@ -112,7 +112,9 @@ func (s *Service) clientFactory() *handlerfactory.Options {
 		TypeName:            "client",
 		PathPrefix:          clientPath,
 		HasNamedIdentifiers: true,
-		Service:             oathclients.NewClientHandler(c),
+		Service: func() handlerfactory.Service {
+			return oathclients.NewClientHandler(c)
+		},
 	}
 }
 
@@ -144,7 +146,9 @@ func (s *Service) configClientFactory() *handlerfactory.Options {
 		TypeName:            "configClient",
 		PathPrefix:          configClientPath,
 		HasNamedIdentifiers: true,
-		Service:             oathclients.NewAdminClientHandler(c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL),
+		Service: func() handlerfactory.Service {
+			return oathclients.NewAdminClientHandler(c, c.s.useHydra, c.s.httpClient, c.s.hydraAdminURL)
+		},
 	}
 }
 
@@ -186,7 +190,9 @@ func (s *Service) syncClientsFactory() *handlerfactory.Options {
 		TypeName:            "configClientsSync",
 		PathPrefix:          syncClientsPath,
 		HasNamedIdentifiers: false,
-		Service:             NewSyncClientsHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewSyncClientsHandler(s)
+		},
 	}
 }
 

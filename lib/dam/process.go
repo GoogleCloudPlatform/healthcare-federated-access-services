@@ -34,7 +34,9 @@ func (s *Service) processesFactory() *handlerfactory.Options {
 		TypeName:            "processes",
 		PathPrefix:          processesPath,
 		HasNamedIdentifiers: false,
-		Service:             NewProcessesHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewProcessesHandler(s)
+		},
 	}
 }
 
@@ -114,7 +116,9 @@ func (s *Service) processFactory() *handlerfactory.Options {
 		TypeName:            "process",
 		PathPrefix:          processPath,
 		HasNamedIdentifiers: true,
-		Service:             NewProcessHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewProcessHandler(s)
+		},
 	}
 }
 

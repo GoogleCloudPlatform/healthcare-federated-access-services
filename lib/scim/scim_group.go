@@ -91,7 +91,9 @@ func GroupFactory(store storage.Store, groupPath string) *handlerfactory.Options
 		TypeName:            "group",
 		PathPrefix:          groupPath,
 		HasNamedIdentifiers: true,
-		Service:             NewGroupHandler(store),
+		Service: func() handlerfactory.Service {
+			return NewGroupHandler(store)
+		},
 	}
 }
 
@@ -398,7 +400,9 @@ func GroupsFactory(store storage.Store, path string) *handlerfactory.Options {
 		TypeName:            "groups",
 		PathPrefix:          path,
 		HasNamedIdentifiers: false,
-		Service:             NewGroupsHandler(store),
+		Service: func() handlerfactory.Service {
+			return NewGroupsHandler(store)
+		},
 	}
 }
 

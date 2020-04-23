@@ -33,9 +33,11 @@ func (s *Service) realmFactory() *handlerfactory.Options {
 		NameField:           "realm",
 		PathPrefix:          realmPath,
 		HasNamedIdentifiers: true,
-		Service: &realm{
-			s:     s,
-			input: &pb.RealmRequest{},
+		Service: func() handlerfactory.Service {
+			return &realm{
+				s:     s,
+				input: &pb.RealmRequest{},
+			}
 		},
 	}
 }

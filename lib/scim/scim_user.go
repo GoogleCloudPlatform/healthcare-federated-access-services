@@ -136,11 +136,13 @@ func MeFactory(store storage.Store, domainURL, path string) *handlerfactory.Opti
 		TypeName:            "user",
 		PathPrefix:          path,
 		HasNamedIdentifiers: false,
-		Service: &scimMe{
-			s:         New(store),
-			store:     store,
-			domainURL: domainURL,
-			userPath:  userPath(path),
+		Service: func() handlerfactory.Service {
+			return &scimMe{
+				s:         New(store),
+				store:     store,
+				domainURL: domainURL,
+				userPath:  userPath(path),
+			}
 		},
 	}
 }
@@ -219,12 +221,14 @@ func UserFactory(store storage.Store, domainURL, path string) *handlerfactory.Op
 		TypeName:            "user",
 		PathPrefix:          path,
 		HasNamedIdentifiers: true,
-		Service: &scimUser{
-			s:         New(store),
-			store:     store,
-			domainURL: domainURL,
-			userPath:  userPath(path),
-			input:     &spb.Patch{},
+		Service: func() handlerfactory.Service {
+			return &scimUser{
+				s:         New(store),
+				store:     store,
+				domainURL: domainURL,
+				userPath:  userPath(path),
+				input:     &spb.Patch{},
+			}
 		},
 	}
 
@@ -527,11 +531,13 @@ func UsersFactory(store storage.Store, domainURL, path string) *handlerfactory.O
 		TypeName:            "users",
 		PathPrefix:          path,
 		HasNamedIdentifiers: true,
-		Service: &scimUsers{
-			s:         New(store),
-			store:     store,
-			domainURL: domainURL,
-			userPath:  userPath(path),
+		Service: func() handlerfactory.Service {
+			return &scimUsers{
+				s:         New(store),
+				store:     store,
+				domainURL: domainURL,
+				userPath:  userPath(path),
+			}
 		},
 	}
 }

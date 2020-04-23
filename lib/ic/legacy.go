@@ -35,6 +35,7 @@ import (
 var (
 	placeholderOrNameRE = regexp.MustCompile(`^(-|[A-Za-z][-_A-Za-z0-9\.]{1,30}[A-Za-z0-9])$`)
 	placeholderName     = "-"
+	adminSubjectRE      = regexp.MustCompile(`^[\w][^/\\]*@[\w][^/\\]*$`)
 )
 
 // HTTP handler for  "/identity/v1alpha/{realm}/admin/subjects/{name}/account/claims"
@@ -44,11 +45,13 @@ func (s *Service) adminClaimsFactory() *handlerfactory.Options {
 		PathPrefix:          adminClaimsPath,
 		HasNamedIdentifiers: false,
 		NameChecker: map[string]*regexp.Regexp{
-			"name": regexp.MustCompile(`^[\w][^/\\]*@[\w][^/\\]*$`),
+			"name": adminSubjectRE,
 		},
-		Service: &adminClaims{
-			s:     s,
-			input: &pb.SubjectClaimsRequest{},
+		Service: func() handlerfactory.Service {
+			return &adminClaims{
+				s:     s,
+				input: &pb.SubjectClaimsRequest{},
+			}
 		},
 	}
 }
@@ -137,9 +140,11 @@ func (s *Service) adminTokenMetadataFactory() *handlerfactory.Options {
 		TypeName:            "tokens",
 		PathPrefix:          adminTokenMetadataPath,
 		HasNamedIdentifiers: false,
-		Service: &adminTokenMetadataHandler{
-			s:     s,
-			input: &pb.TokensMetadataRequest{},
+		Service: func() handlerfactory.Service {
+			return &adminTokenMetadataHandler{
+				s:     s,
+				input: &pb.TokensMetadataRequest{},
+			}
 		},
 	}
 }

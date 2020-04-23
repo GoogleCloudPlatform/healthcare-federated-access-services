@@ -38,7 +38,9 @@ func (s *Service) configFactory() *handlerfactory.Options {
 		TypeName:            "config",
 		PathPrefix:          configPath,
 		HasNamedIdentifiers: false,
-		Service:             NewConfigHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigHandler(s)
+		},
 	}
 }
 
@@ -145,7 +147,9 @@ func (s *Service) configOptionsFactory() *handlerfactory.Options {
 		TypeName:            "configOptions",
 		PathPrefix:          configOptionsPath,
 		HasNamedIdentifiers: false,
-		Service:             NewConfigOptionsHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigOptionsHandler(s)
+		},
 	}
 }
 
@@ -232,7 +236,9 @@ func (s *Service) configResourceFactory() *handlerfactory.Options {
 		TypeName:            "configResource",
 		PathPrefix:          configResourcePath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigResourceHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigResourceHandler(s)
+		},
 	}
 }
 
@@ -320,7 +326,9 @@ func (s *Service) configViewFactory() *handlerfactory.Options {
 		TypeName:            "configView",
 		PathPrefix:          configViewPath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigViewHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigViewHandler(s)
+		},
 	}
 }
 
@@ -419,7 +427,9 @@ func (s *Service) configIssuerFactory() *handlerfactory.Options {
 		TypeName:            "configTrustedIssuer",
 		PathPrefix:          configTrustedIssuerPath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigIssuerHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigIssuerHandler(s)
+		},
 	}
 }
 
@@ -504,7 +514,9 @@ func (s *Service) configSourceFactory() *handlerfactory.Options {
 		TypeName:            "configTrustedSource",
 		PathPrefix:          configTrustedSourcePath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigSourceHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigSourceHandler(s)
+		},
 	}
 }
 
@@ -591,7 +603,9 @@ func (s *Service) configPolicyFactory() *handlerfactory.Options {
 		TypeName:            "configPolicy",
 		PathPrefix:          configPolicyPath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigPolicyHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigPolicyHandler(s)
+		},
 	}
 }
 
@@ -680,7 +694,9 @@ func (s *Service) configVisaTypeFactory() *handlerfactory.Options {
 		TypeName:            "configVisaType",
 		PathPrefix:          configVisaTypePath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigVisaTypeHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigVisaTypeHandler(s)
+		},
 	}
 }
 
@@ -765,7 +781,9 @@ func (s *Service) configServiceTemplateFactory() *handlerfactory.Options {
 		TypeName:            "configServiceTemplate",
 		PathPrefix:          configServiceTemplatePath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigServiceTemplateHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigServiceTemplateHandler(s)
+		},
 	}
 }
 
@@ -858,7 +876,9 @@ func (s *Service) configPersonaFactory() *handlerfactory.Options {
 		TypeName:            "configTestPersona",
 		PathPrefix:          configTestPersonaPath,
 		HasNamedIdentifiers: true,
-		Service:             NewConfigPersonaHandler(s),
+		Service: func() handlerfactory.Service {
+			return NewConfigPersonaHandler(s)
+		},
 	}
 }
 

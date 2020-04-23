@@ -58,6 +58,7 @@ const (
 var (
 	ttl          = 5 * time.Minute
 	autoGenerate = "auto"
+	autoOrUUIDRE = regexp.MustCompile(`^(auto|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`)
 )
 
 // RegisterFactory creates handlers for shell login requests.
@@ -67,9 +68,11 @@ func RegisterFactory(store storage.Store, path string, crypt kms.Encryption, cli
 		PathPrefix:          path,
 		HasNamedIdentifiers: true,
 		NameChecker: map[string]*regexp.Regexp{
-			"name": regexp.MustCompile(`^(auto|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$`),
+			"name": autoOrUUIDRE,
 		},
-		Service: NewRegisterHandler(store, crypt, cliAuthURL, issuerURL, authURL, tokenURL, accept, httpClient),
+		Service: func() handlerfactory.Service {
+			return NewRegisterHandler(store, crypt, cliAuthURL, issuerURL, authURL, tokenURL, accept, httpClient)
+		},
 	}
 }
 
