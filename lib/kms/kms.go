@@ -12,15 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package kms offers an interface for providing encryption services.
+// Package kms offers interfaces for providing encryption services and signing services.
 package kms
 
 import (
 	"context"
+
+	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 )
 
 // Encryption abstracts a encryption service for storing encrypted data.
 type Encryption interface {
 	Encrypt(ctx context.Context, data []byte, additionalAuthData string) ([]byte, error)
 	Decrypt(ctx context.Context, encrypted []byte, additionalAuthData string) ([]byte, error)
+}
+
+// Signer abstracts a signing service for jwt.
+type Signer interface {
+	PublicKeys() *jose.JSONWebKeySet
+	SignJWT(ctx context.Context, claims interface{}, header map[string]string) (string, error)
 }
