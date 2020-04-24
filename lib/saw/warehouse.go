@@ -18,7 +18,6 @@ package saw
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"path"
@@ -270,18 +269,10 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 		return nil, fmt.Errorf("creating key: %v", err)
 	}
 
-	if !httputils.IsJSON(params.TokenFormat) {
-		return &clouds.ResourceTokenResult{
-			Account: email,
-			Token:   base64.StdEncoding.EncodeToString(key.PrivateKeyData),
-			Format:  "base64",
-		}, nil
-	}
-
 	return &clouds.ResourceTokenResult{
-		Account: email,
-		Token:   string(key.PrivateKeyData),
-		Format:  params.TokenFormat,
+		Account:    email,
+		AccountKey: string(key.PrivateKeyData),
+		Format:     params.TokenFormat,
 	}, nil
 }
 

@@ -35,9 +35,10 @@ type ResourceTokenCreationParams struct {
 
 // ResourceTokenResult is returned from GetTokenWithTTL().
 type ResourceTokenResult struct {
-	Account string
-	Token   string
-	Format  string
+	Account    string
+	Token      string
+	AccountKey string
+	Format     string
 }
 
 // ResourceTokenCreator abstracts token creation for resource accessing in cloud platforms. This refers to Service Account Warehouses (SAWs) in GCP and our communication.

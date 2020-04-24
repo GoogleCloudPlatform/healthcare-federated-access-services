@@ -100,13 +100,21 @@ func (a *SawAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenRe
 	if err != nil {
 		return nil, fmt.Errorf("SAW minting token: %v", err)
 	}
-	return &MintTokenResult{
+	res := &MintTokenResult{
 		Credentials: map[string]string{
 			"account":      result.Account,
-			"access_token": result.Token,
 		},
 		TokenFormat: result.Format,
-	}, nil
+	}
+
+	if len(result.Token) > 0 {
+		res.Credentials["access_token"] = result.Token
+	}
+	if len(result.AccountKey) > 0 {
+		res.Credentials["service_account_key"] = result.AccountKey
+	}
+
+	return res, nil
 }
 
 func resourceTokenCreationParams(role string, template *pb.ServiceTemplate, sRole *pb.ServiceRole, view *pb.View, cfg *pb.DamConfig, format string) (*clouds.ResourceTokenCreationParams, error) {

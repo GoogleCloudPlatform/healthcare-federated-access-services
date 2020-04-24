@@ -16,7 +16,6 @@ package saw
 
 import (
 	"context"
-	"encoding/base64"
 	"testing"
 	"time"
 
@@ -68,9 +67,9 @@ func TestSAW_GetAccountKey(t *testing.T) {
 	}
 
 	want := &clouds.ResourceTokenResult{
-		Format:  "base64",
-		Account: "ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com",
-		Token:   base64.StdEncoding.EncodeToString([]byte("projects/fake-account-project/serviceAccounts/ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com/keys/fake-key-id-0/fake-private-key")),
+		Format:     "",
+		Account:    "ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com",
+		AccountKey: "projects/fake-account-project/serviceAccounts/ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com/keys/fake-key-id-0/fake-private-key",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("saw.GetAccountKey() returned diff (-want +got):\n%s", diff)

@@ -145,15 +145,6 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 		return nil, http.StatusServiceUnavailable, err
 	}
 
-	if httputils.IsJSON(result.TokenFormat) && result.Credentials != nil {
-		return &pb.ResourceResults_ResourceAccess{
-			Credentials: map[string]string{"key_file": result.Credentials["json"]},
-		}, http.StatusOK, nil
-	}
-	if useKeyFile {
-		return nil, http.StatusBadRequest, fmt.Errorf("adapter cannot create key file format")
-	}
-
 	return &pb.ResourceResults_ResourceAccess{
 		Credentials: result.Credentials,
 		Labels:      result.Labels,
