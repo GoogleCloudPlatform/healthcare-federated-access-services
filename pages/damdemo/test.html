@@ -340,6 +340,12 @@
         browsePaths = [];
         for (var name in cart.resources) {
           var res = cart.resources[name];
+          // Don't generate clickable url if cart responses other access credentials.
+          var hasAccessToken = false;
+          var cred = cart.access[res.access];
+          if (cred && cred.credentials.access_token) {
+            hasAccessToken = true;
+          }
           var paths = [];
           var btnClass = "";
           for (var interName in res.interfaces) {
@@ -347,7 +353,7 @@
             for (var idx = 0; idx < list.length; idx++) {
               var inter = list[idx];
               var path = inter.uri
-              if (interName == "http:gcp:gs") {
+              if (hasAccessToken && interName == "http:gcp:gs") {
                 var num = browsePaths.length;
                 browsePaths.push({
                   url: path,
