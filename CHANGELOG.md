@@ -2,7 +2,11 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.1...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.2...HEAD)
+
+## [v0.9.2](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.2)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.1...v0.9.2)
 
 **Migration**
 
@@ -15,6 +19,8 @@
 *  Implements remembered consents management:
   *  list user remembered consents: `/identity/v1alpha/{realm}/users/{user}/consents`
   *  delete user remembered consent: `/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}`
+*  Fix a multi-threading issue. [commit](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/commit/8aa9c49cc7cef5329bb1eef523b66573d864fe71)
+*  Cart token exchange: responses service account key in field "service_account_key"
 
 ## [v0.9.1](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.1)
 
