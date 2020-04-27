@@ -20,20 +20,27 @@
   <meta charset="UTF-8">
   <title>{{.ServiceTitle}}: Sign In</title>
 
-  <link rel="icon" href="{{.AssetDir}}/images/favicon.ico" type="image/png"/>
-
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css">
-  <link rel="stylesheet" href="{{.AssetDir}}/css/login.css">
+  <link rel='icon' href='{{.AssetDir}}/images/favicon.ico' type='image/png'/>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"/>
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css"/>
+  <link rel='stylesheet' href='{{.AssetDir}}/css/common.css'/>
+  <link rel='stylesheet' href='{{.AssetDir}}/css/login.css'/>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"></script>
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <script src="{{.AssetDir}}/js/login.js"></script>
+  <script src='{{.AssetDir}}/js/login.js'></script>
   <script>
-      var providers = JSON.parse({{.ProviderList}});
+    var providers = JSON.parse({{.ProviderList}});
   </script>
+
+  <style>
+    #main-container {
+      background: url({{.AssetDir}}/images/login_background.png) center center / cover no-repeat;
+    }
+  </style>
 </head>
+
 <body class="flex"
       onload="onInit(providers)">
   <main class="flex stretch">

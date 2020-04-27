@@ -14,28 +14,6 @@
  * limitations under the License.
  */
 
-body {
-  margin: 0;
-  font-family: 'Roboto', sans-serif;
-  font-size: 16px;
-  color: #2B2B2B;
-}
-
-p {
-  font-size: 16px;
-}
-
-h2 {
-  font-size: 3rem;
-  font-weight: 300;
-}
-
-h4 {
-  font-size: 2rem;
-  font-weight: 300;
-  margin-bottom: 1rem;
-}
-
 h4:not(:first-child) {
   margin-top: 4rem;
 }
@@ -50,39 +28,6 @@ a:not(:last-of-type) {
 
 a:not(:first-of-type) {
   margin-top: 0.35rem;
-}
-
-a {
-  text-decoration: none;
-}
-
-.flex {
-  display: flex;
-}
-
-.flex--column {
-  flex-direction: column;
-}
-
-.vertical-center {
-  align-items: center;
-}
-
-.horizontal-center {
-  justify-content: center;
-}
-
-.stretch {
-  flex-grow: 1;
-}
-
-.hide {
-  display: none;
-}
-
-.error {
-  color: red;
-  font-weight: bold;
 }
 
 button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
@@ -122,14 +67,6 @@ button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
   width: 4rem;
   height: 4rem;
   margin-right: 0.75rem;
-}
-
-#main-container {
-    background: url(../images/background.png) center center / cover no-repeat;
-}
-
-#main-container.persona {
-  background: url(../images/persona_bg.png) center center / cover no-repeat;
 }
 
 #main-container .mdl-card {
