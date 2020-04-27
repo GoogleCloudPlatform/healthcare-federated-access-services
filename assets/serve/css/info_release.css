@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-body {
-    margin: 0;
-    font-family: 'Roboto', sans-serif;
-    font-size: 16px;
-    color: #2B2B2B;
-}
 #main-container {
     background: url(../images/info_bg.jpg) center center / cover no-repeat;
     height: 100vh;
@@ -28,43 +22,78 @@ body {
     justify-content: center;
     flex-grow: 1;
 }
-#information-release {
+
+#main-container .mdl-card {
     padding: 2rem;
     width: 65%;
     max-width: 60rem;
-    background: #ffffff;
 }
-#list {
-    padding-left: 1rem;
+
+#main-container .mdl-card__title {
+    padding-left: 0;
 }
-.actions {
-    display: flex;
-    justify-content: flex-end;
-}
-.actions button {
-    font-size: 0.9rem;
-}
-#agree {
-    background: #005F6B;
-    color: #ffffff;
-}
-#disagree {
-    background: #e2e2e2;
-    margin-right: 0.2rem;
-}
-#reject-form {
-    visibility: hidden;
-}
-.mdl-card__title-text{
-    font-size: 2rem;
+
+#main-container h2.mdl-card__title-text {
+    font-size: 3rem;
     font-weight: bold;
 }
-.mdl-card__supporting-text {
+
+#main-container .mdl-card__supporting-text {
+    font-size: 1.2rem;
+}
+
+#main-container .mdl-radio {
+    height: auto;
+}
+
+#main-container .mdl-radio:not(:first-of-type) {
+    margin-top: 0.5rem;
+}
+
+#information-list {
+    list-style: none;
+    margin: 0;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+#information-list .list-item--title {
+    font-size: 1.3rem;
+}
+
+#information-list .info-value {
+    padding-left: 1rem;
+    font-size: 0.8rem;
     color: rgba(0,0,0,.64);
+}
+
+#remember-container {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.select-everything-container {
+    margin-top: 1rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+#reject-form {
+    visibility: hidden;
 }
 
 .scrollable {
     max-height: 18rem;
     overflow-y: scroll;
     overflow-x: hidden;
+}
+
+.input-hint {
+    font-size: 0.8rem;
+}
+
+.openid-info {
+    font-size: 0.8rem;
+    margin-left: 2rem;
+    margin-bottom: 1rem;
 }

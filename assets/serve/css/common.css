@@ -1,0 +1,70 @@
+body {
+    margin: 0;
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    color: #2B2B2B;
+}
+
+p {
+    font-size: 16px;
+}
+
+h2 {
+    font-size: 3rem;
+    font-weight: 300;
+}
+
+h4 {
+    font-size: 2rem;
+    font-weight: 300;
+    margin-bottom: 1rem;
+}
+
+a {
+    text-decoration: none;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex--column {
+    flex-direction: column;
+}
+
+.vertical-center {
+    align-items: center;
+}
+
+.horizontal-center {
+    justify-content: center;
+}
+
+.stretch {
+    flex-grow: 1;
+}
+
+.hide {
+    display: none;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.actions input,
+.actions button {
+    font-size: 0.9rem;
+    margin-left: 0.5rem;
+}
+
+.primary-btn {
+    background: #005F6B;
+    color: #ffffff;
+}
+
+.secondary-btn {
+    background: #e2e2e2;
+    margin-right: 0.2rem;
+}
