@@ -17,6 +17,7 @@ FROM golang:1.14.1-buster
 # Copy IC
 COPY . /hcls-fa
 RUN cd /hcls-fa && \
+    rm -rf deploy && \
     go build ./gcp/ic
 
 COPY deploy/build-gke-templates/ic/entrypoint.bash /entrypoint.sh

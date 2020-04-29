@@ -19,6 +19,7 @@ COPY deploy/build/dam/nginx.conf /etc/nginx/sites-enabled
 # Copy DAM
 COPY . /hcls-fa
 RUN cd /hcls-fa && \
+    rm -rf deploy && \
     go build ./gcp/dam
 
 COPY deploy/build/dam/entrypoint.bash /entrypoint.sh
