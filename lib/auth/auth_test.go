@@ -16,7 +16,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -32,6 +31,8 @@ import (
 	"golang.org/x/oauth2" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
@@ -748,7 +749,7 @@ func Test_RequiresAdminToken(t *testing.T) {
 	now := time.Now().Unix()
 	claims := &ga4gh.Identity{
 		Issuer:    issuerURL,
-		Subject:   "admin",
+		Subject:   "admin@example.com",
 		IssuedAt:  now,
 		Expiry:    now + 10000,
 		Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -777,7 +778,7 @@ func Test_RequiresAdminToken_Log(t *testing.T) {
 	now := time.Now().Unix()
 	claims := &ga4gh.Identity{
 		Issuer:    issuerURL,
-		Subject:   "admin",
+		Subject:   "admin@example.com",
 		IssuedAt:  now,
 		Expiry:    now + 10000,
 		Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -1227,14 +1228,16 @@ func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handle
 		t.Fatalf("fakeoidcissuer.New(%q, _, _, _, _) failed: %v", issuerURL, err)
 	}
 
+	store := storage.NewMemoryStorage("permissions", "testdata/config")
+
 	logs, close := fakesdl.New()
 
 	c := &Checker{
 		Logger:             logs.Client,
 		Issuer:             issuerURL,
+		Permissions:        permissions.New(store),
 		FetchClientSecrets: clientSecrets,
 		TransformIdentity:  transformIdentity,
-		IsAdmin:            isAdmin,
 	}
 
 	stub := &handlerFuncStub{}
@@ -1299,14 +1302,6 @@ func clientSecrets() (map[string]string, error) {
 
 func transformIdentity(id *ga4gh.Identity) *ga4gh.Identity {
 	return id
-}
-
-func isAdmin(id *ga4gh.Identity) error {
-	if id.Subject == "admin" {
-		return nil
-	}
-
-	return fmt.Errorf("not admin")
 }
 
 type handlerFuncStub struct {

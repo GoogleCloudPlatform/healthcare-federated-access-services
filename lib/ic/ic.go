@@ -220,7 +220,6 @@ type Service struct {
 	clientLoginPageTmpl        *template.Template
 	infomationReleasePageTmpl  *template.Template
 	startTime                  int64
-	permissions                *permissions.Permissions
 	domain                     string
 	serviceName                string
 	accountDomain              string
@@ -302,11 +301,6 @@ func New(r *mux.Router, params *Options) *Service {
 		syncFreq = params.HydraSyncFreq
 	}
 
-	perms, err := permissions.LoadPermissions(params.Store)
-	if err != nil {
-		glog.Exitf("cannot load permissions:%v", err)
-	}
-
 	cliAcceptHandler, err := cli.NewAcceptHandler(params.Store, params.Encryption, "/identity")
 	if err != nil {
 		glog.Exitf("cli.NewAcceptHandler() failed: %v", err)
@@ -320,7 +314,6 @@ func New(r *mux.Router, params *Options) *Service {
 		clientLoginPageTmpl:        clientLoginPageTmpl,
 		infomationReleasePageTmpl:  infomationReleasePageTmpl,
 		startTime:                  time.Now().Unix(),
-		permissions:                perms,
 		domain:                     params.Domain,
 		serviceName:                params.ServiceName,
 		accountDomain:              params.AccountDomain,
@@ -1572,8 +1565,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 	checker := &auth.Checker{
 		Logger:             s.logger,
 		Issuer:             s.getIssuerString(),
+		Permissions:        permissions.New(s.store),
 		FetchClientSecrets: a.fetchClientSecrets,
-		IsAdmin:            a.isAdmin,
 		TransformIdentity:  a.transformIdentity,
 	}
 

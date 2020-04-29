@@ -30,6 +30,7 @@ const (
 	errScopeMissing        errType = "id:scope_missing"
 	errVerifierUnavailable errType = "oidc:verifier_unavailable"
 	errIDVerifyFailed      errType = "id:verify_failed"
+	errCheckAdminFailed    errType = "id:check_admin_failed"
 	errNotAdmin            errType = "role:user_not_admin"
 	errUserMismatch        errType = "role:user_mismatch"
 	errUnknownRole         errType = "role:unknown_role"

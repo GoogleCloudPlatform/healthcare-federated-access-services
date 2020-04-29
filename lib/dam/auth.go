@@ -37,11 +37,6 @@ func (s *authChecker) fetchClientSecrets() (map[string]string, error) {
 	return sec.ClientSecrets, nil
 }
 
-func (s *authChecker) isAdmin(id *ga4gh.Identity) error {
-	_, err := s.s.permissions.CheckAdmin(id)
-	return err
-}
-
 // transformIdentity move "identities" claim in "ext" claim to top level identities claim for hydra.
 func (s *authChecker) transformIdentity(id *ga4gh.Identity) *ga4gh.Identity {
 	if !s.s.useHydra {

@@ -163,7 +163,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Groups",
 			Persona: "non-admin",
-			Output:  `^.*not an administrator.*`,
+			Output:  `^.*requires admin permission.*`,
 			Status:  http.StatusUnauthorized,
 		},
 		{
@@ -464,7 +464,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/identity/scim/v2/test/Users",
 			Persona: "non-admin",
 			Scope:   persona.AccountScope,
-			Output:  `^.*not an administrator.*`,
+			Output:  `^.*requires admin permission.*`,
 			Status:  http.StatusUnauthorized,
 		},
 		{
@@ -789,7 +789,7 @@ func TestAdminHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "non-admin",
-			Output: `^.*user is not an administrator	*`,
+			Output: `^.*requires admin permission	*`,
 			Status: http.StatusUnauthorized,
 		},
 		{
@@ -805,7 +805,7 @@ func TestAdminHandlers(t *testing.T) {
 			Method:  "DELETE",
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "non-admin",
-			Output: `^.*user is not an administrator	*`,
+			Output: `^.*requires admin permission	*`,
 			Status: http.StatusUnauthorized,
 		},
 		{

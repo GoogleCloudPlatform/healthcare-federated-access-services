@@ -104,7 +104,6 @@ type Service struct {
 	store               storage.Store
 	warehouse           clouds.ResourceTokenCreator
 	logger              *logging.Client
-	permissions         *permissions.Permissions
 	Handler             *ServiceHandler
 	hidePolicyBasis     bool
 	hideRejectDetail    bool
@@ -172,10 +171,6 @@ func New(r *mux.Router, params *Options) *Service {
 	if err := srcutil.LoadProto("deploy/metadata/dam_roles.json", &roleCat); err != nil {
 		glog.Exitf("cannot load role categories file %q: %v", "deploy/metadata/dam_roles.json", err)
 	}
-	perms, err := permissions.LoadPermissions(params.Store)
-	if err != nil {
-		glog.Exitf("cannot load permissions: %v", err)
-	}
 	syncFreq := time.Minute
 	if params.HydraSyncFreq > 0 {
 		syncFreq = params.HydraSyncFreq
@@ -190,7 +185,6 @@ func New(r *mux.Router, params *Options) *Service {
 		store:               params.Store,
 		warehouse:           params.Warehouse,
 		logger:              params.Logger,
-		permissions:         perms,
 		Handler:             sh,
 		hidePolicyBasis:     params.HidePolicyBasis,
 		hideRejectDetail:    params.HideRejectDetail,
@@ -1360,8 +1354,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 	checker := &auth.Checker{
 		Logger:             s.logger,
 		Issuer:             s.getIssuerString(),
+		Permissions:        permissions.New(s.store),
 		FetchClientSecrets: a.fetchClientSecrets,
-		IsAdmin:            a.isAdmin,
 		TransformIdentity:  a.transformIdentity,
 	}
 

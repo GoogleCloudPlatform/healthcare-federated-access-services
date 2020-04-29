@@ -33,6 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -90,14 +91,14 @@ type Checker struct {
 	Logger *logging.Client
 	// Accepted oidc Issuer url.
 	Issuer string
+	// Permissions contains methor to check if user admin permission.
+	Permissions *permissions.Permissions
 	// FetchClientSecrets fetchs client id and client secret.
 	FetchClientSecrets func() (map[string]string, error)
 	// TransformIdentity transform as needed, will run just after token convert to identity.
 	// eg. hydra stores custom claims in "ext" fields for access token. need to move to top
 	// level field.
 	TransformIdentity func(*ga4gh.Identity) *ga4gh.Identity
-	// IsAdmin checks if the given identity has admin permission.
-	IsAdmin func(*ga4gh.Identity) error
 }
 
 // Context (i.e. auth.Context) is authorization information that is stored within the request context.
@@ -137,7 +138,7 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var linkedID *ga4gh.Identity
-		log, id, err := checker.check(r, require)
+		log, id, isAdmin, err := checker.check(r, require)
 		if err == nil && len(r.Header.Get(LinkAuthorizationHeader)) > 0 {
 			linkedID, err = checker.verifiedBearerToken(r, LinkAuthorizationHeader, oathclients.ExtractClientID(r))
 			if err == nil && !strutil.ContainsWord(linkedID.Scope, "link") {
@@ -151,11 +152,6 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 		if err != nil {
 			httputils.WriteError(w, err)
 			return
-		}
-
-		isAdmin := false
-		if id != nil {
-			isAdmin = checker.IsAdmin(id) == nil
 		}
 		a := &Context{
 			ID:           id,
@@ -194,11 +190,11 @@ func checkRequest(r *http.Request) error {
 }
 
 // Check checks request meet all authorization requirements for this framework.
-func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, *ga4gh.Identity, error) {
+func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, *ga4gh.Identity, bool, error) {
 	log := &auditlog.AccessLog{}
 
 	if err := checkRequest(r); err != nil {
-		return log, nil, err
+		return log, nil, false, err
 	}
 
 	r.ParseForm()
@@ -208,29 +204,29 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, 
 		cSec := oathclients.ExtractClientSecret(r)
 
 		if err := s.verifyClientCredentials(cID, cSec, require); err != nil {
-			return log, nil, err
+			return log, nil, false, err
 		}
 	}
 
-	id, err := s.verifyAccessToken(r, cID, require)
+	id, isAdmin, err := s.verifyAccessToken(r, cID, require)
 	log.TokenID = tokenID(id)
 	log.TokenSubject = id.Subject
 	log.TokenIssuer = id.Issuer
 
 	if err != nil {
-		return log, id, err
+		return log, id, isAdmin, err
 	}
 
 	// EditScopes are required for some operations, unless the user is an administrator.
-	if len(require.EditScopes) > 0 && isEditMethod(r.Method) && s.IsAdmin(id) != nil {
+	if len(require.EditScopes) > 0 && isEditMethod(r.Method) && !isAdmin {
 		for _, scope := range require.EditScopes {
 			if !strutil.ContainsWord(id.Scope, scope) {
-				return log, id, errutil.WithErrorReason(errScopeMissing, status.Errorf(codes.Unauthenticated, "scope %q required for this method (%q)", scope, id.Scope))
+				return log, id, isAdmin, errutil.WithErrorReason(errScopeMissing, status.Errorf(codes.Unauthenticated, "scope %q required for this method (%q)", scope, id.Scope))
 			}
 		}
 	}
 
-	return log, id, err
+	return log, id, isAdmin, err
 }
 
 // verifyClientCredentials based on the provided requirement, the function
@@ -266,41 +262,42 @@ func (s *Checker) verifyClientCredentials(client, secret string, require Require
 
 // verifyAccessToken verify the access token meet the given requirement.
 // The returned identity will not be nil even in error cases.
-func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Require) (*ga4gh.Identity, error) {
+func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Require) (*ga4gh.Identity, bool, error) {
+	if require.Role == None {
+		return &ga4gh.Identity{}, false, nil
+	}
+
+	id, err := s.verifiedBearerToken(r, UserAuthorizationHeader, clientID)
+	if err != nil {
+		return &ga4gh.Identity{}, false, err
+	}
+
+	isAdmin, err := s.Permissions.CheckAdmin(id)
+	if err != nil {
+		return id, false, errutil.WithErrorReason(errCheckAdminFailed, status.Errorf(codes.Unavailable, "loadPermissions failed: %v", err))
+	}
 
 	switch require.Role {
-	case None:
-		return &ga4gh.Identity{}, nil
-
 	case Admin:
-		id, err := s.verifiedBearerToken(r, UserAuthorizationHeader, clientID)
-		if err != nil {
-			return &ga4gh.Identity{}, err
-		}
-
-		if err := s.IsAdmin(id); err != nil {
+		if !isAdmin {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return id, errutil.WithErrorReason(errNotAdmin, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err))
+			return id, isAdmin, errutil.WithErrorReason(errNotAdmin, status.Errorf(codes.Unauthenticated, "requires admin permission %v", err))
 		}
-		return id, nil
+		return id, isAdmin, nil
 
 	case User:
-		id, err := s.verifiedBearerToken(r, UserAuthorizationHeader, clientID)
-		if err != nil {
-			return &ga4gh.Identity{}, err
-		}
-		if err := s.IsAdmin(id); err == nil {
+		if isAdmin {
 			// Token is for an administrator, who is able to act on behalf of any user, so short-circuit remaining checks.
-			return id, nil
+			return id, isAdmin, nil
 		}
 		if user := mux.Vars(r)["user"]; len(user) != 0 && user != id.Subject {
 			// TODO: token maybe leaked at this point, consider auto revoke or contact user/admin.
-			return id, errutil.WithErrorReason(errUserMismatch, status.Errorf(codes.Unauthenticated, "user in path does not match token"))
+			return id, isAdmin, errutil.WithErrorReason(errUserMismatch, status.Errorf(codes.Unauthenticated, "user in path does not match token"))
 		}
-		return id, nil
+		return id, isAdmin, nil
 
 	default:
-		return &ga4gh.Identity{}, errutil.WithErrorReason(errUnknownRole, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role))
+		return id, isAdmin, errutil.WithErrorReason(errUnknownRole, status.Errorf(codes.Unauthenticated, "unknown role %q", require.Role))
 	}
 }
 

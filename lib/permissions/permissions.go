@@ -16,8 +16,6 @@
 package permissions
 
 import (
-	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -30,35 +28,31 @@ import (
 
 // Permissions type exposes functions access user permissions.
 type Permissions struct {
-	perm *cpb.Permissions
+	store storage.Store
 }
 
-// LoadPermissions loads permission from storage/config.
-func LoadPermissions(store storage.Store) (*Permissions, error) {
-	perms := &cpb.Permissions{}
+// New creates Permissions.
+func New(store storage.Store) *Permissions {
+	return &Permissions{store: store}
+}
 
+// loadPermissions loads permission from storage/config.
+func loadPermissions(store storage.Store) (*cpb.Permissions, error) {
+	// TODO: Should setup a cache for permission to avoid reading permission from datastore for every request
+	perms := &cpb.Permissions{}
 	if err := store.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perms); err != nil {
 		return nil, err
 	}
-	return &Permissions{perm: perms}, nil
+	return perms, nil
 }
 
-// CheckAdmin returns http status forbidden and error message if user does not have validate admin permission.
-// TODO: only return error is enough.
-func (p *Permissions) CheckAdmin(id *ga4gh.Identity) (int, error) {
-	if !p.IsAdmin(id) {
-		return http.StatusForbidden, fmt.Errorf("user is not an administrator")
+// CheckAdmin returns if user has valid admin permission.
+func (p *Permissions) CheckAdmin(id *ga4gh.Identity) (bool, error) {
+	perm, err := loadPermissions(p.store)
+	if err != nil {
+		return false, err
 	}
-	return http.StatusOK, nil
-}
-
-// CheckSubjectOrAdmin returns http status forbidden and an error message if the client isn't the
-// subject being requested and also isn't an admin.
-func (p *Permissions) CheckSubjectOrAdmin(id *ga4gh.Identity, sub string) (int, error) {
-	if id.Subject != sub {
-		return p.CheckAdmin(id)
-	}
-	return http.StatusOK, nil
+	return isAdmin(perm, id), nil
 }
 
 func extractIdentitiesFromVisas(id *ga4gh.Identity) []string {
@@ -93,25 +87,25 @@ func extractIdentitiesFromVisas(id *ga4gh.Identity) []string {
 	return subjects
 }
 
-// IsAdmin returns true if the identity's underlying account has
+// isAdmin returns true if the identity's underlying account has
 // administrative privileges without checking scopes or other
 // restrictions related to the auth token itself.
-func (p *Permissions) IsAdmin(id *ga4gh.Identity) bool {
+func isAdmin(perm *cpb.Permissions, id *ga4gh.Identity) bool {
 	if id == nil {
 		return false
 	}
 	now := time.Now()
-	if p.isAdminUser(id.Subject, now) {
+	if isAdminUser(perm, id.Subject, now) {
 		return true
 	}
 	for user := range id.Identities {
-		if p.isAdminUser(user, now) {
+		if isAdminUser(perm, user, now) {
 			return true
 		}
 	}
 
 	for _, sub := range extractIdentitiesFromVisas(id) {
-		if p.isAdminUser(sub, now) {
+		if isAdminUser(perm, sub, now) {
 			return true
 		}
 	}
@@ -119,14 +113,14 @@ func (p *Permissions) IsAdmin(id *ga4gh.Identity) bool {
 	return false
 }
 
-func (p *Permissions) isAdminUser(user string, now time.Time) bool {
+func isAdminUser(perm *cpb.Permissions, user string, now time.Time) bool {
 	// Only allowing "sub" that contain an "@" symbol. We don't want
 	// to allow admins to try to trigger on a raw account number
 	// without knowing where it came from.
 	if !strings.Contains(user, "@") {
 		return false
 	}
-	u, ok := p.perm.Users[user]
+	u, ok := perm.Users[user]
 	if !ok {
 		return false
 	}

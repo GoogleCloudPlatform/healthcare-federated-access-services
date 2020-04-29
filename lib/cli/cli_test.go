@@ -25,6 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/fakeencryption" /* copybara-comment: fakeencryption */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
@@ -167,12 +168,12 @@ type service struct {
 
 func serviceNew(store storage.Store, client *http.Client) *service {
 	checker := &auth.Checker{
-		Logger: nil,
-		Issuer: hydraPublicURL,
+		Logger:      nil,
+		Issuer:      hydraPublicURL,
+		Permissions: permissions.New(store),
 		FetchClientSecrets: func() (map[string]string, error) {
 			return map[string]string{test.TestClientID: test.TestClientSecret}, nil
 		},
-		IsAdmin:           func(id *ga4gh.Identity) error { return nil },
 		TransformIdentity: func(id *ga4gh.Identity) *ga4gh.Identity { return id },
 	}
 	crypt := fakeencryption.New()
