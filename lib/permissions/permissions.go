@@ -35,18 +35,9 @@ type Permissions struct {
 
 // LoadPermissions loads permission from storage/config.
 func LoadPermissions(store storage.Store) (*Permissions, error) {
-	info := store.Info()
-	service := info["service"]
-	path := info["path"]
-	if service == "" || path == "" {
-		return nil, fmt.Errorf("cannot obtain service and path from storage layer")
-	}
-
-	// TODO Save these in real storage.
-	fs := storage.NewFileStorage(service, path)
 	perms := &cpb.Permissions{}
 
-	if err := fs.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perms); err != nil {
+	if err := store.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perms); err != nil {
 		return nil, err
 	}
 	return &Permissions{perm: perms}, nil

@@ -1323,6 +1323,17 @@ func ImportConfig(store storage.Store, service string, warehouse clouds.Resource
 	if err = store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
 		return err
 	}
+	perm := &cpb.Permissions{}
+	if err = fs.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perm); err != nil {
+		return err
+	}
+	history.Revision = perm.Revision
+	if err = storage.ReplaceContentVariables(perm, cfgVars); err != nil {
+		return fmt.Errorf("replacing variables on permissions file: %v", err)
+	}
+	if err = store.WriteTx(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, perm.Revision, perm, history, tx); err != nil {
+		return err
+	}
 	if warehouse == nil {
 		return nil
 	}

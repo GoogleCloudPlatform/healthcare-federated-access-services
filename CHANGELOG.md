@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.2...HEAD)
 
+**Migration**
+
+*  Need to import `permissions` file in IC and DAM into datastore, for test setup just run `import.bash`
+
 ## [v0.9.2](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.2)
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.1...v0.9.2)
