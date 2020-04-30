@@ -30,8 +30,7 @@ const (
 )
 
 var (
-	expiryConditionRE   = regexp.MustCompile(`^request\.time < timestamp\("(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\"\)$`)
-	expiryTimeFormat    = "2006-01-02T15:04:05Z"
+	expiryConditionRE   = regexp.MustCompile(`^request\.time < timestamp\("(.*?)"\)$`)
 	conditionExprFormat = `request.time < timestamp("%s")`
 	timeNow             = time.Now
 )
@@ -43,7 +42,7 @@ func expiryInCondition(condition string) time.Time {
 	}
 	match := expiryConditionRE.FindStringSubmatch(condition)
 	if len(match) > 1 {
-		if ts, err := time.Parse(expiryTimeFormat, match[1]); err == nil {
+		if ts, err := time.Parse(time.RFC3339, match[1]); err == nil {
 			return ts
 		}
 	}
@@ -53,7 +52,7 @@ func expiryInCondition(condition string) time.Time {
 
 // toExpiryConditionExpr builds the condition expr with given timestamp
 func toExpiryConditionExpr(exp time.Time) string {
-	timeStr := exp.Format(expiryTimeFormat)
+	timeStr := exp.Format(time.RFC3339)
 	return fmt.Sprintf(conditionExprFormat, timeStr)
 }
 

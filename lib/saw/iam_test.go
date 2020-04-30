@@ -22,7 +22,7 @@ import (
 
 func Test_expiryInCondition(t *testing.T) {
 	tsStr := "2021-01-02T03:04:05Z"
-	ts, err := time.Parse(expiryTimeFormat, tsStr)
+	ts, err := time.Parse(time.RFC3339, tsStr)
 	if err != nil {
 		t.Fatalf("time.Parse() failed: %v", err)
 	}
@@ -66,7 +66,7 @@ func Test_expiryInCondition(t *testing.T) {
 
 func Test_toExpiryConditionExpr(t *testing.T) {
 	tsStr := "2021-01-02T03:04:05Z"
-	ts, err := time.Parse(expiryTimeFormat, tsStr)
+	ts, err := time.Parse(time.RFC3339, tsStr)
 	if err != nil {
 		t.Fatalf("time.Parse() failed: %v", err)
 	}
