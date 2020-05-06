@@ -57,6 +57,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/tokensapi" /* copybara-comment: tokensapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/verifier" /* copybara-comment: verifier */
@@ -115,6 +116,7 @@ type Service struct {
 	scim                *scim.Scim
 	tokens              tgrpcpb.TokensServer
 	auditlogs           agrpcpb.AuditLogsServer
+	tokenProviders      []tokensapi.TokenProvider
 }
 
 type ServiceHandler struct {
@@ -251,6 +253,14 @@ func New(r *mux.Router, params *Options) *Service {
 	}
 
 	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
+
+	defaultBrokerURL := ""
+	if broker, ok := cfg.TrustedIssuers[params.DefaultBroker]; ok {
+		defaultBrokerURL = broker.Issuer
+	}
+	s.tokenProviders = []tokensapi.TokenProvider{
+		tokensapi.NewGCPTokenManager(cfg.Options.GcpServiceAccountProject, defaultBrokerURL, params.ServiceAccountManager),
+	}
 
 	sh.s = s
 	sh.Handler = r
@@ -1417,8 +1427,12 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(resourceTokensPath, auth.MustWithAuth(s.ResourceTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet, http.MethodPost)
 
 	// token service endpoints
-	r.HandleFunc(tokensPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	r.HandleFunc(tokensPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.ListTokensFactory(tokensPath, s.tokenProviders)), checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.DeleteTokenFactory(tokenPath, s.tokenProviders)), checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+
+	// TODO: to remove.
+	r.HandleFunc(fakeTokensPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(fakeTokenPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).DeleteToken, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// consents service endpoints
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}

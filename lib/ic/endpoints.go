@@ -83,8 +83,10 @@ const (
 	scimMePath    = "/identity/scim/v2/{realm}/Me"
 
 	// End-point for managing tokens. See "proto/tokens/v1/consents.proto"
-	tokensPath = "/tokens"
-	tokenPath  = "/tokens/"
+	tokensPath     = "/identity/v1alpha/users/{user}/tokens"
+	tokenPath      = "/identity/v1alpha/users/{user}/tokens/{token_id}"
+	fakeTokensPath = "/tokens"
+	fakeTokenPath  = "/tokens/"
 
 	// End-point for managing consents. See "proto/tokens/v1/tokens.proto"
 	listConsentPath   = "/identity/v1alpha/{realm}/users/{user}/consents"

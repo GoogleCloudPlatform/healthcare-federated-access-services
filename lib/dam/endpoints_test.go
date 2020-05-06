@@ -43,6 +43,10 @@ var (
 		"GET /dam/gatekeeper/.well-known/jwks",
 		"GET /dam/gatekeeper/.well-known/openid-configuration",
 
+		// token management endpoints
+		"GET /dam/v1alpha/users/{user}/tokens",
+		"DELETE /dam/v1alpha/users/{user}/tokens/{token_id}",
+
 		// administration endpoints
 		"/dam/v1alpha/{realm}",
 		"/dam/v1alpha/{realm}/clients:sync",

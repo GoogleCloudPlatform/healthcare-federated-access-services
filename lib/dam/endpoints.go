@@ -87,8 +87,10 @@ const (
 	testPath = "/dam/v1alpha/{realm}/tests"
 
 	// End-point for managing tokens. See "proto/tokens/v1/consents.proto"
-	tokensPath = "/tokens"
-	tokenPath  = "/tokens/"
+	tokensPath     = "/dam/v1alpha/users/{user}/tokens"
+	tokenPath      = "/dam/v1alpha/users/{user}/tokens/{token_id}"
+	fakeTokensPath = "/tokens"
+	fakeTokenPath  = "/tokens/"
 
 	// End-point for managing consents. See "proto/tokens/v1/tokens.proto"
 	consentsPath = "/consents"
