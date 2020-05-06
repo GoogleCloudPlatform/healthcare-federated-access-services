@@ -47,7 +47,7 @@ const (
 	cliAcceptPath = "/identity/cli/accept"
 
 	// ---------------------------------------------------------------------------
-	// The following are administration endpoints for managing DAM.
+	// The following are administration endpoints for managing IC.
 	// ---------------------------------------------------------------------------
 
 	// The following are for managing realms.
