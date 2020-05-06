@@ -12,7 +12,7 @@ go install ./cmd/swagger
 
 ## Generate files
 
-`swagger generate client --spec=https://raw.githubusercontent.com/ory/hydra/master/docs/api.swagger.json --skip-operations --skip-validation --model-package=apis/hydraapi`
+`swagger generate client --spec=https://raw.githubusercontent.com/ory/hydra/master/.schema/api.swagger.json --skip-operations --skip-validation --model-package=apis/hydraapi`
 
 ## Edit files
 

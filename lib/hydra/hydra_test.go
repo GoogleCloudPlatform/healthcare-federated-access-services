@@ -454,7 +454,7 @@ func TestListConsents(t *testing.T) {
 		t.Errorf("s.ListConsentsReq = %s, wants %s", s.ListConsentsReq, sub)
 	}
 
-	if d := cmp.Diff(s.ListConsentsResp, resp); len(d) != 0 {
+	if d := cmp.Diff(s.ListConsentsResp, resp, cmpopts.IgnoreUnexported(strfmt.DateTime{})); len(d) != 0 {
 		t.Errorf("resp (-wants, +got) %s", d)
 	}
 }
