@@ -17,6 +17,7 @@ package permissions
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -26,9 +27,14 @@ import (
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
+const cacheTimeout = time.Minute * 5
+
 // Permissions type exposes functions access user permissions.
 type Permissions struct {
-	store storage.Store
+	store             storage.Store
+	cachedPermissions *cpb.Permissions
+	cacheExpiry       time.Time
+	mutex             sync.Mutex
 }
 
 // New creates Permissions.
@@ -37,18 +43,26 @@ func New(store storage.Store) *Permissions {
 }
 
 // loadPermissions loads permission from storage/config.
-func loadPermissions(store storage.Store) (*cpb.Permissions, error) {
-	// TODO: Should setup a cache for permission to avoid reading permission from datastore for every request
-	perms := &cpb.Permissions{}
-	if err := store.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perms); err != nil {
+func (p *Permissions) loadPermissions() (*cpb.Permissions, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	now := time.Now()
+	// return if valid cached value available
+	if p.cachedPermissions != nil && p.cacheExpiry.After(now) {
+		return p.cachedPermissions, nil
+	}
+
+	p.cacheExpiry = now.Add(cacheTimeout)
+	p.cachedPermissions = &cpb.Permissions{}
+	if err := p.store.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, p.cachedPermissions); err != nil {
 		return nil, err
 	}
-	return perms, nil
+	return p.cachedPermissions, nil
 }
 
 // CheckAdmin returns if user has valid admin permission.
 func (p *Permissions) CheckAdmin(id *ga4gh.Identity) (bool, error) {
-	perm, err := loadPermissions(p.store)
+	perm, err := p.loadPermissions()
 	if err != nil {
 		return false, err
 	}

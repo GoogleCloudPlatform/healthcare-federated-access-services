@@ -16,10 +16,13 @@ package permissions
 
 import (
 	"testing"
+	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+
+	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
 const (
@@ -28,9 +31,9 @@ const (
 )
 
 func TestAdmin(t *testing.T) {
-	fs := storage.NewMemoryStorage(testService, testConfigPath)
+	store := storage.NewMemoryStorage(testService, testConfigPath)
 
-	perm := New(fs)
+	perm := New(store)
 
 	type adminTest struct {
 		name             string
@@ -122,5 +125,48 @@ func TestAdmin(t *testing.T) {
 				t.Errorf("CheckAdmin() = %v, wants %v", isAdmin, tc.want)
 			}
 		})
+	}
+}
+
+func Test_cache(t *testing.T) {
+	store := storage.NewMemoryStorage(testService, testConfigPath)
+
+	perm := New(store)
+
+	// first loadPermission should load permission from store
+	p1, err := perm.loadPermissions()
+	if err != nil {
+		t.Fatalf("loadPermissions() failed: %v", err)
+	}
+
+	if p1.Version != "v0" {
+		t.Errorf("Version = %s, wants %s", p1.Version, "v0")
+	}
+
+	// update permission in store
+	save := &cpb.Permissions{Version: "v1"}
+	if err := store.Write(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, save, nil); err != nil {
+		t.Fatalf("Write permissions failed: %v", err)
+	}
+
+	// cache still valid, did not read from store
+	p2, err := perm.loadPermissions()
+	if err != nil {
+		t.Fatalf("loadPermissions() failed: %v", err)
+	}
+
+	if p2.Version != "v0" {
+		t.Errorf("Version = %s, wants %s", p2.Version, "v0")
+	}
+
+	// cache expired, read from store
+	perm.cacheExpiry = time.Now().Add(-1 * time.Minute)
+	p3, err := perm.loadPermissions()
+	if err != nil {
+		t.Fatalf("loadPermissions() failed: %v", err)
+	}
+
+	if p3.Version != "v1" {
+		t.Errorf("Version = %s, wants %s", p3.Version, "v1")
 	}
 }
