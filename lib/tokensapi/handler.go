@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	epb "github.com/golang/protobuf/ptypes/empty" /* copybara-comment */
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
@@ -36,6 +37,9 @@ var (
 	// tokenIDRE token_id part is base64 url encoded.
 	// base64 url encoding see: https://tools.ietf.org/html/rfc4648#section-5
 	tokenIDRE = regexp.MustCompile(`^(gcp|hydra):[0-9a-zA-Z-_]*$`)
+
+	// httpClient to call http request.
+	httpClient = http.DefaultClient
 )
 
 // Token is used in TokenProvider below.
@@ -45,12 +49,20 @@ type Token struct {
 	TokenPrefix string
 	IssuedAt    int64
 	ExpiresAt   int64
+	Issuer      string
+	Subject     string
+	Audience    string
+	Scope       string
+	ClientID    string
+	ClientName  string
+	ClientUI    map[string]string
+	Platform    string
 }
 
 // TokenProvider includes methods for token management.
 type TokenProvider interface {
-	ListTokens(ctx context.Context, user string) ([]*Token, error)
-	DeleteToken(ctx context.Context, user, tokenID string) error
+	ListTokens(ctx context.Context, user string, store storage.Store, tx storage.Tx) ([]*Token, error)
+	DeleteToken(ctx context.Context, user, tokenID string, store storage.Store, tx storage.Tx) error
 	TokenPrefix() string
 }
 
@@ -73,13 +85,16 @@ func decodeTokenName(tokenID string) (string, string, error) {
 
 // ListTokensFactory creates a http handler for "/(identity|dam)/v1alpha/users/{user}/tokens"
 // TODO should support filter parameters.
-func ListTokensFactory(tokensPath string, providers []TokenProvider) *handlerfactory.Options {
+func ListTokensFactory(tokensPath string, providers []TokenProvider, store storage.Store) *handlerfactory.Options {
 	return &handlerfactory.Options{
 		TypeName:            "token",
 		PathPrefix:          tokensPath,
 		HasNamedIdentifiers: false,
 		Service: func() handlerfactory.Service {
-			return &listTokensHandler{providers: providers}
+			return &listTokensHandler{
+				providers: providers,
+				store:     store,
+			}
 		},
 	}
 }
@@ -87,31 +102,58 @@ func ListTokensFactory(tokensPath string, providers []TokenProvider) *handlerfac
 type listTokensHandler struct {
 	handlerfactory.Empty
 	providers []TokenProvider
+	store     storage.Store
+
+	tx storage.Tx
+}
+
+func (s *listTokensHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	s.tx = tx
+	return http.StatusOK, nil
 }
 
 func (s *listTokensHandler) Get(r *http.Request, name string) (proto.Message, error) {
 	userID := mux.Vars(r)["user"]
 
 	resp := &tpb.ListTokensResponse{}
+	var err error
 	for _, p := range s.providers {
-		l, err := p.ListTokens(r.Context(), userID)
-		if err != nil {
-			return nil, err
-		}
+		var l []*Token
+		// user may only have tokens on some provider.
+		// TODO: need original err from provider to check if it is a "not found" err.
+		l, err = p.ListTokens(r.Context(), userID, s.store, s.tx)
 		for _, t := range l {
-			resp.Tokens = append(resp.Tokens, &tpb.Token{
-				Name:      encodeTokenName(t.User, t.TokenPrefix, t.RawTokenID),
-				IssuedAt:  t.IssuedAt,
-				ExpiresAt: t.ExpiresAt,
-			})
+			resp.Tokens = append(resp.Tokens, toToken(t))
 		}
 	}
 
-	return resp, nil
+	if len(resp.Tokens) > 0 {
+		return resp, nil
+	}
+	return nil, err
+}
+
+// toToken convert to pb Token
+func toToken(t *Token) *tpb.Token {
+	return &tpb.Token{
+		Name:      encodeTokenName(t.User, t.TokenPrefix, t.RawTokenID),
+		Issuer:    t.Issuer,
+		Subject:   t.Subject,
+		Audience:  t.Audience,
+		ExpiresAt: t.ExpiresAt,
+		IssuedAt:  t.IssuedAt,
+		Scope:     t.Scope,
+		Client: &tpb.Client{
+			Id:   t.ClientID,
+			Name: t.ClientName,
+			Ui:   t.ClientUI,
+		},
+		Type: t.Platform,
+	}
 }
 
 // DeleteTokenFactory creates a http handler for "/(identity|dam)/v1alpha/users/{user}/tokens/{token_id}"
-func DeleteTokenFactory(tokenPath string, providers []TokenProvider) *handlerfactory.Options {
+func DeleteTokenFactory(tokenPath string, providers []TokenProvider, store storage.Store) *handlerfactory.Options {
 	return &handlerfactory.Options{
 		TypeName:            "token",
 		PathPrefix:          tokenPath,
@@ -122,6 +164,7 @@ func DeleteTokenFactory(tokenPath string, providers []TokenProvider) *handlerfac
 		Service: func() handlerfactory.Service {
 			return &deleteTokenHandler{
 				providers: providers,
+				store:     store,
 			}
 		},
 	}
@@ -130,6 +173,14 @@ func DeleteTokenFactory(tokenPath string, providers []TokenProvider) *handlerfac
 type deleteTokenHandler struct {
 	handlerfactory.Empty
 	providers []TokenProvider
+	store     storage.Store
+
+	tx storage.Tx
+}
+
+func (s *deleteTokenHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
+	s.tx = tx
+	return http.StatusOK, nil
 }
 
 func (s *deleteTokenHandler) Remove(r *http.Request, name string) (proto.Message, error) {
@@ -145,7 +196,7 @@ func (s *deleteTokenHandler) Remove(r *http.Request, name string) (proto.Message
 	for _, p := range s.providers {
 		if p.TokenPrefix() == prefix {
 			found = true
-			err := p.DeleteToken(r.Context(), userID, tokenID)
+			err := p.DeleteToken(r.Context(), userID, tokenID, s.store, s.tx)
 			if err != nil {
 				return nil, err
 			}

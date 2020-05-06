@@ -261,6 +261,9 @@ func New(r *mux.Router, params *Options) *Service {
 	s.tokenProviders = []tokensapi.TokenProvider{
 		tokensapi.NewGCPTokenManager(cfg.Options.GcpServiceAccountProject, defaultBrokerURL, params.ServiceAccountManager),
 	}
+	if s.useHydra {
+		s.tokenProviders = append(s.tokenProviders, tokensapi.NewHydraTokenManager(s.hydraAdminURL, s.getIssuerString(), s.clients))
+	}
 
 	sh.s = s
 	sh.Handler = r
@@ -1358,6 +1361,16 @@ func getFileStore(store storage.Store, service string) storage.Store {
 	return storage.NewFileStorage(service, path)
 }
 
+// clients fetchs oauth clients
+func (s *Service) clients(tx storage.Tx) (map[string]*cpb.Client, error) {
+	cfg, err := s.loadConfig(tx, storage.DefaultRealm)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "load clients failed: %v", err)
+	}
+
+	return cfg.Clients, nil
+}
+
 // TODO: move registeration of endpoints to main package.
 func registerHandlers(r *mux.Router, s *Service) {
 	a := &authChecker{s: s}
@@ -1427,8 +1440,8 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(resourceTokensPath, auth.MustWithAuth(s.ResourceTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet, http.MethodPost)
 
 	// token service endpoints
-	r.HandleFunc(tokensPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.ListTokensFactory(tokensPath, s.tokenProviders)), checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.DeleteTokenFactory(tokenPath, s.tokenProviders)), checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	r.HandleFunc(tokensPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.ListTokensFactory(tokensPath, s.tokenProviders, s.store)), checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.DeleteTokenFactory(tokenPath, s.tokenProviders, s.store)), checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// TODO: to remove.
 	r.HandleFunc(fakeTokensPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)

@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 )
 
@@ -42,7 +43,7 @@ func NewGCPTokenManager(saProject, defaultBroker string, saw *saw.AccountWarehou
 }
 
 // ListTokens lists the tokens.
-func (s *GCP) ListTokens(ctx context.Context, user string) ([]*Token, error) {
+func (s *GCP) ListTokens(ctx context.Context, user string, store storage.Store, tx storage.Tx) ([]*Token, error) {
 	userID := ga4gh.TokenUserID(&ga4gh.Identity{Subject: user, Issuer: s.defaultBroker}, adapter.SawMaxUserIDLength)
 	vs, err := s.saw.ListTokenMetadata(ctx, s.saProject, userID)
 	if err != nil {
@@ -57,6 +58,7 @@ func (s *GCP) ListTokens(ctx context.Context, user string) ([]*Token, error) {
 			TokenPrefix: s.TokenPrefix(),
 			IssuedAt:    timeutil.ParseRFC3339(v.IssuedAt).Unix(),
 			ExpiresAt:   timeutil.ParseRFC3339(v.Expires).Unix(),
+			Platform:    s.TokenPrefix(),
 		}
 		tokens = append(tokens, t)
 	}
@@ -64,7 +66,7 @@ func (s *GCP) ListTokens(ctx context.Context, user string) ([]*Token, error) {
 }
 
 // DeleteToken revokes a token.
-func (s *GCP) DeleteToken(ctx context.Context, user, tokenID string) error {
+func (s *GCP) DeleteToken(ctx context.Context, user, tokenID string, store storage.Store, tx storage.Tx) error {
 	userID := ga4gh.TokenUserID(&ga4gh.Identity{Subject: user, Issuer: s.defaultBroker}, adapter.SawMaxUserIDLength)
 	if err := s.saw.DeleteTokens(ctx, s.saProject, userID, []string{tokenID}); err != nil {
 		// TODO: Should pass error from GRPC call to here for better error code.

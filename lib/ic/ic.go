@@ -60,6 +60,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/tokensapi" /* copybara-comment: tokensapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -235,6 +236,7 @@ type Service struct {
 	scim                       *scim.Scim
 	cliAcceptHandler           *cli.AcceptHandler
 	consentDashboardURL        string
+	tokenProviders             []tokensapi.TokenProvider
 }
 
 type ServiceHandler struct {
@@ -367,6 +369,10 @@ func New(r *mux.Router, params *Options) *Service {
 		if err != nil {
 			glog.Infof("failed to create translator for issuer %q: %v", name, err)
 		}
+	}
+
+	if s.useHydra {
+		s.tokenProviders = append(s.tokenProviders, tokensapi.NewHydraTokenManager(s.hydraAdminURL, s.getIssuerString(), s.clients))
 	}
 
 	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
@@ -1624,6 +1630,10 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.getDomainURL(), scimUsersPath)), checker, auth.RequireAdminToken))
 
 	// token service endpoints
+	r.HandleFunc(tokensPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.ListTokensFactory(tokensPath, s.tokenProviders, s.store)), checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.DeleteTokenFactory(tokenPath, s.tokenProviders, s.store)), checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+
+	// TODO: to remove.
 	tokens := &faketokensapi.StubTokens{Token: faketokensapi.FakeToken}
 	r.HandleFunc(fakeTokensPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(tokens).ListTokens, checker, auth.RequireUserToken)).Methods(http.MethodGet)
 	r.HandleFunc(fakeTokenPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(tokens).GetToken, checker, auth.RequireUserToken)).Methods(http.MethodGet)

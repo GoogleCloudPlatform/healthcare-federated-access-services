@@ -52,6 +52,10 @@ var (
 		"GET /identity/v1alpha/{realm}/users/{user}/consents",
 		"DELETE /identity/v1alpha/{realm}/users/{user}/consents/{consent_id}",
 
+		// token management endpoints
+		"GET /identity/v1alpha/users/{user}/tokens",
+		"DELETE /identity/v1alpha/users/{user}/tokens/{token_id}",
+
 		// cli client related
 		"/identity/cli/register/{name}",
 		"GET /identity/cli/accept",

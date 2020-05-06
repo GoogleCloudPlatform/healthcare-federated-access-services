@@ -82,6 +82,8 @@ func TestGCP_ListTokens(t *testing.T) {
 				Name:      encodeTokenName("u-0001", "gcp", tokenName),
 				IssuedAt:  state.Keys[0].ValidAfterTime.Seconds,
 				ExpiresAt: state.Keys[0].ValidBeforeTime.Seconds,
+				Type:      "gcp",
+				Client:    &tpb.Client{},
 			},
 		},
 	}
@@ -171,8 +173,8 @@ func setupGCPTest(t *testing.T) (http.Handler, *saw.AccountWarehouse, *fakeiam.A
 	gcp := NewGCPTokenManager(saProject, broker, warehouse)
 
 	r := mux.NewRouter()
-	r.HandleFunc(tokensPath, handlerfactory.MakeHandler(store, ListTokensFactory(tokensPath, []TokenProvider{gcp}))).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, handlerfactory.MakeHandler(store, DeleteTokenFactory(tokenPath, []TokenProvider{gcp}))).Methods(http.MethodDelete)
+	r.HandleFunc(tokensPath, handlerfactory.MakeHandler(store, ListTokensFactory(tokensPath, []TokenProvider{gcp}, store))).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, handlerfactory.MakeHandler(store, DeleteTokenFactory(tokenPath, []TokenProvider{gcp}, store))).Methods(http.MethodDelete)
 
 	return r, warehouse, iamSrv, cleanup
 }

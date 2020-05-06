@@ -100,11 +100,13 @@ func TestListTokens(t *testing.T) {
 				Name:      encodeTokenName("u-0001", "gcp", "t-0001"),
 				IssuedAt:  0,
 				ExpiresAt: 100,
+				Client:    &tpb.Client{},
 			},
 			{
 				Name:      encodeTokenName("u-0001", "gcp", "t-0002"),
 				IssuedAt:  0,
 				ExpiresAt: 100,
+				Client:    &tpb.Client{},
 			},
 		},
 	}
@@ -214,8 +216,8 @@ func TestDeleteToken_Error(t *testing.T) {
 func setup(providers []TokenProvider) http.Handler {
 	r := mux.NewRouter()
 	store := storage.NewMemoryStorage("dam-min", "testdata/config")
-	r.HandleFunc(tokensPath, handlerfactory.MakeHandler(store, ListTokensFactory(tokensPath, providers))).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, handlerfactory.MakeHandler(store, DeleteTokenFactory(tokenPath, providers))).Methods(http.MethodDelete)
+	r.HandleFunc(tokensPath, handlerfactory.MakeHandler(store, ListTokensFactory(tokensPath, providers, store))).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, handlerfactory.MakeHandler(store, DeleteTokenFactory(tokenPath, providers, store))).Methods(http.MethodDelete)
 	return r
 }
 
@@ -227,11 +229,11 @@ type stubTokenProvider struct {
 	deleteErr        error
 }
 
-func (s *stubTokenProvider) ListTokens(ctx context.Context, user string) ([]*Token, error) {
+func (s *stubTokenProvider) ListTokens(ctx context.Context, user string, store storage.Store, tx storage.Tx) ([]*Token, error) {
 	return s.listResp, s.listErr
 }
 
-func (s *stubTokenProvider) DeleteToken(ctx context.Context, user, tokenID string) error {
+func (s *stubTokenProvider) DeleteToken(ctx context.Context, user, tokenID string, store storage.Store, tx storage.Tx) error {
 	s.deleteReqUser = user
 	s.deleteReqTokenID = tokenID
 	return s.deleteErr

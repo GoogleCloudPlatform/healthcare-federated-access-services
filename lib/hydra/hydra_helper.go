@@ -102,7 +102,25 @@ func ExtractTokenIDInIntrospect(in *hydraapi.Introspection) (string, error) {
 
 	tid, ok := v.(string)
 	if !ok {
-		return "", status.Error(codes.Internal, "no tid in wrong type")
+		return "", status.Error(codes.Internal, "tid has wrong type, expected string")
+	}
+
+	return tid, nil
+}
+
+// ExtractTokenIDInConsentSession finds token id in consent session.
+func ExtractTokenIDInConsentSession(session *hydraapi.PreviousConsentSession) (string, error) {
+	if session == nil || session.Session == nil || session.Session.AccessToken == nil {
+		return "", status.Error(codes.Internal, "session.AccessToken does not exist exists")
+	}
+	v, ok := session.Session.AccessToken["tid"]
+	if !ok {
+		return "", status.Error(codes.Internal, "no tid in session")
+	}
+
+	tid, ok := v.(string)
+	if !ok {
+		return "", status.Error(codes.Internal, "tid has wrong type, expected string")
 	}
 
 	return tid, nil
