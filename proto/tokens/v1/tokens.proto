@@ -50,7 +50,7 @@ service Tokens {
 
 message Token {
   // Name of the token.
-  // Format: `tokens/{token_id}`.
+  // Format: `users/{user_id}/tokens/{token_id}`.
   string name = 1;
 
   string issuer = 2 [json_name = "iss"];
@@ -88,6 +88,8 @@ message Client {
   string id = 1;
   string name = 2;
   string description = 3;
+  // flexible struct for ui display.
+  map<string, string> ui = 4;
 }
 
 message GetTokenRequest {
