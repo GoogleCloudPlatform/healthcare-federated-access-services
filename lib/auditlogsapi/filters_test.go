@@ -15,7 +15,6 @@
 package auditlogsapi
 
 import (
-	"net/url"
 	"regexp"
 	"testing"
 	"time"
@@ -82,18 +81,6 @@ func TestFilterRE(t *testing.T) {
 
 func TestExtractFilters(t *testing.T) {
 	in := "time>=" + before + " AND " + "time<=" + after
-	got, err := extractFilters(in)
-	if err != nil {
-		t.Fatalf("extractFilters(%v) failed: %v", in, err)
-	}
-	want := "timestamp>=" + before + " AND " + "timestamp<=" + after
-	if got != want {
-		t.Fatalf("extractFilters(%v) = %v, want %v", in, got, want)
-	}
-}
-
-func TestExtractFiltersEscaped(t *testing.T) {
-	in := url.QueryEscape("time>=" + before + " AND " + "time<=" + after)
 	got, err := extractFilters(in)
 	if err != nil {
 		t.Fatalf("extractFilters(%v) failed: %v", in, err)

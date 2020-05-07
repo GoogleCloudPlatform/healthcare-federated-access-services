@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */
@@ -37,6 +36,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/grpcutil" /* copybara-comment: grpcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
 	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
@@ -44,9 +44,10 @@ import (
 )
 
 var (
-	projectID = flag.String("project", "", "GCP project ID")
-	userID    = flag.String("user", "", "user id (cirrently the subject of tokens)")
-	sdlAddr   = flag.String("sdl_addr", "logging.googleapis.com:443", "The address for Stackdriver Logging API")
+	projectID   = flag.String("project", "", "GCP project ID")
+	serviceName = flag.String("service", "", "service name")
+	userID      = flag.String("user", "", "user id (cirrently the subject of tokens)")
+	sdlAddr     = flag.String("sdl_addr", "logging.googleapis.com:443", "The address for Stackdriver Logging API")
 )
 
 func main() {
@@ -60,7 +61,7 @@ func main() {
 	sdlc := lgrpcpb.NewLoggingServiceV2Client(conn)
 	logger := NewLogger(ctx, conn, *projectID)
 
-	s := auditlogsapi.NewAuditLogs(sdlc, *projectID)
+	s := auditlogsapi.NewAuditLogs(sdlc, *projectID, *serviceName)
 
 	TestListLogEntriesRequest(ctx, sdlc, projectName, *userID)
 	TestListAuditLogFromProject(ctx, s, projectName, *userID)
@@ -101,7 +102,7 @@ func TestListLogEntriesRequest(ctx context.Context, c lgrpcpb.LoggingServiceV2Cl
 func TestListAuditLogFromProject(ctx context.Context, s *auditlogsapi.AuditLogs, projectName string, userID string) {
 	glog.Infof("## TestListAuditLogFromProject started. ##")
 	defer glog.Infof("## TestListAuditLogFromProject finished. ##\n\n")
-	resp, err := s.ListAuditLogs(ctx, &apb.ListAuditLogsRequest{Parent: "users/" + userID})
+	resp, err := s.ListAuditLogs(ctx, &apb.ListAuditLogsRequest{UserId: userID})
 	if err != nil {
 		glog.Errorf("ListAuditLogs() failed: %v", err)
 		return
@@ -158,7 +159,7 @@ func TestAuditLog(ctx context.Context, s *auditlogsapi.AuditLogs, c lgrpcpb.Logg
 	end := time.Now().Add(time.Minute)
 	for len(got.GetAuditLogs()) < 2 && time.Now().Before(end) {
 		var err error
-		got, err = s.ListAuditLogs(ctx, &apb.ListAuditLogsRequest{Parent: "users/" + userID})
+		got, err = s.ListAuditLogs(ctx, &apb.ListAuditLogsRequest{UserId: userID})
 		if err != nil {
 			glog.Errorf("ListAuditLogs() failed: %v", err)
 			return

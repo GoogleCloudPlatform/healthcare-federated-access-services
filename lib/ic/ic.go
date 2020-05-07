@@ -43,6 +43,7 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlogsapi" /* copybara-comment: auditlogsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/check" /* copybara-comment: check */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/cli" /* copybara-comment: cli */
@@ -64,6 +65,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
 )
@@ -237,6 +239,7 @@ type Service struct {
 	cliAcceptHandler           *cli.AcceptHandler
 	consentDashboardURL        string
 	tokenProviders             []tokensapi.TokenProvider
+	auditlogs                  *auditlogsapi.AuditLogs
 }
 
 type ServiceHandler struct {
@@ -260,6 +263,10 @@ type Options struct {
 	Encryption kms.Encryption
 	// Logger: audit log logger
 	Logger *logging.Client
+	// SDLC: gRPC client to StackDriver Logging.
+	SDLC lgrpcpb.LoggingServiceV2Client
+	// AuditLogProject is the GCP project id where audit logs are written to.
+	AuditLogProject string
 	// SkipInformationReleasePage: set true if want to skip the information release page.
 	SkipInformationReleasePage bool
 	// UseHydra: service use hydra integrated OIDC.
@@ -330,6 +337,7 @@ func New(r *mux.Router, params *Options) *Service {
 		scim:                       scim.New(params.Store),
 		cliAcceptHandler:           cliAcceptHandler,
 		consentDashboardURL:        params.ConsentDashboardURL,
+		auditlogs:                  auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject, params.ServiceName),
 	}
 
 	if s.httpClient == nil {
@@ -1648,6 +1656,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
 	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).ListConsents, checker, auth.RequireUserToken)).Methods(http.MethodGet)
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+
+	// audit logs endpoints
+	r.HandleFunc(auditlogsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, auditlogsapi.ListAuditlogsPathFactory(auditlogsPath, s.auditlogs)), checker, auth.RequireUserToken)).Methods(http.MethodGet)
 
 	// legacy endpoints
 	r.HandleFunc(adminClaimsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.adminClaimsFactory()), checker, auth.RequireAdminToken))

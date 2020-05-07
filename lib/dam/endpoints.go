@@ -96,8 +96,8 @@ const (
 	consentsPath = "/consents"
 	consentPath  = "/consents/"
 
-	// End-point for managing audit logs. See "proto/auditlogs/v0/auditlogs.proto"
-	auditlogsPath = "/users/{user}/auditlogs"
+	// End-point for viewing audit logs. See "proto/auditlogs/v0/auditlogs.proto"
+	auditlogsPath = "/dam/v1alpha/users/{user}/auditlogs"
 
 	// ---------------------------------------------------------------------------
 	// The following are read-only non-admin access to configurations of DAM.

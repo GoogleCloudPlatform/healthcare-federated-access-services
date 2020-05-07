@@ -75,8 +75,8 @@ var (
 		"${YOUR_ENVIRONMENT}": envPrefix(srvName),
 	}
 
-	// sldAddr is the  address for Stackdriver Logging API.
-	sdlAddr = osenv.VarWithDefault("sdl_addr", "logging.googleapis.com:443")
+	// sldAddr is the address for Stackdriver Logging API.
+	sdlAddr = osenv.VarWithDefault("SDL_ADDR", "logging.googleapis.com:443")
 )
 
 func main() {

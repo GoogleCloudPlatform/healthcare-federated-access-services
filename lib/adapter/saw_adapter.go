@@ -102,7 +102,7 @@ func (a *SawAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenRe
 	}
 	res := &MintTokenResult{
 		Credentials: map[string]string{
-			"account":      result.Account,
+			"account": result.Account,
 		},
 		TokenFormat: result.Format,
 	}

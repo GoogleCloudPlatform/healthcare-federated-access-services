@@ -64,7 +64,6 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
-	agrpcpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/auditlogs/v0" /* copybara-comment: auditlogs_go_grpc_proto */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 	tgrpcpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto_grpc */
@@ -115,7 +114,7 @@ type Service struct {
 	visaVerifier        *verifier.Verifier
 	scim                *scim.Scim
 	tokens              tgrpcpb.TokensServer
-	auditlogs           agrpcpb.AuditLogsServer
+	auditlogs           *auditlogsapi.AuditLogs
 	tokenProviders      []tokensapi.TokenProvider
 }
 
@@ -200,7 +199,7 @@ func New(r *mux.Router, params *Options) *Service {
 		visaVerifier:        verifier.New(""),
 		scim:                scim.New(params.Store),
 		tokens:              faketokensapi.NewDAMTokens(params.Store, params.ServiceAccountManager),
-		auditlogs:           auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject),
+		auditlogs:           auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject, params.ServiceName),
 	}
 
 	if s.httpClient == nil {
@@ -1453,7 +1452,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).DeleteConsent, checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// audit logs endpoints
-	r.HandleFunc(auditlogsPath, auth.MustWithAuth(auditlogsapi.NewAuditLogsHandler(s.auditlogs).ListAuditLogs, checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(auditlogsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, auditlogsapi.ListAuditlogsPathFactory(auditlogsPath, s.auditlogs)), checker, auth.RequireUserToken)).Methods(http.MethodGet)
 
 	// proxy hydra oauth token endpoint
 	if s.hydraPublicURLProxy != nil {

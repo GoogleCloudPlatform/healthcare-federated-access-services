@@ -95,6 +95,9 @@ const (
 	consentsPath = "/consents"
 	consentPath  = "/consents/"
 
+	// End-point for viewing audit logs. See "proto/auditlogs/v0/auditlogs.proto"
+	auditlogsPath = "/identity/v1alpha/users/{user}/auditlogs"
+
 	// ---------------------------------------------------------------------------
 	// The following are read-only non-admin access to configurations of IC.
 	// ---------------------------------------------------------------------------

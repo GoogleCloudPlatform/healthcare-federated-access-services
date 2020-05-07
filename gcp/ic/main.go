@@ -29,6 +29,7 @@ import (
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/grpcutil" /* copybara-comment: grpcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
@@ -39,6 +40,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	glog "github.com/golang/glog" /* copybara-comment */
+	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
 )
 
 var (
@@ -78,6 +80,9 @@ var (
 		"${YOUR_PROJECT_ID}":  project,
 		"${YOUR_ENVIRONMENT}": envPrefix(srvName),
 	}
+
+	// sldAddr is the address for Stackdriver Logging API.
+	sdlAddr = osenv.VarWithDefault("SDL_ADDR", "logging.googleapis.com:443")
 )
 
 func main() {
@@ -87,6 +92,10 @@ func main() {
 	serviceinfo.Project = project
 	serviceinfo.Type = "ic"
 	serviceinfo.Name = srvName
+
+	sdlcc := grpcutil.NewGRPCClient(ctx, sdlAddr)
+	defer sdlcc.Close()
+	sdlc := lgrpcpb.NewLoggingServiceV2Client(sdlcc)
 
 	var store storage.Store
 	switch storageType {
@@ -140,6 +149,8 @@ func main() {
 		Store:                      store,
 		Encryption:                 gcpkms,
 		Logger:                     logger,
+		SDLC:                       sdlc,
+		AuditLogProject:            project,
 		SkipInformationReleasePage: skipInformationReleasePage,
 		UseHydra:                   useHydra,
 		HydraAdminURL:              hydraAdminAddr,

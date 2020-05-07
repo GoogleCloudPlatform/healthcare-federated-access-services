@@ -47,6 +47,9 @@ var (
 		"GET /dam/v1alpha/users/{user}/tokens",
 		"DELETE /dam/v1alpha/users/{user}/tokens/{token_id}",
 
+		// auditlogs related
+		"GET /dam/v1alpha/users/{user}/auditlogs",
+
 		// administration endpoints
 		"/dam/v1alpha/{realm}",
 		"/dam/v1alpha/{realm}/clients:sync",
@@ -89,7 +92,6 @@ var (
 		"/identity/scim/v2/{realm}/Groups/{name}",
 
 		// fake endpoints, will remove soon
-		"GET /users/{user}/auditlogs",
 		"GET /tokens",
 		"DELETE /tokens/",
 		"GET /consents",

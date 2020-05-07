@@ -56,6 +56,9 @@ var (
 		"GET /identity/v1alpha/users/{user}/tokens",
 		"DELETE /identity/v1alpha/users/{user}/tokens/{token_id}",
 
+		// auditlogs related
+		"GET /identity/v1alpha/users/{user}/auditlogs",
+
 		// cli client related
 		"/identity/cli/register/{name}",
 		"GET /identity/cli/accept",

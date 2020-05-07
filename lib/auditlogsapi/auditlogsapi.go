@@ -16,13 +16,9 @@ package auditlogsapi
 
 import (
 	"context"
-	"regexp"
 	"strings"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"google.golang.org/grpc/codes" /* copybara-comment */
-	"google.golang.org/grpc/status" /* copybara-comment */
-
 	lgrpcpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_grpc */
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
 	apb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/auditlogs/v0" /* copybara-comment: auditlogs_go_proto */
@@ -36,40 +32,37 @@ type AuditLogs struct {
 
 	// projectID identifies the GCP project where the auditlogs are located.
 	projectID string
+
+	// serviceName of current instance
+	serviceName string
 }
 
 // NewAuditLogs creates a new AuditLogs.
-func NewAuditLogs(sdl lgrpcpb.LoggingServiceV2Client, projectID string) *AuditLogs {
-	return &AuditLogs{sdl: sdl, projectID: projectID}
+func NewAuditLogs(sdl lgrpcpb.LoggingServiceV2Client, projectID, serviceName string) *AuditLogs {
+	return &AuditLogs{sdl: sdl, projectID: projectID, serviceName: serviceName}
 }
 
 // ListAuditLogs lists the audit logs.
 func (s *AuditLogs) ListAuditLogs(ctx context.Context, req *apb.ListAuditLogsRequest) (*apb.ListAuditLogsResponse, error) {
-	glog.Infof("ListAuditLogsRequest")
-	parent := req.GetParent()
-	ids := parentRE.FindStringSubmatch(parent)
-	if len(ids) < 2 {
-		return nil, status.Errorf(codes.InvalidArgument, "invalud parent: %v", parent)
-	}
-
-	subject := ids[1]
-	// TODO: consider adding a userID to logs that contains both issuer and subject.
-
 	filters := []string{
 		`logName="projects/` + s.projectID + `/logs/federated-access-audit"`,
-		`labels.token_subject="` + subject + `"`,
+		`labels.token_subject="` + req.UserId + `"`,
+		`labels.service_name="` + s.serviceName + `"`,
 	}
 
-	f, err := extractFilters(req.GetFilter())
+	f, err := extractFilters(req.Filter)
 	if err != nil {
 		return nil, err
 	}
-	filters = append(filters, f)
+
+	if len(f) > 0 {
+		filters = append(filters, f)
+	}
 
 	sdlReq := &lpb.ListLogEntriesRequest{
 		ResourceNames: []string{"projects/" + s.projectID},
-		PageSize:      req.GetPageSize(),
-		PageToken:     req.GetPageToken(),
+		PageSize:      req.PageSize,
+		PageToken:     req.PageToken,
 		OrderBy:       "timestamp desc",
 		Filter:        strings.Join(filters, " AND "),
 	}
@@ -88,8 +81,3 @@ func (s *AuditLogs) ListAuditLogs(ctx context.Context, req *apb.ListAuditLogsReq
 	}
 	return resp, nil
 }
-
-var (
-	parentRE   = regexp.MustCompile("^users/([^/]*)$")
-	resourceRE = regexp.MustCompile("^users/([^/]*)/auditlogs/([^/]*)$")
-)

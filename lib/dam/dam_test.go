@@ -2097,7 +2097,7 @@ func sendResourceTokens(t *testing.T, s *Service, broker *persona.Server, cartID
 		IssuedAt:  now,
 		Expiry:    now + 10000,
 		Audiences: ga4gh.NewAudience(test.TestClientID),
-		Extra: map[string]interface{}{},
+		Extra:     map[string]interface{}{},
 	}
 
 	if expired {

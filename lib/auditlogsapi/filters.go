@@ -15,7 +15,6 @@
 package auditlogsapi
 
 import (
-	"net/url"
 	"regexp"
 	"strings"
 
@@ -32,14 +31,10 @@ func extractFilters(in string) (string, error) {
 	if in == "" {
 		return "", nil
 	}
-	f, err := url.QueryUnescape(in)
-	if err != nil {
-		status.Errorf(codes.InvalidArgument, "invalid filter %q", in)
-	}
-	if !timeFilterRE.MatchString(f) {
+	if !timeFilterRE.MatchString(in) {
 		return "", status.Errorf(codes.InvalidArgument, "invalid filter %q", in)
 	}
-	return strings.ReplaceAll(f, "time", "timestamp"), nil
+	return strings.ReplaceAll(in, "time", "timestamp"), nil
 }
 
 var (

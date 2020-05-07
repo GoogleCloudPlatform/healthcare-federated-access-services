@@ -131,7 +131,7 @@ enum Decision {
 }
 
 message ListAuditLogsRequest {
-  string parent = 1;
+  string user_id = 1;
   string filter = 2;
   int32 page_size = 3;
   string page_token = 4;
