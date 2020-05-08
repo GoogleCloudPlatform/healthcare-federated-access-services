@@ -2,11 +2,30 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.2...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.3...HEAD)
+
+## [v0.9.3](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.3)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.2...v0.9.3)
 
 **Migration**
 
-*  Need to import `permissions` file in IC and DAM into datastore, for test setup just run `import.bash`
+*  Need to import `permissions` file in IC and DAM into datastore, for test setup just run `import.bash` with `-t`
+
+**Highlight Updates**
+
+*  Implements token management endpoints:
+
+  *  List tokens of user: `GET /(identity|dam)/v1alpha/users/{user}/tokens`
+  *  Delete token of user: `DELETE /(identity|dam)/v1alpha/users/{user}/tokens/{token_id}`
+
+*  Implements audit logs endpoints:
+
+  *  List audit logs of user `GET /(identity|dam)/v1alpha/users/{user}/auditlogs`.
+
+*  Passport Visa [Embedded Document format](https://github.com/ga4gh/data-security/blob/master/AAI/AAIConnectProfile.md#embedded-document-token-format) restriction:
+
+     *  JKU URL in the JWT header is now restricted to issuer's domain as found in the `iss` claim, otherwise the visa will be rejected.
 
 ## [v0.9.2](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.2)
 

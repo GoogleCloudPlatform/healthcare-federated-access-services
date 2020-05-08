@@ -103,11 +103,6 @@ SCIM-like endpoints have the following user management limitations:
 *  Only a limited number of object attributes (i.e. object fields) are available
    for PATCH. For example, `primary` for emails and `value` for photos.
 
-The following are Consents Management endpoints:
-
-*  "/identity/v1alpha/{realm}/users/{user}/consents": list user remembered consents.
-*  "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}": revoke user remembered consent.
-
 #### Account Linking
 
 You can link accounts using the following extension to SCIM V2:
@@ -202,12 +197,25 @@ filter for that object. For example:
 
 #### Tokens and Consents
 
-The following token and consents are used:
+The following are Consents Management endpoints:
 
-*  "/tokens": token management. For more information, see
-   "proto/tokens/v1/consents.proto".
-*  "/consents": consent management. For more information, see
-   "proto/tokens/v1/tokens.proto".
+*  "/identity/v1alpha/{realm}/users/{user}/consents": list user remembered consents.
+*  "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}": revoke user remembered consent.
+
+The following are Token Management endpoints:
+
+*  "/identity/v1alpha/{realm}/users/{user}/tokens": list user tokens.
+*  "/identity/v1alpha/{realm}/users/{user}/tokens/{token_id}": delete user token.
+
+#### Audit logs
+
+*  "/identity/v1alpha/{realm}/users/{user}/auditlogs": view auditlogs of user.
+
+    *  Required user token or admin token
+    *  `page_size` type int, required query param
+    *  `page_token` type string, query param, not required, used to access next page of auditlogs
+    *  `filter` type string, query param, not required, only supports filter by time in RFC3339. example: `time>=2020-01-01T01:00:00Z AND time<=2020-01-10T01:00:00Z`
+
 
 ### Non-Admin Configuration Endpoints
 
@@ -279,6 +287,15 @@ The following implements a subset of [SCIM V2 API](https://tools.ietf.org/html/r
    [SCIM V2 Group Resource Schema](https://tools.ietf.org/html/rfc7643#section-4.2).
 
 See the IC's SCIM notes for limitations of use that also apply to the DAM.
+
+The following are Token Management endpoints:
+
+*  "/dam/v1alpha/{realm}/users/{user}/tokens": list user tokens.
+*  "/dam/v1alpha/{realm}/users/{user}/tokens/{token_id}": delete user token.
+
+### Audit logs
+
+*  "/dam/v1alpha/{realm}/users/{user}/auditlogs": view auditlogs of user.
 
 ### Non-Admin Configuration Endpoints
 

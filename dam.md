@@ -331,13 +331,13 @@ production systems and validate the configs are correct before pushing them to
 deployments.
 
 ```
-./import.bash -e <environment> ic
+./import.bash -p <project> -e <environment> -t <import_type> ic
 ```
 
 or
 
 ```
-./import.bash -e <environment> dam
+./import.bash -p <project> -e <environment> -t <import_type> dam
 ```
 
 ## Appendix A: Three Layer Auth Flow
