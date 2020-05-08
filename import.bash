@@ -24,23 +24,26 @@ RESET="\e[0m"
 
 PROJECT=${PROJECT}
 ENV=""
+IMPORT_TYPE=""
 
 print_usage() {
-  echo -e ${RED?}'Usage: import [-e environment] [-h] [-p project_id] [-P config_path] [dam | ic] ...'${RESET?}
+  echo -e ${RED?}'Usage: import [-e environment] [-h] [-p project_id] [-P config_path] [-t config | permissions | secrets | all] [dam | ic] ...'${RESET?}
   echo -e ${RED?}'  -e \t extra environment namespace to include in the deployed service name'${RESET?}
   echo -e ${RED?}'     \t example: "import -e staging dam ic" will import services "dam-staging", "ic-staging"'${RESET?}
   echo -e ${RED?}'  -h \t show this help usage'${RESET?}
   echo -e ${RED?}'  -p \t GCP project_id to deploy to'${RESET?}
+  echo -e ${RED?}'  -t \t import config, permission, security or all'${RESET?}
   echo
   echo -e ${RED?}'  all flags must be provided before service names'${RESET?}
 }
 
-while getopts ':he:p:' flag; do
+while getopts ':he:p:t:' flag; do
   case "${flag}" in
     e) ENV="${OPTARG}" ;;
     h) print_usage
        exit 1 ;;
     p) PROJECT="${OPTARG}" ;;
+    t) IMPORT_TYPE="${OPTARG}" ;;
     *) echo -e ${RED?}'Unknown flag: -'${flag}${RESET?}
        print_usage
        exit 1 ;;
@@ -56,6 +59,12 @@ fi
 ENV_LABEL=${ENV?}
 if [[ "${ENV?}" == "" ]]; then
   ENV_LABEL="DEFAULT"
+fi
+
+if [[ "${IMPORT_TYPE?}" == "" ]]; then
+  echo -e ${RED?}'Must provide a config type via or -t config | permissions | secrets | all'${RESET?}
+  print_usage
+  exit 1
 fi
 
 MATCH=false
@@ -79,7 +88,7 @@ fi
 
 if [ "$DAM" == true ] ; then
   echo "IMPORT: DAM configs (${ENV_LABEL?}) in project ${PROJECT?}"
-  $(go run "gcp/dam_import/main.go" "${PROJECT?}" "${ENV?}" >/dev/null)
+  $(go run "gcp/dam_import/main.go" "${PROJECT?}" "${ENV?}" "${IMPORT_TYPE?}" >/dev/null)
   STATUS=$?
   if [ "$STATUS" == 0 ]; then
     echo -e "${GREEN?}Import DAM configs succeeded${RESET?}"
@@ -90,7 +99,7 @@ if [ "$DAM" == true ] ; then
 fi
 if [ "$IC" == true ] ; then
   echo "IMPORT: IC configs (${ENV_LABEL?}) in project ${PROJECT?}"
-  $(go run "gcp/ic_import/main.go" "${PROJECT?}" "${ENV?}" >/dev/null)
+  $(go run "gcp/ic_import/main.go" "${PROJECT?}" "${ENV?}" "${IMPORT_TYPE?}" >/dev/null)
   STATUS=$?
   if [ "$STATUS" == 0 ]; then
     echo -e "${GREEN?}Import IC succeeded${RESET?}"

@@ -104,7 +104,7 @@ func main() {
 	case "memory":
 		store = storage.NewMemoryStorage(srvName, cfgPath)
 		// Import and resolve template variables, if any.
-		if err := ic.ImportConfig(store, srvName, cfgVars); err != nil {
+		if err := ic.ImportConfig(store, srvName, cfgVars, true, true, true); err != nil {
 			glog.Exitf("ic.ImportConfig(_, %q, _) failed: %v", srvName, err)
 		}
 	default:

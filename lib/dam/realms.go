@@ -106,7 +106,7 @@ func (h *realmHandler) Remove(r *http.Request, name string) (proto.Message, erro
 		return nil, err
 	}
 	if name == storage.DefaultRealm {
-		return nil, ImportConfig(h.s.store, h.s.serviceName, h.s.warehouse, nil)
+		return nil, ImportConfig(h.s.store, h.s.serviceName, h.s.warehouse, nil, true, true, true)
 	}
 	cfg, err := h.s.loadConfig(h.tx, storage.DefaultRealm)
 	if err != nil {

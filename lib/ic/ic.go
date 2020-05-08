@@ -355,7 +355,7 @@ func New(r *mux.Router, params *Options) *Service {
 		glog.Exitf("cannot use storage layer: %v", err)
 	}
 	if !exists {
-		if err = ImportConfig(params.Store, params.ServiceName, nil); err != nil {
+		if err = ImportConfig(params.Store, params.ServiceName, nil, true, true, true); err != nil {
 			glog.Exitf("cannot import configs to service %q: %v", params.ServiceName, err)
 		}
 	}
@@ -1506,7 +1506,7 @@ type damArgs struct {
 }
 
 // ImportConfig ingests bootstrap configuration files to the IC's storage sytem.
-func ImportConfig(store storage.Store, service string, cfgVars map[string]string) (ferr error) {
+func ImportConfig(store storage.Store, service string, cfgVars map[string]string, importConfig, importSecrets, importPermission bool) (ferr error) {
 	tx, err := store.Tx(true)
 	if err != nil {
 		return err
@@ -1532,38 +1532,46 @@ func ImportConfig(store storage.Store, service string, cfgVars map[string]string
 	}
 	fs := storage.NewFileStorage(service, path)
 
-	cfg := &pb.IcConfig{}
-	if err = fs.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
-		return err
+	if importConfig {
+		cfg := &pb.IcConfig{}
+		if err = fs.Read(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, cfg); err != nil {
+			return err
+		}
+		history.Revision = cfg.Revision
+		if err = storage.ReplaceContentVariables(cfg, cfgVars); err != nil {
+			return fmt.Errorf("replacing variables on config file: %v", err)
+		}
+		if err = store.WriteTx(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, history, tx); err != nil {
+			return err
+		}
 	}
-	history.Revision = cfg.Revision
-	if err = storage.ReplaceContentVariables(cfg, cfgVars); err != nil {
-		return fmt.Errorf("replacing variables on config file: %v", err)
+
+	if importSecrets {
+		secrets := &pb.IcSecrets{}
+		if err = fs.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
+			return err
+		}
+		history.Revision = secrets.Revision
+		if err = storage.ReplaceContentVariables(secrets, cfgVars); err != nil {
+			return fmt.Errorf("replacing variables on secrets file: %v", err)
+		}
+		if err = store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
+			return err
+		}
 	}
-	if err = store.WriteTx(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, cfg.Revision, cfg, history, tx); err != nil {
-		return err
-	}
-	secrets := &pb.IcSecrets{}
-	if err = fs.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
-		return err
-	}
-	history.Revision = secrets.Revision
-	if err = storage.ReplaceContentVariables(secrets, cfgVars); err != nil {
-		return fmt.Errorf("replacing variables on secrets file: %v", err)
-	}
-	if err = store.WriteTx(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, secrets.Revision, secrets, history, tx); err != nil {
-		return err
-	}
-	perm := &cpb.Permissions{}
-	if err = fs.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perm); err != nil {
-		return err
-	}
-	history.Revision = perm.Revision
-	if err = storage.ReplaceContentVariables(perm, cfgVars); err != nil {
-		return fmt.Errorf("replacing variables on permissions file: %v", err)
-	}
-	if err = store.WriteTx(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, perm.Revision, perm, history, tx); err != nil {
-		return err
+
+	if importPermission {
+		perm := &cpb.Permissions{}
+		if err = fs.Read(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, perm); err != nil {
+			return err
+		}
+		history.Revision = perm.Revision
+		if err = storage.ReplaceContentVariables(perm, cfgVars); err != nil {
+			return fmt.Errorf("replacing variables on permissions file: %v", err)
+		}
+		if err = store.WriteTx(storage.PermissionsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, perm.Revision, perm, history, tx); err != nil {
+			return err
+		}
 	}
 
 	return nil

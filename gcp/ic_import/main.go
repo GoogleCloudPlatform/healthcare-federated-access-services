@@ -31,11 +31,12 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	if len(args) != 2 {
-		glog.Exitf("Usage: ic_import -path=<config_root> <project> <environment>")
+	if len(args) != 3 {
+		glog.Exitf("Usage: ic_import -path=<config_root> <project> <environment> <import_type>")
 	}
 	project := args[0]
 	env := args[1]
+	importType := args[2]
 	envPrefix := ""
 	service := "ic"
 	if len(env) > 0 {
@@ -49,7 +50,26 @@ func main() {
 		"${YOUR_ENVIRONMENT}": envPrefix,
 	}
 
-	if err := ic.ImportConfig(store, service, vars); err != nil {
+	importConfig := false
+	importSecrets := false
+	importPermission := false
+
+	switch importType {
+	case "all":
+		importConfig = true
+		importSecrets = true
+		importPermission = true
+	case "config":
+		importConfig = true
+	case "security":
+		importSecrets = true
+	case "permission":
+		importPermission = true
+	default:
+		glog.Exitf("unknown importing config type: %s", importType)
+	}
+
+	if err := ic.ImportConfig(store, service, vars, importConfig, importSecrets, importPermission); err != nil {
 		glog.Exitf("error importing files: %v", err)
 	}
 	glog.Infof("SUCCESS resetting IC service %q", service)

@@ -98,7 +98,7 @@ func main() {
 	case "memory":
 		store = storage.NewMemoryStorage(srvName, cfgPath)
 		// Import and resolve template variables, if any.
-		if err := dam.ImportConfig(store, srvName, nil, cfgVars); err != nil {
+		if err := dam.ImportConfig(store, srvName, nil, cfgVars, true, true, true); err != nil {
 			glog.Exitf("dam.ImportConfig(_, %q, _) failed: %v", srvName, err)
 		}
 	default:

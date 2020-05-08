@@ -103,7 +103,7 @@ func (c *realm) Remove(r *http.Request, name string) (proto.Message, error) {
 		return nil, err
 	}
 	if name == storage.DefaultRealm {
-		return nil, ImportConfig(c.s.store, c.s.serviceName, nil)
+		return nil, ImportConfig(c.s.store, c.s.serviceName, nil, true, true, true)
 	}
 	return nil, nil
 }

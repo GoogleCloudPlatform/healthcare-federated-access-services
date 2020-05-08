@@ -20,13 +20,14 @@ import (
 	"flag"
 	"strings"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 func main() {
@@ -37,11 +38,12 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	if len(args) != 2 {
-		glog.Exitf("Usage: dam_import -wipe=... -path=<config_root> -account_prefix=<service_account_prefix_to_delete> <project> <environment>")
+	if len(args) != 3 {
+		glog.Exitf("Usage: dam_import -wipe=... -path=<config_root> -account_prefix=<service_account_prefix_to_delete> <project> <environment> <import_type>")
 	}
 	project := args[0]
 	env := args[1]
+	importType := args[2]
 	envPrefix := ""
 	service := "dam"
 	if len(env) > 0 {
@@ -70,7 +72,26 @@ func main() {
 		glog.Infof("Wipe complete")
 	}
 
-	if err := dam.ImportConfig(store, service, wh, vars); err != nil {
+	importConfig := false
+	importSecrets := false
+	importPermission := false
+
+	switch importType {
+	case "all":
+		importConfig = true
+		importSecrets = true
+		importPermission = true
+	case "config":
+		importConfig = true
+	case "security":
+		importSecrets = true
+	case "permission":
+		importPermission = true
+	default:
+		glog.Exitf("unknown importing config type: %s", importType)
+	}
+
+	if err := dam.ImportConfig(store, service, wh, vars, importConfig, importSecrets, importPermission); err != nil {
 		glog.Exitf("error importing files: %v", err)
 	}
 

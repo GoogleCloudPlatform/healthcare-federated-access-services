@@ -1000,7 +1000,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
-	if err := ImportConfig(s.store, s.serviceName, s.warehouse, nil); err != nil {
+	if err := ImportConfig(s.store, s.serviceName, s.warehouse, nil, true, true, true); err != nil {
 		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}
