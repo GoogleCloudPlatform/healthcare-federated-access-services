@@ -17,10 +17,13 @@ package ga4gh
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
@@ -207,17 +210,25 @@ func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[
 			rejected = append(rejected, NewRejectedVisa(nil, UnspecifiedVisaFormat, "invalid_visa", "", fmt.Sprintf("cannot unpack visa %d", i)))
 			continue
 		}
+
 		d := v.Data()
+		if len(d.Issuer) == 0 {
+			rejected = append(rejected, NewRejectedVisa(d, v.Format(), "iss_missing", "iss", "empty 'iss' field"))
+			continue
+		}
+
+		if reject := checkViaJKU(v); reject != nil {
+			rejected = append(rejected, reject)
+			continue
+		}
+
 		if f != nil {
 			if err := f(ctx, string(j)); err != nil {
 				rejected = append(rejected, NewRejectedVisa(d, v.Format(), "verify_failed", "", err.Error()))
 				continue
 			}
 		}
-		if len(d.Issuer) == 0 {
-			rejected = append(rejected, NewRejectedVisa(d, v.Format(), "iss_missing", "iss", "empty 'iss' field"))
-			continue
-		}
+
 		var cond map[string]OldClaimCondition
 		if len(d.Assertion.Conditions) > 0 {
 			// Conditions on visas are not supported in non-experimental mode.
@@ -249,6 +260,43 @@ func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[
 		}
 	}
 	return out, rejected, nil
+}
+
+func checkViaJKU(v *Visa) *RejectedVisa {
+	d := v.Data()
+
+	openid := strutil.ContainsWord(string(d.Scope), "openid")
+
+	if openid {
+		if len(v.JKU()) > 0 {
+			return NewRejectedVisa(d, v.Format(), "openid_jku", "", "visa has openid scope and jku")
+		}
+
+		return nil
+	}
+	if len(v.JKU()) == 0 {
+		return NewRejectedVisa(d, v.Format(), "no_openid_no_jku", "", "visa does not have openid scope and jku")
+	}
+
+	issuerURL, err := url.Parse(d.Issuer)
+	if err != nil {
+		return NewRejectedVisa(d, v.Format(), "issuer_url_parse", "", fmt.Sprintf("issuer url parse failed: %v", err))
+	}
+
+	jkuURL, err := url.Parse(v.JKU())
+	if err != nil {
+		return NewRejectedVisa(d, v.Format(), "jku_url_parse", "", fmt.Sprintf("jku url parse failed: %v", err))
+	}
+
+	if jkuURL.Host != issuerURL.Host {
+		return NewRejectedVisa(d, v.Format(), "jku_issuer_host", "", "jku does not have same host with visa issuer")
+	}
+
+	if !httputils.IsHTTPS(v.JKU()) && !httputils.IsLocalhost(v.JKU()) {
+		return NewRejectedVisa(d, v.Format(), "jku_https", "", "jku does not use https")
+	}
+
+	return nil
 }
 
 func splitVisaValues(value Value, typ Type) []string {

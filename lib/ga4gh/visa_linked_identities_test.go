@@ -182,19 +182,20 @@ func TestCheckLinkedIDs_Disconnected(t *testing.T) {
 
 func newLinkedIDVisa(t *testing.T, key testkeys.Key, id ID, value Value) *Visa {
 	t.Helper()
-	return newVisa(t, key, id, Assertion{Type: LinkedIdentities, Value: value})
+	return newVisa(t, key, id, Assertion{Type: LinkedIdentities, Value: value}, "openid", "")
 }
 
-func newVisa(t *testing.T, key testkeys.Key, id ID, a Assertion) *Visa {
+func newVisa(t *testing.T, key testkeys.Key, id ID, a Assertion, scope string, jku string) *Visa {
 	t.Helper()
 	d := &VisaData{
 		StdClaims: StdClaims{
 			Issuer:  id.Issuer,
 			Subject: id.Subject,
 		},
+		Scope: Scope(scope),
 		Assertion: a,
 	}
-	jku := "https://example.org/.well-known/jwks"
+
 	v, err := NewVisaFromData(d, jku, RS256, key.Private, key.ID)
 	if err != nil {
 		t.Fatalf("NewVisaFromData(%+v,%q,%v,%v,%v) failed: %v", d, jku, RS256, key.Private, key.ID, err)

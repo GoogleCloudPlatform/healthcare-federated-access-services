@@ -17,7 +17,6 @@ package persona
 import (
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 
@@ -231,9 +230,13 @@ func getStandardClaim(persona *cpb.TestPersona, claim string) string {
 	return persona.Passport.StandardClaims[claim]
 }
 
+func jkuURL(issuer string) string {
+	return strings.TrimSuffix(issuer, "/") + "/.well-known/jwks"
+}
+
 func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
-	jku := path.Join(id.Issuer, "/.well-known/jwks")
+	jku := jkuURL(issuer)
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	id.VisaJWTs = make([]string, len(assertions))
 	now := float64(time.Now().Unix())

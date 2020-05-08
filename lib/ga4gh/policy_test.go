@@ -47,8 +47,8 @@ func TestPolicyTest(t *testing.T) {
 		{Issuer: issuer.ID, Subject: "alice0"},
 		{Issuer: issuer.ID, Subject: "alice1"},
 	}
-	visa0 := newVisa(t, issuer, ids[0], Assertion{Type: LinkedIdentities, Value: LinkedIDValue(ids[1:]), Source: "stanford"})
-	visa1 := newVisa(t, issuer, ids[0], Assertion{Type: AffiliationAndRole, Value: "alice@stanford.edu", Source: "stanford"})
+	visa0 := newVisa(t, issuer, ids[0], Assertion{Type: LinkedIdentities, Value: LinkedIDValue(ids[1:]), Source: "stanford"}, "openid", "")
+	visa1 := newVisa(t, issuer, ids[0], Assertion{Type: AffiliationAndRole, Value: "alice@stanford.edu", Source: "stanford"}, "openid", "")
 
 	broker := testkeys.Keys[testkeys.PassportBroker0]
 	d := &AccessData{}
@@ -92,7 +92,7 @@ func TestPolicyTest_NotAllowed(t *testing.T) {
 		{Issuer: issuer.ID, Subject: "alice0"},
 		{Issuer: issuer.ID, Subject: "alice1"},
 	}
-	visa0 := newVisa(t, issuer, ids[0], Assertion{Type: LinkedIdentities, Value: LinkedIDValue(ids[1:]), Source: "stanford"})
+	visa0 := newVisa(t, issuer, ids[0], Assertion{Type: LinkedIdentities, Value: LinkedIDValue(ids[1:]), Source: "stanford"}, "openid", "")
 
 	broker := testkeys.Keys[testkeys.PassportBroker0]
 	d := &AccessData{}
