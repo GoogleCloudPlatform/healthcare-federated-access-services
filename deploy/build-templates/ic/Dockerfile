@@ -19,7 +19,6 @@ COPY deploy/build/ic/nginx.conf /etc/nginx/sites-enabled
 # Copy IC
 COPY . /hcls-fa
 RUN cd /hcls-fa && \
-    rm -rf deploy && \
     go build ./gcp/ic
 
 COPY deploy/build/ic/entrypoint.bash /entrypoint.sh
