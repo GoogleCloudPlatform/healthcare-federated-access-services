@@ -120,7 +120,7 @@ func Test_AccessLog(t *testing.T) {
 	want := &apb.ListAuditLogsResponse{
 		AuditLogs: []*apb.AuditLog{
 			{
-				Name: "users/todo-user-id/auditlogs/",
+				Name: "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
 				AccessLog: &apb.AccessLog{
 					ServiceName:      "unset-serviceinfo-Name",
 					ServiceType:      "unset-serviceinfo-Type",
@@ -139,7 +139,7 @@ func Test_AccessLog(t *testing.T) {
 				},
 			},
 			{
-				Name: "users/todo-user-id/auditlogs/",
+				Name: "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
 				PolicyLog: &apb.PolicyLog{
 					ServiceName:  "unset-serviceinfo-Name",
 					ServiceType:  "unset-serviceinfo-Type",

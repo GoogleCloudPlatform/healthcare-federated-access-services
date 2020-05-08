@@ -15,11 +15,13 @@
 package auditlogsapi
 
 import (
-	glog "github.com/golang/glog" /* copybara-comment */
+	"net/url"
+
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
 	apb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/auditlogs/v0" /* copybara-comment: auditlogs_go_proto */
 )
@@ -47,7 +49,7 @@ func ToAuditLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 // ToAccessLog converts an entry for access log to an audit log.
 // Assumes that e is not nil.
 func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
-	name := "users/todo-user-id/auditlogs/" + e.InsertId
+	name := logID(e)
 	labels := e.GetLabels()
 
 	var decision apb.Decision
@@ -89,7 +91,7 @@ func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 // ToPolicyLog converts an entry for access log to an audit log.
 // Assumes that e is not nil.
 func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
-	name := "users/todo-user-id/auditlogs/" + e.InsertId
+	name := logID(e)
 	labels := e.GetLabels()
 
 	var decision apb.Decision
@@ -125,6 +127,12 @@ func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 		Ttl:          timeutil.DurationProto(ttl),
 	}
 	return &apb.AuditLog{Name: name, PolicyLog: l}, nil
+}
+
+func logID(e *lepb.LogEntry) string {
+	labels := e.GetLabels()
+	user := url.PathEscape(labels["token_subject"] + "@" + labels["token_issuer"])
+	return "users/" + user + "/auditlogs/" + e.InsertId
 }
 
 func extractPayload(e *lepb.LogEntry) string {
