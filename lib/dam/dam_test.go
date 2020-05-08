@@ -1750,6 +1750,8 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 			"project_id":      "p1",
 			"service_type":    "t1",
 			"service_name":    "n1",
+			"cart_id":         "ls-1234",
+			"config_revision":  "1",
 		},
 	}
 

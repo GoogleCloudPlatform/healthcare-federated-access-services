@@ -125,6 +125,9 @@ func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 
 		ResourceName: labels["resource"],
 		Ttl:          timeutil.DurationProto(ttl),
+
+		CartId:        labels["cart_id"],
+		ConfigRevision: labels["config_revision"],
 	}
 	return &apb.AuditLog{Name: name, PolicyLog: l}, nil
 }

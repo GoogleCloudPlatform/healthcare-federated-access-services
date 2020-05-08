@@ -67,14 +67,16 @@ func Test_AccessLog(t *testing.T) {
 	}
 	auditlog.WriteAccessLog(ctx, f.logger, al)
 	pl := &auditlog.PolicyDecisionLog{
-		TokenID:       "tid",
-		TokenSubject:  "sub",
-		TokenIssuer:   "http://issuer.example.com",
-		Resource:      "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
-		TTL:           "1d",
-		PassAuthCheck: false,
-		ErrorType:     "untrusted_issuer",
-		Message:       `{"error": "This is a json err"}`,
+		TokenID:        "tid",
+		TokenSubject:   "sub",
+		TokenIssuer:    "http://issuer.example.com",
+		Resource:       "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
+		TTL:            "1d",
+		PassAuthCheck:  false,
+		ErrorType:      "untrusted_issuer",
+		CartID:         "cart_id",
+		ConfigRevision: 0,
+		Message:        `{"error": "This is a json err"}`,
 	}
 	auditlog.WritePolicyDecisionLog(f.logger, pl)
 	after := time.Now()
@@ -141,16 +143,18 @@ func Test_AccessLog(t *testing.T) {
 			{
 				Name: "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
 				PolicyLog: &apb.PolicyLog{
-					ServiceName:  "unset-serviceinfo-Name",
-					ServiceType:  "unset-serviceinfo-Type",
-					TokenId:      "tid",
-					TokenSubject: "sub",
-					TokenIssuer:  "http://issuer.example.com",
-					Decision:     apb.Decision_FAIL,
-					ErrorType:    "untrusted_issuer",
-					Reason:       `{"error": "This is a json err"}`,
-					ResourceName: "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
-					Ttl:          &dpb.Duration{Seconds: 86400},
+					ServiceName:    "unset-serviceinfo-Name",
+					ServiceType:    "unset-serviceinfo-Type",
+					TokenId:        "tid",
+					TokenSubject:   "sub",
+					TokenIssuer:    "http://issuer.example.com",
+					Decision:       apb.Decision_FAIL,
+					ErrorType:      "untrusted_issuer",
+					Reason:         `{"error": "This is a json err"}`,
+					ResourceName:   "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
+					Ttl:            &dpb.Duration{Seconds: 86400},
+					CartId:         "cart_id",
+					ConfigRevision: "0",
 				},
 			},
 		},

@@ -109,14 +109,16 @@ func TestWritePolicyDecisionLog(t *testing.T) {
 	serviceinfo.Name = "n1"
 
 	pl := &PolicyDecisionLog{
-		TokenID:       "tid",
-		TokenSubject:  "sub",
-		TokenIssuer:   "http://issuer.example.com",
-		Resource:      "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
-		TTL:           "1d",
-		PassAuthCheck: false,
-		ErrorType:     "untrusted_issuer",
-		Message:       `{"error": "This is a json err"}`,
+		TokenID:        "tid",
+		TokenSubject:   "sub",
+		TokenIssuer:    "http://issuer.example.com",
+		Resource:       "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
+		TTL:            "1d",
+		PassAuthCheck:  false,
+		ErrorType:      "untrusted_issuer",
+		CartID:         "cart_id",
+		ConfigRevision: 1,
+		Message:        `{"error": "This is a json err"}`,
 	}
 
 	WritePolicyDecisionLog(server.Client, pl)
@@ -139,6 +141,8 @@ func TestWritePolicyDecisionLog(t *testing.T) {
 				"project_id":      "p1",
 				"service_type":    "t1",
 				"service_name":    "n1",
+				"cart_id":         "cart_id",
+				"config_revision": "1",
 			},
 		}},
 	}}

@@ -108,6 +108,10 @@ type PolicyDecisionLog struct {
 	PassAuthCheck bool
 	// ErrorType of deny.
 	ErrorType string
+	// CartID of request.
+	CartID string
+	// ConfigRevision the request using. Can use /config/history/{revision} to see the policy.
+	ConfigRevision int64
 	// Message of deny.
 	Message interface{}
 }
@@ -126,6 +130,8 @@ func WritePolicyDecisionLog(client *logging.Client, log *PolicyDecisionLog) {
 		"project_id":      serviceinfo.Project,
 		"service_type":    serviceinfo.Type,
 		"service_name":    serviceinfo.Name,
+		"cart_id":         log.CartID,
+		"config_revision": strconv.FormatInt(log.ConfigRevision, 10),
 	}
 
 	entry := logging.Entry{

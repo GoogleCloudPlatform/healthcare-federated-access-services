@@ -442,14 +442,16 @@ func resourceToString(res *pb.ResourceTokenRequestState_Resource) string {
 	return fmt.Sprintf("%s/%s/%s/%s", res.Realm, res.Resource, res.View, res.Role)
 }
 
-func writePolicyDeccisionLog(logger *logging.Client, id *ga4gh.Identity, res *pb.ResourceTokenRequestState_Resource, ttl time.Duration, err error) {
+func writePolicyDeccisionLog(logger *logging.Client, id *ga4gh.Identity, res *pb.ResourceTokenRequestState_Resource, ttl time.Duration, cartID string, cfgRevision int64, err error) {
 	log := &auditlog.PolicyDecisionLog{
-		TokenID:       id.ID,
-		TokenSubject:  id.Subject,
-		TokenIssuer:   id.Issuer,
-		Resource:      resourceToString(res),
-		TTL:           timeutil.TTLString(ttl),
-		PassAuthCheck: true,
+		TokenID:        id.ID,
+		TokenSubject:   id.Subject,
+		TokenIssuer:    id.Issuer,
+		Resource:       resourceToString(res),
+		TTL:            timeutil.TTLString(ttl),
+		PassAuthCheck:  true,
+		CartID:         cartID,
+		ConfigRevision: cfgRevision,
 	}
 
 	if err != nil {
@@ -479,7 +481,7 @@ func (s *Service) loggedInForDatasetToken(ctx context.Context, id *ga4gh.Identit
 		}
 
 		err := checkAuthorization(ctx, id, ttl, r.Resource, r.View, r.Role, cfg, state.ClientId, s.ValidateCfgOpts(realm, tx))
-		writePolicyDeccisionLog(s.logger, id, r, ttl, err)
+		writePolicyDeccisionLog(s.logger, id, r, ttl, stateID, cfg.Revision, err)
 		if err != nil {
 			return nil, err
 		}
