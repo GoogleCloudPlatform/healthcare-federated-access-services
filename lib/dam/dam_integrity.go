@@ -110,7 +110,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 		if err := checkName(n); err != nil {
 			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, n), err.Error())
 		}
-		if !isHTTPS(ti.Issuer) && !isLocalhost(ti.Issuer) {
+		if !httputils.IsHTTPS(ti.Issuer) && !httputils.IsLocalhost(ti.Issuer) {
 			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedPassportIssuer, n, "issuer"), "trusted identity must have an issuer of type HTTPS")
 		}
 		if _, ok := translators[ti.TranslateUsing]; !ok && len(ti.TranslateUsing) > 0 {
@@ -129,7 +129,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n), err.Error())
 		}
 		for i, source := range ts.Sources {
-			if !isHTTPS(source) {
+			if !httputils.IsHTTPS(source) {
 				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n, "sources", strconv.Itoa(i)), "trusted source URL must be HTTPS")
 			}
 		}

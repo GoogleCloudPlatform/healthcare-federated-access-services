@@ -706,18 +706,6 @@ func isAggregate(serviceName string, tas *adapter.ServiceAdapters) bool {
 	return desc.Properties.IsAggregate
 }
 
-func isHTTPS(in string) bool {
-	return strings.HasPrefix(in, "https://") && strings.Contains(in, ".")
-}
-
-func isLocalhost(in string) bool {
-	url, err := url.Parse(in)
-	if err != nil {
-		return false
-	}
-	return url.Hostname() == "localhost"
-}
-
 func configRevision(mod *pb.ConfigModification, cfg *pb.DamConfig) error {
 	if mod != nil && mod.Revision > 0 && mod.Revision != cfg.Revision {
 		return fmt.Errorf("request revision %d is out of date with current config revision %d", mod.Revision, cfg.Revision)
