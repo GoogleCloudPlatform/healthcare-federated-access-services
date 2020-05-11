@@ -16,7 +16,7 @@
 
 #main-container {
     background: url(../images/info_bg.jpg) center center / cover no-repeat;
-    height: 100vh;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -25,7 +25,6 @@
 
 #main-container .mdl-card {
     padding: 2rem;
-    width: 65%;
     max-width: 60rem;
 }
 
@@ -42,6 +41,7 @@
     font-size: 1.2rem;
 }
 
+#main-container .mdl-checkbox,
 #main-container .mdl-radio {
     height: auto;
 }
@@ -50,11 +50,17 @@
     margin-top: 0.5rem;
 }
 
+#information-release {
+    flex-grow: 1;
+}
+
 #information-list {
     list-style: none;
     margin: 0;
-    padding-left: 2rem;
-    padding-right: 2rem;
+    padding: 1rem 2rem;
+    background: #f4f4f4;
+    overflow-y: scroll;
+    box-shadow: inset 0 3px 5px #a3a3a3, inset 0 -3px 5px #a3a3a3;
 }
 
 #information-list .list-item--title {
@@ -96,4 +102,16 @@
     font-size: 0.8rem;
     margin-left: 2rem;
     margin-bottom: 1rem;
+}
+
+@media screen and (min-width:1299px) and (min-height:840px) {
+    #main-container .mdl-card {
+        max-width: 90rem;
+    }
+}
+
+@media screen and (min-width:1299px) and (min-height:940px) {
+    #main-container .mdl-card {
+        max-width: 65rem;
+    }
 }
