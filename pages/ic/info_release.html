@@ -26,76 +26,115 @@
   <link rel='stylesheet' href='https://code.getmdl.io/1.3.0/material.cyan-pink.min.css'>
   <script defer src='https://code.getmdl.io/1.3.0/material.min.js'></script>
   <script src='{{.AssetDir}}/js/info_release.js'></script>
+  <link rel='stylesheet' href='{{.AssetDir}}/css/common.css'>
   <link rel='stylesheet' href='{{.AssetDir}}/css/info_release.css'>
 </head>
 
-<body onLoad='onInit(info);'>
-  <div id='main-container'>
-    <div id='information-release' class='mdl-card mdl-shadow--2dp'>
-      <p>
-        App "{{.ApplicationName}}" requested for releasing following information for<br>
-        scope: '{{.Scope}}'<br>
-        By clicking 'Agree', you agree to release selected following information to "{{.ApplicationName}}"
-      </p>
-
-      <form action='/identity/inforelease/accept' method='post'>
-        <input type='hidden' name='state' value='{{.State}}'>
-        <div class='mdl-card__supporting-text'>
-          <ul id='list' class='scrollable'>
-            <li>openid: {{.ID}}</li>
-            {{if .Offline}}
-            <li>offine</li>
-            {{end}}
-            {{range $key, $list := .Information}}
-            <li>{{$key}}
-              {{range $it := $list}}
-              <br><input type='checkbox' id='{{$it.ID}}' name='{{$it.ID}}' value='yes' class='autoselected' checked>
-              <label for='{{$it.ID}}'>{{$it.Title}}</label>
-              {{if $it.Value}}
-              <br>{{$it.Value}}
-              {{end}}
-              {{end}}
-            </li>
-            {{end}}
-          </ul>
-
-          <input type='checkbox' id='select-anything' name='select-anything' onchange='changeSelectAnything()'>
-          <label for='select-anything'>
-            Anything "{{.ApplicationName}}" needed<br>
-            includes visas added to my account in the future<br>
-          </label>
-
-          <br>
-
-          <input type='radio' id='remember-none' value='remember-none' name='remember' checked>
-          <label for='remember-none'>Don't remember, ask me next time</label>
-          <br>
-
-          <input type='radio' id='remember-samesubset' value='remember-samesubset' name='remember'>
-          <label for='remember-samesubset'>Remember my selection for next time "{{.ApplicationName}}" requests for any subset of '{{.Scope}}' scopes</label>
-          <br>
-
-          <input type='radio' id='remember-any' value='remember-any' name='remember'>
-          <label for='remember-any'>Remember my selection for next time "{{.ApplicationName}}" request for anything</label>
-          <br>
-
+<body class="flex"
+      onLoad='onInit(info);'>
+  <main class="flex stretch">
+    <div id='main-container'>
+      <div id='information-release'
+           class='mdl-card mdl-shadow--2dp'>
+        <div class="mdl-card__title">
+          <h2 class="mdl-card__title-text">We need your permission</h2>
+        </div>
+        <div>
           <p>
-          You can goto <a href='{{.ConsentDashboardURL}}'>consent dashboard</a> to revoke your saved remember consent. All consents will expire in 90 days.
+            App <b>{{.ApplicationName}}</b> requested for releasing following information for scope:<br/>
+            <i>{{.Scope}}</i>.
           </p>
-
+          <p>
+            By clicking <b>Agree</b>, you agree to release selected following information to <b>{{.ApplicationName}}</b>.
+          </p>
         </div>
 
-        <div class='mdl-card__actions actions'>
-          <input type='button' class='mdl-button mdl-js-button mdl-js-ripple-effect' id='disagree' value='Disagree' onclick='getElementById("reject-form").submit()'>
-          <input type='submit' class='mdl-button mdl-js-button mdl-js-ripple-effect' id='agree' value='Agree'>
-        </div>
-      </form>
+        <form action='/identity/inforelease/accept' method='post'>
+          <input type='hidden' name='state' value='{{.State}}'>
+          <div>
+            <div class="openid-info">
+              <span>openid: <i>{{.ID}}</i></span>
+              {{if .Offline}}
+                <span>offine</span>
+              {{end}}
+            </div>
+            <ul id='information-list' class='scrollable'>
+              {{range $key, $list := .Information}}
+              <li>
+                <span class="list-item--title">{{$key}}</span>
+                <ul>
+                  {{range $it := $list}}
+                  <li class="flex flex--column">
+                    <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for='{{$it.ID}}'>
+                      <input type="checkbox" id='{{$it.ID}}' name='{{$it.ID}}' class="mdl-checkbox__input autoselected" checked />
+                      <span class="mdl-checkbox__label">{{$it.Title}}</span>
+                    </label>
+                    <span class="info-value">
+                      {{if $it.Value}}
+                        {{$it.Value}}
+                      {{end}}
+                    </span>
+                  </li>
+                  {{end}}
+                </ul>
+              </li>
+              {{end}}
+            </ul>
 
-      <form action='/identity/inforelease/reject' method='post' id='reject-form'>
-        <input type='hidden' name='state' value='{{.State}}'>
-      </form>
+            <div class="select-everything-container">
+              <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for='select-anything'>
+                <input type="checkbox" id='select-anything' name='select-anything' onchange='changeSelectAnything()' class="mdl-checkbox__input">
+                <span class="mdl-checkbox__label">Anything <b>{{.ApplicationName}}</b> needed</span>
+              </label>
+              <br/>
+              <div class="input-hint"><b>includes visas added to my account in the future</b></div>
+            </div>
+          </div>
+
+          <div class='mdl-card__supporting-text'>
+            <div id="remember-container">
+              <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for='remember-none'>
+                <input type="radio" id='remember-none' value='remember-none' name='remember' checked class="mdl-radio__button">
+                <span class="mdl-radio__label">Don't remember, ask me next time</span>
+              </label>
+              <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for='remember-samesubset'>
+                <input type="radio" id='remember-samesubset' value='remember-samesubset' name='remember'
+                       class="mdl-radio__button">
+                <span class="mdl-radio__label">
+                  Remember my selection for next time <b>{{.ApplicationName}}</b>
+                  requests for any subset of <i>{{.Scope}}</i> scopes
+                </span>
+              </label>
+              <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for='remember-any'>
+                <input type="radio" id='remember-any' value='remember-any' name='remember'
+                       class="mdl-radio__button">
+                <span class="mdl-radio__label">
+                  Remember my selection for next time <b>{{.ApplicationName}}</b> request for anything
+                </span>
+              </label>
+            </div>
+
+            <p>
+              You can go to <a href='{{.ConsentDashboardURL}}'>consent dashboard</a> to revoke your saved remember consent.
+              All consents will expire in 90 days.
+            </p>
+          </div>
+
+          <div class='mdl-card__actions actions'>
+            <input type='button'
+                   class='secondary-btn mdl-button mdl-js-button mdl-js-ripple-effect' id='disagree' value='Disagree'
+                   onclick='getElementById("reject-form").submit()'>
+            <input type='submit'
+                   class='primary-btn mdl-button mdl-js-button mdl-js-ripple-effect' id='agree' value='Agree'>
+          </div>
+        </form>
+
+        <form action='/identity/inforelease/reject' method='post' id='reject-form'>
+          <input type='hidden' name='state' value='{{.State}}'>
+        </form>
+      </div>
     </div>
-  </div>
+  </main>
 </body>
 
 </html>
