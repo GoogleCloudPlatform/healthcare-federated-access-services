@@ -40,34 +40,36 @@ type TestTranslator interface {
 
 func testTranslator(t *testing.T, tests []testCase) {
 	for _, tc := range tests {
-		payload, err := ioutil.ReadFile(srcutil.Path(tc.input))
-		if err != nil {
-			t.Fatalf("test %q failed to read input file %q: %v", tc.name, tc.input, err)
-		}
-		token := &dbGapIdToken{}
-		if err := json.Unmarshal(payload, token); err != nil {
-			t.Fatalf("test %q failed to unmarshal ID token: %v", tc.name, err)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			payload, err := ioutil.ReadFile(srcutil.Path(tc.input))
+			if err != nil {
+				t.Fatalf("failed to read input file %q: %v", tc.input, err)
+			}
+			token := &dbGapIdToken{}
+			if err := json.Unmarshal(payload, token); err != nil {
+				t.Fatalf("failed to unmarshal ID token: %v", err)
+			}
 
-		got, err := tc.translator.TestTranslator(convertToOIDCIDToken(*token), payload)
-		if err != nil {
-			t.Fatalf("test %q failed during translation: %v", tc.name, err)
-		}
+			got, err := tc.translator.TestTranslator(convertToOIDCIDToken(*token), payload)
+			if err != nil {
+				t.Fatalf("failed during translation: %v", err)
+			}
 
-		str, err := ioutil.ReadFile(srcutil.Path(tc.expected))
-		if err != nil {
-			t.Fatalf("test %q failed to read expected output file %q: %v", tc.name, tc.expected, err)
-		}
-		want := &ga4gh.Identity{}
-		if err := json.Unmarshal(str, want); err != nil {
-			t.Fatalf("test %q failed to unmarshal expected output %q: %v", tc.name, tc.expected, err)
-		}
-		sort.Strings(got.VisaJWTs)
+			str, err := ioutil.ReadFile(srcutil.Path(tc.expected))
+			if err != nil {
+				t.Fatalf("failed to read expected output file %q: %v", tc.expected, err)
+			}
+			want := &ga4gh.Identity{}
+			if err := json.Unmarshal(str, want); err != nil {
+				t.Fatalf("failed to unmarshal expected output %q: %v", tc.expected, err)
+			}
+			sort.Strings(got.VisaJWTs)
 
-		opts := cmp.Options{cmp.Transformer("", ga4gh.MustVisaDataFromJWT)}
-		if diff := cmp.Diff(want, got, opts); diff != "" {
-			t.Errorf("test %q returned diff (-want +got):\n%s", tc.name, diff)
-		}
+			opts := cmp.Options{cmp.Transformer("", ga4gh.MustVisaDataFromJWT)}
+			if diff := cmp.Diff(want, got, opts); diff != "" {
+				t.Errorf("returned diff (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

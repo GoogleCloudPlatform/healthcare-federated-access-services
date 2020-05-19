@@ -22,7 +22,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
-	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -126,9 +125,11 @@ func NewDbGapTranslator(publicKey, selfIssuer, signingPrivateKey string) (*DbGap
 		return nil, fmt.Errorf("NewDbGapTranslator failed, selfIssuer or signingPrivateKey is empty")
 	}
 
+	jku := strings.TrimSuffix(selfIssuer, "/") + "/.well-known/jwks.json"
+
 	t := &DbGapTranslator{
 		visaIssuer: selfIssuer,
-		visaJKU:    path.Join(selfIssuer, ".well-known/jwks.json"),
+		visaJKU:    jku,
 	}
 
 	block, _ := pem.Decode([]byte(signingPrivateKey))

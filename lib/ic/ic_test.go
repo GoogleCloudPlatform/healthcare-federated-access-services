@@ -948,7 +948,6 @@ func TestAddLinkedIdentities(t *testing.T) {
 			IssuedAt:  got.IssuedAt,
 			ExpiresAt: got.ExpiresAt,
 		},
-		Scope: "openid",
 		Assertion: ga4gh.Assertion{
 			Type:     ga4gh.LinkedIdentities,
 			Asserted: got.Assertion.Asserted,
@@ -963,6 +962,11 @@ func TestAddLinkedIdentities(t *testing.T) {
 
 	if got.ExpiresAt-time.Now().Unix() > 3600 {
 		t.Errorf("got.ExpiresAt = now + %v seconds, want less than a hour", (got.ExpiresAt - time.Now().Unix()))
+	}
+
+	jku := "https://example.com/visas/jwks"
+	if v.JKU() != jku {
+		t.Errorf("v.JKU() = %s, wants %s", v.JKU(), jku)
 	}
 }
 

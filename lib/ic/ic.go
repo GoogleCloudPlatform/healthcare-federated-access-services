@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -868,7 +867,6 @@ func (s *Service) addLinkedIdentities(id *ga4gh.Identity, link *cpb.ConnectedAcc
 			IssuedAt:  now.Unix(),
 			ExpiresAt: exp,
 		},
-		Scope: "openid",
 		Assertion: ga4gh.Assertion{
 			Type:     ga4gh.LinkedIdentities,
 			Asserted: int64(link.Refreshed),
@@ -937,11 +935,11 @@ func hasScopes(want, got string, matchPrefix bool) bool {
 }
 
 func (s *Service) visaIssuerJKU() string {
-	return path.Join(s.getVisaIssuerString(), "/jwks")
+	return strings.TrimSuffix(s.getDomainURL(), "/") + "/visas/jwks"
 }
 
 func (s *Service) getVisaIssuerString() string {
-	return s.getDomainURL() + "/visas"
+	return strings.TrimSuffix(s.getDomainURL(), "/") + "/visas"
 }
 
 func (s *Service) getIssuerString() string {
