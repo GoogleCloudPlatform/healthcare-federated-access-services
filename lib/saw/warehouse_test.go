@@ -421,12 +421,11 @@ func newFix(t *testing.T) (*Fix, func() error) {
 		gcs:  &fakeGCS{},
 		crmState: crmState,
 		bqState: bqState,
+		iamSrv: fakeiam.NewAdmin(),
+		credsSrv: fakeiam.NewCreds(),
 	}
 	f.rpc, cleanup = fakegrpc.New()
-	f.iamSrv = fakeiam.NewAdmin()
 	iamgrpcpb.RegisterIAMServer(f.rpc.Server, f.iamSrv)
-
-	f.credsSrv = fakeiam.NewCreds()
 	iamcredsgrpcpb.RegisterIAMCredentialsServer(f.rpc.Server, f.credsSrv)
 
 	f.rpc.Start()
