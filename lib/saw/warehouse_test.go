@@ -419,10 +419,10 @@ func newFix(t *testing.T) (*Fix, func() error) {
 		bqds: &fakeBQ{bqState: bqState},
 		crm:  &fakeCRM{crmState: crmState},
 		gcs:  &fakeGCS{},
+		crmState: crmState,
+		bqState: bqState,
 	}
 	f.rpc, cleanup = fakegrpc.New()
-	f.crmState = crmState
-	f.bqState = bqState
 	f.iamSrv = fakeiam.NewAdmin()
 	iamgrpcpb.RegisterIAMServer(f.rpc.Server, f.iamSrv)
 
@@ -484,9 +484,10 @@ func (f *fakeBQ) Get(ctx context.Context, project string, dataset string) (*bigq
 
 func (f *fakeBQ) Set(ctx context.Context, project string, dataset string, ds *bigquery.Dataset) error {
 	for _, bqd := range ds.Access {
-		a := &bigquery.DatasetAccess{}
-		a.Role = bqd.Role
-		a.UserByEmail = bqd.UserByEmail
+		a := &bigquery.DatasetAccess{
+			Role: bqd.Role,
+			UserByEmail: bqd.UserByEmail,
+		}
 		f.bqState.Access = append(f.bqState.Access, a)
 	}
 	return f.setResponseErr
@@ -519,9 +520,10 @@ func (f *fakeCRM) Get(ctx context.Context, project string) (*cloudresourcemanage
 func (f *fakeCRM) Set(ctx context.Context, project string, policy *cloudresourcemanager.Policy) error {
 	f.crmState.Project = project
 	for _, binding := range policy.Bindings {
-		b := &cloudresourcemanager.Binding{}
-		b.Role = binding.Role
-		b.Members = binding.Members
+		b := &cloudresourcemanager.Binding{
+			Role: binding.Role,
+			Members: binding.Members,
+		}
 		f.crmState.Bindings = append(f.crmState.Bindings, b)
 	}
 	return f.setResponseErr
