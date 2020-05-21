@@ -30,8 +30,7 @@
   <script src='{{.AssetDir}}/js/info_release.js'></script>
 </head>
 
-<body class="flex"
-      onLoad='onInit(info);'>
+<body class="flex">
   <main class="flex stretch">
     <div id='main-container'>
       <div id='information-release'
@@ -83,7 +82,7 @@
 
             <div class="select-everything-container">
               <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for='select-anything'>
-                <input type="checkbox" id='select-anything' name='select-anything' onchange='changeSelectAnything()' class="mdl-checkbox__input">
+                <input type="checkbox" id='select-anything' name='select-anything' class="mdl-checkbox__input">
                 <span class="mdl-checkbox__label">Anything <b>{{.ApplicationName}}</b> needed</span>
               </label>
               <br/>
@@ -122,8 +121,7 @@
 
           <div class='mdl-card__actions actions'>
             <input type='button'
-                   class='secondary-btn mdl-button mdl-js-button mdl-js-ripple-effect' id='disagree' value='Disagree'
-                   onclick='getElementById("reject-form").submit()'>
+                   class='secondary-btn mdl-button mdl-js-button mdl-js-ripple-effect' id='disagree' value='Disagree'>
             <input type='submit'
                    class='primary-btn mdl-button mdl-js-button mdl-js-ripple-effect' id='agree' value='Agree'>
           </div>

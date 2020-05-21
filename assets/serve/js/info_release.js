@@ -21,7 +21,19 @@
 function changeSelectAnything() {
   let e = document.getElementById("select-anything");
   let cbs = document.querySelectorAll(".autoselected");
-  for (i = 0; i < cbs.length; ++i) {
+  for (let i = 0; i < cbs.length; ++i) {
     cbs[i].disabled = e.checked;
   }
 }
+
+/**
+ * init ...
+ */
+function init() {
+  document.getElementById("select-anything").onchange = changeSelectAnything;
+  document.getElementById("disagree").onclick = () => {
+    document.getElementById("reject-form").submit();
+  };
+}
+
+window.onload = init;
