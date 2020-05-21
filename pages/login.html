@@ -20,48 +20,77 @@
   <meta charset="UTF-8">
   <title>{{.ServiceTitle}}: Sign In</title>
 
-  <link rel='icon' href='{{.AssetDir}}/images/favicon.ico' type='image/png'/>
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"/>
-  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css"/>
+  <link rel="icon" href="{{.AssetDir}}/images/favicon.ico" type="image/png"/>
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700"
+        rel="stylesheet">
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet"
+        href="https://code.getmdl.io/1.3.0/material.cyan-pink.min.css">
   <link rel='stylesheet' href='{{.AssetDir}}/css/common.css'/>
   <link rel='stylesheet' href='{{.AssetDir}}/css/login.css'/>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.slim.min.js"></script>
+  <script
+      src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <script src='{{.AssetDir}}/js/login.js'></script>
-  <script>
-    var providers = JSON.parse({{.ProviderList}});
-  </script>
-
-  <style>
-    #main-container {
-      background: url({{.AssetDir}}/images/login_background.png) center center / cover no-repeat;
-    }
-  </style>
 </head>
 
-<body class="flex"
-      onload="onInit(providers)">
-  <main class="flex stretch">
-    <div id="providers-container"
-         class="flex flex--column">
-    </div>
-    <div id="main-container"
-         class="flex vertical-center horizontal-center stretch">
-      <div class="mdl-card mdl-shadow--2dp">
-        <div class="mdl-card__title">
-          <h2 class="mdl-card__title-text">{{.LoginInfoTitle}}</h2>
-        </div>
-        <div class="mdl-card__supporting-text">
+<body class="flex">
+<main class="flex stretch">
+  <div id="providers-container"
+       class="flex flex--column">
+    {{$list := .ProviderList.Personas}}
+    {{if .ProviderList.Personas}}
+    <h4 class="playground">Testing personas</h4><p class="playground">Log in using one of these existing testing personas.</p>
+    {{end}}
+
+    {{if .ProviderList.Idps}}
+    <h4>Log in or Create an account</h4><p>Verify your identity to discover and access data.</p>
+      {{$list = .ProviderList.Idps}}
+    {{end}}
+
+    {{range $it := $list}}
+      {{if index $it.Ui "iconUrl"}}
+    <a class="mdl-card mdl-shadow--2dp" href="{{$it.Url}}">
+      <div class="mdl-card__title flex vertical-center">
+        <img src="{{index $it.Ui "iconUrl"}}" alt="Icon"/>
+          {{index $it.Ui "label"}}
+      </div>
+    </a>
+      {{else}}
+    <a class="mdl-card mdl-shadow--2dp no-image" href="{{$it.Url}}">
+      <div class="mdl-card__title flex vertical-center">
+          {{index $it.Ui "label"}}
+      </div>
+    </a>
+      {{end}}
+    {{end}}
+  </div>
+
+  {{if .ProviderList.Personas}}
+  <div id="main-container"
+       class="flex vertical-center horizontal-center stretch persona">
+  {{end}}
+
+  {{if .ProviderList.Idps}}
+  <div id="main-container"
+       class="flex vertical-center horizontal-center stretch">
+  {{end}}
+
+    <div class="mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title">
+        <h2 class="mdl-card__title-text">{{.LoginInfoTitle}}</h2>
+      </div>
+      <div class="mdl-card__supporting-text">
           {{template "login_info.html"}}
-        </div>
-        <div class="mdl-card__actions hide">
-          <button class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--primary"
-                  disabled>
-            Explore
-          </button>
-        </div>
+      </div>
+      <div class="mdl-card__actions hide">
+        <button
+            class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--primary"
+            disabled>
+          Explore
+        </button>
       </div>
     </div>
   </main>

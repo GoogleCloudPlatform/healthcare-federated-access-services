@@ -440,7 +440,7 @@ func (sh *ServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type loginPageArgs struct {
-	ProviderList   string
+	ProviderList   *pb.LoginPageProviders
 	AssetDir       string
 	ServiceTitle   string
 	LoginInfoTitle string
@@ -458,14 +458,8 @@ func (s *Service) renderLoginPage(cfg *pb.IcConfig, pathVars map[string]string, 
 		}
 	}
 
-	ma := jsonpb.Marshaler{}
-	json, err := ma.MarshalToString(list)
-	if err != nil {
-		return "", err
-	}
-
 	args := &loginPageArgs{
-		ProviderList:   json,
+		ProviderList:   list,
 		AssetDir:       assetPath,
 		ServiceTitle:   serviceTitle,
 		LoginInfoTitle: loginInfoTitle,

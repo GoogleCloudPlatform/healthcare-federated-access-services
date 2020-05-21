@@ -83,3 +83,7 @@ button:disabled.mdl-button--primary.mdl-button--primary.mdl-button--raised,
 #main-container .mdl-card__supporting-text {
   font-size: 1.2rem;
 }
+
+#main-container {
+  background: url(../images/login_background.png) center center / cover no-repeat;
+}

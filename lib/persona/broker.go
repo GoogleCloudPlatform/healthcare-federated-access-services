@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
-	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
@@ -273,14 +272,8 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 		}
 	}
 
-	json, err := (&jsonpb.Marshaler{}).MarshalToString(list)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
-		return
-	}
-
 	args := &loginPageArgs{
-		ProviderList:   json,
+		ProviderList:   list,
 		AssetDir:       "/static",
 		ServiceTitle:   serviceTitle,
 		LoginInfoTitle: loginInfoTitle,
@@ -292,7 +285,7 @@ func (s *Server) sendLoginPage(redirect, state, nonce, clientID, scope string, w
 }
 
 type loginPageArgs struct {
-	ProviderList   string
+	ProviderList   *ipb.LoginPageProviders
 	AssetDir       string
 	ServiceTitle   string
 	LoginInfoTitle string
