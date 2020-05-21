@@ -19,13 +19,10 @@ import (
 	"testing"
 	"time"
 
-	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
-	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/api/bigquery/v2" /* copybara-comment: bigquery */
 	"google.golang.org/api/cloudresourcemanager/v1" /* copybara-comment: cloudresourcemanager */
 	"google.golang.org/api/option" /* copybara-comment: option */
-	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
 	"google.golang.org/grpc" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
@@ -36,6 +33,9 @@ import (
 
 	iamgrpcpb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_grpc */
 	iamcredsgrpcpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: iamcredentials_go_grpc */
+	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
+	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
+	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -273,6 +273,54 @@ func TestSAW_GetServiceAccounts(t *testing.T) {
 	}
 }
 
+func TestSAW_GetAccountKeyWithRoles_BQ(t *testing.T) {
+	ctx := context.Background()
+
+	fix, cleanup := newFix(t)
+	defer cleanup()
+
+	store := fakestore.New()
+	saw := New(store, fix.iam, fix.creds, fix.crm, fix.gcs, fix.bqds, nil)
+	params := &clouds.ResourceTokenCreationParams{
+		AccountProject: "fake-account-project",
+		Items: []map[string]string{
+			{"project": "fake-project-id",
+				"dataset":     "fake-dataset",
+				"job-project": "fake-job-project",
+			}},
+		Roles:          []string{"roles/bigquery.dataViewer"},
+		Scopes:         []string{"fake-scope"},
+		BillingProject: "fake-billing-project",
+	}
+
+	if _, err := saw.GetAccountKey(ctx, "fake-id", time.Minute, time.Hour, 100, params); err != nil {
+		t.Errorf("GetAccountKey() failed: %v", err)
+	}
+
+	gotCrm := fix.crm.crmState
+	wantCrm := crmState{
+		Bindings: []*cloudresourcemanager.Binding{{
+			Members: []string{
+				"serviceAccount:ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com",
+			},
+			Role: "roles/bigquery.user",
+		}},
+		Project: "fake-job-project",
+	}
+	if diff := cmp.Diff(wantCrm, gotCrm); diff != "" {
+		t.Errorf("saw.GetAccountKeyWithRoles() returned diff (-wantCrm +gotCrm):\n%s", diff)
+	}
+
+	gotBq := fix.bqds.bqState.Access
+	wantBq := []*bigquery.DatasetAccess{{
+		Role:        "roles/bigquery.dataViewer",
+		UserByEmail: "ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com",
+	}}
+	if diff := cmp.Diff(wantBq, gotBq); diff != "" {
+		t.Errorf("saw.GetAccountKeyWithRoles() returned diff (-wantBq +gotBq):\n%s", diff)
+	}
+}
+
 func TestSAW_RemoveServiceAccount(t *testing.T) {
 	ctx := context.Background()
 
@@ -350,9 +398,9 @@ type Fix struct {
 	iamSrv   *fakeiam.Admin
 	creds    *iamcreds.IamCredentialsClient
 	credsSrv *fakeiam.Creds
-	bqds     BQPolicy
-	crm      CRMPolicy
-	gcs      GCSPolicy
+	bqds     *fakeBQ
+	crm      *fakeCRM
+	gcs      *fakeGCS
 }
 
 func newFix(t *testing.T) (*Fix, func() error) {
@@ -362,18 +410,30 @@ func newFix(t *testing.T) (*Fix, func() error) {
 		err     error
 		cleanup func() error
 	)
-
 	f := &Fix{
-		bqds: &fakeBQ{},
-		crm:  &fakeCRM{},
-		gcs:  &fakeGCS{},
+		bqds: &fakeBQ{
+			bqState: bqState{},
+			getResponse: &bigquery.Dataset{
+				Access: []*bigquery.DatasetAccess{},
+			},
+		},
+		crm: &fakeCRM{
+			crmState: crmState{},
+			getResponse: &cloudresourcemanager.Policy{
+				Bindings: []*cloudresourcemanager.Binding{
+					{
+						Role:    "roles/bigquery.user",
+						Members: []string{"serviceAccount:ie652a310ecf7b4ec1771e62d53609@fake-account-project.iam.gserviceaccount.com"},
+					},
+				},
+			},
+		},
+		gcs:      &fakeGCS{},
+		iamSrv:   fakeiam.NewAdmin(),
+		credsSrv: fakeiam.NewCreds(),
 	}
 	f.rpc, cleanup = fakegrpc.New()
-
-	f.iamSrv = fakeiam.NewAdmin()
 	iamgrpcpb.RegisterIAMServer(f.rpc.Server, f.iamSrv)
-
-	f.credsSrv = fakeiam.NewCreds()
 	iamcredsgrpcpb.RegisterIAMCredentialsServer(f.rpc.Server, f.credsSrv)
 
 	f.rpc.Start()
@@ -415,6 +475,11 @@ type fakeBQ struct {
 	getResponse    *bigquery.Dataset
 	getResponseErr error
 	setResponseErr error
+	bqState        bqState
+}
+
+type bqState struct {
+	Access []*bigquery.DatasetAccess
 }
 
 func (f *fakeBQ) Get(ctx context.Context, project string, dataset string) (*bigquery.Dataset, error) {
@@ -422,6 +487,13 @@ func (f *fakeBQ) Get(ctx context.Context, project string, dataset string) (*bigq
 }
 
 func (f *fakeBQ) Set(ctx context.Context, project string, dataset string, ds *bigquery.Dataset) error {
+	for _, bqd := range ds.Access {
+		a := &bigquery.DatasetAccess{
+			Role:        bqd.Role,
+			UserByEmail: bqd.UserByEmail,
+		}
+		f.bqState.Access = append(f.bqState.Access, a)
+	}
 	return f.setResponseErr
 }
 
@@ -429,6 +501,12 @@ type fakeCRM struct {
 	getResponse    *cloudresourcemanager.Policy
 	getResponseErr error
 	setResponseErr error
+	crmState       crmState
+}
+
+type crmState struct {
+	Bindings []*cloudresourcemanager.Binding
+	Project  string
 }
 
 func (f *fakeCRM) Get(ctx context.Context, project string) (*cloudresourcemanager.Policy, error) {
@@ -436,5 +514,13 @@ func (f *fakeCRM) Get(ctx context.Context, project string) (*cloudresourcemanage
 }
 
 func (f *fakeCRM) Set(ctx context.Context, project string, policy *cloudresourcemanager.Policy) error {
+	f.crmState.Project = project
+	for _, binding := range policy.Bindings {
+		b := &cloudresourcemanager.Binding{
+			Role:    binding.Role,
+			Members: binding.Members,
+		}
+		f.crmState.Bindings = append(f.crmState.Bindings, b)
+	}
 	return f.setResponseErr
 }
