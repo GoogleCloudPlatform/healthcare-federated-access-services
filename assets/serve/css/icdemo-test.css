@@ -93,3 +93,9 @@ pre {
   border: 1px solid #888;
   background: #eee;
 }
+.half-width {
+  width: 49%;
+}
+.full-width {
+  width: 98%;
+}

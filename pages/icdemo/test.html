@@ -17,282 +17,10 @@
 <html>
   <head>
     <link rel="stylesheet" href="/static/css/icdemo-test.css">
+    <script src="/static/js/icdemo.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script>
-      var winParams = new URLSearchParams(window.location.search);
-      var clientId = winParams.get('client_id') || "903cfaeb-57d9-4ef6-5659-04377794ed65";
-      var clientSecret = winParams.get('client_secret') || "48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab";
-      // IMPORTANT: Scopes "account_admin" and "link" should only be requested when the user is
-      // actively requesting the account to be modified or linked.
-      var defaultScope = "openid+offline+profile+identities+ga4gh_passport_v1";
-      var linkScope = defaultScope + "+account_admin+link";
-      var loginURL = "_HYDRA_URL_/oauth2/auth?audience=&client_id=" + clientId + "&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=_SCOPE_&state=_STATE_";
-      var tokenURL = "_HYDRA_URL_/oauth2/token";
-      var userinfoURL = "_HYDRA_URL_/userinfo";
-      var authCodeExchangeToken = "grant_type=authorization_code&redirect_uri=_REDIRECT_&code=_AUTH_CODE_";
-      var refreshExchangeToken = "grant_type=refresh_token&redirect_uri=_REDIRECT_&refresh_token=_REFRESH_TOKEN_";
-      var realm = "master";
-      var accountURL = "_IC_URL_/identity/scim/v2/_REALM_/Me?client_id=" + clientId + "&client_secret=" + clientSecret;
-      var refreshToken = "";
-
-      function validateState(stateID, nonce) {
-        var state = window.localStorage.getItem('state');
-        if (!state) {
-          displayError(`request with invalid 'state' ${stateID}, no 'state' in database`,
-                       `app maybe under attack or test page refreshed using same code.`);
-          return false;
-        }
-        var s = JSON.parse(state);
-        if (s.id !== stateID) {
-          displayError(`request with invalid 'state' ${stateID}, 'state' in database is ${s.id}`, `app maybe under attack.`);
-          return false;
-        }
-        if (s.nonce && s.nonce !== nonce) {
-          displayError(`request with invalid 'nonce' ${nonce}, 'nonce' in database is ${s.nonce}`, `app maybe under attack.`);
-          return false;
-        }
-        clientId = s.clientId
-        clientSecret = s.clientSecret
-
-        window.localStorage.removeItem('state');
-        return true;
-      }
-
-      function init() {
-        var hydraUrl = $("#hydra_url").val();
-        var code = winParams.get('code');
-        if (code) {
-          $("#auth_code").val(code);
-          validateState(winParams.get('state'), winParams.get('nonce'));
-          if (window.localStorage.getItem('primary_token')) {
-            linkAccount(code);
-          }
-        }
-      }
-
-      function randomString(length) {
-        var charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz'
-        result = ''
-
-        while (length > 0) {
-          var bytes = new Uint8Array(16);
-          var random = window.crypto.getRandomValues(bytes);
-
-          random.forEach(function(c) {
-            if (length == 0) {
-              return;
-            }
-            if (c < charset.length) {
-              result += charset[c];
-              length--;
-            }
-          });
-        }
-        return result;
-      }
-
-      function makeURL(pattern, token, scope, state, nonce) {
-        var path = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "") + window.location.pathname;
-        var redirect = window.location.href.split("?")[0];
-        state = state || "";
-        nonce = nonce || "";
-        return pattern.replace(/_PATH_/g, encodeURI(path))
-                      .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
-                      .replace(/_REFRESH_TOKEN_/g, encodeURIComponent(token))
-                      .replace(/_REDIRECT_/g, encodeURIComponent(redirect))
-                      .replace(/_HYDRA_URL_/g, encodeURI($("#hydra_url").val()))
-                      .replace(/_IC_URL_/g, encodeURI($("#ic_url").val()))
-                      .replace(/_TOKEN_/g, encodeURIComponent($("#passport").val()))
-                      .replace(/_SCOPE_/g, scope || defaultScope)
-                      .replace(/_REALM_/g, realm)
-                      .replace(/_STATE_/g, state)
-                      .replace(/_NONCE_/g, nonce)
-      }
-
-      function auth(scope) {
-        var stateID = randomString(16);
-        var nonce = ""; // not supplying nonce for code flow
-        var state = {
-          id: stateID,
-          nonce: nonce,
-          clientId: clientId,
-          clientSecret: clientSecret
-        };
-        window.localStorage.setItem('state', JSON.stringify(state));
-
-        var url = makeURL(loginURL, /*token*/ undefined, scope || defaultScope, stateID, nonce);
-        window.location.href = url;
-      }
-
-      function linkauth() {
-        var authCode = $("#auth_code").val();
-        var tok = $("#access_token").val();
-        if (authCode && !tok) {
-          displayError("must exchange code first (assuming it has the 'link' scope)...");
-          return;
-        }
-        if (tok) {
-          window.localStorage.setItem('primary_token', tok)
-        }
-        auth(linkScope);
-      }
-
-      function tokenExchange() {
-        var authCode = $("#auth_code").val();
-        if (!authCode) {
-          displayError("must login first...");
-          return;
-        }
-        var url = makeURL(tokenURL);
-        $.ajax({
-          url: url,
-          type: "POST",
-          data: makeURL(authCodeExchangeToken, authCode),
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
-          success: function(resp) {
-            $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#access_token").val(resp.access_token);
-            $("#refresh_token").val(resp.refresh_token||"")
-            refreshToken = resp.refresh_token;
-          },
-          error: function(err) {
-            displayError("token exchange failed", "", JSON.stringify(err, undefined, 2));
-          }
-        });
-      }
-
-      function linkAccount(authCode) {
-        var primaryToken = window.localStorage.getItem('primary_token');
-        window.localStorage.removeItem('primary_token');
-        $("#access_token").val(primaryToken);
-        var url = makeURL(tokenURL);
-        $.ajax({
-          url: url,
-          type: "POST",
-          data: makeURL(authCodeExchangeToken, authCode),
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
-          success: function(resp) {
-            scimLink(primaryToken, resp.access_token);
-          },
-          error: function(err) {
-            displayError("token exchange (for linking) failed", "", JSON.stringify(err, undefined, 2));
-          }
-        });
-      }
-
-      function scimLink(primaryToken, linkToken) {
-        var url = makeURL(accountURL);
-        var data = `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"emails","value":"X-Link-Authorization"}]}`;
-        $.ajax({
-          url: url,
-          type: "PATCH",
-          contentType: "application/json; charset=utf-8",
-          dataType: "json",
-          data: data,
-          processData: false,
-          beforeSend: function(xhr){
-            xhr.setRequestHeader('Authorization', 'Bearer ' + primaryToken);
-            xhr.setRequestHeader('X-Link-Authorization', 'Bearer ' + linkToken);
-          },
-          success: function(resp) {
-            $("#log").text("LINK ACCOUNT SUCCESS:\n\n" + JSON.stringify(resp, undefined, 2));
-          },
-          error: function(err, status, info) {
-            displayError("link account failed", `status: "${status}", info: "${info}"`, JSON.stringify(err, undefined, 2));
-          }
-        });
-      }
-
-      function userinfo() {
-        var tok = $("#access_token").val();
-        if (!tok) {
-          displayError("must login first...");
-          return;
-        }
-        var url = makeURL(userinfoURL);
-        $.ajax({
-          url: url,
-          type: "GET",
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Bearer ' + tok)},
-          success: function(resp) {
-            $("#log").text("Userinfo: " + JSON.stringify(resp, undefined, 2));
-          },
-          error: function(err) {
-            displayError("user info failed", "", JSON.stringify(err, undefined, 2));
-          }
-        });
-      }
-
-      function refresh() {
-        if (!refreshToken) {
-          $("#log").text("must login first...");
-          return;
-        }
-        var url = makeURL(tokenURL);
-        $.ajax({
-          url: url,
-          type: "POST",
-          data: makeURL(refreshExchangeToken, refreshToken),
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Basic ' + btoa(clientId+":"+clientSecret));},
-          success: function(resp) {
-            $("#log").text("Authorization: " + JSON.stringify(resp, undefined, 2));
-            $("#access_token").val(resp.access_token);
-            $("#refresh_token").val(resp.refresh_token);
-            refreshToken = resp.refresh_token;
-          },
-          error: function(err) {
-            displayError("refresh token failed", "", JSON.stringify(err, undefined, 2));
-          }
-        });
-      }
-
-      function accountInfo() {
-        var tok = $("#access_token").val();
-        if (!tok) {
-          $("#log").text("must login first...");
-          return;
-        }
-        var url = makeURL(accountURL);
-        $.ajax({
-          url: url,
-          type: "GET",
-          beforeSend: function(xhr){xhr.setRequestHeader('Authorization', 'Bearer ' + tok)},
-          success: function(resp) {
-            $("#log").text("Account Info:\n\n" + JSON.stringify(resp, undefined, 2));
-          },
-          error: function(err) {
-            displayError("account info failed", "", JSON.stringify(err, undefined, 2));
-          }
-        });
-      }
-
-      function displayResult(result) {
-        $("#log").text(JSON.stringify(result, undefined, 2));
-      }
-      function displaySuccess(str) {
-        clearError();
-        $("#log").text(str);
-      }
-      function clearError() {
-        $('#error_info').addClass("hidden");
-      }
-      function displayError(error, desc, hint) {
-        $('#error').text(error);
-        $('#error_desc').text(desc || "");
-        $('#error_hint').text(hint || "");
-        $('#error_info').removeClass("hidden");
-      }
-      function clearPage() {
-        window.localStorage.removeItem('primary_token');
-        window.location.href = makeURL("_PATH_");
-      }
-      function debugJWT(selector) {
-        var token = $(selector).val();
-        window.open("https://jwt.io/#debugger-io?token="+token);
-      }
-    </script>
   </head>
-  <body onload="init()">
+  <body>
     <h1>IC Test Page</h1>
     <div id="error_info" class="error-info hidden">
       <div id="error" class="error"></div>
@@ -301,31 +29,31 @@
     </div>
     <div class="box">
       <h3>1. Auth using Hydra</h3>
-      <input id="hydra_url" style="width:50%" value="{{.HydraURL}}">
-      <input id="ic_url" style="width:49%" value="{{.IcURL}}">
+      <input id="hydra_url" class="half-width" value="{{.HydraURL}}">
+      <input id="ic_url" class="half-width" value="{{.IcURL}}">
       <div>
-        <a class="btn blue" onclick="auth()">Login</a>
-        <a class="btn black" onclick="linkauth()">Link Account</a>
-        <a class="btn white" onclick="$('#hydra_url').val('{{.HydraURL}}');">Default Hydra</a>
-        <a class="btn white" onclick="clearPage()">Clear</a>
+        <a class="btn blue" id="auth">Login</a>
+        <a class="btn black" id="linkauth">Link Account</a>
+        <a class="btn white" id="default-hydra" data-url="{{.HydraURL}}">Default Hydra</a>
+        <a class="btn white" id="clear">Clear</a>
       </div>
     </div>
     <div class="box">
       <h3>2. Authentication Code</h3>
-      <textarea id="auth_code" rows="4" style="width:100%" readonly></textarea>
+      <textarea id="auth_code" rows="4" class="full-width" readonly></textarea>
       <div>
-        <a class="btn blue" onclick="tokenExchange()">Token Exchange</a>
+        <a class="btn blue" id="token-exchange">Token Exchange</a>
       </div>
     </div>
     <div class="box">
       <h3>3. Tokens</h3>
-      Access: <textarea id="access_token" rows="7" style="width:100%" readonly></textarea>
-      Refresh: <textarea id="refresh_token" rows="1" style="width:100%" readonly></textarea>
+      Access: <textarea id="access_token" rows="7" class="full-width" readonly></textarea>
+      Refresh: <textarea id="refresh_token" rows="1" class="full-width" readonly></textarea>
       <div>
-        <a class="btn black" onclick="userinfo()">Token Userinfo</a>
-        <a class="btn black" onclick="refresh()">Refresh Token</a>
-        <a class="btn black" onclick="accountInfo()">Account Info</a>
-        <a class="btn white" onclick="debugJWT('#access_token')">JWT.IO</a>
+        <a class="btn black" id="userinfo">Token Userinfo</a>
+        <a class="btn black" id="refresh">Refresh Token</a>
+        <a class="btn black" id="account-info">Account Info</a>
+        <a class="btn white" id="debug-jwt">JWT.IO</a>
       </div>
     </div>
 
