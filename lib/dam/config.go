@@ -336,7 +336,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 }
 
 func createIssuerTranslator(ctx context.Context, cfgTpi *pb.TrustedIssuer, secrets *pb.DamSecrets, signer kms.Signer) (translator.Translator, error) {
-	return translator.CreateTranslator(ctx, cfgTpi.Issuer, cfgTpi.TranslateUsing, cfgTpi.ClientId, secrets.PublicTokenKeys[cfgTpi.Issuer], "", signer)
+	return translator.CreateTranslator(ctx, cfgTpi.Issuer, cfgTpi.TranslateUsing, cfgTpi.ClientId, "", "", signer)
 }
 
 // GetPassportTranslators implements the corresponding REST API endpoint.
