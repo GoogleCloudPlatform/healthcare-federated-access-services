@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
@@ -326,7 +327,7 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 		}
 	}
 
-	t, err = s.createIssuerTranslator(ctx, cfgTpi, secrets)
+	t, err = createIssuerTranslator(ctx, cfgTpi, secrets, s.signer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translator for issuer %q: %v", issuer, err)
 	}
@@ -334,8 +335,8 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 	return t, err
 }
 
-func (s *Service) createIssuerTranslator(ctx context.Context, cfgTpi *pb.TrustedIssuer, secrets *pb.DamSecrets) (translator.Translator, error) {
-	return translator.CreateTranslator(ctx, cfgTpi.Issuer, cfgTpi.TranslateUsing, cfgTpi.ClientId, secrets.PublicTokenKeys[cfgTpi.Issuer], "", "")
+func createIssuerTranslator(ctx context.Context, cfgTpi *pb.TrustedIssuer, secrets *pb.DamSecrets, signer kms.Signer) (translator.Translator, error) {
+	return translator.CreateTranslator(ctx, cfgTpi.Issuer, cfgTpi.TranslateUsing, cfgTpi.ClientId, secrets.PublicTokenKeys[cfgTpi.Issuer], "", signer)
 }
 
 // GetPassportTranslators implements the corresponding REST API endpoint.

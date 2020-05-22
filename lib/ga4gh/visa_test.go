@@ -15,6 +15,7 @@
 package ga4gh
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -22,13 +23,16 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
 func TestNewVisaFromData(t *testing.T) {
 	d, j := fakeVisaDataAndJWT(t)
 
-	v, err := NewVisaFromData(d, JWTEmptyJKU, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	signer := localsign.New(&testkeys.Default)
+	ctx := context.Background()
+	v, err := NewVisaFromData(ctx, d, JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("NewVisaFromData(%v) failed: %v", d, err)
 	}
@@ -43,7 +47,9 @@ func TestNewVisaFromData(t *testing.T) {
 func TestNewVisaFromData_NoJKUFormat(t *testing.T) {
 	d, _ := fakeVisaDataAndJWT(t)
 
-	v, err := NewVisaFromData(d, JWTEmptyJKU, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	signer := localsign.New(&testkeys.Default)
+	ctx := context.Background()
+	v, err := NewVisaFromData(ctx, d, JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("NewVisaFromData(%v) failed: %v", d, err)
 	}
@@ -86,7 +92,9 @@ func TestVisaJSONFormat(t *testing.T) {
 func TestVisaVerify(t *testing.T) {
 	d, _ := fakeVisaDataAndJWT(t)
 
-	p, err := NewVisaFromData(d, JWTEmptyJKU, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	signer := localsign.New(&testkeys.Default)
+	ctx := context.Background()
+	p, err := NewVisaFromData(ctx, d, JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
 	}
@@ -100,7 +108,9 @@ func TestNewVisaFromData_JKU(t *testing.T) {
 	d, _ := fakeVisaDataAndJWT(t)
 
 	jku := "https://oidc.example.org/.well-known/jwks"
-	p, err := NewVisaFromData(d, jku, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	signer := localsign.New(&testkeys.Default)
+	ctx := context.Background()
+	p, err := NewVisaFromData(ctx, d, jku, signer)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
 	}
@@ -117,7 +127,9 @@ func TestNewVisaFromData_JKUFormat(t *testing.T) {
 	d, _ := fakeVisaDataAndJWT(t)
 
 	jku := "https://oidc.example.org/.well-known/jwks"
-	p, err := NewVisaFromData(d, jku, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	signer := localsign.New(&testkeys.Default)
+	ctx := context.Background()
+	p, err := NewVisaFromData(ctx, d, jku, signer)
 	if err != nil {
 		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
 	}

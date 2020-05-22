@@ -15,11 +15,13 @@
 package ga4gh
 
 import (
+	"context"
 	"crypto/rsa"
 	"fmt"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -79,9 +81,8 @@ func NewVisaFromJWT(j VisaJWT) (*Visa, error) {
 //   Else if "jku" exists in JWT header, use the "jku" value.
 //   Otherwise, the Visa cannot be verified.
 // See https://bit.ly/ga4gh-aai-profile#embedded-token-issued-by-embedded-token-issuer
-func NewVisaFromData(d *VisaData, jku string, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Visa, error) {
-	glog.V(1).Infof("NewVisaFromData(%+v,%T,%v)", d, method, key)
-	j, err := visaJWTFromData(d, jku, method, key, keyID)
+func NewVisaFromData(ctx context.Context, d *VisaData, jku string, signer kms.Signer) (*Visa, error) {
+	j, err := visaJWTFromData(ctx, d, jku, signer)
 	if err != nil {
 		return nil, err
 	}
@@ -129,13 +130,12 @@ func (v *Visa) Format() VisaFormat {
 	return DocumentVisaFormat
 }
 
-func visaJWTFromData(d *VisaData, jku string, method SigningMethod, key *rsa.PrivateKey, keyID string) (VisaJWT, error) {
-	t := jwt.NewWithClaims(method, d)
-	t.Header[jwtHeaderKeyID] = keyID
+func visaJWTFromData(ctx context.Context, d *VisaData, jku string, signer kms.Signer) (VisaJWT, error) {
+	header := map[string]string{}
 	if jku != JWTEmptyJKU {
-		t.Header[jwtHeaderJKU] = jku
+		header[jwtHeaderJKU] = jku
 	}
-	signed, err := t.SignedString(key)
+	signed, err := signer.SignJWT(ctx, d, header)
 	if err != nil {
 		return "", err
 	}

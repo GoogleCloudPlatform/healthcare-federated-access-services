@@ -15,46 +15,18 @@
 package ic
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 )
 
 // JWKS returns the JSON Web Key Set response for visas. Note that this is
 // a different set of keys than what Hydra uses.
 func (s *Service) JWKS(w http.ResponseWriter, r *http.Request) {
-	sec, err := s.loadSecrets(nil)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "%v", err))
-		return
-	}
-	key, ok := sec.TokenKeys[s.getVisaIssuerString()]
-	if !ok {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "looking up keys failed: no keys are available for this service"))
-		return
-	}
-	use := "sig"
-	kty := "RSA"
-	kid := "visa"
-	alg := "RS256"
-	key64 := base64.URLEncoding.EncodeToString([]byte(key.PublicKey))
-	keys := hydraapi.SwaggerJSONWebKeySet{
-		Keys: []*hydraapi.SwaggerJSONWebKey{
-			{
-				Use: &use,
-				Kty: &kty,
-				Kid: &kid,
-				Alg: &alg,
-				N:   key64,
-				E:   "AQAB",
-			},
-		},
-	}
+	keys := s.signer.PublicKeys()
 	b, err := json.Marshal(keys)
 	if err != nil {
 		httputils.WriteError(w, status.Errorf(codes.Unavailable, "writing jwks to json: %v", err))

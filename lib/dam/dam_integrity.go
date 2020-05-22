@@ -215,7 +215,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 		if tp.Passport == nil {
 			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n, "passport"), "persona requires a passport")
 		}
-		tid, err := persona.ToIdentity(n, tp, defaultPersonaScope, "")
+		tid, err := persona.ToIdentity(context.Background(), n, tp, defaultPersonaScope, "")
 		if err != nil {
 			return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTestPersonas, n), fmt.Sprintf("persona to identity: %v", err))
 		}

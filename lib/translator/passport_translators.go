@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
+
 	dampb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
@@ -46,7 +48,7 @@ func GetPassportTranslators() *dampb.PassportTranslatorsResponse {
 }
 
 // CreateTranslator creates a Translator for a particular token issuer.
-func CreateTranslator(ctx context.Context, iss, translateUsing, clientID, publicKey, selfIssuer, selfSigningKey string) (Translator, error) {
+func CreateTranslator(ctx context.Context, iss, translateUsing, clientID, publicKey, selfIssuer string, signer kms.Signer) (Translator, error) {
 	var s Translator
 	var err error
 	if translateUsing == "" {
@@ -57,7 +59,7 @@ func CreateTranslator(ctx context.Context, iss, translateUsing, clientID, public
 	} else {
 		switch translateUsing {
 		case DbGapTranslatorName:
-			s, err = NewDbGapTranslator(publicKey, selfIssuer, selfSigningKey)
+			s, err = NewDbGapTranslator(publicKey, selfIssuer, signer)
 		default:
 			return nil, fmt.Errorf("invalid translator: %q", translateUsing)
 		}

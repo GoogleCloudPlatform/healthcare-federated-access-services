@@ -167,7 +167,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "persona %q not found", sub))
 		return
 	}
-	id, err := ToIdentity(pname, persona, "openid profile identities ga4gh_passport_v1 email", s.issuerURL)
+	id, err := ToIdentity(r.Context(), pname, persona, "openid profile identities ga4gh_passport_v1 email", s.issuerURL)
 	if err != nil {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "preparing persona %q: %v", sub, err))
 		return

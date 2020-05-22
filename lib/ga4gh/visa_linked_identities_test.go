@@ -15,9 +15,11 @@
 package ga4gh
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
@@ -192,11 +194,13 @@ func newVisa(t *testing.T, key testkeys.Key, id ID, a Assertion, scope string, j
 			Issuer:  id.Issuer,
 			Subject: id.Subject,
 		},
-		Scope: Scope(scope),
+		Scope:     Scope(scope),
 		Assertion: a,
 	}
 
-	v, err := NewVisaFromData(d, jku, RS256, key.Private, key.ID)
+	signer := localsign.New(&key)
+	ctx := context.Background()
+	v, err := NewVisaFromData(ctx, d, jku, signer)
 	if err != nil {
 		t.Fatalf("NewVisaFromData(%+v,%q,%v,%v,%v) failed: %v", d, jku, RS256, key.Private, key.ID, err)
 	}

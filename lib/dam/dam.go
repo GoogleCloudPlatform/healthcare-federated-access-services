@@ -49,6 +49,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -116,6 +117,7 @@ type Service struct {
 	tokens              tgrpcpb.TokensServer
 	auditlogs           *auditlogsapi.AuditLogs
 	tokenProviders      []tokensapi.TokenProvider
+	signer              kms.Signer
 }
 
 type ServiceHandler struct {
@@ -158,6 +160,8 @@ type Options struct {
 	HidePolicyBasis bool
 	// HideRejectDetail: do not send rejected visas details
 	HideRejectDetail bool
+	// Signer: the signer use for signing jwt.
+	Signer kms.Signer
 }
 
 // NewService create DAM service
@@ -200,6 +204,7 @@ func New(r *mux.Router, params *Options) *Service {
 		scim:                scim.New(params.Store),
 		tokens:              faketokensapi.NewDAMTokens(params.Store, params.ServiceAccountManager),
 		auditlogs:           auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject, params.ServiceName),
+		signer:              params.Signer,
 	}
 
 	if s.httpClient == nil {
@@ -431,7 +436,7 @@ func (s *Service) getPassportIdentity(cfg *pb.DamConfig, tx storage.Tx, r *http.
 
 func testPersona(ctx context.Context, personaName string, resources []string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, []string, []*ga4gh.RejectedVisa, error) {
 	p := cfg.TestPersonas[personaName]
-	id, err := persona.ToIdentity(personaName, p, defaultPersonaScope, "")
+	id, err := persona.ToIdentity(ctx, personaName, p, defaultPersonaScope, "")
 	if err != nil {
 		return "INVALID", nil, nil, err
 	}

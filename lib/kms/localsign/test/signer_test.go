@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package localsign
+// Package localsign_test test localsign package
+package localsign_test
 
 import (
 	"context"
@@ -24,6 +25,7 @@ import (
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient" /* copybara-comment: httptestclient */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
@@ -39,7 +41,7 @@ func Test_SignJWT(t *testing.T) {
 		t.Fatal("persona.NewBroker failed", err)
 	}
 
-	s := New(&testkeys.PersonaBrokerKey)
+	s := localsign.New(&testkeys.PersonaBrokerKey)
 
 	claims := jwt.Claims{
 		Issuer:   iss,

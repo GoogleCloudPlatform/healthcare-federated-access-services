@@ -21,6 +21,7 @@ import (
 
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehttp" /* copybara-comment: fakehttp */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeissuer" /* copybara-comment: fakeissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
@@ -80,7 +81,8 @@ func TestVerifier_Verify(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
+	signer := localsign.New(&key)
+	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -109,7 +111,8 @@ func TestVerifier_Verify_EmptyClientID(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
+	signer := localsign.New(&key)
+	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -141,7 +144,8 @@ func TestVerifier_Verify_SecondIssuer(t *testing.T) {
 		},
 	}
 
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
+	signer := localsign.New(&key)
+	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -170,7 +174,8 @@ func TestVerifier_Verify_Fail_WrongIssuerURL(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
+	signer := localsign.New(&key)
+	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -201,7 +206,8 @@ func TestVerifier_Verify_Fail_WrongKey(t *testing.T) {
 	}
 
 	wrongKey := testkeys.Keys[testkeys.VisaIssuer1]
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, wrongKey.Private, key.ID)
+	signer := localsign.New(&wrongKey)
+	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -231,7 +237,8 @@ func TestVerifier_Verify_Fail_WrongClient(t *testing.T) {
 		},
 	}
 
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
+	signer := localsign.New(&key)
+	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}
@@ -261,7 +268,8 @@ func TestVerifier_Verify_Fail_TokenExpired(t *testing.T) {
 		},
 	}
 
-	visa, err := ga4gh.NewVisaFromData(d, ga4gh.JWTEmptyJKU, ga4gh.RS256, key.Private, key.ID)
+	signer := localsign.New(&key)
+	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
 	if err != nil {
 		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
 	}

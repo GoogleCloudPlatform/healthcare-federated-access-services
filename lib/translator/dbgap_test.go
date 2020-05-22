@@ -15,12 +15,14 @@
 package translator
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
@@ -33,11 +35,13 @@ func (s *DbGapTranslator) TestTranslator(token *oidc.IDToken, payload []byte) (*
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return nil, err
 	}
-	return s.translateToken(token, claims, time.Unix(translatorTestNow, 0))
+	return s.translateToken(context.Background(), token, claims, time.Unix(translatorTestNow, 0))
 }
 
 func TestDbGap(t *testing.T) {
-	translator, err := NewDbGapTranslator("", "http://example.com/oidc", testkeys.Keys[testkeys.VisaIssuer0].PrivateStr)
+	key := testkeys.Keys[testkeys.VisaIssuer0]
+	signer := localsign.New(&key)
+	translator, err := NewDbGapTranslator("", "http://example.com/oidc", signer)
 	if err != nil {
 		t.Fatalf("failed to create a new dbGap translator: %v", err)
 	}

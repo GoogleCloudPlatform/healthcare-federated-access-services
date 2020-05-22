@@ -15,12 +15,14 @@
 package persona
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
@@ -103,7 +105,7 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 }
 
 // ToIdentity retuns an Identity from persona configuration settings.
-func ToIdentity(name string, persona *cpb.TestPersona, scope, visaIssuer string) (*ga4gh.Identity, error) {
+func ToIdentity(ctx context.Context, name string, persona *cpb.TestPersona, scope, visaIssuer string) (*ga4gh.Identity, error) {
 	if persona.Passport == nil {
 		return nil, fmt.Errorf("persona %q has not configured a test identity token", name)
 	}
@@ -212,7 +214,7 @@ func ToIdentity(name string, persona *cpb.TestPersona, scope, visaIssuer string)
 	if persona.Passport.Ga4GhAssertions == nil || len(persona.Passport.Ga4GhAssertions) == 0 {
 		return &identity, nil
 	}
-	return populatePersonaVisas(name, visaIssuer, persona.Passport.Ga4GhAssertions, &identity)
+	return populatePersonaVisas(ctx, name, visaIssuer, persona.Passport.Ga4GhAssertions, &identity)
 }
 
 func toName(input string) string {
@@ -234,12 +236,13 @@ func jkuURL(issuer string) string {
 	return strings.TrimSuffix(issuer, "/") + "/.well-known/jwks"
 }
 
-func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
+func populatePersonaVisas(ctx context.Context, pname, visaIssuer string, assertions []*cpb.Assertion, id *ga4gh.Identity) (*ga4gh.Identity, error) {
 	issuer := id.Issuer
 	jku := jkuURL(issuer)
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	id.VisaJWTs = make([]string, len(assertions))
 	now := float64(time.Now().Unix())
+	signer := localsign.New(&personaKey)
 
 	for i, assert := range assertions {
 		typ := ga4gh.Type(assert.Type)
@@ -304,7 +307,7 @@ func populatePersonaVisas(pname, visaIssuer string, assertions []*cpb.Assertion,
 			}
 		}
 
-		v, err := ga4gh.NewVisaFromData(&visa, jku, ga4gh.RS256, personaKey.Private, personaKey.ID)
+		v, err := ga4gh.NewVisaFromData(ctx, &visa, jku, signer)
 		if err != nil {
 			return nil, fmt.Errorf("signing persona %q visa %d failed: %s", pname, i+1, err)
 		}

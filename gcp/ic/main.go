@@ -34,6 +34,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ic" /* copybara-comment: ic */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpsign" /* copybara-comment: gcpsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/server" /* copybara-comment: server */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
@@ -111,13 +112,17 @@ func main() {
 		glog.Exitf("Unknown storage type: %q", storageType)
 	}
 
-	client, err := kms.NewKeyManagementClient(ctx)
+	kmsClient, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
 		glog.Exitf("kms.NewKeyManagementClient(ctx) failed: %v", err)
 	}
-	gcpkms, err := gcpcrypt.New(ctx, project, "global", srvName+"_ring", srvName+"_key", client)
+	gcpEncryption, err := gcpcrypt.New(ctx, project, "global", srvName+"_ring", srvName+"_key", kmsClient)
 	if err != nil {
-		glog.Exitf("gcpcrypt.New(ctx, %q, %q, %q, %q, client) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
+		glog.Exitf("gcpcrypt.New(ctx, %q, %q, %q, %q, kmsClient) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
+	}
+	gcpSigner, err := gcpsign.New(ctx, project, "global", srvName+"_sign_ring", srvName+"_key", kmsClient)
+	if err != nil {
+		glog.Exitf("gcpsign.New(ctx, %q, %q, %q, %q, cliekmsClientnt) failed: %v", project, "global", srvName+"_sign_ring", srvName+"_key", err)
 	}
 
 	logger, err := logging.NewClient(ctx, project)
@@ -147,7 +152,8 @@ func main() {
 		ServiceName:                srvName,
 		AccountDomain:              acctDomain,
 		Store:                      store,
-		Encryption:                 gcpkms,
+		Encryption:                 gcpEncryption,
+		Signer:                     gcpSigner,
 		Logger:                     logger,
 		SDLC:                       sdlc,
 		AuditLogProject:            project,

@@ -25,6 +25,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
@@ -32,6 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/grpcutil" /* copybara-comment: grpcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpsign" /* copybara-comment: gcpsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/server" /* copybara-comment: server */
@@ -107,6 +109,15 @@ func main() {
 
 	wh := saw.MustNew(ctx, store)
 
+	kmsClient, err := kms.NewKeyManagementClient(ctx)
+	if err != nil {
+		glog.Exitf("kms.NewKeyManagementClient(ctx) failed: %v", err)
+	}
+	gcpSigner, err := gcpsign.New(ctx, project, "global", srvName+"_sign_ring", srvName+"_key", kmsClient)
+	if err != nil {
+		glog.Exitf("gcpcrypt.New(ctx, %q, %q, %q, %q, kmsClient) failed: %v", project, "global", srvName+"_sign_ring", srvName+"_key", err)
+	}
+
 	logger, err := logging.NewClient(ctx, project)
 	if err != nil {
 		glog.Fatalf("logging.NewClient() failed: %v", err)
@@ -145,6 +156,7 @@ func main() {
 		HydraAdminURL:         hydraAdminAddr,
 		HydraPublicURL:        hydraPublicAddr,
 		HydraPublicProxy:      hyproxy,
+		Signer:                gcpSigner,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

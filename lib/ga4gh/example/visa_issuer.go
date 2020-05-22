@@ -15,11 +15,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
@@ -51,7 +53,8 @@ func (i *VisaIssuer) FetchVisa(t Token) (ga4gh.VisaJWT, error) {
 		Assertion: c,
 	}
 
-	v, err := ga4gh.NewVisaFromData(d, "JKU", ga4gh.RS256, i.Key.Private, "kid")
+	signer := localsign.New(&i.Key)
+	v, err := ga4gh.NewVisaFromData(context.Background(), d, "JKU", signer)
 	if err != nil {
 		return "", fmt.Errorf("NewVisaFromData(%v,%v,%v) failed:\n%v", d, ga4gh.RS256, i.Key.Private, err)
 	}
