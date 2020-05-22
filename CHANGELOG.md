@@ -7,6 +7,13 @@
 **Highlight Updates**
 
 *  Add CSP header to restrict resource origin.
+*  Use KMS to sign visa and gatekeeper token
+
+
+**Migration**
+
+*  Update secret config in datastore, you can use `import.bash`
+*  The SA for IC/DAM service accessing GCP services requires new role `roles/cloudkms.signerVerifier`
 
 ## [v0.9.3](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.3)
 

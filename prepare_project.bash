@@ -74,6 +74,8 @@ echo -e ${GREEN?}'Granting the required permissions.'${RESET?}
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.cryptoKeyEncrypterDecrypter
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
+  --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.signerVerifier
+gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
 
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
