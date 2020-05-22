@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-var state = {};
-var steps = [];
-var step = 0;
+let state = {};
+let steps = [];
+let step = 0;
 
 /**
  * onInit ...
@@ -27,8 +27,8 @@ function onInit(instructions) {
     followInstructions();
     return;
   }
-  var accessTok = getParam('access_token') || '';
-  var idTok = getParam('id_token') || '';
+  let accessTok = getParam('access_token') || '';
+  let idTok = getParam('id_token') || '';
   finishRedirect(accessTok, idTok);
 }
 
@@ -36,12 +36,12 @@ function onInit(instructions) {
  * followInstructions ...
  */
 function followInstructions() {
-  var parts = instructions.split('|');
-  for (var i = 0; i < parts.length; i++) {
-    var part = parts[i];
-    var idx = part.indexOf('=');
-    var name = part.substring(0, idx);
-    var url = part.substring(idx + 1);
+  let parts = instructions.split('|');
+  for (let i = 0; i < parts.length; i++) {
+    let part = parts[i];
+    let idx = part.indexOf('=');
+    let name = part.substring(0, idx);
+    let url = part.substring(idx + 1);
     steps.push({name: name, url: url});
   }
   resolve();
@@ -51,12 +51,12 @@ function followInstructions() {
  * resolve ...
  */
 function resolve() {
-  var url = steps[step].url;
-  for (var name in state) {
+  let url = steps[step].url;
+  for (let name in state) {
     // Replace all using split and join.
     url = url.split('$[' + name + ']').join(state[name]);
   }
-  var type = 'GET';
+  let type = 'GET';
   if (url.startsWith('POST@')) {
     url = url.substring(5);
     type = 'POST';
@@ -66,7 +66,7 @@ function resolve() {
     type: type,
     xhrFields: {withCredentials: true},
     success: function(resp) {
-      var name = steps[step].name;
+      let name = steps[step].name;
       state[name] = resp;
       step++;
       if (step >= steps.length) {
@@ -85,8 +85,8 @@ function resolve() {
  * @return {string}
  */
 function finishInstructions() {
-  var idTok = state['ID_TOKEN'] || state['id_token'] || '';
-  var accessTok = state['ACCESS_TOKEN'] || state['access_token'] || '';
+  let idTok = state['ID_TOKEN'] || state['id_token'] || '';
+  let accessTok = state['ACCESS_TOKEN'] || state['access_token'] || '';
   if (!accessTok) {
     $('#output').text(
         'ERROR: invalid sequence of steps (does not define ACCESS_TOKEN)');
@@ -102,13 +102,13 @@ function finishInstructions() {
  * @return {string}
  */
 function finishRedirect(accessTok, idTok) {
-  var clientId = getParam('client_id');
-  var state = getParam('state');
-  var scope = getParam('scope');
-  var redirect = getParam('redirect_uri');
-  var error = getParam('error');
-  var errDesc = getParam('error_description');
-  var url =
+  let clientId = getParam('client_id');
+  let state = getParam('state');
+  let scope = getParam('scope');
+  let redirect = getParam('redirect_uri');
+  let error = getParam('error');
+  let errDesc = getParam('error_description');
+  let url =
       [location.protocol, '//', location.host, location.pathname].join('');
   // TODO: don't pass pararameters as URL parameters.
   url += '?client_extract=true&state=' + encodeURIComponent(state) +
@@ -142,12 +142,22 @@ function getParam(name) {
  * @return {string}
  */
 function getUrlParam(name, url) {
-  var vars = url.split('&');
-  for (var i = 0; i < vars.length; i++) {
-    var param = vars[i].split('=');
+  let lets = url.split('&');
+  for (let i = 0; i < lets.length; i++) {
+    let param = lets[i].split('=');
     if (param[0] == name) {
       return decodeURIComponent(param[1].replace(/\+/g, ' '));
     }
   }
   return '';
 }
+
+/**
+ * init reads the given instructions from "instructions" element
+ */
+function init() {
+  let instructions = document.getElementById("instructions").dataset.instructions;
+  onInit(instructions);
+}
+
+window.onload = init;
