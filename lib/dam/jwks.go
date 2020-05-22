@@ -15,15 +15,12 @@
 package dam
 
 import (
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"net/http"
 	"strings"
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -49,36 +46,7 @@ func (s *Service) OidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
 
 // OidcKeys handle OpenID Provider jwks request.
 func (s *Service) OidcKeys(w http.ResponseWriter, r *http.Request) {
-	secrets, err := s.loadSecrets(nil)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Unavailable, "OidcKeys loadSecrets failed: %v", err))
-		return
-	}
-
-	if len(secrets.GatekeeperTokenKeys.PublicKey) == 0 {
-		httputils.WriteError(w, status.Errorf(codes.Internal, "OidcKeys gatekeeper token not found"))
-		return
-	}
-
-	block, _ := pem.Decode([]byte(secrets.GatekeeperTokenKeys.PublicKey))
-	pub, err := x509.ParsePKCS1PublicKey(block.Bytes)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Internal, "parsing public key for gatekeeper token: %v", err))
-		return
-	}
-
-	jwks := jose.JSONWebKeySet{
-		Keys: []jose.JSONWebKey{
-			{
-				Key:       pub,
-				Algorithm: "RS256",
-				Use:       "sig",
-				KeyID:     "kid",
-			},
-		},
-	}
-
-	data, err := json.Marshal(jwks)
+	data, err := json.Marshal(s.signer.PublicKeys())
 	if err != nil {
 		glog.Infof("Marshal failed: %v", err)
 		httputils.WriteError(w, status.Errorf(codes.Internal, "OidcKeys Marshal failed: %v", err))

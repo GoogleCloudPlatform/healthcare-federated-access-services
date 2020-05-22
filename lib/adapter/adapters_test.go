@@ -22,7 +22,9 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -39,7 +41,10 @@ func TestCreateAdapters(t *testing.T) {
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
 	}
-	adapters, err := adapter.CreateAdapters(store, warehouse, secrets)
+
+	key := testkeys.Default
+	signer := localsign.New(&key)
+	adapters, err := adapter.CreateAdapters(store, warehouse, signer)
 	if err != nil {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}
@@ -81,7 +86,9 @@ func TestGetItemVariables(t *testing.T) {
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
 	}
-	adapters, err := adapter.CreateAdapters(store, warehouse, secrets)
+	key := testkeys.Default
+	signer := localsign.New(&key)
+	adapters, err := adapter.CreateAdapters(store, warehouse, signer)
 	if err != nil {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}
@@ -200,7 +207,9 @@ func TestExperimentalVarsCheck(t *testing.T) {
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
 		t.Fatalf("reading secrets file: %v", err)
 	}
-	adapters, err := adapter.CreateAdapters(store, warehouse, secrets)
+	key := testkeys.Default
+	signer := localsign.New(&key)
+	adapters, err := adapter.CreateAdapters(store, warehouse, signer)
 	if err != nil {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}

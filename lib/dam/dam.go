@@ -224,7 +224,7 @@ func New(r *mux.Router, params *Options) *Service {
 	if err != nil {
 		glog.Exitf("cannot load client secrets: %v", err)
 	}
-	adapters, err := adapter.CreateAdapters(params.Store, params.Warehouse, secrets)
+	adapters, err := adapter.CreateAdapters(params.Store, params.Warehouse, params.Signer)
 	if err != nil {
 		glog.Exitf("cannot load adapters: %v", err)
 	}

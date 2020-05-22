@@ -21,6 +21,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -38,7 +39,7 @@ type AggregatorAdapter struct {
 }
 
 // NewAggregatorAdapter creates a AggregatorAdapter.
-func NewAggregatorAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *ServiceAdapters) (ServiceAdapter, error) {
+func NewAggregatorAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer, adapters *ServiceAdapters) (ServiceAdapter, error) {
 	var msg pb.ServicesResponse
 	path := adapterFilePath(aggregatorName)
 	if err := srcutil.LoadProto(path, &msg); err != nil {

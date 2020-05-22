@@ -23,8 +23,8 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
-
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
@@ -41,7 +41,7 @@ func TestAggregatorAdapter(t *testing.T) {
 		ByServiceName: make(map[string]adapter.ServiceAdapter),
 		Descriptors:   make(map[string]*pb.ServiceDescriptor),
 	}
-	saws, err := adapter.NewSawAdapter(store, warehouse, secrets, adapters)
+	saws, err := adapter.NewSawAdapter(store, warehouse, nil, adapters)
 	if err != nil {
 		t.Fatalf("error creating SAW adapter: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestAggregatorAdapter(t *testing.T) {
 		adapters.Descriptors[k] = v
 	}
 
-	adapt, err := adapter.NewAggregatorAdapter(store, warehouse, secrets, adapters)
+	adapt, err := adapter.NewAggregatorAdapter(store, warehouse, nil, adapters)
 	if err != nil {
 		t.Fatalf("new aggregator adapter: %v", err)
 	}

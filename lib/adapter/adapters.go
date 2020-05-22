@@ -26,7 +26,9 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
@@ -102,16 +104,16 @@ type ServiceAdapters struct {
 }
 
 // CreateAdapters registers and collects all adapters with the system.
-func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets) (*ServiceAdapters, error) {
+func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer) (*ServiceAdapters, error) {
 	adapters := &ServiceAdapters{
 		ByAdapterName: make(map[string]ServiceAdapter),
 		ByServiceName: make(map[string]ServiceAdapter),
 		Descriptors:   make(map[string]*pb.ServiceDescriptor),
 		errors:        []error{},
 	}
-	registerAdapter(adapters, store, warehouse, secrets, NewSawAdapter)
-	registerAdapter(adapters, store, warehouse, secrets, NewGatekeeperAdapter)
-	registerAdapter(adapters, store, warehouse, secrets, NewAggregatorAdapter)
+	registerAdapter(adapters, store, warehouse, signer, NewSawAdapter)
+	registerAdapter(adapters, store, warehouse, signer, NewGatekeeperAdapter)
+	registerAdapter(adapters, store, warehouse, signer, NewAggregatorAdapter)
 
 	if len(adapters.errors) > 0 {
 		return nil, adapters.errors[0]
@@ -165,8 +167,8 @@ func ResolveServiceRole(roleName string, view *pb.View, res *pb.Resource, cfg *p
 	return sRole, nil
 }
 
-func registerAdapter(adapters *ServiceAdapters, store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, init func(storage.Store, clouds.ResourceTokenCreator, *pb.DamSecrets, *ServiceAdapters) (ServiceAdapter, error)) {
-	adapt, err := init(store, warehouse, secrets, adapters)
+func registerAdapter(adapters *ServiceAdapters, store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer, init func(storage.Store, clouds.ResourceTokenCreator, kms.Signer, *ServiceAdapters) (ServiceAdapter, error)) {
+	adapt, err := init(store, warehouse, signer, adapters)
 	if err != nil {
 		adapters.errors = append(adapters.errors, err)
 		return

@@ -16,15 +16,15 @@ package adapter
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -51,24 +51,20 @@ type GatekeeperToken struct {
 // GatekeeperAdapter generates downstream access tokens.
 type GatekeeperAdapter struct {
 	desc       map[string]*pb.ServiceDescriptor
-	privateKey string
+	signer     kms.Signer
 }
 
 // NewGatekeeperAdapter creates a GatekeeperAdapter.
-func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, secrets *pb.DamSecrets, adapters *ServiceAdapters) (ServiceAdapter, error) {
+func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer, adapters *ServiceAdapters) (ServiceAdapter, error) {
 	var msg pb.ServicesResponse
 	path := adapterFilePath(gatekeeperName)
 	if err := srcutil.LoadProto(path, &msg); err != nil {
 		return nil, fmt.Errorf("reading %q service descriptors from path %q: %v", aggregatorName, path, err)
 	}
-	keys := secrets.GetGatekeeperTokenKeys()
-	if keys == nil {
-		return nil, fmt.Errorf("gatekeeper token keys not found")
-	}
 
 	return &GatekeeperAdapter{
 		desc:       msg.Services,
-		privateKey: keys.PrivateKey,
+		signer:     signer,
 	}, nil
 }
 
@@ -105,25 +101,19 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 	if input.MaxTTL > 0 && input.TTL > input.MaxTTL {
 		return nil, fmt.Errorf("minting gatekeeper token: TTL of %q exceeds max TTL of %q", timeutil.TTLString(input.TTL), timeutil.TTLString(input.MaxTTL))
 	}
-	block, _ := pem.Decode([]byte(a.privateKey))
-	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parsing private key: %v", err)
-	}
+
 	now := time.Now()
-	aud := ""
+	var auds []string
 	// TODO: support standard audience formats instead of space-delimited.
 	for _, item := range input.View.Items {
 		if item.Args == nil {
 			continue
 		}
 		if a, ok := item.Args["aud"]; ok {
-			if aud != "" {
-				aud += " "
-			}
-			aud += a
+			auds = append(auds, a)
 		}
 	}
+
 	scopes := []string{}
 	arg, ok := input.ServiceRole.ServiceArgs["scopes"]
 	if ok {
@@ -134,7 +124,7 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 		StandardClaims: &jwt.StandardClaims{
 			Issuer:    input.Issuer,
 			Subject:   input.Identity.Subject,
-			Audience:  aud,
+			Audience:  strings.Join(auds, " "),
 			ExpiresAt: now.Add(input.TTL).Unix(),
 			NotBefore: now.Add(-1 * time.Minute).Unix(),
 			IssuedAt:  now.Unix(),
@@ -143,14 +133,11 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 		Scopes: scopes,
 	}
 
-	jot := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-
-	// TODO: should set key id properly and sync with JWKS.
-	jot.Header[keyID] = keyID
-	token, err := jot.SignedString(priv)
+	token, err := a.signer.SignJWT(ctx, claims, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("minting gatekeeper token: sign token failed: %v", err)
 	}
+
 	return &MintTokenResult{
 		Credentials: map[string]string{
 			"account":      input.Identity.Subject,
