@@ -44,88 +44,69 @@ service AuditLogs {
 // - Decision: the authorization decision, and the reason for it.
 // - Metadata: the request, response, status code, tracing id, etc.
 message AuditLog {
+  /*
+   * Shared field for any type of log
+   */
+
   // Name of the audit log.
   // Format: `users/{user_id}/logs/{log_id}`.
   string name = 1;
 
-  AccessLog access_log = 2;
-  PolicyLog policy_log = 3;
-}
+  // Type of log entry. could be "access" or "policy".
+  LogType type = 2;
 
-// AccessLog is the audit log for auth checks for requests at endpoints.
-message AccessLog {
   // ServiceName is the name of the service which made the decision.
-  string service_name = 1;
+  string service_name = 3;
   // ServiceType is the type of the service which made the decision.
-  string service_type = 2;
+  string service_type = 4;
 
   // TokenID is the id of the token, maybe "jti".
-  string token_id = 3;
+  string token_id = 5;
   // TokenSubject is the "sub" of the token.
-  string token_subject = 4;
+  string token_subject = 6;
   // TokenIssuer is the iss of the token.
-  string token_issuer = 5;
+  string token_issuer = 7;
 
   // Decision is the PassAuthCheck if the request passes the auth check.
-  Decision decision = 6;
+  Decision decision = 8;
   // ErrorType of deny.
   // TODO: consider making this an enum.
-  string error_type = 7;
+  string error_type = 9;
   // The reason for the deny decision.
-  string reason = 8;
+  string reason = 10;
 
   // Time at which the decision was made.
-  google.protobuf.Timestamp time = 9;
+  google.protobuf.Timestamp time = 11;
 
-  // MethodName is the name of the service method or operation.
-  string method_name = 10;
   // ResourceName is the name of the resource that was target of the operation.
-  string resource_name = 11;
+  string resource_name = 12;
+
+  /*
+   * fields for access log
+   */
+  // MethodName is the name of the service method or operation.
+  string method_name = 13;
 
   // TracingID is the id of request from proxies.
-  string tracing_id = 12;
+  string tracing_id = 14;
   // Requester's IP.
-  string caller_ip = 13;
+  string caller_ip = 15;
   // HTTP Response Code.
-  int64 http_response_code = 14;
+  int64 http_response_code = 16;
   // HTTP Request.
-  google.protobuf.Struct http_request = 15;
-}
+  google.protobuf.Struct http_request = 17;
 
-// PolicyLog is the audit log for dataset access decision.
-message PolicyLog {
-  // ServiceName is the name of the service which made the decision.
-  string service_name = 1;
-  // ServiceType is the type of the service which made the decision.
-  string service_type = 2;
+  /*
+   * fields for policy log
+   */
 
-  // TokenID is the id of the token, maybe "jti".
-  string token_id = 3;
-  // TokenSubject is the "sub" of the token.
-  string token_subject = 4;
-  // TokenIssuer is the iss of the token.
-  string token_issuer = 5;
+  // TTL that user requested for the access.
+  google.protobuf.Duration ttl = 19;
 
   // CartId of the request.
-  string cart_id = 12;
+  string cart_id = 20;
   // ConfigRevision that the request using.
-  string config_revision = 13;
-
-  // Decission if the request pass the auth checker.
-  Decision decision = 6;
-  // ErrorType of deny.
-  // TODO: consider making this an enum.
-  string error_type = 7;
-  // The reason for the deny decision.
-  string reason = 8;
-
-  // Time at which the decision was made.
-  google.protobuf.Timestamp time = 9;
-
-  // ResourceName identifies the dataset to which the access was requested.
-  string resource_name = 10;
-  // TTL that user requested for the access.
-  google.protobuf.Duration ttl = 11;
+  string config_revision = 21;
 }
 
 // Decision is the result of an auth check.
@@ -133,6 +114,13 @@ enum Decision {
   UNSPECIFIED = 0;
   PASS = 1;
   FAIL = 2;
+}
+
+// LogType is the type of log.
+enum LogType {
+  NONE = 0;
+  REQUEST = 1;
+  POLICY = 2;
 }
 
 message ListAuditLogsRequest {

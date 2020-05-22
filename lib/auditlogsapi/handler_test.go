@@ -101,20 +101,11 @@ func Test_AccessLog(t *testing.T) {
 	// Check time for logs and set to nil.
 	var ts time.Time
 	for _, l := range got.GetAuditLogs() {
-		if al := l.GetAccessLog(); al != nil {
-			ts = timeutil.Time(al.GetTime())
-			if ts.Before(before) || ts.After(after) {
-				t.Errorf("ListAuditLogs(): auditlog timestamp = %v, want in [%v,%v]", ts, before, after)
-			}
-			al.Time = nil
+		ts = timeutil.Time(l.Time)
+		if ts.Before(before) || ts.After(after) {
+			t.Errorf("ListAuditLogs(): auditlog timestamp = %v, want in [%v,%v]", ts, before, after)
 		}
-		if pl := l.GetPolicyLog(); pl != nil {
-			ts = timeutil.Time(pl.GetTime())
-			if ts.Before(before) || ts.After(after) {
-				t.Errorf("ListAuditLogs(): auditlog timestamp = %v, want in [%v,%v]", ts, before, after)
-			}
-			pl.Time = nil
-		}
+		l.Time = nil
 	}
 
 	// TODO: use protocmp.IgnoreFields(&apb.AccessLog{}, "time") instead when it works.
@@ -122,40 +113,38 @@ func Test_AccessLog(t *testing.T) {
 	want := &apb.ListAuditLogsResponse{
 		AuditLogs: []*apb.AuditLog{
 			{
-				Name: "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
-				AccessLog: &apb.AccessLog{
-					ServiceName:      "unset-serviceinfo-Name",
-					ServiceType:      "unset-serviceinfo-Type",
-					TokenId:          "tid",
-					TokenSubject:     "sub",
-					TokenIssuer:      "http://issuer.example.com",
-					Decision:         apb.Decision_FAIL,
-					ErrorType:        "token_expired",
-					Reason:           "This is message",
-					MethodName:       http.MethodGet,
-					ResourceName:     "/path/of/endpoint",
-					TracingId:        "1",
-					CallerIp:         "127.0.0.1",
-					HttpResponseCode: http.StatusUnauthorized,
-					HttpRequest:      nil,
-				},
+				Name:             "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
+				Type:             apb.LogType_REQUEST,
+				ServiceName:      "unset-serviceinfo-Name",
+				ServiceType:      "unset-serviceinfo-Type",
+				TokenId:          "tid",
+				TokenSubject:     "sub",
+				TokenIssuer:      "http://issuer.example.com",
+				Decision:         apb.Decision_FAIL,
+				ErrorType:        "token_expired",
+				Reason:           "This is message",
+				MethodName:       http.MethodGet,
+				ResourceName:     "/path/of/endpoint",
+				TracingId:        "1",
+				CallerIp:         "127.0.0.1",
+				HttpResponseCode: http.StatusUnauthorized,
+				HttpRequest:      nil,
 			},
 			{
-				Name: "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
-				PolicyLog: &apb.PolicyLog{
-					ServiceName:    "unset-serviceinfo-Name",
-					ServiceType:    "unset-serviceinfo-Type",
-					TokenId:        "tid",
-					TokenSubject:   "sub",
-					TokenIssuer:    "http://issuer.example.com",
-					Decision:       apb.Decision_FAIL,
-					ErrorType:      "untrusted_issuer",
-					Reason:         `{"error": "This is a json err"}`,
-					ResourceName:   "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
-					Ttl:            &dpb.Duration{Seconds: 86400},
-					CartId:         "cart_id",
-					ConfigRevision: "0",
-				},
+				Name:           "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
+				Type:           apb.LogType_POLICY,
+				ServiceName:    "unset-serviceinfo-Name",
+				ServiceType:    "unset-serviceinfo-Type",
+				TokenId:        "tid",
+				TokenSubject:   "sub",
+				TokenIssuer:    "http://issuer.example.com",
+				Decision:       apb.Decision_FAIL,
+				ErrorType:      "untrusted_issuer",
+				Reason:         `{"error": "This is a json err"}`,
+				ResourceName:   "http://example.com/dam/v1alpha/resources/a-dataset/roles/viewer",
+				Ttl:            &dpb.Duration{Seconds: 86400},
+				CartId:         "cart_id",
+				ConfigRevision: "0",
 			},
 		},
 	}

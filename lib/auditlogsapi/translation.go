@@ -38,7 +38,7 @@ func ToAuditLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 	}
 	switch t {
 	case "access_log":
-		return ToAccessLog(e)
+		return ToRequestLog(e)
 	case "policy_decision_log":
 		return ToPolicyLog(e)
 	default:
@@ -46,9 +46,9 @@ func ToAuditLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 	}
 }
 
-// ToAccessLog converts an entry for access log to an audit log.
+// ToRequestLog converts an entry for access log to an audit log.
 // Assumes that e is not nil.
-func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
+func ToRequestLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 	name := logID(e)
 	labels := e.GetLabels()
 
@@ -62,7 +62,9 @@ func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 		glog.Warningf("invalid log decition value")
 	}
 
-	l := &apb.AccessLog{
+	return &apb.AuditLog{
+		Name:        name,
+		Type:        apb.LogType_REQUEST,
 		ServiceName: labels["service_name"],
 		ServiceType: labels["service_type"],
 
@@ -83,9 +85,7 @@ func ToAccessLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 		CallerIp:         e.GetHttpRequest().GetRemoteIp(),
 		HttpResponseCode: int64(e.GetHttpRequest().GetStatus()),
 		HttpRequest:      nil,
-	}
-
-	return &apb.AuditLog{Name: name, AccessLog: l}, nil
+	}, nil
 }
 
 // ToPolicyLog converts an entry for access log to an audit log.
@@ -109,7 +109,9 @@ func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 		glog.Warningf("invalid log ttl: %v", labels["ttl"])
 	}
 
-	l := &apb.PolicyLog{
+	return &apb.AuditLog{
+		Name:        name,
+		Type:        apb.LogType_POLICY,
 		ServiceName: labels["service_name"],
 		ServiceType: labels["service_type"],
 
@@ -126,10 +128,9 @@ func ToPolicyLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 		ResourceName: labels["resource"],
 		Ttl:          timeutil.DurationProto(ttl),
 
-		CartId:        labels["cart_id"],
+		CartId:         labels["cart_id"],
 		ConfigRevision: labels["config_revision"],
-	}
-	return &apb.AuditLog{Name: name, PolicyLog: l}, nil
+	}, nil
 }
 
 func logID(e *lepb.LogEntry) string {

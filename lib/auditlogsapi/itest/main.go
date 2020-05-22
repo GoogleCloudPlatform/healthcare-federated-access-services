@@ -176,49 +176,42 @@ func TestAuditLog(ctx context.Context, s *auditlogsapi.AuditLogs, c lgrpcpb.Logg
 	}
 	// If it was a randomly generated user, we can check if the logs are correct.
 
-	if got.AuditLogs[0].AccessLog == nil {
-		got.AuditLogs[0], got.AuditLogs[1] = got.AuditLogs[1], got.AuditLogs[0]
-	}
 	got.AuditLogs[0].Name = ""
-	got.AuditLogs[0].AccessLog.Time = nil
+	got.AuditLogs[0].Time = nil
 	got.AuditLogs[1].Name = ""
-	got.AuditLogs[1].PolicyLog.Time = nil
+	got.AuditLogs[1].Time = nil
 
 	want := &apb.ListAuditLogsResponse{
 		AuditLogs: []*apb.AuditLog{
 			{
-				Name: "",
-				AccessLog: &apb.AccessLog{
-					ServiceName:      "unset-serviceinfo-Name",
-					ServiceType:      "unset-serviceinfo-Type",
-					TokenId:          "fake-token-id",
-					TokenSubject:     userID,
-					TokenIssuer:      "fake-issuer-id",
-					Decision:         apb.Decision_PASS,
-					ErrorType:        "fake-error-type",
-					Reason:           "fake-reason",
-					MethodName:       http.MethodGet,
-					ResourceName:     "fake-endpoint",
-					TracingId:        "fake-tracing-id",
-					CallerIp:         "fake-requester-ip",
-					HttpResponseCode: 1234,
-					HttpRequest:      nil,
-				},
+				Name:             "",
+				ServiceName:      "unset-serviceinfo-Name",
+				ServiceType:      "unset-serviceinfo-Type",
+				TokenId:          "fake-token-id",
+				TokenSubject:     userID,
+				TokenIssuer:      "fake-issuer-id",
+				Decision:         apb.Decision_PASS,
+				ErrorType:        "fake-error-type",
+				Reason:           "fake-reason",
+				MethodName:       http.MethodGet,
+				ResourceName:     "fake-endpoint",
+				TracingId:        "fake-tracing-id",
+				CallerIp:         "fake-requester-ip",
+				HttpResponseCode: 1234,
+				HttpRequest:      nil,
 			},
 			{
-				Name: "",
-				PolicyLog: &apb.PolicyLog{
-					ServiceName:  "unset-serviceinfo-Name",
-					ServiceType:  "unset-serviceinfo-Type",
-					TokenId:      "fake-token-id",
-					TokenSubject: userID,
-					TokenIssuer:  "fake-issuer-id",
-					Decision:     apb.Decision_PASS,
-					ErrorType:    "fake-error-type",
-					Reason:       "fake-reason",
-					ResourceName: "fake-resource",
-					Ttl:          &dpb.Duration{Seconds: int64(time.Hour / time.Second)},
-				},
+				Name:         "",
+				ServiceName:  "unset-serviceinfo-Name",
+				ServiceType:  "unset-serviceinfo-Type",
+				TokenId:      "fake-token-id",
+				TokenSubject: userID,
+				TokenIssuer:  "fake-issuer-id",
+				Decision:     apb.Decision_PASS,
+				ErrorType:    "fake-error-type",
+				Reason:       "fake-reason",
+				ResourceName: "fake-resource",
+				Ttl:          &dpb.Duration{Seconds: int64(time.Hour / time.Second)},
 			},
 		},
 	}
