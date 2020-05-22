@@ -72,9 +72,17 @@ func WriteError(w http.ResponseWriter, err error) {
 	WriteResp(w, st.Proto())
 }
 
+func addPreventClickjackingHeader(w http.ResponseWriter, additionalCSP *CSP) {
+	csp := mergeCSP(pageCSP, additionalCSP)
+	csp.addToHeader(w)
+
+	// X-Frame-Options for browser compatibility
+	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+}
+
 // WriteHTMLResp writes a "text/html" type string to the ResponseWriter.
-func WriteHTMLResp(w http.ResponseWriter, b string) {
-	WriteCorsHeaders(w)
+func WriteHTMLResp(w http.ResponseWriter, b string, additionalCSP *CSP) {
+	addPreventClickjackingHeader(w, additionalCSP)
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(b))
 }

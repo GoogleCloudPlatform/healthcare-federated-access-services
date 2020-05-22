@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.3...HEAD)
 
+**Highlight Updates**
+
+*  Add CSP header to restrict resource origin.
+
 ## [v0.9.3](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.3)
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.2...v0.9.3)

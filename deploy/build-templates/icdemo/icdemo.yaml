@@ -20,3 +20,4 @@ env_variables:
   TYPE: "icdemo${YOUR_ENVIRONMENT}"
   IC_TYPE: "ic${YOUR_ENVIRONMENT}"
   PROJECT: "${YOUR_PROJECT_ID}"
+  CSP: "connect-src https://*.appspot.com"

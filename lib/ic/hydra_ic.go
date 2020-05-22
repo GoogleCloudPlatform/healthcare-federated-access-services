@@ -67,7 +67,7 @@ type htmlPageOrRedirectURL struct {
 
 func (h *htmlPageOrRedirectURL) writeResp(w http.ResponseWriter, r *http.Request) {
 	if len(h.page) > 0 {
-		httputils.WriteHTMLResp(w, h.page)
+		httputils.WriteHTMLResp(w, h.page, nil)
 	} else {
 		httputils.WriteRedirect(w, r, h.redirect)
 	}

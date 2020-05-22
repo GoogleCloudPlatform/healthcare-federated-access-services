@@ -18,6 +18,7 @@ package main
 import (
 	"flag"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
@@ -35,6 +36,8 @@ var (
 	srvName  = osenv.MustVar("TYPE")
 
 	port = osenv.VarWithDefault("DAMDEMO_PORT", "8092")
+
+	csp = os.Getenv("CSP")
 )
 
 const (
@@ -63,7 +66,7 @@ func main() {
 		glog.Exitf("template.Execute() failed: %v", err)
 	}
 
-	http.HandleFunc("/test", httputils.NewPageHandler(sb.String()))
+	http.HandleFunc("/test", httputils.NewPageHandler(sb.String(), httputils.CSPFromString(csp)))
 	http.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(
 		http.Dir(srcutil.Path(staticDirectory)))))
