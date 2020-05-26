@@ -95,7 +95,7 @@ func TestVisasToOldClaims(t *testing.T) {
 
 	visas := testVisaSetup(t)
 	ctx := context.Background()
-	validator := func(context.Context, string) error {
+	validator := func(context.Context, string, string, string) error {
 		return nil
 	}
 	got, rejected, err := VisasToOldClaims(ctx, visas, validator)
@@ -255,7 +255,7 @@ func TestVisasToOldClaims_Invalid(t *testing.T) {
 
 	visas := testVisaSetup(t)
 	ctx := context.Background()
-	invalidator := func(context.Context, string) error {
+	invalidator := func(context.Context, string, string, string) error {
 		return fmt.Errorf("invalid token visa")
 	}
 	if got, rejected, err := VisasToOldClaims(ctx, visas, invalidator); len(rejected) != len(visas) || err != nil {
@@ -267,7 +267,7 @@ func TestVisasToOldClaims_NonExperimental(t *testing.T) {
 	// Non-experimental mode should skip visas with conditions.
 	visas := testVisaSetup(t)
 	ctx := context.Background()
-	validator := func(context.Context, string) error {
+	validator := func(context.Context, string, string, string) error {
 		return nil
 	}
 	visasWithConditions := 1
@@ -460,7 +460,7 @@ func TestVisasToOldClaims_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			v := newVisa(t, iss0, ID{Issuer: tc.issuer, Subject: "sub"}, a, tc.scope, tc.jku)
 			vs := []VisaJWT{v.JWT()}
-			got, rejected, err := VisasToOldClaims(ctx, vs, func(i context.Context, s string) error {
+			got, rejected, err := VisasToOldClaims(ctx, vs, func(i context.Context, jwt, iss, jku string) error {
 				return nil
 			})
 			if err != nil {

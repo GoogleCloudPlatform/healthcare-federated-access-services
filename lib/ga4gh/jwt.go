@@ -39,13 +39,14 @@ var (
 // We duplicate this instead of just using jwt.StandardClaims because
 // Audience can be a string array.
 type StdClaims struct {
-	Audience  Audiences `json:"aud,omitempty"`
-	ExpiresAt int64     `json:"exp,omitempty"`
-	ID        string    `json:"jti,omitempty"`
-	IssuedAt  int64     `json:"iat,omitempty"`
-	Issuer    string    `json:"iss,omitempty"`
-	NotBefore int64     `json:"nbf,omitempty"`
-	Subject   string    `json:"sub,omitempty"`
+	Audience        Audiences `json:"aud,omitempty"`
+	AuthorizedParty string    `json:"azp,omitempty"`
+	ExpiresAt       int64     `json:"exp,omitempty"`
+	ID              string    `json:"jti,omitempty"`
+	IssuedAt        int64     `json:"iat,omitempty"`
+	Issuer          string    `json:"iss,omitempty"`
+	NotBefore       int64     `json:"nbf,omitempty"`
+	Subject         string    `json:"sub,omitempty"`
 }
 
 // Valid validates time based claims "exp, iat, nbf".
@@ -68,7 +69,8 @@ func (c StdClaims) Valid() error {
 // NewStdClaimsFromJWT extracts StdClaims from a serialized JWT token.
 func NewStdClaimsFromJWT(token string) (*StdClaims, error) {
 	d := &StdClaims{}
-	if _, _, err := (&jwt.Parser{}).ParseUnverified(token, d); err != nil {
+	_, _, err := (&jwt.Parser{}).ParseUnverified(token, d)
+	if err != nil {
 		return nil, err
 	}
 	return d, nil

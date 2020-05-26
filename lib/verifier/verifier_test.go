@@ -16,16 +16,114 @@ package verifier
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/coreos/go-oidc" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehttp" /* copybara-comment: fakehttp */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeissuer" /* copybara-comment: fakeissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
+
+func TestNewVisaVerifier(t *testing.T) {
+	f, cleanup := newFix(t)
+	defer cleanup()
+
+	tests := []struct {
+		name   string
+		issuer string
+		jku    string
+		want   string
+	}{
+		{
+			name:   "jku",
+			issuer: f.Issuer0.URL,
+			jku:    jkuURL(f.Issuer0.URL),
+			want:   "*verifier.jkuSigVerifier",
+		},
+		{
+			name:   "no jku",
+			issuer: f.Issuer0.URL,
+			want:   "*verifier.oidcSigVerifier",
+		},
+	}
+
+	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			v, err := NewVisaVerifier(ctx, tc.issuer, tc.jku, "")
+			if err != nil {
+				t.Fatalf("NewVisaVerifier() failed: %v", err)
+			}
+
+			got := reflect.TypeOf(v.sig).String()
+			if got != tc.want {
+				t.Errorf("NewVisaVerifier() = %s, wants %s", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestVerifyVisaToken_WrongType(t *testing.T) {
+	f, cleanup := newFix(t)
+	defer cleanup()
+
+	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
+
+	jkuVerifier, err := NewVisaVerifier(ctx, f.Issuer0.URL, jkuURL(f.Issuer0.URL), "")
+	if err != nil {
+		t.Fatalf("NewVisaVerifier() failed: %v", err)
+	}
+
+	oidcVerifier, err := NewVisaVerifier(ctx, f.Issuer0.URL, "", "")
+	if err != nil {
+		t.Fatalf("NewVisaVerifier() failed: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		jku      string
+		verifier *VisaVerifier
+	}{
+		{
+			name:     "jku",
+			jku:      jkuURL(f.Issuer0.URL),
+			verifier: oidcVerifier,
+		},
+		{
+			name:     "no jku",
+			verifier: jkuVerifier,
+		},
+	}
+
+	d := &ga4gh.VisaData{
+		StdClaims: ga4gh.StdClaims{
+			Issuer:    f.Issuer0.URL,
+			Subject:   subject,
+			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+		},
+	}
+	key := f.Issuer0.Keys[0]
+	signer := localsign.New(&key)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			visa, err := ga4gh.NewVisaFromData(context.Background(), d, tc.jku, signer)
+			if err != nil {
+				t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
+			}
+
+			if err := tc.verifier.Verify(ctx, string(visa.JWT()), tc.jku); errutil.ErrorReason(err) != errVerifierInvalidType {
+				t.Errorf("VerifyPassportToken() wants err: %s", errVerifierInvalidType)
+			}
+		})
+	}
+}
 
 const (
 	client  = "fake-client"
@@ -67,219 +165,6 @@ func newFix(t *testing.T) (*fix, func()) {
 	}, cleanup
 }
 
-func TestVerifier_Verify(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	// Create and sign a Visa using the Issuer's private key.
-	key := f.Issuer0.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    key.ID,
-			Subject:   subject,
-			Audience:  ga4gh.NewAudience(client),
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	v := New(client)
-
-	if err := v.Verify(ctx, string(visa.JWT())); err != nil {
-		t.Fatalf("Verifier.Verify(_,_) failed: %v", err)
-	}
-}
-
-func TestVerifier_Verify_EmptyClientID(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	// Create and sign a Visa using the Issuer's private key.
-	key := f.Issuer0.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    key.ID,
-			Subject:   subject,
-			Audience:  ga4gh.NewAudience(client),
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	// An audience is specified in the token. If the verifier does not specify a client,
-	// the verifier should fail since we cannot confirm we are the intended audience.
-	v := New("")
-
-	if err := v.Verify(ctx, string(visa.JWT())); err == nil {
-		t.Fatalf("Verifier.Verify(_,_) unexpected success when audience cannot be confirmed")
-	}
-}
-
-func TestVerifier_Verify_SecondIssuer(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	// Create and sign a Visa using the Issuer's private key.
-	key := f.Issuer1.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    key.ID,
-			Subject:   subject,
-			Audience:  ga4gh.NewAudience(client),
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
-
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	v := New(client)
-
-	if err := v.Verify(ctx, string(visa.JWT())); err != nil {
-		t.Fatalf("Verifier.Verify(_,_) failed: %v", err)
-	}
-}
-
-func TestVerifier_Verify_Fail_WrongIssuerURL(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	// Create and sign a Visa using the Issuer's private key.
-	key := f.Issuer0.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    f.HTTP.Server.URL + "/wrong-issuer-url",
-			Subject:   subject,
-			Audience:  ga4gh.NewAudience(client),
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	v := New(client)
-
-	if err := v.Verify(ctx, string(visa.JWT())); err == nil {
-		t.Fatal("Verifier.Verify(_,_) should fail when issuer URL is wrong.")
-	}
-}
-
-func TestVerifier_Verify_Fail_WrongKey(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	// Create and sign a Visa using the Issuer's private key.
-	key := f.Issuer0.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    key.ID,
-			Subject:   subject,
-			Audience:  ga4gh.NewAudience(client),
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
-
-	wrongKey := testkeys.Keys[testkeys.VisaIssuer1]
-	signer := localsign.New(&wrongKey)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	v := New(client)
-
-	if err := v.Verify(ctx, string(visa.JWT())); err == nil {
-		t.Fatal("Verifier.Verify(_,_) should fail when key is wrong.")
-	}
-}
-
-func TestVerifier_Verify_Fail_WrongClient(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	// Create and sign a Visa using the Issuer's private key.
-	key := f.Issuer0.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    key.ID,
-			Subject:   subject,
-			Audience:  ga4gh.NewAudience("wrong-client"),
-			ExpiresAt: time.Now().Add(-time.Hour).Unix(),
-		},
-	}
-
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	v := New(client)
-
-	if err := v.Verify(ctx, string(visa.JWT())); err == nil {
-		t.Fatal("Verifier.Verify(_,_) should fail when token has expired.")
-	}
-}
-
-func TestVerifier_Verify_Fail_TokenExpired(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	// Create and sign a Visa using the Issuer's private key.
-	key := f.Issuer0.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    key.ID,
-			Subject:   subject,
-			Audience:  ga4gh.NewAudience(client),
-			ExpiresAt: time.Now().Add(-time.Hour).Unix(),
-		},
-	}
-
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	v := New(client)
-
-	if err := v.Verify(ctx, string(visa.JWT())); err == nil {
-		t.Fatal("Verifier.Verify(_,_) should fail when token has expired.")
-	}
+func jkuURL(issuer string) string {
+	return issuer + "/.well-known/jwks"
 }

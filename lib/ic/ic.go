@@ -827,9 +827,6 @@ func (s *Service) addLinkedIdentities(ctx context.Context, id *ga4gh.Identity, l
 
 	// TODO: add config option for LinkedIdentities expiry.
 	exp := now.Add(linkedIdentitiesMaxLifepan).Unix()
-	if exp > id.Expiry {
-		exp = id.Expiry
-	}
 
 	idp, ok := cfg.IdentityProviders[link.Provider]
 	if !ok {

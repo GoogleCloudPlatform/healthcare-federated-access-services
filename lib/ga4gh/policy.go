@@ -101,10 +101,10 @@ type Policy struct {
 
 // JWTVerifier verifies the JWT token.
 // It might make calls to external services, e.g. to obtain public key.
-type JWTVerifier func(context.Context, string) error
+type JWTVerifier func(ctx context.Context, jwt, iss, jku string) error
 
 // defailtVerifier is a no-op verifier.
-func defaultVerifier(ctx context.Context, jwt string) error {
+func defaultVerifier(ctx context.Context, jwt, iss, jku string) error {
 	glog.V(1).Info("defaultVerifier")
 	return nil
 }

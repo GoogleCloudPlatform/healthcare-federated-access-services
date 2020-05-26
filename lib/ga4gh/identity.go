@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
@@ -159,7 +160,7 @@ func CheckIdentityAllVisasLinked(ctx context.Context, i *Identity, f JWTVerifier
 		}
 
 		if f != nil && v.Data().Assertion.Type == LinkedIdentities {
-			if err := f(ctx, j); err != nil {
+			if err := f(ctx, j, v.Data().Issuer, v.JKU()); err != nil {
 				return fmt.Errorf("the verification of some LinkedIdentities visa failed: %v", err)
 			}
 		}
@@ -223,8 +224,12 @@ func VisasToOldClaims(ctx context.Context, visas []VisaJWT, f JWTVerifier) (map[
 		}
 
 		if f != nil {
-			if err := f(ctx, string(j)); err != nil {
-				rejected = append(rejected, NewRejectedVisa(d, v.Format(), "verify_failed", "", err.Error()))
+			if err := f(ctx, string(j), v.Data().Issuer, v.JKU()); err != nil {
+				reason := errutil.ErrorReason(err)
+				if len(reason) == 0 {
+					reason = "verify_failed"
+				}
+				rejected = append(rejected, NewRejectedVisa(d, v.Format(), reason, "", err.Error()))
 				continue
 			}
 		}

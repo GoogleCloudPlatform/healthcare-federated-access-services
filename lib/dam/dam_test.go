@@ -33,6 +33,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/go-openapi/strfmt" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -42,6 +43,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -1257,6 +1259,134 @@ func TestCheckAuthorization_Whitelist(t *testing.T) {
 	}
 }
 
+func Test_populateIdentityVisas_oidc_and_jku(t *testing.T) {
+	store := storage.NewMemoryStorage("dam", "testdata/config")
+	broker, err := persona.NewBroker(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
+	if err != nil {
+		t.Fatalf("NewBroker() failed: %v", err)
+	}
+
+	s := NewService(&Options{
+		Domain:         "https://test.org",
+		ServiceName:    "dam",
+		DefaultBroker:  testBroker,
+		Store:          store,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+		HydraSyncFreq:  time.Nanosecond,
+	})
+
+	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
+	if err != nil {
+		t.Fatalf("loadConfig() failed: %v", err)
+	}
+
+	ctx := oidc.ClientContext(context.Background(), httptestclient.New(broker.Handler))
+
+	signer := localsign.New(&testkeys.PersonaBrokerKey)
+	v1, err := ga4gh.NewVisaFromData(ctx, &ga4gh.VisaData{
+		StdClaims: ga4gh.StdClaims{
+			Issuer:    hydraPublicURL,
+			Subject:   "subject1",
+			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+		},
+		Assertion: ga4gh.Assertion{
+			Type:     "AffiliationAndRole",
+			Value:    "faculty@issuer0.org",
+			Source:   "http://testkeys-visa-issuer-0.org",
+			By:       "so",
+			Asserted: 10000,
+		},
+		Scope: "openid",
+	}, "", signer)
+	if err != nil {
+		t.Fatalf("NewVisaFromData() v1 failed: %v", err)
+	}
+
+	v2, err := ga4gh.NewVisaFromData(ctx, &ga4gh.VisaData{
+		StdClaims: ga4gh.StdClaims{
+			Issuer:    hydraPublicURL,
+			Subject:   "subject1",
+			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+		},
+		Assertion: ga4gh.Assertion{
+			Type:     "AcceptedTermsAndPolicies",
+			Value:    "https://agreements.example.org/ds123",
+			Source:   "http://testkeys-visa-issuer-0.org",
+			Asserted: 10100,
+		},
+	}, hydraPublicURL+".well-known/jwks", signer)
+	if err != nil {
+		t.Fatalf("NewVisaFromData() v2 failed: %v", err)
+	}
+
+	id := &ga4gh.Identity{
+		VisaJWTs: []string{string(v1.JWT()), string(v2.JWT())},
+	}
+	id, err = s.populateIdentityVisas(ctx, id, cfg)
+	if err != nil {
+		t.Fatalf("populateIdentityVisas failed: %v", err)
+	}
+
+	got := id.GA4GH
+	for k := range got {
+		for i := range got[k] {
+			got[k][i].Expires = 0
+			got[k][i].VisaData.ExpiresAt = 0
+		}
+	}
+
+	want := map[string][]ga4gh.OldClaim{
+		"AcceptedTermsAndPolicies": {
+			{
+				Value:    "https://agreements.example.org/ds123",
+				Source:   "http://testkeys-visa-issuer-0.org",
+				Asserted: 10100,
+				Issuer:   "https://hydra.example.com/",
+				VisaData: &ga4gh.VisaData{
+					StdClaims: ga4gh.StdClaims{Issuer: "https://hydra.example.com/", Subject: "subject1"},
+					Assertion: ga4gh.Assertion{
+						Type:     "AcceptedTermsAndPolicies",
+						Value:    "https://agreements.example.org/ds123",
+						Source:   "http://testkeys-visa-issuer-0.org",
+						Asserted: 10100,
+					},
+				},
+				TokenFormat: "document",
+			},
+		},
+		"AffiliationAndRole": {
+			{
+				Value:    "faculty@issuer0.org",
+				Source:   "http://testkeys-visa-issuer-0.org",
+				Asserted: 10000,
+				By:       "so",
+				Issuer:   "https://hydra.example.com/",
+				VisaData: &ga4gh.VisaData{
+					StdClaims: ga4gh.StdClaims{Issuer: "https://hydra.example.com/", Subject: "subject1"},
+					Scope:     "openid",
+					Assertion: ga4gh.Assertion{
+						Type:     "AffiliationAndRole",
+						Value:    "faculty@issuer0.org",
+						Source:   "http://testkeys-visa-issuer-0.org",
+						By:       "so",
+						Asserted: 10000,
+					},
+				},
+				TokenFormat: "access_token",
+			},
+		},
+	}
+	if d := cmp.Diff(want, got); len(d) > 0 {
+		t.Errorf("populateIdentityVisas() (-want, +got): %s", d)
+	}
+
+	if len(id.RejectedVisas) > 0 {
+		t.Errorf("RejectedVisas should be empty: %+v", id.RejectedVisas)
+	}
+}
+
 func setupHydraTest(readOnlyMasterRealm bool) (*Service, *pb.DamConfig, *pb.DamSecrets, *fakehydra.Server, *persona.Server, error) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	broker, err := persona.NewBroker(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
@@ -1751,7 +1881,7 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 			"service_type":    "t1",
 			"service_name":    "n1",
 			"cart_id":         "ls-1234",
-			"config_revision":  "1",
+			"config_revision": "1",
 		},
 	}
 

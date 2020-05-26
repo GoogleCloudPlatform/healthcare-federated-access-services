@@ -111,8 +111,8 @@ type Service struct {
 	httpClient          *http.Client
 	startTime           int64
 	translators         sync.Map
+	visaVerifiers       sync.Map
 	useHydra            bool
-	visaVerifier        *verifier.Verifier
 	scim                *scim.Scim
 	tokens              tgrpcpb.TokensServer
 	auditlogs           *auditlogsapi.AuditLogs
@@ -200,7 +200,6 @@ func New(r *mux.Router, params *Options) *Service {
 		hydraPublicURL:      params.HydraPublicURL,
 		hydraPublicURLProxy: params.HydraPublicProxy,
 		hydraSyncFreq:       syncFreq,
-		visaVerifier:        verifier.New(""),
 		scim:                scim.New(params.Store),
 		tokens:              faketokensapi.NewDAMTokens(params.Store, params.ServiceAccountManager),
 		auditlogs:           auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject, params.ServiceName),
@@ -390,7 +389,7 @@ func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.D
 func (s *Service) populateIdentityVisas(ctx context.Context, id *ga4gh.Identity, cfg *pb.DamConfig) (*ga4gh.Identity, error) {
 	// Filter visas by trusted issuers.
 	trusted := trustedIssuers(cfg.TrustedIssuers)
-	vs := []ga4gh.VisaJWT{}
+	var vs []ga4gh.VisaJWT
 	for i, v := range id.VisaJWTs {
 		jwt := ga4gh.VisaJWT(v)
 		v, err := ga4gh.NewVisaFromJWT(jwt)
@@ -404,13 +403,42 @@ func (s *Service) populateIdentityVisas(ctx context.Context, id *ga4gh.Identity,
 		}
 		vs = append(vs, jwt)
 	}
-	claims, _, err := ga4gh.VisasToOldClaims(ctx, vs, s.visaVerifier.Verify)
+
+	claims, _, err := ga4gh.VisasToOldClaims(ctx, vs, s.verifyVisa)
 	if err != nil {
 		return nil, err
 	}
 	id.GA4GH = claims
 
 	return id, nil
+}
+
+func (s *Service) verifyVisa(ctx context.Context, token, issuer, jku string) error {
+	v, err := s.getVisaVerifier(ctx, issuer, jku)
+	if err != nil {
+		return err
+	}
+
+	return v.Verify(ctx, token, jku)
+}
+
+func (s *Service) getVisaVerifier(ctx context.Context, issuer, jku string) (*verifier.VisaVerifier, error) {
+	key := issuer + " " + jku
+	cached, ok := s.visaVerifiers.Load(key)
+	// found verifier in cache.
+	if ok {
+		v, ok := cached.(*verifier.VisaVerifier)
+		if !ok {
+			return nil, fmt.Errorf("verifier type is wrong")
+		}
+		return v, nil
+	}
+	v, err := verifier.NewVisaVerifier(ctx, issuer, jku, "")
+	if err != nil {
+		return nil, err
+	}
+	s.visaVerifiers.Store(key, v)
+	return v, nil
 }
 
 func trustedIssuers(trustedIssuers map[string]*pb.TrustedIssuer) map[string]bool {
