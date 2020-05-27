@@ -2,13 +2,16 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.3...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.4...HEAD)
+
+## [v0.9.4](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.4)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.3...v0.9.4)
 
 **Highlight Updates**
 
 *  Add CSP header to restrict resource origin.
 *  Use KMS to sign visa and gatekeeper token
-
 
 **Migration**
 
