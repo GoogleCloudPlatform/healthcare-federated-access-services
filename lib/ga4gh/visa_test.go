@@ -88,21 +88,6 @@ func TestVisaJSONFormat(t *testing.T) {
 	}
 }
 
-func TestVisaVerify(t *testing.T) {
-	d, _ := fakeVisaDataAndJWT(t)
-
-	signer := localsign.New(&testkeys.Default)
-	ctx := context.Background()
-	p, err := NewVisaFromData(ctx, d, JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("NewPassportFromData(%v) failed: %v", d, err)
-	}
-
-	if err := p.Verify(testkeys.Default.Public); err != nil {
-		t.Fatalf("Verify(_) failed: %v", err)
-	}
-}
-
 func TestNewVisaFromData_JKU(t *testing.T) {
 	d, _ := fakeVisaDataAndJWT(t)
 

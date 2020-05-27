@@ -44,10 +44,6 @@ func (c *PassportClearinghouse) RequestAccess(r Resource, t Token) (Token, error
 		return "", fmt.Errorf("NewAccessFromJWT(%v) failed:\n%v", j, err)
 	}
 
-	if err := a.Verify(c.B.Key.Public); err != nil {
-		return "", fmt.Errorf("Access(%v).Verify(%v) failed:\n%v", a, c.B.Key.Public, err)
-	}
-
 	p := ga4gh.Passport{Access: a}
 
 	js, err := c.B.FetchVisas(t)
@@ -59,9 +55,6 @@ func (c *PassportClearinghouse) RequestAccess(r Resource, t Token) (Token, error
 		v, err := ga4gh.NewVisaFromJWT(j)
 		if err != nil {
 			return "", fmt.Errorf("NewVisaFromJWT(%v) failed:\n%v", j, err)
-		}
-		if err := v.Verify(c.B.I.Key.Public); err != nil {
-			return "", fmt.Errorf("Visa(%v).Verify(%v) failed:\n%v", v, c.B.I.Key.Public, err)
 		}
 		p.Visas = append(p.Visas, v)
 	}

@@ -17,8 +17,9 @@ package testkeys
 
 import (
 	"crypto/rsa"
-
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 )
 
 // Key is a pair of RSA private/public keys.
@@ -65,14 +66,14 @@ var (
 	PersonaBrokerKey = Keys[PersonaBroker]
 )
 
-type pem struct {
+type pembytes struct {
 	Private []byte
 	Public  []byte
 }
 
-func keyFromPEM(in pem, id Component) Key {
-	private, _ := jwt.ParseRSAPrivateKeyFromPEM(in.Private)
-	public, _ := jwt.ParseRSAPublicKeyFromPEM(in.Public)
+func keyFromPEM(in pembytes, id Component) Key {
+	private, _ := rsaPrivateKeyFromPEM(in.Private)
+	public, _ := rsaPublicKeyFromPEM(in.Public)
 	return Key{
 		ID:         string(id),
 		Private:    private,
@@ -82,7 +83,7 @@ func keyFromPEM(in pem, id Component) Key {
 	}
 }
 
-var pems = []pem{
+var pems = []pembytes{
 	{
 		Private: []byte(`-----BEGIN RSA PRIVATE KEY-----
 MIICWwIBAAKBgFPmZrJ9Up2nBGIuXl6wTU+4RsUbpz0nRhPiFk3veAofJ9YZLXbU
@@ -290,4 +291,23 @@ gKex2izt7SAuO5QQzeBeabomBWbIeE1/msTFeZ1iOO/FIoUyiTuEsZNMw6CAdi0b
 7ybWjEDuvr7QzWJV3QIDAQAB
 -----END PUBLIC KEY-----`),
 	},
+}
+
+func rsaPrivateKeyFromPEM(key []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(key)
+	return x509.ParsePKCS1PrivateKey(block.Bytes)
+}
+
+func rsaPublicKeyFromPEM(key []byte) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode(key)
+	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	pub, ok := parsed.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("key type is wrong")
+	}
+	return pub, nil
 }

@@ -19,7 +19,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient" /* copybara-comment: httptestclient */
@@ -47,7 +46,7 @@ func New(issuerURL string, key *testkeys.Key, service, path string, useOIDCPrefi
 }
 
 // Sign the jwt with the private key in Server.
-func (s *Server) Sign(header map[string]string, claim jwt.Claims) (string, error) {
+func (s *Server) Sign(header map[string]string, claim interface{}) (string, error) {
 	return s.broker.Sign(header, claim)
 }
 

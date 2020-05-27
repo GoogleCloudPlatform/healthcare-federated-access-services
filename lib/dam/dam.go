@@ -384,10 +384,6 @@ func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.D
 		}
 	}
 
-	if err := id.Validate(clientID); err != nil {
-		return nil, err
-	}
-
 	return s.populateIdentityVisas(ctx, id, cfg)
 }
 

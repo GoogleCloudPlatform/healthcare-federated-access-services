@@ -16,17 +16,16 @@ package ga4gh
 
 import (
 	"context"
-	"crypto/rsa"
 	"fmt"
 
-	glog "github.com/golang/glog" /* copybara-comment */
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 const (
-	jwtHeaderKeyID = "kid"
-	jwtHeaderJKU   = "jku"
+	jwtHeaderJKU = "jku"
 )
 
 // Passport represents a GA4GH Passport.
@@ -97,13 +96,6 @@ func NewAccessFromData(ctx context.Context, d *AccessData, signer kms.Signer) (*
 	}, nil
 }
 
-// Verify verifies the signature of the Access using the provided public key.
-func (p *Access) Verify(key *rsa.PublicKey) error {
-	f := func(token *jwt.Token) (interface{}, error) { return key, nil }
-	_, err := jwt.Parse(string(p.jwt), f)
-	return err
-}
-
 // JWT returns the JWT of a Access.
 func (p *Access) JWT() AccessJWT {
 	return p.jwt
@@ -149,11 +141,16 @@ func toAccessDataWithVisaJWT(d *AccessData) *accessDataVisaJWT {
 
 func accessDataFromJWT(j AccessJWT) (*AccessData, error) {
 	m := &accessDataVisaJWT{}
-	if _, _, err := (&jwt.Parser{}).ParseUnverified(string(j), m); err != nil {
-		err = fmt.Errorf("ParseUnverified(%v) failed: %v", j, err)
-		glog.V(1).Info(err)
-		return nil, err
+
+	tok, err := jwt.ParseSigned(string(j))
+	if err != nil {
+		return nil, fmt.Errorf("ParseSigned() failed: %v", err)
 	}
+
+	if err := tok.UnsafeClaimsWithoutVerification(m); err != nil {
+		return nil, fmt.Errorf("UnsafeClaimsWithoutVerification() failed: %v", err)
+	}
+
 	d, err := toAccessData(m)
 	if err != nil {
 		return nil, err

@@ -15,11 +15,17 @@
 package ga4gh
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 const (
@@ -44,22 +50,6 @@ const (
 
 func TestJWTMultipleAudiences(t *testing.T) {
 	// TODO
-}
-
-func TestStdClaims_Valid(t *testing.T) {
-	c := &StdClaims{}
-	if err := c.Valid(); err != nil {
-		t.Fatalf("claims.Valid() failed: %v", err)
-	}
-}
-
-func TestStdClaims_Valid_Invalid(t *testing.T) {
-	c := &StdClaims{
-		ExpiresAt: time.Now().Add(-time.Hour).Unix(),
-	}
-	if err := c.Valid(); err == nil {
-		t.Fatal("claims.Valid() should fail when the claim is not valid.")
-	}
 }
 
 func TestNewStdClaimsFromJWT(t *testing.T) {
@@ -147,4 +137,58 @@ func Test_jsontxtCanonicalize_Fail(t *testing.T) {
 	if _, err := jsontxtCanonicalize(""); err == nil {
 		t.Fatal("jsontxtCanonicalize() should fail when input is invalid.")
 	}
+}
+
+var indent = "  "
+
+// payloadFromJWT extracts and returns the decoded JSON of a JWT payload.
+// Useful for logging and testing JSON format of payload.
+// The JSON string uses "indent" for indention.
+func payloadFromJWT(j string) (string, error) {
+	parts := strings.Split(j, ".")
+	if len(parts) != 3 {
+		return "", fmt.Errorf("invalid jwt format")
+	}
+
+	decoded, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", err
+	}
+
+	payload := &bytes.Buffer{}
+	if err := json.Indent(payload, decoded, "", indent); err != nil {
+		return "", err
+	}
+
+	return payload.String(), nil
+}
+
+// jsontxt is used internally for transforming for cmp.Diff.
+// Allowing getting stable diff in comparing JSON text strings.
+// Example:
+// diff := cmp.Diff(jsontxt(want), jsontxt(got), cmp.Transformer("", jsontxtCanonical))
+type jsontxt string
+
+func jsontxtCanonical(j jsontxt) string {
+	s, err := jsontxtCanonicalize(j)
+	if err != nil {
+		glog.Fatalf("jsontxtCanonicalize() failed: %v", err)
+	}
+	return s
+}
+
+func jsontxtCanonicalize(j jsontxt) (string, error) {
+	var s interface{}
+	if err := json.Unmarshal([]byte(j), &s); err != nil {
+		return "", fmt.Errorf("json.Unmarshal(%v) failed: %v", j, err)
+	}
+	d, err := json.Marshal(&s)
+	if err != nil {
+		return "", fmt.Errorf("json.Marshal(%v) failed: %v", s, err)
+	}
+	c := &bytes.Buffer{}
+	if err := json.Indent(c, d, "", indent); err != nil {
+		return "", fmt.Errorf("json.Indent(%v,%v,%v,%v) failed: %v", c, d, "", indent, err)
+	}
+	return c.String(), nil
 }

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
@@ -118,33 +117,6 @@ type Identity struct {
 	Realm            string                 `json:"realm,omitempty"`
 	VisaJWTs         []string               `json:"ga4gh_passport_v1,omitempty"`
 	Extra            map[string]interface{} `json:"ext,omitempty"`
-}
-
-// Valid implements dgrijalva/jwt-go Claims interface. This will be called when using
-// dgrijalva/jwt-go parse. This validates exp, iat, nbf in token.
-func (t *Identity) Valid() error {
-	return t.Validate("")
-}
-
-// Validate returns an error if the Identity does not pass basic checks.
-func (t *Identity) Validate(clientID string) error {
-	now := time.Now().Unix()
-
-	if now > t.Expiry {
-		return fmt.Errorf("token is expired")
-	}
-
-	if now < t.IssuedAt {
-		return fmt.Errorf("token used before issued")
-	}
-
-	if now < t.NotBefore {
-		return fmt.Errorf("token is not valid yet")
-	}
-
-	// TODO: check non-empty clientID against t.Audiences
-
-	return nil
 }
 
 // CheckIdentityAllVisasLinked checks if the Visas inside the identity are linked.

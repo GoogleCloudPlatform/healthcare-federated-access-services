@@ -16,6 +16,7 @@
 package persona
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"html/template"
@@ -27,10 +28,10 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
@@ -93,14 +94,9 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOID
 }
 
 // Sign the jwt with the private key in Server.
-func (s *Server) Sign(header map[string]string, claim jwt.Claims) (string, error) {
-	jot := jwt.NewWithClaims(jwt.SigningMethodRS256, claim)
-
-	for k, v := range header {
-		jot.Header[k] = v
-	}
-
-	return jot.SignedString(s.key.Private)
+func (s *Server) Sign(header map[string]string, claim interface{}) (string, error) {
+	signer := localsign.New(s.key)
+	return signer.SignJWT(context.Background(), claim, header)
 }
 
 // Config returns the DAM configuration currently in use.

@@ -17,12 +17,11 @@ package adapter
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
@@ -43,15 +42,14 @@ const (
 
 // GatekeeperToken is the token format that is minted here.
 type GatekeeperToken struct {
-	*jwt.StandardClaims
-	AuthorizedParty string   `json:"azp,omitempty"`
-	Scopes          []string `json:"scopes,omitempty"`
+	*ga4gh.StdClaims
+	Scopes []string `json:"scopes,omitempty"`
 }
 
 // GatekeeperAdapter generates downstream access tokens.
 type GatekeeperAdapter struct {
-	desc       map[string]*pb.ServiceDescriptor
-	signer     kms.Signer
+	desc   map[string]*pb.ServiceDescriptor
+	signer kms.Signer
 }
 
 // NewGatekeeperAdapter creates a GatekeeperAdapter.
@@ -63,8 +61,8 @@ func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCre
 	}
 
 	return &GatekeeperAdapter{
-		desc:       msg.Services,
-		signer:     signer,
+		desc:   msg.Services,
+		signer: signer,
 	}, nil
 }
 
@@ -121,14 +119,14 @@ func (a *GatekeeperAdapter) MintToken(ctx context.Context, input *Action) (*Mint
 	}
 
 	claims := &GatekeeperToken{
-		StandardClaims: &jwt.StandardClaims{
+		StdClaims: &ga4gh.StdClaims{
 			Issuer:    input.Issuer,
 			Subject:   input.Identity.Subject,
-			Audience:  strings.Join(auds, " "),
+			Audience:  auds,
 			ExpiresAt: now.Add(input.TTL).Unix(),
 			NotBefore: now.Add(-1 * time.Minute).Unix(),
 			IssuedAt:  now.Unix(),
-			Id:        uuid.New(),
+			ID:        uuid.New(),
 		},
 		Scopes: scopes,
 	}

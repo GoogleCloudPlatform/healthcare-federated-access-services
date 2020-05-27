@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
-	josejwt "gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
+	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 )
 
 // userID returns an user identifier that specifies a subject within an issuer.
@@ -59,7 +59,7 @@ func VerifyTokenWithKey(publicKey *rsa.PublicKey, tok string) error {
 
 // ConvertTokenToIdentityUnsafe unsafely converts a token to an identity.
 func ConvertTokenToIdentityUnsafe(tok string) (*Identity, error) {
-	parsed, err := josejwt.ParseSigned(tok)
+	parsed, err := jwt.ParseSigned(tok)
 	if err != nil {
 		return nil, fmt.Errorf("parsing JWT: %v", err)
 	}

@@ -71,10 +71,5 @@ func (b *PassportBroker) FetchVisas(t Token) ([]ga4gh.VisaJWT, error) {
 		return nil, fmt.Errorf("NewVisaFromJWT(%v) failed:\n%v", j, err)
 	}
 
-	// Optional
-	if err := v.Verify(b.I.Key.Public); err != nil {
-		return nil, fmt.Errorf("Visa(%v).Verify(%v) failed:\n%v", v, b.I.Key.Public, err)
-	}
-
 	return []ga4gh.VisaJWT{v.JWT()}, nil
 }

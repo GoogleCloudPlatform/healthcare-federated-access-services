@@ -73,21 +73,6 @@ func TestAccessJSONFormat(t *testing.T) {
 	}
 }
 
-func TestAccessVerify(t *testing.T) {
-	d, _ := fakeAccessDataAndJWT(t)
-
-	ctx := context.Background()
-	signer := localsign.New(&testkeys.Default)
-	p, err := NewAccessFromData(ctx, d, signer)
-	if err != nil {
-		t.Fatalf("NewAccessFromData(%v) failed: %v", d, err)
-	}
-
-	if err := p.Verify(testkeys.Default.Public); err != nil {
-		t.Fatalf("Verify(_) failed: %v", err)
-	}
-}
-
 func fakeAccessDataAndJWT(t *testing.T) (*AccessData, AccessJWT) {
 	t.Helper()
 
