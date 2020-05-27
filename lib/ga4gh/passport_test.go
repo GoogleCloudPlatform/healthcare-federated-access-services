@@ -15,12 +15,13 @@
 package ga4gh
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
@@ -31,7 +32,9 @@ const (
 func TestNewAccessFromData(t *testing.T) {
 	d, j := fakeAccessDataAndJWT(t)
 
-	p, err := NewAccessFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	ctx := context.Background()
+	signer := localsign.New(&testkeys.Default)
+	p, err := NewAccessFromData(ctx, d, signer)
 	if err != nil {
 		t.Fatalf("NewAccessFromData(_) failed: %v", err)
 	}
@@ -73,7 +76,9 @@ func TestAccessJSONFormat(t *testing.T) {
 func TestAccessVerify(t *testing.T) {
 	d, _ := fakeAccessDataAndJWT(t)
 
-	p, err := NewAccessFromData(d, RS256, testkeys.Default.Private, testkeys.Default.ID)
+	ctx := context.Background()
+	signer := localsign.New(&testkeys.Default)
+	p, err := NewAccessFromData(ctx, d, signer)
 	if err != nil {
 		t.Fatalf("NewAccessFromData(%v) failed: %v", d, err)
 	}
@@ -88,11 +93,13 @@ func fakeAccessDataAndJWT(t *testing.T) (*AccessData, AccessJWT) {
 
 	d := fakeAccessData()
 	m := toAccessDataWithVisaJWT(d)
-	token := jwt.NewWithClaims(RS256, m)
-	token.Header[jwtHeaderKeyID] = testkeys.Default.ID
-	signed, err := token.SignedString(testkeys.Default.Private)
+
+	ctx := context.Background()
+	signer := localsign.New(&testkeys.Default)
+
+	signed, err := signer.SignJWT(ctx, m, nil)
 	if err != nil {
-		t.Fatalf("token.SignedString(_) failed: %v", err)
+		t.Fatalf("SignJWT() failed: %v", err)
 	}
 	j := AccessJWT(signed)
 

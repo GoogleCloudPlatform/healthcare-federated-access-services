@@ -97,7 +97,11 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 			email: []string{"IC", "DAM"},
 		},
 	}
-	access, err := ga4gh.NewAccessFromData(d, ga4gh.RS256, personaKey.Private, personaKey.ID)
+
+	ctx := context.Background()
+	signer := localsign.New(&personaKey)
+
+	access, err := ga4gh.NewAccessFromData(ctx, d, signer)
 	if err != nil {
 		return "", "", err
 	}

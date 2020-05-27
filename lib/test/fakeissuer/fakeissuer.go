@@ -35,12 +35,12 @@ package fakeissuer
 import (
 	"net/http"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 const (
@@ -105,7 +105,7 @@ func New(url string, keys ...testkeys.Key) *Issuer {
 		k := jose.JSONWebKey{
 			KeyID:     key.ID,
 			Key:       key.Public,
-			Algorithm: ga4gh.RS256.Name,
+			Algorithm: string(jose.RS256),
 			Use:       "sig",
 		}
 		i.GetJWKSResp.Keys = append(i.GetJWKSResp.Keys, k)

@@ -22,7 +22,6 @@ import (
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
-	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
@@ -146,12 +145,14 @@ func fakeVisaDataAndJWT(t *testing.T) (*VisaData, VisaJWT) {
 	t.Helper()
 
 	d := fakeVisaData()
-	token := jwt.NewWithClaims(RS256, d)
-	token.Header[jwtHeaderKeyID] = testkeys.Default.ID
-	signed, err := token.SignedString(testkeys.Default.Private)
+	ctx := context.Background()
+	signer := localsign.New(&testkeys.Default)
+
+	signed, err := signer.SignJWT(ctx, d, nil)
 	if err != nil {
-		t.Fatalf("token.SignedString(_) failed: %v", err)
+		t.Fatalf("SignJWT() failed: %v", err)
 	}
+
 	j := VisaJWT(signed)
 
 	glog.Infof("Data: %#v", d)

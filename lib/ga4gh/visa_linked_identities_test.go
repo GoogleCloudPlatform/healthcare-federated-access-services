@@ -202,7 +202,7 @@ func newVisa(t *testing.T, key testkeys.Key, id ID, a Assertion, scope string, j
 	ctx := context.Background()
 	v, err := NewVisaFromData(ctx, d, jku, signer)
 	if err != nil {
-		t.Fatalf("NewVisaFromData(%+v,%q,%v,%v,%v) failed: %v", d, jku, RS256, key.Private, key.ID, err)
+		t.Fatalf("NewVisaFromData() failed: %v", err)
 	}
 	return v
 }

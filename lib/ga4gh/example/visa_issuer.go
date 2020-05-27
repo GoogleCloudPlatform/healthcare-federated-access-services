@@ -56,7 +56,7 @@ func (i *VisaIssuer) FetchVisa(t Token) (ga4gh.VisaJWT, error) {
 	signer := localsign.New(&i.Key)
 	v, err := ga4gh.NewVisaFromData(context.Background(), d, "JKU", signer)
 	if err != nil {
-		return "", fmt.Errorf("NewVisaFromData(%v,%v,%v) failed:\n%v", d, ga4gh.RS256, i.Key.Private, err)
+		return "", fmt.Errorf("NewVisaFromData() failed:\n%v", err)
 	}
 
 	return v.JWT(), nil

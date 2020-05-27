@@ -23,13 +23,7 @@ import (
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
 )
 
-// SigningMethod for JWT.
-type SigningMethod = jwt.SigningMethod
-
 var (
-	// RS256 is RSA. Used for signing/validation with private/public keys.
-	// Expects *rsa.PrivateKey for signing and *rsa.PublicKey for validation.
-	RS256 = jwt.SigningMethodRS256
 	// JWTEmptyJKU is for visa issuers who do not wish to set a "jku" header.
 	// See https://tools.ietf.org/html/rfc7515#section-4.1.2 for details.
 	JWTEmptyJKU = ""

@@ -15,11 +15,13 @@
 package ga4gh
 
 import (
+	"context"
 	"crypto/rsa"
 	"fmt"
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/dgrijalva/jwt-go" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 )
 
 const (
@@ -83,9 +85,9 @@ func NewAccessFromJWT(j AccessJWT) (*Access, error) {
 // Visit the issuer's JWKS endpoint to obtain the keys and find the public key corresponding to the keyID.
 // To find the issuer's JWKS endpoint, visit "[issuer]/.well-known/openid-configuration"
 // "jku" in JWT header is not allowed for Access.
-func NewAccessFromData(d *AccessData, method SigningMethod, key *rsa.PrivateKey, keyID string) (*Access, error) {
+func NewAccessFromData(ctx context.Context, d *AccessData, signer kms.Signer) (*Access, error) {
 	glog.V(1).Info("NewAccessFromData()")
-	j, err := accessJWTFromData(d, method, key, keyID)
+	j, err := accessJWTFromData(ctx, d, signer)
 	if err != nil {
 		return nil, err
 	}
@@ -124,15 +126,15 @@ type accessDataVisaJWT struct {
 	Identities map[string][]string `json:"identities,omitempty"`
 }
 
-func accessJWTFromData(d *AccessData, method SigningMethod, key *rsa.PrivateKey, keyID string) (AccessJWT, error) {
-	t := jwt.NewWithClaims(method, toAccessDataWithVisaJWT(d))
-	t.Header[jwtHeaderKeyID] = keyID
-	signed, err := t.SignedString(key)
+func accessJWTFromData(ctx context.Context, d *AccessData, signer kms.Signer) (AccessJWT, error) {
+	signed, err := signer.SignJWT(ctx, d, nil)
+
 	if err != nil {
-		err = fmt.Errorf("SignedString() failed: %v", err)
+		err = fmt.Errorf("SignJWT() failed: %v", err)
 		glog.V(1).Info(err)
 		return "", err
 	}
+
 	return AccessJWT(signed), nil
 }
 

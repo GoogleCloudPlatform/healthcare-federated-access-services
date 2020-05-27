@@ -15,11 +15,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
@@ -45,9 +47,11 @@ func (b *PassportBroker) FetchAccess(t Token) (ga4gh.AccessJWT, error) {
 		},
 	}
 
-	p, err := ga4gh.NewAccessFromData(d, ga4gh.RS256, b.Key.Private, "kid")
+	ctx := context.Background()
+	signer := localsign.New(&b.Key)
+	p, err := ga4gh.NewAccessFromData(ctx, d, signer)
 	if err != nil {
-		return "", fmt.Errorf("NewAccessFromData(%v,%v,%v) failed:\n%v", d, ga4gh.RS256, b.Key.Private, err)
+		return "", fmt.Errorf("NewAccessFromData() failed:\n%v", err)
 	}
 	return p.JWT(), nil
 }
