@@ -906,8 +906,14 @@ func TestAddLinkedIdentities(t *testing.T) {
 		},
 	}
 
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
+	}
+
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
 	s := NewService(&Options{
+		HTTPClient:     server.Client(),
 		Domain:         domain,
 		ServiceName:    "ic",
 		AccountDomain:  domain,

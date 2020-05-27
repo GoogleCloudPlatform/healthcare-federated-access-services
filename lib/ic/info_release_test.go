@@ -37,6 +37,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra" /* copybara-comment: fakehydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
@@ -1124,10 +1125,17 @@ func TestAcceptInformationRelease_Hydra_cleanupRememberedConsent(t *testing.T) {
 	}
 }
 
-func setupForFindRememberedConsentsByUser() *Service {
+func setupForFindRememberedConsentsByUser(t *testing.T) *Service {
+	t.Helper()
+
 	store := storage.NewMemoryStorage("ic-min", "testdata/config")
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
+	}
 
 	s := NewService(&Options{
+		HTTPClient:     server.Client(),
 		Domain:         domain,
 		ServiceName:    "ic",
 		AccountDomain:  domain,
@@ -1143,7 +1151,7 @@ func setupForFindRememberedConsentsByUser() *Service {
 }
 
 func Test_findRememberedConsentsByUser(t *testing.T) {
-	s := setupForFindRememberedConsentsByUser()
+	s := setupForFindRememberedConsentsByUser(t)
 
 	rcps := map[string]*cspb.RememberedConsentPreference{
 		"expired": {
@@ -1188,6 +1196,11 @@ func Test_findRememberedConsentsByUser(t *testing.T) {
 }
 
 func Test_findRememberedConsent(t *testing.T) {
+	server, err := fakeoidcissuer.New(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
+	}
+
 	expired := &cspb.RememberedConsentPreference{
 		ClientName: "cli",
 		ExpireTime: timeutil.TimestampProto(time.Time{}),
@@ -1276,6 +1289,7 @@ func Test_findRememberedConsent(t *testing.T) {
 			store := storage.NewMemoryStorage("ic-min", "testdata/config")
 
 			s := NewService(&Options{
+				HTTPClient:     server.Client(),
 				Domain:         domain,
 				ServiceName:    "ic",
 				AccountDomain:  domain,

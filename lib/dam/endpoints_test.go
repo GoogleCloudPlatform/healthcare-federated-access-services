@@ -22,7 +22,9 @@ import (
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/muxtest" /* copybara-comment: muxtest */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
 var (
@@ -106,13 +108,19 @@ func TestEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hydraproxy.New() failed: %v", err)
 	}
+	server, err := fakeoidcissuer.New(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
+	}
 
 	New(r, &Options{
+		HTTPClient:       server.Client(),
 		Domain:           "test.org",
 		ServiceName:      "dam",
 		Store:            store,
 		UseHydra:         useHydra,
 		HydraPublicProxy: proxy,
+		HydraPublicURL:   hydraPublicURL,
 	})
 
 	got := muxtest.PathsInRouter(t, r)

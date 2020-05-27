@@ -51,7 +51,7 @@ func TestCLIRegister(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
-	s := serviceNew(store, server.Client())
+	s := serviceNew(t, store, server.Client())
 	tests := []test.HandlerTest{
 		{
 			Method: "POST",
@@ -103,7 +103,7 @@ func cliFlow(t *testing.T, email, tokenOutput string, tokenStatus int) error {
 	if err != nil {
 		return fmt.Errorf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
-	s := serviceNew(store, server.Client())
+	s := serviceNew(t, store, server.Client())
 
 	// Step 1: cli/register and initiate cli/auth.
 	regReq := []test.HandlerTest{
@@ -166,16 +166,11 @@ type service struct {
 	Handler *mux.Router
 }
 
-func serviceNew(store storage.Store, client *http.Client) *service {
-	checker := &auth.Checker{
-		Logger:      nil,
-		Issuer:      hydraPublicURL,
-		Permissions: permissions.New(store),
-		FetchClientSecrets: func() (map[string]string, error) {
-			return map[string]string{test.TestClientID: test.TestClientSecret}, nil
-		},
-		TransformIdentity: func(id *ga4gh.Identity) *ga4gh.Identity { return id },
-	}
+func serviceNew(t *testing.T, store storage.Store, client *http.Client) *service {
+	checker := auth.NewChecker(nil, hydraPublicURL, permissions.New(store), func() (map[string]string, error) {
+		return map[string]string{test.TestClientID: test.TestClientSecret}, nil
+	}, func(id *ga4gh.Identity) *ga4gh.Identity { return id })
+
 	crypt := fakeencryption.New()
 
 	r := mux.NewRouter()

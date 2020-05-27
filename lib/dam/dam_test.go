@@ -1267,6 +1267,7 @@ func Test_populateIdentityVisas_oidc_and_jku(t *testing.T) {
 	}
 
 	s := NewService(&Options{
+		HTTPClient:     httptestclient.New(broker.Handler),
 		Domain:         "https://test.org",
 		ServiceName:    "dam",
 		DefaultBroker:  testBroker,
