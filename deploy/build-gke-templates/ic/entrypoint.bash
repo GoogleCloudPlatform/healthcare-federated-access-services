@@ -27,10 +27,10 @@ export SERVICE_NAME="${SERVICE_NAME?}"
 # HYDRA_PUBLIC_URL sets the hydra public url for start login.
 # TODO need to update after we deploy hydra on GCP.
 export HYDRA_PUBLIC_URL="${URL?}"
-export HYDRA_PUBLIC_URL_INTERNAL="http://hydra-ic-service:4444"
+export HYDRA_PUBLIC_URL_INTERNAL="${HYDRA_PUBLIC_URL_INTERNAL?}"
 # HYDRA_ADMIN_URL sets the hydra admin url for callback.
 # TODO need to update after we deploy hydra on GCP.
-export HYDRA_ADMIN_URL="http://hydra-ic-service:4445"
+export HYDRA_ADMIN_URL="${HYDRA_ADMIN_URL?}"
 export USE_HYDRA="true"
 # CONFIG_PATH is the path used for reading and writing config files.
 export CONFIG_PATH="deploy/config"

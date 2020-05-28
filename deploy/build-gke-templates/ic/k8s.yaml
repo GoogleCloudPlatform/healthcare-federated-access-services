@@ -40,6 +40,10 @@ spec:
           env:
             - name: DOMAIN
               value: ${DOMAIN_FOR_IC}
+            - name: HYDRA_ADMIN_URL
+              value: http://hydra-ic-service:4445
+            - name: HYDRA_PUBLIC_URL_INTERNAL
+              value: http://hydra-ic-service:4444
             - name: SERVICE_NAME
               value: ic
             - name: PROJECT
