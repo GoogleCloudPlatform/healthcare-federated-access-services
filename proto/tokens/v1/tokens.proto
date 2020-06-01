@@ -80,8 +80,11 @@ message Token {
   //   client_desc: description of the client.
   map<string, string> metadata = 12;
 
-  // type of the token, used to distinguish tokens from different platforms.
+  // Type of the token, used to distinguish tokens from different platforms.
   string type = 13;
+
+  // Resources of this token used to access.
+  repeated string resources = 14;
 }
 
 message Client {
