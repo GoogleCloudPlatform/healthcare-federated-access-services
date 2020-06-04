@@ -77,6 +77,10 @@ gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/cloudkms.signerVerifier
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/iam.serviceAccountTokenCreator
+gcloud projects add-iam-policy-binding -q ${PROJECT?} \
+  --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/logging.viewer
+gcloud projects add-iam-policy-binding -q ${PROJECT?} \
+  --member serviceAccount:${PROJECT?}@appspot.gserviceaccount.com --role roles/logging.logWriter
 
 gcloud projects add-iam-policy-binding -q ${PROJECT?} \
   --member serviceAccount:service-${PROJECT_NUMBER?}@gae-api-prod.google.com.iam.gserviceaccount.com --role roles/cloudsql.client
