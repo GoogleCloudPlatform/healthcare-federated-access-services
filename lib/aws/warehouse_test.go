@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package aws abstracts interacting with certain aspects of AWS,
+// such as creating IAM roles and user, account keys, and access tokens.
 package aws
 
 import (
@@ -28,17 +30,18 @@ import (
 	"time"
 )
 
-func NewMockApiClient(account string, userId string) *MockAwsClient {
+// NewMockAPIClient provides an API client implementation suitable for unit tests.
+func NewMockAPIClient(account string, userID string) *MockAwsClient {
 	return &MockAwsClient{
-		Account:       account,
-		UserId:        userId,
+		Account: account,
+		UserID:  userID,
 	}
 }
 
 // Mock AWS Client
 type MockAwsClient struct {
 	Account      string
-	UserId       string
+	UserID       string
 	Roles        []*iam.Role
 	RolePolicies []*iam.PutRolePolicyInput
 	Users        []*iam.User
@@ -76,8 +79,8 @@ func (m *MockAwsClient) DeleteAccessKey(input *iam.DeleteAccessKeyInput) (*iam.D
 func (m *MockAwsClient) GetCallerIdentity(_ *sts.GetCallerIdentityInput) (*sts.GetCallerIdentityOutput, error) {
 	return &sts.GetCallerIdentityOutput{
 		Account: &m.Account,
-		Arn:     aws.String(fmt.Sprintf("arn:aws:iam::%s:user/%s", m.Account, m.UserId)),
-		UserId:  &m.UserId,
+		Arn:     aws.String(fmt.Sprintf("arn:aws:iam::%s:user/%s", m.Account, m.UserID)),
+		UserId:  &m.UserID,
 	}, nil
 }
 
@@ -128,19 +131,17 @@ func (m *MockAwsClient) CreateAccessKey(input *iam.CreateAccessKeyInput) (*iam.C
 func (m *MockAwsClient) PutRolePolicy(input *iam.PutRolePolicyInput) (*iam.PutRolePolicyOutput, error) {
 	if _, err := m.GetRole(&iam.GetRoleInput{RoleName: input.RoleName}); err != nil {
 		return nil, err
-	} else {
-		m.RolePolicies = append(m.RolePolicies, input)
-		return &iam.PutRolePolicyOutput{}, nil
 	}
+	m.RolePolicies = append(m.RolePolicies, input)
+	return &iam.PutRolePolicyOutput{}, nil
 }
 
 func (m *MockAwsClient) PutUserPolicy(input *iam.PutUserPolicyInput) (*iam.PutUserPolicyOutput, error) {
 	if _, err := m.GetUser(&iam.GetUserInput{UserName: input.UserName}); err != nil {
 		return nil, err
-	} else {
-		m.UserPolicies = append(m.UserPolicies, input)
-		return &iam.PutUserPolicyOutput{}, nil
 	}
+	m.UserPolicies = append(m.UserPolicies, input)
+	return &iam.PutUserPolicyOutput{}, nil
 }
 
 func (m *MockAwsClient) GetUser(input *iam.GetUserInput) (*iam.GetUserOutput, error) {
@@ -228,16 +229,16 @@ func (m *MockAwsClient) CreateRole(input *iam.CreateRoleInput) (*iam.CreateRoleO
 
 func NewMockBucketParams(ttl time.Duration) *ResourceParams {
 	return &ResourceParams{
-		UserId:                "ic_abc123|fake-ic",
-		Ttl:                   ttl,
-		MaxKeyTtl:             (24 * 30) * time.Hour,
+		UserID:                "ic_abc123|fake-ic",
+		TTL:                   ttl,
+		MaxKeyTTL:             (24 * 30) * time.Hour,
 		ManagedKeysPerAccount: 2,
 		Vars:                  map[string]string{"bucket": "test-bucket-name"},
 		TargetRoles:           []string{"s3:GetObject"},
 		TargetScopes:          []string{},
-		DamResourceId:         "res-id",
-		DamViewId:             "view-id",
-		DamRoleId:             "role-id",
+		DamResourceID:         "res-id",
+		DamViewID:             "view-id",
+		DamRoleID:             "role-id",
 		ServiceTemplate:       &v1.ServiceTemplate{ServiceName: "s3bucket"},
 	}
 }
@@ -254,22 +255,22 @@ func NewMockRedshiftParams(ttl time.Duration) *ResourceParams {
 	}
 
 	return &ResourceParams{
-		UserId:                "ic_abc123|fake-ic",
-		Ttl:                   ttl,
-		MaxKeyTtl:             (24 * 30) * time.Hour,
+		UserID:                "ic_abc123|fake-ic",
+		TTL:                   ttl,
+		MaxKeyTTL:             (24 * 30) * time.Hour,
 		ManagedKeysPerAccount: 2,
 		Vars:                  vars,
 		TargetRoles:           roles,
 		TargetScopes:          []string{},
-		DamResourceId:         "res-id",
-		DamViewId:             "view-id",
-		DamRoleId:             "role-id",
+		DamResourceID:         "res-id",
+		DamViewID:             "view-id",
+		DamRoleID:             "role-id",
 		ServiceTemplate:       &v1.ServiceTemplate{ServiceName: "redshift"},
 	}
 }
 
 func TestNewAwsWarehouse(t *testing.T) {
-	apiClient := NewMockApiClient("12345678", "dam-user-id")
+	apiClient := NewMockAPIClient("12345678", "dam-user-id")
 	wh, err := NewWarehouse(context.Background(), apiClient)
 
 	if err != nil {
@@ -281,15 +282,15 @@ func TestNewAwsWarehouse(t *testing.T) {
 }
 
 func TestAWS_MintTokenWithShortLivedTTL_Bucket(t *testing.T) {
-	damPrincipalId := "dam-user-id"
+	damPrincipalID := "dam-user-id"
 	awsAccount := "12345678"
-	apiClient := NewMockApiClient(awsAccount, damPrincipalId)
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
 	wh, _ := NewWarehouse(context.Background(), apiClient)
 	params := NewMockBucketParams(time.Hour)
 
 	result, err := wh.MintTokenWithTTL(context.Background(), params)
 
-	expectedRoleName := fmt.Sprintf("%s,%s,%s@%s", params.DamResourceId, params.DamViewId, params.DamRoleId, damPrincipalId)
+	expectedRoleName := fmt.Sprintf("%s,%s,%s@%s", params.DamResourceID, params.DamViewID, params.DamRoleID, damPrincipalID)
 	expectedRoleArn := fmt.Sprintf("arn:aws:iam::%s:role/ddap/%s", awsAccount, expectedRoleName)
 	validateMintedRoleCredentials(t, expectedRoleArn, result, err)
 	validateCreatedRolePolicy(t, apiClient, expectedRoleName, params.TargetRoles)
@@ -297,14 +298,14 @@ func TestAWS_MintTokenWithShortLivedTTL_Bucket(t *testing.T) {
 
 func TestAWS_MintTokenWithShortLivedTTL_Redshift(t *testing.T) {
 	awsAccount := "12345678"
-	damPrincipalId := "dam-user-id"
-	apiClient := NewMockApiClient(awsAccount, damPrincipalId)
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
 	wh, _ := NewWarehouse(context.Background(), apiClient)
 	params := NewMockRedshiftParams(time.Hour)
 
 	result, err := wh.MintTokenWithTTL(context.Background(), params)
 
-	expectedRoleName := fmt.Sprintf("%s,%s,%s@%s", params.DamResourceId, params.DamViewId, params.DamRoleId, damPrincipalId)
+	expectedRoleName := fmt.Sprintf("%s,%s,%s@%s", params.DamResourceID, params.DamViewID, params.DamRoleID, damPrincipalID)
 	expectedRoleArn := fmt.Sprintf("arn:aws:iam::%s:role/ddap/%s", awsAccount, expectedRoleName)
 	validateMintedRoleCredentials(t, expectedRoleArn, result, err)
 	validateCreatedRolePolicy(t, apiClient, expectedRoleName, params.TargetRoles)
@@ -312,15 +313,15 @@ func TestAWS_MintTokenWithShortLivedTTL_Redshift(t *testing.T) {
 
 func TestAWS_MintTokenWithLongLivedTTL_Bucket(t *testing.T) {
 	awsAccount := "12345678"
-	damPrincipalId := "dam-user-id"
-	apiClient := NewMockApiClient(awsAccount, damPrincipalId)
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
 	wh, _ := NewWarehouse(context.Background(), apiClient)
 	// AWS has 12-hour threshold for role access tokens
 	params := NewMockBucketParams(13 * time.Hour)
 
 	result, err := wh.MintTokenWithTTL(context.Background(), params)
 
-	expectedUserName := "ic_abc123@" + damPrincipalId
+	expectedUserName := "ic_abc123@" + damPrincipalID
 	expectedUserArn := fmt.Sprintf("arn:aws:iam::%s:user/%s", awsAccount, expectedUserName)
 	validateMintedAccessKey(t, expectedUserArn, result, err)
 	validateCreatedUserPolicy(t, apiClient, expectedUserName, params.TargetRoles)
@@ -328,15 +329,15 @@ func TestAWS_MintTokenWithLongLivedTTL_Bucket(t *testing.T) {
 
 func TestAWS_MintTokenWithLongLivedTTL_Redshift(t *testing.T) {
 	awsAccount := "12345678"
-	damPrincipalId := "dam-user-id"
-	apiClient := NewMockApiClient(awsAccount, damPrincipalId)
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
 	wh, _ := NewWarehouse(context.Background(), apiClient)
 	// AWS has 12-hour threshold for role access tokens
 	params := NewMockRedshiftParams(13 * time.Hour)
 
 	result, err := wh.MintTokenWithTTL(context.Background(), params)
 
-	expectedUserName := "ic_abc123@" + damPrincipalId
+	expectedUserName := "ic_abc123@" + damPrincipalID
 	expectedUserArn := fmt.Sprintf("arn:aws:iam::%s:user/%s", awsAccount, expectedUserName)
 	validateMintedAccessKey(t, expectedUserArn, result, err)
 	validateCreatedUserPolicy(t, apiClient, expectedUserName, params.TargetRoles)
@@ -355,8 +356,8 @@ func validateMintedRoleCredentials(t *testing.T, expectedAccount string, result 
 	if result.Account != expectedAccount {
 		t.Errorf("expected account [%s] but observed [%s]", expectedAccount, result.Account)
 	}
-	if !strings.HasSuffix(result.AccessKeyId, "-id") {
-		t.Errorf("expected AccessKeyId to be mocked id value but was [%s]", result.AccessKeyId)
+	if !strings.HasSuffix(result.AccessKeyID, "-id") {
+		t.Errorf("expected AccessKeyID to be mocked id value but was [%s]", result.AccessKeyID)
 	}
 	if !strings.HasSuffix(result.SecretAccessKey, "-key") {
 		t.Errorf("expected SecretAccessKey to be mocked key value but was [%s]", result.SecretAccessKey)
@@ -379,8 +380,8 @@ func validateMintedAccessKey(t *testing.T, expectedAccount string, result *Resou
 	if result.Account != expectedAccount {
 		t.Errorf("expected account [%s] but observed [%s]", expectedAccount, result.Account)
 	}
-	if !strings.HasSuffix(result.AccessKeyId, "-id") {
-		t.Errorf("expected AccessKeyId to be mocked id value but was [%s]", result.AccessKeyId)
+	if !strings.HasSuffix(result.AccessKeyID, "-id") {
+		t.Errorf("expected AccessKeyID to be mocked id value but was [%s]", result.AccessKeyID)
 	}
 	if !strings.HasSuffix(result.SecretAccessKey, "-key") {
 		t.Errorf("expected SecretAccessKey to be mocked key value but was [%s]", result.SecretAccessKey)
