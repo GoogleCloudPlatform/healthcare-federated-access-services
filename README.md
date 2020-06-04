@@ -46,8 +46,6 @@ For more information, visit:
 *  [GA4GH AAI OpenID Connect Profile v1.0](http://bit.ly/ga4gh-aai-profile) specification.
 *  [GA4GH](https://www.ga4gh.org/)
 
-**IMPORTANT: This is an early pre-release that should only be used for testing and demo purposes. Only synthetic or public datasets should be used. Customer support is not currently provided.**
-
 ## Contributing to the repository
 
 For information on how to contribute to the repository, see [How to Contribute](CONTRIBUTING.md).
