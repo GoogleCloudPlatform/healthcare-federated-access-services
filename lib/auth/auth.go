@@ -184,7 +184,7 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 		if err != nil {
 			log.ErrorType = errutil.ErrorReason(err)
 		}
-		writeAccessLog(checker.logger, log, err, r)
+		writeRequestLog(checker.logger, log, err, r)
 		if err != nil {
 			httputils.WriteError(w, err)
 			return
@@ -226,8 +226,8 @@ func checkRequest(r *http.Request) error {
 }
 
 // Check checks request meet all authorization requirements for this framework.
-func (s *Checker) check(r *http.Request, require Require) (*auditlog.AccessLog, *ga4gh.Identity, bool, error) {
-	log := &auditlog.AccessLog{}
+func (s *Checker) check(r *http.Request, require Require) (*auditlog.RequestLog, *ga4gh.Identity, bool, error) {
+	log := &auditlog.RequestLog{}
 
 	if err := checkRequest(r); err != nil {
 		return log, nil, false, err
@@ -400,7 +400,7 @@ func isEditMethod(method string) bool {
 	return true
 }
 
-func writeAccessLog(client *logging.Client, entry *auditlog.AccessLog, err error, r *http.Request) {
+func writeRequestLog(client *logging.Client, entry *auditlog.RequestLog, err error, r *http.Request) {
 	entry.RequestMethod = r.Method
 	entry.RequestEndpoint = httputils.AbsolutePath(r)
 	entry.RequestIP = httputils.RequesterIP(r)
@@ -416,7 +416,7 @@ func writeAccessLog(client *logging.Client, entry *auditlog.AccessLog, err error
 	}
 	entry.Request = r
 
-	auditlog.WriteAccessLog(r.Context(), client, entry)
+	auditlog.WriteRequestLog(r.Context(), client, entry)
 }
 
 func tokenID(id *ga4gh.Identity) string {

@@ -39,6 +39,7 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -1870,7 +1871,7 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 		Payload:  &lepb.LogEntry_JsonPayload{},
 		Severity: lspb.LogSeverity_DEFAULT,
 		Labels: map[string]string{
-			"type":            "policy_decision_log",
+			"type":            auditlog.TypePolicyLog,
 			"token_id":        "token-id-dr_joe_elixir",
 			"token_subject":   "dr_joe_elixir",
 			"token_issuer":    "https://hydra.example.com/",

@@ -41,7 +41,7 @@ import (
 	apb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/auditlogs/v0" /* copybara-comment: auditlogs_go_proto */
 )
 
-func Test_AccessLog(t *testing.T) {
+func Test_RequestLog(t *testing.T) {
 	ctx := context.Background()
 
 	project := "fake-project-id"
@@ -51,7 +51,7 @@ func Test_AccessLog(t *testing.T) {
 
 	before := time.Now()
 	auditlog.LogSync = true
-	al := &auditlog.AccessLog{
+	al := &auditlog.RequestLog{
 		TokenID:         "tid",
 		TokenSubject:    "sub",
 		TokenIssuer:     "http://issuer.example.com",
@@ -65,7 +65,7 @@ func Test_AccessLog(t *testing.T) {
 		Payload:         "This is message",
 		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/endpoint", nil),
 	}
-	auditlog.WriteAccessLog(ctx, f.logger, al)
+	auditlog.WriteRequestLog(ctx, f.logger, al)
 	pl := &auditlog.PolicyDecisionLog{
 		TokenID:        "tid",
 		TokenSubject:   "sub",
@@ -108,7 +108,7 @@ func Test_AccessLog(t *testing.T) {
 		l.Time = nil
 	}
 
-	// TODO: use protocmp.IgnoreFields(&apb.AccessLog{}, "time") instead when it works.
+	// TODO: use protocmp.IgnoreFields(&apb.RequestLog{}, "time") instead when it works.
 
 	want := &apb.ListAuditLogsResponse{
 		AuditLogs: []*apb.AuditLog{

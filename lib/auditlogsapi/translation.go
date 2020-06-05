@@ -19,6 +19,7 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -37,9 +38,9 @@ func ToAuditLog(e *lepb.LogEntry) (*apb.AuditLog, error) {
 		return nil, status.Errorf(codes.Internal, "invalid log type")
 	}
 	switch t {
-	case "access_log":
+	case auditlog.TypeRequestLog:
 		return ToRequestLog(e)
-	case "policy_decision_log":
+	case auditlog.TypePolicyLog:
 		return ToPolicyLog(e)
 	default:
 		return nil, status.Errorf(codes.Internal, "invalid log type")

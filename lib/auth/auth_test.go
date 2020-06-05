@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -1071,7 +1072,7 @@ func Test_UserAndLinkToken_Error_Log(t *testing.T) {
 	}
 }
 
-func Test_writeAccessLog_auth_pass(t *testing.T) {
+func Test_writeRequestLog_auth_pass(t *testing.T) {
 	now := time.Now().Unix()
 
 	tests := []struct {
@@ -1143,7 +1144,7 @@ func Test_writeAccessLog_auth_pass(t *testing.T) {
 					"token_id":        "id",
 					"token_subject":   "sub",
 					"token_issuer":    normalize(issuerURL),
-					"type":            "access_log",
+					"type":            auditlog.TypeRequestLog,
 					"pass_auth_check": "true",
 					"project_id":      "unset-serviceinfo-Project",
 					"service_type":    "unset-serviceinfo-Type",
@@ -1166,7 +1167,7 @@ func Test_writeAccessLog_auth_pass(t *testing.T) {
 	}
 }
 
-func Test_writeAccessLog_auth_failed(t *testing.T) {
+func Test_writeRequestLog_auth_failed(t *testing.T) {
 	router, oidc, _, _, logs, close := setup(t)
 	defer close()
 
@@ -1184,7 +1185,7 @@ func Test_writeAccessLog_auth_failed(t *testing.T) {
 			"token_id":        "",
 			"token_subject":   "",
 			"token_issuer":    "",
-			"type":            "access_log",
+			"type":            auditlog.TypeRequestLog,
 			"pass_auth_check": "false",
 			"project_id":      "unset-serviceinfo-Project",
 			"service_type":    "unset-serviceinfo-Type",

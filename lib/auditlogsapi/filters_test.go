@@ -15,78 +15,331 @@
 package auditlogsapi
 
 import (
-	"regexp"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
 )
 
 var (
-	fakeTime = time.Date(2020, time.January, 1, 23, 59, 59, 0, time.UTC)
-	before   = fakeTime.Add(-time.Hour).Format(time.RFC3339)
-	exact    = fakeTime.Format(time.RFC3339)
-	after    = fakeTime.Add(time.Hour).Format(time.RFC3339)
+	timeStr = time.Date(2020, time.January, 2, 23, 58, 59, 0, time.UTC).Format(time.RFC3339)
 )
 
-func TestRFC3999REStr(t *testing.T) {
-	tests := []string{
-		before,
-		exact,
-		after,
-		time.RFC3339,
-	}
-	for _, tc := range tests {
-		got := regexp.MustCompile(rfc3339REStr).MatchString(tc)
-		want := true
-		if got != want {
-			t.Fatalf("regexp.MustCompile(rfc3339REStr).MatchString(%v) = %v, want %v", fakeTime, got, want)
-		}
-	}
-}
-
-func TestFilterRE(t *testing.T) {
+func Test_parseExp(t *testing.T) {
 	tests := []struct {
-		desc   string
-		filter string
-		want   bool
+		name  string
+		input string
+		want  *exp
 	}{
 		{
-			desc:   "since time",
-			filter: "time>=" + before,
-			want:   true,
+			name:  "time >=",
+			input: `time >= "` + timeStr + `"`,
+			want: &exp{
+				field: fieldTime,
+				op:    ">=",
+				value: timeStr,
+			},
 		},
 		{
-			desc:   "till time",
-			filter: "time<=" + after,
-			want:   true,
+			name:  "time <=",
+			input: `time <= "` + timeStr + `"`,
+			want: &exp{
+				field: fieldTime,
+				op:    "<=",
+				value: timeStr,
+			},
 		},
 		{
-			desc:   "exact time",
-			filter: "time=" + exact,
-			want:   true,
+			name:  "type",
+			input: `type = "REQUEST"`,
+			want: &exp{
+				field: fieldType,
+				op:    "=",
+				value: "REQUEST",
+			},
 		},
 		{
-			desc:   "range time",
-			filter: "time>=" + before + " AND " + "time<=" + after,
-			want:   true,
+			name:  "text =",
+			input: `text = "aaa"`,
+			want: &exp{
+				field: fieldText,
+				op:    "=",
+				value: "aaa",
+			},
+		},
+		{
+			name:  "text :",
+			input: `text : "aaa"`,
+			want: &exp{
+				field: fieldText,
+				op:    ":",
+				value: "aaa",
+			},
+		},
+		{
+			name:  "trim space",
+			input: ` text : "aaa" `,
+			want: &exp{
+				field: fieldText,
+				op:    ":",
+				value: "aaa",
+			},
+		},
+		{
+			name:  "spaces",
+			input: `text   :   "aaa"`,
+			want: &exp{
+				field: fieldText,
+				op:    ":",
+				value: "aaa",
+			},
+		},
+		{
+			name:  "space in value",
+			input: `text = "aa bb"`,
+			want: &exp{
+				field: fieldText,
+				op:    "=",
+				value: "aa bb",
+			},
 		},
 	}
 
 	for _, tc := range tests {
-		got := timeFilterRE.MatchString(tc.filter)
-		if got != tc.want {
-			t.Errorf("%v: timeFilterRE.MatchString(%v) = %v, want %v", tc.desc, tc.filter, got, tc.want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseExp(tc.input)
+			if err != nil {
+				t.Fatalf("parseExp() failed: %v", err)
+			}
+
+			if d := cmp.Diff(tc.want, got, cmp.AllowUnexported(exp{})); len(d) > 0 {
+				t.Errorf("parseExp() (-want, +got): %s", d)
+			}
+		})
 	}
 }
 
-func TestExtractFilters(t *testing.T) {
-	in := "time>=" + before + " AND " + "time<=" + after
-	got, err := extractFilters(in)
-	if err != nil {
-		t.Fatalf("extractFilters(%v) failed: %v", in, err)
+func Test_parseExp_Error(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "unknown field",
+			input: `aaa = "bbb"`,
+		},
+		{
+			name:  "time op",
+			input: `time = "` + timeStr + `"`,
+		},
+		{
+			name:  "type op",
+			input: `type != "REQUEST"`,
+		},
+		{
+			name:  "text op",
+			input: `text != "aaa"`,
+		},
+		{
+			name:  "time value",
+			input: `time >= "aaa"`,
+		},
+		{
+			name:  "type value",
+			input: `type = "aaa"`,
+		},
 	}
-	want := "timestamp>=" + before + " AND " + "timestamp<=" + after
-	if got != want {
-		t.Fatalf("extractFilters(%v) = %v, want %v", in, got, want)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := parseExp(tc.input); err == nil {
+				t.Fatalf("parseExp() wants err")
+			}
+		})
+	}
+}
+
+func Test_exp_toCELFilter(t *testing.T) {
+	tests := []struct {
+		name  string
+		input *exp
+		want  string
+	}{
+		{
+			name: "time <=",
+			input: &exp{
+				field: fieldTime,
+				op:    lte,
+				value: timeStr,
+			},
+			want: `timestamp <= "` + timeStr + `"`,
+		},
+		{
+			name: "time >=",
+			input: &exp{
+				field: fieldTime,
+				op:    gte,
+				value: timeStr,
+			},
+			want: `timestamp >= "` + timeStr + `"`,
+		},
+		{
+			name: "text =",
+			input: &exp{
+				field: fieldText,
+				op:    equals,
+				value: "a",
+			},
+			want: `(textPayload = "a" OR labels.token_id = "a" OR labels.token_issuer = "a" OR labels.tracing_id = "a" OR labels.request_path = "a" OR labels.error_type = "a" OR labels.pass_auth_check = "a" OR labels.resource = "a" OR labels.ttl = "a" OR labels.cart_id = "a")`,
+		},
+		{
+			name: "text :",
+			input: &exp{
+				field: fieldText,
+				op:    contains,
+				value: "a",
+			},
+			want: `(textPayload : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.pass_auth_check : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a")`,
+		},
+		{
+			name: "type = request",
+			input: &exp{
+				field: fieldType,
+				op:    equals,
+				value: "REQUEST",
+			},
+			want: `labels.type = "request"`,
+		},
+		{
+			name: "type = policy",
+			input: &exp{
+				field: fieldType,
+				op:    equals,
+				value: "POLICY",
+			},
+			want: `labels.type = "policy_decision"`,
+		},
+		{
+			name: "escape text =",
+			input: &exp{
+				field: fieldText,
+				op:    equals,
+				value: "A\" AND true",
+			},
+			want: `(textPayload = "A AND true" OR labels.token_id = "A AND true" OR labels.token_issuer = "A AND true" OR labels.tracing_id = "A AND true" OR labels.request_path = "A AND true" OR labels.error_type = "A AND true" OR labels.pass_auth_check = "A AND true" OR labels.resource = "A AND true" OR labels.ttl = "A AND true" OR labels.cart_id = "A AND true")`,
+		},
+		{
+			name: "escape text :",
+			input: &exp{
+				field: fieldText,
+				op:    contains,
+				value: "A\" AND true",
+			},
+			want: `(textPayload : "A AND true" OR labels.token_id : "A AND true" OR labels.token_issuer : "A AND true" OR labels.tracing_id : "A AND true" OR labels.request_path : "A AND true" OR labels.error_type : "A AND true" OR labels.pass_auth_check : "A AND true" OR labels.resource : "A AND true" OR labels.ttl : "A AND true" OR labels.cart_id : "A AND true")`,
+		},
+		{
+			name: "escape type",
+			input: &exp{
+				field: fieldType,
+				op:    equals,
+				value: "A\" AND true",
+			},
+			want: `labels.type = ""`,
+		},
+		{
+			name: "escape time",
+			input: &exp{
+				field: fieldTime,
+				op:    gte,
+				value: "A\" AND true",
+			},
+			want: `timestamp >= "A AND true"`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.input.toCELFilter()
+			if d := cmp.Diff(tc.want, got); len(d) > 0 {
+				t.Errorf("toCELFilter() (-want, +got): %s", d)
+			}
+		})
+	}
+}
+
+func Test_extractFilters(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "empty input",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "all",
+			input: fmt.Sprintf(`time >= "%s" AND time <= "%s" AND type = "REQUEST" AND text : "a"`, timeStr, timeStr),
+			want:  `timestamp >= "2020-01-02T23:58:59Z" AND timestamp <= "2020-01-02T23:58:59Z" AND labels.type = "request" AND (textPayload : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.pass_auth_check : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a")`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := extractFilters(tc.input)
+			if err != nil {
+				t.Fatalf("extractFilters() failed: %v", err)
+			}
+
+			if d := cmp.Diff(tc.want, got); len(d) > 0 {
+				t.Errorf("toCELFilter() (-want, +got): %s", d)
+			}
+		})
+	}
+}
+
+func Test_extractFilters_Error(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "unknown field",
+			input: `aaa = "bbb"`,
+		},
+		{
+			name:  "format",
+			input: `aaa = "bbb ccc"`,
+		},
+		{
+			name:  "time op",
+			input: `time = "` + timeStr + `"`,
+		},
+		{
+			name:  "type op",
+			input: `type != "REQUEST"`,
+		},
+		{
+			name:  "text op",
+			input: `text != "aaa"`,
+		},
+		{
+			name:  "time value",
+			input: `time >= "aaa"`,
+		},
+		{
+			name:  "type value",
+			input: `type = "aaa"`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := extractFilters(tc.input); err == nil {
+				t.Fatalf("extractFilters() wants err")
+			}
+		})
 	}
 }

@@ -31,10 +31,30 @@ var (
 	// LogSync ensure that logs are written sync.
 	// Useful for testing.
 	LogSync bool
+
+	// SearchableLabels lists all labels allow to search via FA endpoints
+	SearchableLabels = []string{
+		"token_id",
+		"token_issuer",
+		"tracing_id",
+		"request_path",
+		"error_type",
+		"pass_auth_check",
+		"resource",
+		"ttl",
+		"cart_id",
+	}
 )
 
-// AccessLog logs the http endpoint accessing.
-type AccessLog struct {
+const (
+	// TypeRequestLog log type string for access log
+	TypeRequestLog = "request"
+	// TypePolicyLog log type string for policy log
+	TypePolicyLog = "policy_decision"
+)
+
+// RequestLog logs the http endpoint accessing.
+type RequestLog struct {
 	// TokenID is the id of the token, maybe "jti".
 	TokenID string
 	// TokenSubject is the "sub" of the token.
@@ -61,10 +81,10 @@ type AccessLog struct {
 	Payload interface{}
 }
 
-// WriteAccessLog puts the access log to StackDriver.
-func WriteAccessLog(ctx context.Context, client *logging.Client, log *AccessLog) {
+// WriteRequestLog puts the access log to StackDriver.
+func WriteRequestLog(ctx context.Context, client *logging.Client, log *RequestLog) {
 	labels := map[string]string{
-		"type":            "access_log",
+		"type":            TypeRequestLog,
 		"token_id":        log.TokenID,
 		"token_subject":   log.TokenSubject,
 		"token_issuer":    log.TokenIssuer,
@@ -119,7 +139,7 @@ type PolicyDecisionLog struct {
 // WritePolicyDecisionLog puts the policy decision log to StackDriver.
 func WritePolicyDecisionLog(client *logging.Client, log *PolicyDecisionLog) {
 	labels := map[string]string{
-		"type":            "policy_decision_log",
+		"type":            TypePolicyLog,
 		"token_id":        log.TokenID,
 		"token_subject":   log.TokenSubject,
 		"token_issuer":    log.TokenIssuer,

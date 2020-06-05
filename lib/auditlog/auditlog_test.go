@@ -32,7 +32,7 @@ import (
 	lpb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: logging_go_proto */
 )
 
-func TestWriteAccessLog(t *testing.T) {
+func TestWriteRequestLog(t *testing.T) {
 	server, close := fakesdl.New()
 	defer close()
 
@@ -46,7 +46,7 @@ func TestWriteAccessLog(t *testing.T) {
 		t.Fatalf("http.NewRequest() failed: %v", err)
 	}
 
-	al := &AccessLog{
+	al := &RequestLog{
 		TokenID:         "tid",
 		TokenSubject:    "sub",
 		TokenIssuer:     "http://issuer.example.com",
@@ -61,7 +61,7 @@ func TestWriteAccessLog(t *testing.T) {
 		Request:         req,
 	}
 
-	WriteAccessLog(context.Background(), server.Client, al)
+	WriteRequestLog(context.Background(), server.Client, al)
 	server.Client.Close()
 
 	want := []*lpb.WriteLogEntriesRequest{{
@@ -76,7 +76,7 @@ func TestWriteAccessLog(t *testing.T) {
 				"token_subject":   al.TokenSubject,
 				"token_issuer":    al.TokenIssuer,
 				"tracing_id":      "1",
-				"type":            "access_log",
+				"type":            TypeRequestLog,
 				"pass_auth_check": "false",
 				"project_id":      "p1",
 				"service_type":    "t1",
@@ -130,7 +130,7 @@ func TestWritePolicyDecisionLog(t *testing.T) {
 			Severity: lspb.LogSeverity_DEFAULT,
 			Payload:  &lepb.LogEntry_TextPayload{TextPayload: pl.Message.(string)},
 			Labels: map[string]string{
-				"type":            "policy_decision_log",
+				"type":            TypePolicyLog,
 				"token_id":        "tid",
 				"token_subject":   "sub",
 				"token_issuer":    "http://issuer.example.com",
@@ -156,7 +156,7 @@ func TestWritePolicyDecisionLog(t *testing.T) {
 	}
 }
 
-func TestWriteAccessLog_Disable_nil(t *testing.T) {
+func TestWriteRequestLog_Disable_nil(t *testing.T) {
 	writeLog(nil, logging.Entry{Payload: "this is a log"})
 
 	// Do not crash.

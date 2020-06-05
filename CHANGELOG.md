@@ -4,6 +4,14 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.4...HEAD)
 
+**Highlight Updates**
+
+*  Support "filter" in auditlogs:
+
+  *  time >= or <= RFC3339 timestamp, example: time >= "2020-06-05T16:03:01+00:00"
+  *  type = REQUEST or POLICY for audit log types, example: type = "REQUEST"
+  *  text = or :(contains) for any text field equals or conatins given words, example: text : "a" or text = "a"
+
 ## [v0.9.4](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.4)
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.3...v0.9.4)

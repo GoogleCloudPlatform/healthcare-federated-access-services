@@ -126,7 +126,7 @@ func TestAuditLog(ctx context.Context, s *auditlogsapi.AuditLogs, c lgrpcpb.Logg
 	}
 
 	// Write an access and a policy log.
-	al := &auditlog.AccessLog{
+	al := &auditlog.RequestLog{
 		TokenID:         "fake-token-id",
 		TokenSubject:    userID,
 		TokenIssuer:     "fake-issuer-id",
@@ -140,7 +140,7 @@ func TestAuditLog(ctx context.Context, s *auditlogsapi.AuditLogs, c lgrpcpb.Logg
 		PassAuthCheck:   true,
 		Payload:         "fake-reason",
 	}
-	auditlog.WriteAccessLog(ctx, logger, al)
+	auditlog.WriteRequestLog(ctx, logger, al)
 
 	pl := &auditlog.PolicyDecisionLog{
 		TokenID:       "fake-token-id",
