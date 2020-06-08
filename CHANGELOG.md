@@ -2,15 +2,19 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.4...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.5...HEAD)
+
+## [v0.9.5](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.5)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.4...v0.9.5)
 
 **Highlight Updates**
 
-*  Support "filter" in auditlogs:
+* Support "filter" in auditlogs:
 
-  *  time >= or <= RFC3339 timestamp, example: time >= "2020-06-05T16:03:01+00:00"
-  *  type = REQUEST or POLICY for audit log types, example: type = "REQUEST"
-  *  text = or :(contains) for any text field equals or conatins given words, example: text : "a" or text = "a"
+  * time >= or <= RFC3339 timestamp, example: time >= "2020-06-05T16:03:01+00:00"
+  * type = REQUEST or POLICY for audit log types, example: type = "REQUEST"
+  * text = or :(contains) for any text field equals or conatins given words, example: text : "a" or text = "a"
 
 ## [v0.9.4](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.4)
 
@@ -18,13 +22,13 @@
 
 **Highlight Updates**
 
-*  Add CSP header to restrict resource origin.
-*  Use KMS to sign visa and gatekeeper token
+* Add CSP header to restrict resource origin.
+* Use KMS to sign visa and gatekeeper token
 
 **Migration**
 
-*  Update secret config in datastore, you can use `import.bash`
-*  The SA for IC/DAM service accessing GCP services requires new role `roles/cloudkms.signerVerifier`
+* Update secret config in datastore, you can use `import.bash`
+* The SA for IC/DAM service accessing GCP services requires new role `roles/cloudkms.signerVerifier`
 
 ## [v0.9.3](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.3)
 
@@ -32,22 +36,22 @@
 
 **Migration**
 
-*  Need to import `permissions` file in IC and DAM into datastore, for test setup just run `import.bash` with `-t`
+* Need to import `permissions` file in IC and DAM into datastore, for test setup just run `import.bash` with `-t`
 
 **Highlight Updates**
 
-*  Implements token management endpoints:
+* Implements token management endpoints:
 
-  *  List tokens of user: `GET /(identity|dam)/v1alpha/users/{user}/tokens`
-  *  Delete token of user: `DELETE /(identity|dam)/v1alpha/users/{user}/tokens/{token_id}`
+  * List tokens of user: `GET /(identity|dam)/v1alpha/users/{user}/tokens`
+  * Delete token of user: `DELETE /(identity|dam)/v1alpha/users/{user}/tokens/{token_id}`
 
-*  Implements audit logs endpoints:
+* Implements audit logs endpoints:
 
-  *  List audit logs of user `GET /(identity|dam)/v1alpha/users/{user}/auditlogs`.
+  * List audit logs of user `GET /(identity|dam)/v1alpha/users/{user}/auditlogs`.
 
-*  Passport Visa [Embedded Document format](https://github.com/ga4gh/data-security/blob/master/AAI/AAIConnectProfile.md#embedded-document-token-format) restriction:
+* Passport Visa [Embedded Document format](https://github.com/ga4gh/data-security/blob/master/AAI/AAIConnectProfile.md#embedded-document-token-format) restriction:
 
-     *  JKU URL in the JWT header is now restricted to issuer's domain as found in the `iss` claim, otherwise the visa will be rejected.
+     * JKU URL in the JWT header is now restricted to issuer's domain as found in the `iss` claim, otherwise the visa will be rejected.
 
 ## [v0.9.2](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.2)
 
@@ -55,17 +59,17 @@
 
 **Migration**
 
-*  Upgrade Hydra to 1.4.2: need rebuild the base image for GAE or Re-deploy Hydra image for GKE. [commit](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/commit/d7e34f2c8c27de83e6c98620ca391b48a679e5b0)
-*  Use env var `CONSENT_DASHBOARD_URL` for remembered consent management dashboard, also support set url with user id in path via ${USER_ID}. Example:
-  *  `export CONSENT_DASHBOARD_URL=https://example.com/consent/${USER_ID}`
+* Upgrade Hydra to 1.4.2: need rebuild the base image for GAE or Re-deploy Hydra image for GKE. [commit](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/commit/d7e34f2c8c27de83e6c98620ca391b48a679e5b0)
+* Use env var `CONSENT_DASHBOARD_URL` for remembered consent management dashboard, also support set url with user id in path via ${USER_ID}. Example:
+  * `export CONSENT_DASHBOARD_URL=https://example.com/consent/${USER_ID}`
 
 **Highlight Updates**
 
-*  Implements remembered consents management:
-  *  list user remembered consents: `/identity/v1alpha/{realm}/users/{user}/consents`
-  *  delete user remembered consent: `/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}`
-*  Fix a multi-threading issue. [commit](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/commit/8aa9c49cc7cef5329bb1eef523b66573d864fe71)
-*  Cart token exchange: responses service account key in field "service_account_key"
+* Implements remembered consents management:
+  * list user remembered consents: `/identity/v1alpha/{realm}/users/{user}/consents`
+  * delete user remembered consent: `/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}`
+* Fix a multi-threading issue. [commit](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/commit/8aa9c49cc7cef5329bb1eef523b66573d864fe71)
+* Cart token exchange: responses service account key in field "service_account_key"
 
 ## [v0.9.1](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.1)
 
@@ -75,12 +79,12 @@
 
 **Migration**
 
-*  Upgrade GO version to 1.14: need rebuild all images, includes base image for GAE and Hydra image for GKE.
-*  GCP IAM condition, the GCS dataet bucket must be "uniform access":
-  *  run `gsutil uniformbucketlevelaccess set on gs://$bucket` to enable "uniform access" on bucket
-  *  or turn off IAM condition via env: `export DISABLE_IAM_CONDITION_EXPIRY=true`
+* Upgrade GO version to 1.14: need rebuild all images, includes base image for GAE and Hydra image for GKE.
+* GCP IAM condition, the GCS dataet bucket must be "uniform access":
+  * run `gsutil uniformbucketlevelaccess set on gs://$bucket` to enable "uniform access" on bucket
+  * or turn off IAM condition via env: `export DISABLE_IAM_CONDITION_EXPIRY=true`
 
 **Highlight Updates**
 
-*  Implements information release page to allow user to select the information want to release, and allow user to let IC to remember user information release perference.
-*  Support expiry time set on GCP IAM condition when granting user access on IAM.
+* Implements information release page to allow user to select the information want to release, and allow user to let IC to remember user information release perference.
+* Support expiry time set on GCP IAM condition when granting user access on IAM.
