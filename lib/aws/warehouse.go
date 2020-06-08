@@ -452,10 +452,11 @@ type policy struct {
 }
 
 type statement struct {
-	Effect    string                  `json:"Effect"`
-	Action    []string                `json:"Action"`
-	Resource  []string                `json:"Resource"`
-	Condition *map[string]interface{} `json:"Condition,omitempty"`
+	Effect    string                 `json:"Effect"`
+	Principal map[string]interface{} `json:"Principal,omitempty"`
+	Action    []string               `json:"Action"`
+	Resource  []string               `json:"Resource,omitempty"`
+	Condition map[string]interface{} `json:"Condition,omitempty"`
 }
 
 func(wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
@@ -499,7 +500,7 @@ func(wh *AccountWarehouse) ensureUserPolicy(spec *policySpec) error {
 			Effect:   "Allow",
 			Action:   spec.params.TargetRoles,
 			Resource: resources,
-			Condition: &map[string]interface{}{
+			Condition: map[string]interface{}{
 				"DateLessThanEquals": map[string]string {
 					"aws:CurrentTime": (time.Now().Add(spec.params.TTL)).Format(time.RFC3339),
 				},
@@ -552,18 +553,23 @@ func(wh *AccountWarehouse) ensureRole(spec *principalSpec) (string, error) {
 	gro, err := wh.apiClient.GetRole(&iam.GetRoleInput{RoleName: aws.String(spec.getID())})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == iam.ErrCodeNoSuchEntityException {
-			policy := fmt.Sprintf(
-				`{
-								"Version":"2012-10-17",
-								"Statement":
-								{
-									"Effect":"Allow",
-									"Principal": { "AWS": "%s" },
-									"Action": "sts:AssumeRole"
-								}
-							}`, spec.damPrincipalARN)
+			policy := &policy{
+				Version:   "2012-10-17",
+				Statement: statement{
+					Effect:    "Allow",
+					Principal: map[string]interface{}{
+						"AWS": spec.damPrincipalARN,
+					},
+					Action:   []string{"sts:AssumeRole"},
+				},
+			}
+			policyJSON, err := json.Marshal(policy)
+			if err != nil {
+				return "", fmt.Errorf("error creating AWS policy JSON: %v", err)
+			}
+
 			cro, err := wh.apiClient.CreateRole(&iam.CreateRoleInput{
-				AssumeRolePolicyDocument: aws.String(policy),
+				AssumeRolePolicyDocument: aws.String(string(policyJSON)),
 				RoleName:                 aws.String(spec.getID()),
 				// FIXME should get path from config
 				Path:                     aws.String("/ddap/"),
