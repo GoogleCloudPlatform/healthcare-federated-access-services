@@ -83,6 +83,17 @@ func TestListTokens_Hydra(t *testing.T) {
 				AccessToken: map[string]interface{}{"tid": "t-0002"},
 			},
 		},
+		{
+			GrantedAudience: []string{"a1", "a2"},
+			GrantedScope:    []string{"s1", "s2"},
+			HandledAt:       strfmt.NewDateTime(),
+			ConsentRequest: &hydraapi.ConsentRequest{
+				Subject: sub,
+				Client:  &hydraapi.Client{Name: "test"},
+			},
+			Session: &hydraapi.ConsentRequestSessionData{
+			},
+		},
 	}
 
 	u := "http://example.com/dam/v1alpha/users/u-0001/tokens"

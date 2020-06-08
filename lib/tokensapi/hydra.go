@@ -58,8 +58,9 @@ func (s *Hydra) ListTokens(ctx context.Context, user string, store storage.Store
 	var tokens []*Token
 	for _, se := range sessions {
 		tid, err := hydra.ExtractTokenIDInConsentSession(se)
+		// legacy token does not have a "tid", but it would not able to use anymore since it it not refresh able.
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		t := &Token{
