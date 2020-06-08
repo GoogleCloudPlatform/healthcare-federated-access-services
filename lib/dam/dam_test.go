@@ -949,6 +949,49 @@ func TestMinConfig(t *testing.T) {
 	test.HandlerTests(t, s.Handler, tests, hydraPublicURL, server.Config())
 }
 
+func TestConfig_Add_NilResource(t *testing.T) {
+	store := storage.NewMemoryStorage("dam", "testdata/config")
+	wh := clouds.NewMockTokenCreator(false)
+	broker, err := persona.NewBroker(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
+	if err != nil {
+		t.Fatalf("NewBroker() failed: %v", err)
+	}
+	s := NewService(&Options{
+		HTTPClient:     httptestclient.New(broker.Handler),
+		Domain:         "test.org",
+		ServiceName:    "dam",
+		DefaultBroker:  testBroker,
+		Store:          store,
+		Warehouse:      wh,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+		HydraSyncFreq:  time.Nanosecond,
+	})
+
+	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+
+	copy := proto.Clone(cfg).(*pb.DamConfig)
+	copy.Resources = nil
+	copy.TestPersonas = nil
+
+	// Store invalid config to storage
+	if err := s.store.Write(storage.ConfigDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, copy, nil); err != nil {
+		t.Fatalf("Write config failed: %v", err)
+	}
+
+	req := &pb.ConfigResourceRequest{Item: cfg.Resources["dataset_example"]}
+
+	resp := damSendTestRequest(t, http.MethodPost, configResourcePath, "dataset_example", "test", "admin", test.TestClientID, test.TestClientSecret, req, s, broker)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Status = %d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
 func verifyService(t *testing.T, got, want, field string) {
 	t.Helper()
 	if got != want {

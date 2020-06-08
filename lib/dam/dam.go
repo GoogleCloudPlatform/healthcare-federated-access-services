@@ -1165,6 +1165,30 @@ func normalizeConfig(cfg *pb.DamConfig) error {
 		proto.Merge(p, v)
 		cfg.Policies[k] = p
 	}
+	if cfg.TrustedIssuers == nil {
+		cfg.TrustedIssuers = make(map[string]*pb.TrustedIssuer)
+	}
+	if cfg.TrustedSources == nil {
+		cfg.TrustedSources = make(map[string]*pb.TrustedSource)
+	}
+	if cfg.Resources == nil {
+		cfg.Resources = make(map[string]*pb.Resource)
+	}
+	if cfg.Clients == nil {
+		cfg.Clients = make(map[string]*cpb.Client)
+	}
+	if cfg.ServiceTemplates == nil {
+		cfg.ServiceTemplates = make(map[string]*pb.ServiceTemplate)
+	}
+	if cfg.VisaTypes == nil {
+		cfg.VisaTypes = make(map[string]*pb.VisaType)
+	}
+	if cfg.Options == nil {
+		cfg.Options = &pb.ConfigOptions{}
+	}
+	if cfg.Ui == nil {
+		cfg.Ui = make(map[string]string)
+	}
 	return nil
 }
 
