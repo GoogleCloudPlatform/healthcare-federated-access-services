@@ -169,14 +169,10 @@ func (spec *policySpec) getID() string {
 }
 
 func (spec *principalSpec) getID() string {
-	switch spec.pType {
-	case userType:
-		return convertDamUserIDtoAwsName(spec.params.UserID, spec.damPrincipalARN)
-	case roleType:
+	if spec.pType == roleType {
 		return spec.getDamResourceViewRoleID()
-	default:
-		panic(fmt.Sprintf("cannot get ID for princpal type [%v]", spec.pType))
 	}
+	return convertDamUserIDtoAwsName(spec.params.UserID, spec.damPrincipalARN)
 }
 
 func (spec *principalSpec) getDamResourceViewRoleID() string {
@@ -184,14 +180,10 @@ func (spec *principalSpec) getDamResourceViewRoleID() string {
 }
 
 func (spec *principalSpec) getARN() string {
-	switch spec.pType {
-	case userType:
-		return fmt.Sprintf("arn:aws:iam::%s:user/%s", spec.account, spec.getID())
-	case roleType:
+	if spec.pType == roleType {
 		return fmt.Sprintf("arn:aws:iam::%s:role/%s", spec.account, spec.getID())
-	default:
-		panic(fmt.Sprintf("cannot get ID for princpal type [%v]", spec.pType))
 	}
+	return fmt.Sprintf("arn:aws:iam::%s:user/%s", spec.account, spec.getID())
 }
 
 func calculateDBuserARN(clusterARN string, userName string) (string, error) {
@@ -382,14 +374,10 @@ func (wh *AccountWarehouse) ensureAccessKeyResult(ctx context.Context, principal
 }
 
 func(wh *AccountWarehouse) ensurePrincipal(princSpec *principalSpec) (string, error) {
-	switch princSpec.pType {
-	case userType:
-		return wh.ensureUser(princSpec)
-	case roleType:
+	if princSpec.pType == roleType {
 		return wh.ensureRole(princSpec)
-	default:
-		panic(fmt.Sprintf("unknown princpal type [%v]", princSpec.pType))
 	}
+	return wh.ensureUser(princSpec)
 }
 
 func(wh *AccountWarehouse) ensurePolicy(spec *policySpec) error {
@@ -460,7 +448,7 @@ type statement struct {
 }
 
 func(wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
-	// FIXME handle versioning
+	// TODO: handle policy versioning
 	resourceARNs := resourceARNToArray(spec.rSpecs)
 	policy := &policy{
 		Version:   "2012-10-17",
@@ -492,7 +480,7 @@ func (wh *AccountWarehouse) putRolePolicy(spec *policySpec, policy string) error
 }
 
 func(wh *AccountWarehouse) ensureUserPolicy(spec *policySpec) error {
-	// FIXME handle versioning
+	// TODO: handle policy versioning
 	resources := resourceARNToArray(spec.rSpecs)
 	policy := &policy{
 		Version:   "2012-10-17",
@@ -536,7 +524,7 @@ func(wh *AccountWarehouse) ensureUser(spec *principalSpec) (string, error) {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == iam.ErrCodeNoSuchEntityException {
 			cuo, err := wh.apiClient.CreateUser(&iam.CreateUserInput{
 				UserName: aws.String(spec.getID()),
-				// FIXME Make prefix configurable for different dam deployments GcpServiceAccountProject
+				// TODO: Make prefix configurable for different dam deployments
 				Path: aws.String("/ddap/"),
 			})
 			if err != nil {
@@ -571,7 +559,7 @@ func(wh *AccountWarehouse) ensureRole(spec *principalSpec) (string, error) {
 			cro, err := wh.apiClient.CreateRole(&iam.CreateRoleInput{
 				AssumeRolePolicyDocument: aws.String(string(policyJSON)),
 				RoleName:                 aws.String(spec.getID()),
-				// FIXME should get path from config
+				// TODO: Make prefix configurable for different dam deployments
 				Path:                     aws.String("/ddap/"),
 				MaxSessionDuration:       toSeconds(TemporaryCredMaxTTL),
 				Tags: []*iam.Tag{
