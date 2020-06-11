@@ -17,10 +17,10 @@ package aws
 import (
 	"fmt"
 
-	"google3/third_party/golang/aws/aws/aws"
-	"google3/third_party/golang/aws/aws/session/session"
-	"google3/third_party/golang/aws/service/iam/iam"
-	"google3/third_party/golang/aws/service/sts/sts"
+	"github.com/aws/aws-sdk-go/aws" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/aws/session" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/service/iam" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/service/sts" /* copybara-comment */
 )
 
 type sdkAPIClient struct {

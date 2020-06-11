@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"google3/third_party/golang/aws/aws/aws"
-	"google3/third_party/golang/aws/aws/awserr/awserr"
-	"google3/third_party/golang/aws/service/iam/iam"
-	"google3/third_party/golang/aws/service/sts/sts"
+	"github.com/aws/aws-sdk-go/aws" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/aws/awserr" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/service/iam" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/service/sts" /* copybara-comment */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
