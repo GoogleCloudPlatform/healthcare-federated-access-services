@@ -140,7 +140,7 @@ func MustNew(ctx context.Context, store storage.Store, opts ...option.ClientOpti
 	// saw is not really dependent on gc, gc is dependent on saw
 	// saw just has wrapers for gc functions
 	// reversing the creation dependency fixes the issue
-	wh.keyGC = processgc.NewKeyGC("gcp_key_gc", wh, store, defaultGcFrequency, defaultKeysPerAccount)
+	wh.keyGC = processgc.NewKeyGC("gcp_key_gc", wh, store, defaultGcFrequency, defaultKeysPerAccount, isGarbageCollectAccount)
 
 	go wh.Run(ctx)
 
@@ -577,4 +577,8 @@ func AccountResourceName(projectID, accountID string) string {
 func KeyResourceName(projectID, accountID, keyID string) string {
 	account := AccountResourceName(projectID, EmailID(projectID, accountID))
 	return path.Join(account, "keys", keyID)
+}
+
+func isGarbageCollectAccount(sa *clouds.Account) bool {
+	return strings.Contains(sa.DisplayName, "@") || strings.Contains(sa.DisplayName, "|")
 }

@@ -17,13 +17,12 @@ package processgc
 
 import (
 	"context"
-	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"             /* copybara-comment: clouds */
 	processlib "github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/process" /* copybara-comment: process */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"            /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil"           /* copybara-comment: timeutil */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
@@ -39,13 +38,16 @@ type KeyGC struct {
 	am      clouds.AccountManager
 	process *processlib.Process
 	wait    func(ctx context.Context, duration time.Duration) bool
+	// Function that returns true for accounts that should be garbage collected
+	accountFilter func(*clouds.Account) bool
 }
 
 // NewKeyGC creates a new key garbage collector.
-func NewKeyGC(name string, warehouse clouds.AccountManager, store storage.Store, maxRequestedTTL time.Duration, keysPerAccount int) *KeyGC {
+func NewKeyGC(name string, warehouse clouds.AccountManager, store storage.Store, maxRequestedTTL time.Duration, keysPerAccount int, accountFilter func(account *clouds.Account) bool) *KeyGC {
 	k := &KeyGC{
-		name: name,
-		am:   warehouse,
+		name:          name,
+		am:            warehouse,
+		accountFilter: accountFilter,
 	}
 	defaultParams := &pb.Process_Params{
 		IntParams: map[string]int64{
@@ -107,7 +109,7 @@ func (k *KeyGC) ProcessActiveWork(ctx context.Context, state *pb.Process, workNa
 	}
 
 	for a := range accounts {
-		if !isGarbageCollectAccount(a) {
+		if !k.accountFilter(a) {
 			continue
 		}
 
@@ -139,7 +141,7 @@ func (k *KeyGC) CleanupWork(ctx context.Context, state *pb.Process, workName str
 	}
 
 	for a := range accounts {
-		if !isGarbageCollectAccount(a) {
+		if !k.accountFilter(a) {
 			continue
 		}
 		if err := k.am.RemoveServiceAccount(ctx, workName, a.ID); err != nil {
@@ -162,8 +164,4 @@ func (k *KeyGC) Wait(ctx context.Context, duration time.Duration) bool {
 	}
 	time.Sleep(duration)
 	return true
-}
-
-func isGarbageCollectAccount(sa *clouds.Account) bool {
-	return strings.Contains(sa.DisplayName, "@") || strings.Contains(sa.DisplayName, "|")
 }

@@ -79,7 +79,17 @@ func (m *MockAwsClient) ListAccessKeys(input *iam.ListAccessKeysInput) (*iam.Lis
 }
 
 func (m *MockAwsClient) DeleteAccessKey(input *iam.DeleteAccessKeyInput) (*iam.DeleteAccessKeyOutput, error) {
-	panic("implement me")
+	for i, key := range m.AccessKeys {
+		if key.AccessKeyId == input.AccessKeyId {
+			newKeys := make([]*iam.AccessKey, len(m.AccessKeys)-1)
+			copy(newKeys, m.AccessKeys[0:i])
+			copy(newKeys[i:], m.AccessKeys[i+1:])
+			m.AccessKeys = newKeys
+			return &iam.DeleteAccessKeyOutput{}, nil
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "shouldn't rely on this message", nil)
 }
 
 func (m *MockAwsClient) GetCallerIdentity(_ *sts.GetCallerIdentityInput) (*sts.GetCallerIdentityOutput, error) {
@@ -348,6 +358,134 @@ func TestAWS_MintTokenWithLongLivedTTL_Redshift(t *testing.T) {
 	expectedUserArn := fmt.Sprintf("arn:aws:iam::%s:user/%s", awsAccount, expectedUserName)
 	validateMintedAccessKey(t, expectedUserArn, result, err)
 	validateCreatedUserPolicy(t, apiClient, expectedUserName, params.TargetRoles)
+}
+
+func TestAWS_ManageAccountKeys_BelowMax(t *testing.T) {
+	awsAccount := "12345678"
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
+	wh, _ := NewWarehouse(context.Background(), apiClient)
+
+	// AWS has 12-hour threshold for role access tokens
+	params := NewMockBucketParams(13 * time.Hour)
+	for i := 0; i < params.ManagedKeysPerAccount; i++ {
+		_, err := wh.MintTokenWithTTL(context.Background(), params)
+		if err != nil {
+			t.Errorf("prerequisite failed: error minting token: %v", err)
+			// no point in trying other assertions
+			return
+		}
+	}
+
+	expectedUserName := "ic_abc123@" + damPrincipalID
+	remaining, removed, err := wh.ManageAccountKeys(context.Background(), "project", expectedUserName, params.TTL, params.MaxKeyTTL, time.Now(), int64(params.ManagedKeysPerAccount))
+
+	if err != nil {
+		t.Errorf("manage keys encountered error: %v", err)
+		// no point in trying other assertions
+		return
+	}
+	if removed != 0 {
+		t.Errorf("expected 0 keys to be removed but observed %d", removed)
+	}
+	if remaining != params.ManagedKeysPerAccount {
+		t.Errorf("expected %d keys to be remaining but observed %d", params.ManagedKeysPerAccount, remaining)
+	}
+}
+
+func TestAWS_ManageAccountKeys_AboveThreshold(t *testing.T) {
+	awsAccount := "12345678"
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
+	wh, _ := NewWarehouse(context.Background(), apiClient)
+
+	// AWS has 12-hour threshold for role access tokens
+	params := NewMockBucketParams(13 * time.Hour)
+	for i := 0; i < params.ManagedKeysPerAccount; i++ {
+		_, err := wh.MintTokenWithTTL(context.Background(), params)
+		if err != nil {
+			t.Errorf("prerequisite failed: error minting token: %v", err)
+			// no point in trying other assertions
+			return
+		}
+	}
+
+	keys := apiClient.AccessKeys
+	if len(keys) != params.ManagedKeysPerAccount {
+		t.Errorf("precondition failed: expected %d keys but only found %d", params.ManagedKeysPerAccount, len(keys))
+		// no point in trying other assertions
+		return
+	}
+
+	firstKey := keys[0]
+
+	expectedUserName := "ic_abc123@" + damPrincipalID
+	remaining, removed, err := wh.ManageAccountKeys(context.Background(), "project", expectedUserName, params.TTL, params.MaxKeyTTL, time.Now(), int64(params.ManagedKeysPerAccount-1))
+
+	if err != nil {
+		t.Errorf("manage keys encountered error: %v", err)
+		// no point in trying other assertions
+		return
+	}
+	if removed != 1 {
+		t.Errorf("expected 1 keys to be removed but observed %d", removed)
+	}
+	if remaining != params.ManagedKeysPerAccount-1 {
+		t.Errorf("expected %d keys to be remaining but observed %d", params.ManagedKeysPerAccount, remaining)
+	}
+
+	for _, key := range apiClient.AccessKeys {
+		if key.AccessKeyId == firstKey.AccessKeyId {
+			t.Errorf("expected first key to be removed")
+			break
+		}
+	}
+}
+
+func TestAWS_ManageAccountKeys_Expired(t *testing.T) {
+	awsAccount := "12345678"
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
+	wh, _ := NewWarehouse(context.Background(), apiClient)
+
+	// AWS has 12-hour threshold for role access tokens
+	params := NewMockBucketParams(13 * time.Hour)
+	_, err := wh.MintTokenWithTTL(context.Background(), params)
+	if err != nil {
+		t.Errorf("prerequisite failed: error minting token: %v", err)
+		// no point in trying other assertions
+		return
+	}
+
+	keys := apiClient.AccessKeys
+	if len(keys) != 1 {
+		t.Errorf("precondition failed: expected 1 keys but only found %d", len(keys))
+		// no point in trying other assertions
+		return
+	}
+
+	firstKey := keys[0]
+	now := time.Now()
+	firstKey.CreateDate = aws.Time(now.Add(-1 * (params.MaxKeyTTL+time.Hour)))
+
+	expectedUserName := "ic_abc123@" + damPrincipalID
+	remaining, removed, err := wh.ManageAccountKeys(context.Background(), "project", expectedUserName, params.TTL, params.MaxKeyTTL, now, int64(params.ManagedKeysPerAccount-1))
+
+	if err != nil {
+		t.Errorf("manage keys encountered error: %v", err)
+		// no point in trying other assertions
+		return
+	}
+	if removed != 1 {
+		t.Errorf("expected 1 keys to be removed but observed %d", removed)
+	}
+	if remaining != 0 {
+		t.Errorf("expected 0 keys to be remaining but observed %d", remaining)
+	}
+
+	if len(apiClient.AccessKeys) != 0 {
+		t.Errorf("expected key to be removed")
+	}
 }
 
 func validateMintedRoleCredentials(t *testing.T, expectedAccount string, result *ResourceTokenResult, err error) {
