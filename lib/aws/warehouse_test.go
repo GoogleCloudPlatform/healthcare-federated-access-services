@@ -58,15 +58,21 @@ func (m *MockAwsClient) ListAccessKeys(input *iam.ListAccessKeysInput) (*iam.Lis
 		return nil, err
 	}
 
-	var list []*iam.AccessKey
+	var list []*iam.AccessKeyMetadata
 	for _, key := range m.AccessKeys {
 		if *key.UserName == *input.UserName {
-			list = append(list, key)
+			km := &iam.AccessKeyMetadata{
+				AccessKeyId: key.AccessKeyId,
+				CreateDate:  key.CreateDate,
+				Status:      key.Status,
+				UserName:    key.UserName,
+			}
+			list = append(list, km)
 		}
 	}
 
 	return &iam.ListAccessKeysOutput{
-		AccessKeyMetadata: []*iam.AccessKeyMetadata{},
+		AccessKeyMetadata: list,
 		IsTruncated:       aws.Bool(false),
 		Marker:            nil,
 	}, nil
