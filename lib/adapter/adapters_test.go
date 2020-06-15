@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	expectedNumOfAdapters = 3
+	expectedNumOfAdapters = 4
 )
 
 func TestCreateAdapters(t *testing.T) {
