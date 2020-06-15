@@ -3,16 +3,16 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/processgc"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
-	"time"
 )
 
 const (
@@ -34,18 +34,14 @@ type AwsAdapter struct {
 }
 
 // NewAwsAdapter creates a new AwsAdapter.
-func NewAwsAdapter(store storage.Store, _ clouds.ResourceTokenCreator, _ kms.Signer, _ *ServiceAdapters) (ServiceAdapter, error) {
+func NewAwsAdapter(store storage.Store, awsClient aws.APIClient) (ServiceAdapter, error) {
 	var msg pb.ServicesResponse
 	path := adapterFilePath(AwsAdapterName)
 	if err := srcutil.LoadProto(path, &msg); err != nil {
 		return nil, fmt.Errorf("reading %q service descriptors from path %q: %v", aggregatorName, path, err)
 	}
-	ctx := context.Background()
-	awsClient, err := aws.NewAPIClient()
-	if err != nil {
-		return nil, err
-	}
 
+	ctx := context.Background()
 	wh, err := aws.NewWarehouse(ctx, awsClient)
 	if err != nil {
 		return nil, fmt.Errorf("error creating AWS key warehouse: %v", err)

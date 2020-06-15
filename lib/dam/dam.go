@@ -39,6 +39,7 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlogsapi" /* copybara-comment: auditlogsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
@@ -149,6 +150,8 @@ type Options struct {
 	Store storage.Store
 	// Warehouse: resource token creator service
 	Warehouse             clouds.ResourceTokenCreator
+	// AWSClient: a client for interacting with the AWS API
+	AWSClient	aws.APIClient
 	ServiceAccountManager *saw.AccountWarehouse
 	// Logger: audit log logger
 	Logger *logging.Client
@@ -249,7 +252,13 @@ func New(r *mux.Router, params *Options) *Service {
 	if err != nil {
 		glog.Exitf("cannot load client secrets: %v", err)
 	}
-	adapters, err := adapter.CreateAdapters(params.Store, params.Warehouse, params.Signer)
+	adapters, err := adapter.CreateAdapters(&adapter.Options{
+		Store:     params.Store,
+		Warehouse: params.Warehouse,
+		AWSClient: params.AWSClient,
+		Signer:    params.Signer,
+	})
+
 	if err != nil {
 		glog.Exitf("cannot load adapters: %v", err)
 	}

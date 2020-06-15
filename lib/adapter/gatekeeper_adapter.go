@@ -19,14 +19,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pborman/uuid" /* copybara-comment */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"     /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms"       /* copybara-comment: kms */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil"   /* copybara-comment: srcutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil"  /* copybara-comment: timeutil */
+	"github.com/pborman/uuid"                                                           /* copybara-comment */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
@@ -53,7 +51,7 @@ type GatekeeperAdapter struct {
 }
 
 // NewGatekeeperAdapter creates a GatekeeperAdapter.
-func NewGatekeeperAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer, adapters *ServiceAdapters) (ServiceAdapter, error) {
+func NewGatekeeperAdapter(signer kms.Signer) (ServiceAdapter, error) {
 	var msg pb.ServicesResponse
 	path := adapterFilePath(gatekeeperName)
 	if err := srcutil.LoadProto(path, &msg); err != nil {

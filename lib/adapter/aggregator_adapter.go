@@ -19,12 +19,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
-
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils"   /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil"     /* copybara-comment: srcutil */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
@@ -39,7 +35,7 @@ type AggregatorAdapter struct {
 }
 
 // NewAggregatorAdapter creates a AggregatorAdapter.
-func NewAggregatorAdapter(store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer, adapters *ServiceAdapters) (ServiceAdapter, error) {
+func NewAggregatorAdapter(adapters *ServiceAdapters) (ServiceAdapter, error) {
 	var msg pb.ServicesResponse
 	path := adapterFilePath(aggregatorName)
 	if err := srcutil.LoadProto(path, &msg); err != nil {

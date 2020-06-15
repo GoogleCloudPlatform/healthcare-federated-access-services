@@ -29,7 +29,6 @@ import (
 )
 
 func TestSawAdapter(t *testing.T) {
-	store := storage.NewMemoryStorage("dam-static", "testdata/config")
 	warehouse := clouds.NewMockTokenCreator(true)
 	secretStore := storage.NewMemoryStorage("dam", "testdata/config")
 	secrets := &pb.DamSecrets{}
@@ -41,7 +40,7 @@ func TestSawAdapter(t *testing.T) {
 		ByServiceName: make(map[string]adapter.ServiceAdapter),
 		Descriptors:   make(map[string]*pb.ServiceDescriptor),
 	}
-	adapt, err := adapter.NewSawAdapter(store, warehouse, nil, adapters)
+	adapt, err := adapter.NewSawAdapter(warehouse)
 	if err != nil {
 		t.Fatalf("new SAW adapter: %v", err)
 	}

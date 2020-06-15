@@ -19,6 +19,7 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
@@ -137,6 +138,7 @@ func setupFromFile(t *testing.T) (*dam.Service, *pb.DamConfig) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraURL, err)
 	}
+	awsClient := aws.NewMockAPIClient("123456", "dam-user-id")
 
 	for k, v := range dam.BuiltinPolicies {
 		p := &pb.Policy{}
@@ -151,6 +153,7 @@ func setupFromFile(t *testing.T) (*dam.Service, *pb.DamConfig) {
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      nil,
+		AWSClient:      awsClient,
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraURL,

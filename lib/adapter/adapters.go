@@ -22,13 +22,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh"       /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
-
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils"   /* copybara-comment: httputils */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
@@ -105,18 +105,39 @@ type ServiceAdapters struct {
 	errors        []error
 }
 
+// Options contains parameters to adapters.
+type Options struct {
+	// Store: data storage and configuration storage
+	Store storage.Store
+	// Warehouse: resource token creator service
+	Warehouse clouds.ResourceTokenCreator
+	// AWSClient: a client for interacting with the AWS API
+	AWSClient aws.APIClient
+	// Signer: the signer use for signing jwt.
+	Signer kms.Signer
+}
+
 // CreateAdapters registers and collects all adapters with the system.
-func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer) (*ServiceAdapters, error) {
+func CreateAdapters(opts *Options) (*ServiceAdapters, error) {
 	adapters := &ServiceAdapters{
 		ByAdapterName: make(map[string]ServiceAdapter),
 		ByServiceName: make(map[string]ServiceAdapter),
 		Descriptors:   make(map[string]*pb.ServiceDescriptor),
 		errors:        []error{},
 	}
-	registerAdapter(adapters, store, warehouse, signer, NewSawAdapter)
-	registerAdapter(adapters, store, warehouse, signer, NewGatekeeperAdapter)
-	registerAdapter(adapters, store, warehouse, signer, NewAwsAdapter)
-	registerAdapter(adapters, store, warehouse, signer, NewAggregatorAdapter)
+
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewSawAdapter(opts.Warehouse)
+	})
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewGatekeeperAdapter(opts.Signer)
+	})
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewAwsAdapter(opts.Store, opts.AWSClient)
+	})
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewAggregatorAdapter(adapters)
+	})
 
 	if len(adapters.errors) > 0 {
 		return nil, adapters.errors[0]
@@ -170,8 +191,8 @@ func ResolveServiceRole(roleName string, view *pb.View, res *pb.Resource, cfg *p
 	return sRole, nil
 }
 
-func registerAdapter(adapters *ServiceAdapters, store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer, init func(storage.Store, clouds.ResourceTokenCreator, kms.Signer, *ServiceAdapters) (ServiceAdapter, error)) {
-	adapt, err := init(store, warehouse, signer, adapters)
+func registerAdapter(adapters *ServiceAdapters, init func(adapters *ServiceAdapters) (ServiceAdapter, error)) {
+	adapt, err := init(adapters)
 	if err != nil {
 		adapters.errors = append(adapters.errors, err)
 		return
