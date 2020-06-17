@@ -39,6 +39,8 @@ let resources = {};
 let checkoutURL = '_DAM_URL_/dam/checkout?client_id=' + clientId +
     '&client_secret=' + clientSecret;
 let refreshToken = '';
+let accountURL = '_DAM_URL_/identity/scim/v2/_REALM_/Me?client_id=' + clientId +
+    '&client_secret=' + clientSecret;
 
 /**
  * validateState ...
@@ -231,6 +233,32 @@ function refresh() {
     },
     error: function(err) {
       $('#log').text(JSON.stringify(err, undefined, 2));
+    }
+  });
+}
+
+/**
+ * accountInfo fetches account info
+ */
+function accountInfo() {
+  let tok = $('#token').text();
+  if (!tok) {
+    $('#log').text('must login first...');
+    return;
+  }
+  let url = makeURL(accountURL);
+  $.ajax({
+    url: url,
+    type: 'GET',
+    beforeSend: function(xhr) {
+      xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
+    },
+    success: function(resp) {
+      $('#log').text('Account Info:\n\n' + JSON.stringify(resp, undefined, 2));
+    },
+    error: function(err) {
+      displayError(
+          'account info failed', '', JSON.stringify(err, undefined, 2));
     }
   });
 }
@@ -579,6 +607,7 @@ function init() {
   };
   document.getElementById('cart-btn').onclick = cartTokens;
   document.getElementById('refresh').onclick = refresh;
+  document.getElementById("account-info").onclick = accountInfo;
 }
 
 window.onload = init;
