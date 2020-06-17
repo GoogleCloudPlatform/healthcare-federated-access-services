@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
-	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
@@ -386,7 +385,7 @@ func New(r *mux.Router, params *Options) *Service {
 
 	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
 
-	a := authChecker{s:s}
+	a := authChecker{s: s}
 	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity)
 
 	s.checker = checker
@@ -803,20 +802,6 @@ func (s *Service) idpProvidesPassports(idp *cpb.IdentityProvider) bool {
 	return false
 }
 
-func (s *Service) accountLinkToVisas(ctx context.Context, acct *cpb.Account, subject, provider string, cfg *pb.IcConfig, secrets *pb.IcSecrets) ([]string, error) {
-	id := &ga4gh.Identity{}
-	link, _ := findLinkedAccount(acct, subject, provider)
-	if link == nil {
-		return []string{}, nil
-	}
-	ttl := getDurationOption(cfg.Options.ClaimTtlCap, descClaimTtlCap)
-	if err := s.populateLinkVisas(ctx, id, link, ttl, cfg, secrets); err != nil {
-		return nil, err
-	}
-
-	return id.VisaJWTs, nil
-}
-
 func linkedIdentityValue(sub, iss string) string {
 	sub = url.QueryEscape(sub)
 	iss = url.QueryEscape(iss)
@@ -875,7 +860,7 @@ func (s *Service) addLinkedIdentities(ctx context.Context, id *ga4gh.Identity, l
 
 	v, err := ga4gh.NewVisaFromData(ctx, d, s.visaIssuerJKU(), s.signer)
 	if err != nil {
-		return fmt.Errorf("ga4gh.NewVisaFromData(_) failed: %v", err)
+		return status.Errorf(codes.Unavailable, "ga4gh.NewVisaFromData(_) failed: %v", err)
 	}
 
 	id.VisaJWTs = append(id.VisaJWTs, string(v.JWT()))
@@ -984,28 +969,6 @@ func matchRedirect(client *cpb.Client, redirect string) bool {
 	return false
 }
 
-func (s *Service) newAccountWithLink(ctx context.Context, linkID *ga4gh.Identity, provider string, cfg *pb.IcConfig) (*cpb.Account, error) {
-	now := time.Now()
-	genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
-	accountPrefix := "ic_"
-	genlen -= len(accountPrefix)
-	subject := accountPrefix + strings.Replace(uuid.New(), "-", "", -1)[:genlen]
-
-	acct := &cpb.Account{
-		Revision:          0,
-		Profile:           setupAccountProfile(linkID),
-		Properties:        setupAccountProperties(linkID, subject, now, now),
-		ConnectedAccounts: make([]*cpb.ConnectedAccount, 0),
-		State:             storage.StateActive,
-		Ui:                make(map[string]string),
-	}
-	err := s.populateAccountVisas(ctx, acct, linkID, provider)
-	if err != nil {
-		return nil, err
-	}
-	return acct, nil
-}
-
 func (s *Service) encryptEmbeddedTokens(ctx context.Context, tokens []string) ([][]byte, error) {
 	var res [][]byte
 	for _, tok := range tokens {
@@ -1030,71 +993,6 @@ func (s *Service) decryptEmbeddedTokens(ctx context.Context, tokens [][]byte) ([
 	}
 
 	return res, nil
-}
-
-func (s *Service) populateAccountVisas(ctx context.Context, acct *cpb.Account, id *ga4gh.Identity, provider string) error {
-	link, _ := findLinkedAccount(acct, id.Subject, provider)
-	now := time.Now()
-	if link == nil {
-		link = &cpb.ConnectedAccount{
-			Profile:      setupAccountProfile(id),
-			Properties:   setupAccountProperties(id, id.Subject, now, now),
-			Provider:     provider,
-			Refreshed:    float64(now.UnixNano()) / 1e9,
-			Revision:     1,
-			LinkRevision: 1,
-		}
-		acct.ConnectedAccounts = append(acct.ConnectedAccounts, link)
-	} else {
-		// TODO: refresh some account profile attributes.
-		link.Refreshed = float64(now.UnixNano()) / 1e9
-		link.Revision++
-	}
-	tokens, err := s.encryptEmbeddedTokens(ctx, id.VisaJWTs)
-	if err != nil {
-		return err
-	}
-	link.Passport = &cpb.Passport{
-		InternalEncryptedVisas: tokens,
-	}
-
-	return nil
-}
-
-func setupAccountProfile(id *ga4gh.Identity) *cpb.AccountProfile {
-	return &cpb.AccountProfile{
-		Username:   id.Username,
-		Name:       id.Name,
-		GivenName:  id.GivenName,
-		FamilyName: id.FamilyName,
-		MiddleName: id.MiddleName,
-		Profile:    id.Profile,
-		Picture:    id.Picture,
-		ZoneInfo:   id.ZoneInfo,
-		Locale:     id.Locale,
-	}
-}
-
-func setupAccountProperties(id *ga4gh.Identity, subject string, created, modified time.Time) *cpb.AccountProperties {
-	return &cpb.AccountProperties{
-		Subject:       subject,
-		Email:         id.Email,
-		EmailVerified: id.EmailVerified,
-		Created:       float64(created.UnixNano()) / 1e9,
-		Modified:      float64(modified.UnixNano()) / 1e9,
-	}
-}
-
-func visasAreEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	sort.Strings(a)
-	sort.Strings(b)
-	if diff := cmp.Diff(a, b); diff == "" {
-		return true
-	}
-	return false
 }
 
 func findLinkedAccount(acct *cpb.Account, subject, provider string) (*cpb.ConnectedAccount, int) {
@@ -1333,15 +1231,6 @@ func makeLoginHint(provider, subject string) string {
 func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity, desc string, r *http.Request, tx storage.Tx, lookup *cpb.AccountLookup) error {
 	if err := s.scim.SaveAccount(nil, newAcct, desc, r, id.Subject, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
-	}
-	rev := int64(0)
-	if lookup != nil {
-		rev = lookup.Revision
-	}
-	lookup = &cpb.AccountLookup{
-		Subject:  newAcct.Properties.Subject,
-		Revision: rev,
-		State:    storage.StateActive,
 	}
 	if err := s.scim.SaveAccountLookup(lookup, getRealm(r), id.Subject, r, id, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")

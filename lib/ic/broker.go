@@ -26,6 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -332,25 +333,22 @@ func (s *Service) finishLogin(id *ga4gh.Identity, stateID string, state *cpb.Log
 			// Reject using a DISABLED account.
 			return nil, status.Errorf(codes.PermissionDenied, "this account has been disabled, please contact the system administrator")
 		}
-		visas, err := s.accountLinkToVisas(r.Context(), acct, id.Subject, state.Provider, cfg, secrets)
+
+		acct, err = scim.UpdateIdentityInAccount(r.Context(), id, state.Provider, acct, s.encryption)
 		if err != nil {
-			return nil, status.Errorf(codes.Unavailable, "%v", err)
+			return nil, err
 		}
-		if !visasAreEqual(visas, id.VisaJWTs) {
-			// Refresh the claims in the storage layer.
-			if err := s.populateAccountVisas(r.Context(), acct, id, state.Provider); err != nil {
-				return nil, status.Errorf(codes.Unavailable, "%v", err)
-			}
-			err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx)
-			if err != nil {
-				return nil, status.Errorf(codes.Unavailable, "%v", err)
-			}
+
+		if err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx); err != nil {
+			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
 	} else {
 		// Create an account for the identity automatically.
-		acct, err := s.newAccountWithLink(r.Context(), id, state.Provider, cfg)
+		genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
+		accountPrefix := "ic_"
+		acct, lookup, err := scim.NewAccount(r.Context(), s.encryption, id, state.Provider, accountPrefix, genlen)
 		if err != nil {
-			return nil, status.Errorf(codes.Unavailable, "%v", err)
+			return nil, err
 		}
 
 		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
