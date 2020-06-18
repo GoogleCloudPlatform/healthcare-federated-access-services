@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.5...HEAD)
 
+**Migration**
+
+* Update traffic router for dam to expose `/identity/scim` scim endpoints on DAM. [example](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/deploy/build-templates/dam/nginx.conf)
+
 ## [v0.9.5](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.5)
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.4...v0.9.5)

@@ -118,6 +118,7 @@ type Service struct {
 	auditlogs           *auditlogsapi.AuditLogs
 	tokenProviders      []tokensapi.TokenProvider
 	signer              kms.Signer
+	encryption          kms.Encryption
 	checker             *auth.Checker
 }
 
@@ -163,6 +164,8 @@ type Options struct {
 	HideRejectDetail bool
 	// Signer: the signer use for signing jwt.
 	Signer kms.Signer
+	// Encryption: used to encrypt the jwt in account
+	Encryption kms.Encryption
 }
 
 // NewService create DAM service
@@ -205,6 +208,7 @@ func New(r *mux.Router, params *Options) *Service {
 		tokens:              faketokensapi.NewDAMTokens(params.Store, params.ServiceAccountManager),
 		auditlogs:           auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject, params.ServiceName),
 		signer:              params.Signer,
+		encryption:          params.Encryption,
 	}
 
 	if s.httpClient == nil {
@@ -1473,6 +1477,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 	// scim service endpoints
 	r.HandleFunc(scimGroupPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupFactory(s.GetStore(), scimGroupPath)), s.checker, auth.RequireAdminToken))
 	r.HandleFunc(scimGroupsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupsFactory(s.GetStore(), scimGroupsPath)), s.checker, auth.RequireAdminToken))
+	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.MeFactory(s.GetStore(), s.domainURL, scimMePath)), s.checker, auth.RequireAccountAdminUserToken))
+	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UserFactory(s.GetStore(), s.domainURL, scimUserPath)), s.checker, auth.RequireAccountAdminUserToken))
+	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.domainURL, scimUsersPath)), s.checker, auth.RequireAdminToken))
 
 	// hydra related oidc endpoints
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, s.checker, auth.RequireNone)).Methods(http.MethodGet)

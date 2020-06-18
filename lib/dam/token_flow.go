@@ -35,6 +35,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/scim" /* copybara-comment: scim */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
@@ -43,6 +44,9 @@ import (
 
 const (
 	maxResourceStateSeconds = 300
+
+	// TODO: should create a config option for this.
+	accountNameLength = 30
 )
 
 var (
@@ -359,6 +363,7 @@ type loggedInHandlerIn struct {
 	stateID  string
 	errStr   string
 	errDesc  string
+	r        *http.Request
 }
 
 type loggedInHandlerOut struct {
@@ -429,6 +434,15 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (_ *logged
 		return nil, state.Challenge, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
+	var subject string
+	if subject, err = s.createOrUpdateAccount(ctx, in.r, id, state.Broker, state.Realm, tx); err != nil {
+		return nil, state.Challenge, err
+	}
+
+	// Add the upstream id to identities, and change id subject to dam account subject.
+	id.Identities[id.Subject] = nil
+	id.Subject = subject
+
 	if state.Type == pb.ResourceTokenRequestState_DATASET {
 		out, err := s.loggedInForDatasetToken(ctx, id, state, cfg, in.stateID, realm, tx)
 		return out, state.Challenge, err
@@ -436,6 +450,51 @@ func (s *Service) loggedIn(ctx context.Context, in loggedInHandlerIn) (_ *logged
 
 	out, err := s.loggedInForEndpointToken(id, state, in.stateID, tx)
 	return out, state.Challenge, err
+}
+
+func (s *Service) createOrUpdateAccount(ctx context.Context, r *http.Request, id *ga4gh.Identity, broker, realm string, tx storage.Tx) (string, error) {
+	lookup, err := s.scim.LoadAccountLookup(realm, id.Subject, tx)
+	if err != nil {
+		return "", status.Errorf(codes.Unavailable, "%v", err)
+	}
+	if lookup != nil {
+		subject := lookup.Subject
+		acct, _, err := s.scim.LoadAccount(subject, realm, true, tx)
+		if err != nil {
+			return "", status.Errorf(codes.Unavailable, "%v", err)
+		}
+		if acct.State == storage.StateDisabled {
+			// Reject using a DISABLED account.
+			return "", status.Errorf(codes.PermissionDenied, "this account has been disabled, please contact the system administrator")
+		}
+
+		acct, err = scim.UpdateIdentityInAccount(ctx, id, broker, acct, s.encryption)
+		if err != nil {
+			return "", err
+		}
+
+		if err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx); err != nil {
+			return "", status.Errorf(codes.Unavailable, "%v", err)
+		}
+
+		return subject, nil
+	}
+	// Create an account for the identity automatically.
+	genlen := accountNameLength
+	accountPrefix := "dam_"
+	acct, lookup, err := scim.NewAccount(ctx, s.encryption, id, broker, accountPrefix, genlen)
+	if err != nil {
+		return "", err
+	}
+
+	if err := s.scim.SaveAccount(nil, acct, "Create Account", r, id.Subject, tx); err != nil {
+		return "", fmt.Errorf("service dependencies not available; try again later")
+	}
+	if err := s.scim.SaveAccountLookup(lookup, realm, id.Subject, r, id, tx); err != nil {
+		return "", fmt.Errorf("service dependencies not available; try again later")
+	}
+
+	return acct.Properties.Subject, nil
 }
 
 func resourceToString(res *pb.ResourceTokenRequestState_Resource) string {
@@ -646,7 +705,7 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	errStr := httputils.QueryParam(r, "error")
 	errDesc := httputils.QueryParam(r, "error_description")
 
-	out, challenge, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID, errStr: errStr, errDesc: errDesc})
+	out, challenge, err := s.loggedIn(r.Context(), loggedInHandlerIn{authCode: code, stateID: stateID, errStr: errStr, errDesc: errDesc, r: r})
 	if err != nil {
 		if s.useHydra && len(challenge) > 0 {
 			hydra.SendLoginReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)

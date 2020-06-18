@@ -33,6 +33,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/grpcutil" /* copybara-comment: grpcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpsign" /* copybara-comment: gcpsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
@@ -117,6 +118,10 @@ func main() {
 	if err != nil {
 		glog.Exitf("gcpcrypt.New(ctx, %q, %q, %q, %q, kmsClient) failed: %v", project, "global", srvName+"_sign_ring", srvName+"_key", err)
 	}
+	gcpEncryption, err := gcpcrypt.New(ctx, project, "global", srvName+"_ring", srvName+"_key", kmsClient)
+	if err != nil {
+		glog.Exitf("gcpcrypt.New(ctx, %q, %q, %q, %q, kmsClient) failed: %v", project, "global", srvName+"_ring", srvName+"_key", err)
+	}
 
 	logger, err := logging.NewClient(ctx, project)
 	if err != nil {
@@ -157,6 +162,7 @@ func main() {
 		HydraPublicURL:        hydraPublicAddr,
 		HydraPublicProxy:      hyproxy,
 		Signer:                gcpSigner,
+		Encryption:            gcpEncryption,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

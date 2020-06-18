@@ -44,6 +44,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/fakeencryption" /* copybara-comment: fakeencryption */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
@@ -110,6 +111,7 @@ func TestHandlers(t *testing.T) {
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
+		Encryption:     fakeencryption.New(),
 	})
 	tests := []test.HandlerTest{
 		// Realm tests.
@@ -917,6 +919,7 @@ func TestMinConfig(t *testing.T) {
 		HydraPublicURL:   hydraPublicURL,
 		HidePolicyBasis:  true,
 		HideRejectDetail: true,
+		Encryption:       fakeencryption.New(),
 	}
 	s := NewService(opts)
 	verifyService(t, s.domainURL, opts.Domain, "domainURL")
@@ -967,6 +970,7 @@ func TestConfig_Add_NilResource(t *testing.T) {
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
+		Encryption:     fakeencryption.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1054,6 +1058,7 @@ func setupAuthorizationTest(t *testing.T) *authTestContext {
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,
+		Encryption:     fakeencryption.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1320,6 +1325,7 @@ func Test_populateIdentityVisas_oidc_and_jku(t *testing.T) {
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
+		Encryption:     fakeencryption.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1453,6 +1459,7 @@ func setupHydraTest(readOnlyMasterRealm bool) (*Service, *pb.DamConfig, *pb.DamS
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
+		Encryption:     fakeencryption.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1863,10 +1870,6 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 		t.Errorf("Location wants %s got %s", hydraPublicURL, l)
 	}
 
-	if *h.AcceptLoginReq.Subject != pname {
-		t.Errorf("h.AcceptLoginReq.Subject wants %s got %s", pname, *h.AcceptLoginReq.Subject)
-	}
-
 	st, ok := h.AcceptLoginReq.Context[stateIDInHydra]
 	if !ok {
 		t.Errorf("AcceptLoginReq.Context[%s] not exists", stateIDInHydra)
@@ -1916,7 +1919,7 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 		Labels: map[string]string{
 			"type":            auditlog.TypePolicyLog,
 			"token_id":        "token-id-dr_joe_elixir",
-			"token_subject":   "dr_joe_elixir",
+			"token_subject":   got.Labels["token_subject"],
 			"token_issuer":    "https://hydra.example.com/",
 			"pass_auth_check": "true",
 			"error_type":      "",
@@ -1933,6 +1936,246 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 	got.Timestamp = nil
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestLoggedIn_Hydra_Success_CreateAccount(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+	logs, close := fakesdl.New()
+	defer close()
+	s.logger = logs.Client
+
+	serviceinfo.Project = "p1"
+	serviceinfo.Type = "t1"
+	serviceinfo.Name = "n1"
+
+	pname := "dr_joe_elixir"
+
+	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+
+	lookup, err := s.scim.LoadAccountLookup(storage.DefaultRealm, pname, nil)
+	if err != nil {
+		t.Fatalf("LoadAccountLookup() failed: %v", err)
+	}
+
+	got, _, err := s.scim.LoadAccount(lookup.Subject, storage.DefaultRealm, true, nil)
+	if err != nil {
+		t.Fatalf("LoadAccount() failed: %v", err)
+	}
+
+	want := &cpb.Account{
+		ConnectedAccounts: []*cpb.ConnectedAccount{
+			{
+				Profile: &cpb.AccountProfile{
+					Username:   pname,
+					Name:       "Dr Joe (Elixir)",
+					GivenName:  "Dr",
+					FamilyName: "Joe",
+					Picture:    "/identity/static/images/elixir_identity.png",
+				},
+				Properties: &cpb.AccountProperties{
+					Subject:  pname,
+					Email:    "dr_joe@faculty.example.edu",
+					Created:  got.ConnectedAccounts[0].Properties.Created,
+					Modified: got.ConnectedAccounts[0].Properties.Modified,
+				},
+				Provider:     testBroker,
+				Refreshed:    got.ConnectedAccounts[0].Refreshed,
+				Revision:     1,
+				LinkRevision: 1,
+				Passport:     &cpb.Passport{InternalEncryptedVisas: got.ConnectedAccounts[0].Passport.InternalEncryptedVisas},
+			},
+		},
+		Profile: &cpb.AccountProfile{
+			Username:   pname,
+			Name:       "Dr Joe (Elixir)",
+			GivenName:  "Dr",
+			FamilyName: "Joe",
+			Picture:    "/identity/static/images/elixir_identity.png",
+		},
+		Properties: &cpb.AccountProperties{
+			Subject:  lookup.Subject,
+			Email:    "dr_joe@faculty.example.edu",
+			Created:  got.Properties.Created,
+			Modified: got.Properties.Modified,
+		},
+		Revision: 1,
+		State:    "ACTIVE",
+	}
+
+	if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
+		t.Errorf("LoadAccount() = (-want, +got): %s", d)
+	}
+}
+
+func TestLoggedIn_Hydra_Success_UpdateAccount(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+	logs, close := fakesdl.New()
+	defer close()
+	s.logger = logs.Client
+
+	serviceinfo.Project = "p1"
+	serviceinfo.Type = "t1"
+	serviceinfo.Name = "n1"
+
+	pname := "dr_joe_elixir"
+	accountID := "dam_111"
+
+	acct := &cpb.Account{
+		ConnectedAccounts: []*cpb.ConnectedAccount{
+			{
+				Profile: &cpb.AccountProfile{
+					Username: pname,
+				},
+				Properties: &cpb.AccountProperties{
+					Subject: pname,
+				},
+				Provider:     testBroker,
+				Revision:     4,
+				LinkRevision: 1,
+			},
+		},
+		Profile: &cpb.AccountProfile{
+			Username: pname,
+		},
+		Properties: &cpb.AccountProperties{
+			Subject: accountID,
+		},
+		Revision: 2,
+		State:    "ACTIVE",
+	}
+
+	lookup := &cpb.AccountLookup{
+		State:    "ACTIVE",
+		Revision: 3,
+		Subject:  accountID,
+	}
+
+	if err := s.scim.SaveAccount(nil, acct, "", nil, accountID, nil); err != nil {
+		t.Fatalf("SaveAccount() failed: %v", err)
+	}
+
+	if err := s.scim.SaveAccountLookup(lookup, storage.DefaultRealm, pname, nil, &ga4gh.Identity{Subject: pname}, nil); err != nil {
+		t.Fatalf("SaveAccountLookup() failed: %v", err)
+	}
+
+	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+
+	lookup, err = s.scim.LoadAccountLookup(storage.DefaultRealm, pname, nil)
+	if err != nil {
+		t.Fatalf("LoadAccountLookup() failed: %v", err)
+	}
+
+	got, _, err := s.scim.LoadAccount(lookup.Subject, storage.DefaultRealm, true, nil)
+	if err != nil {
+		t.Fatalf("LoadAccount() failed: %v", err)
+	}
+
+	want := &cpb.Account{
+		ConnectedAccounts: []*cpb.ConnectedAccount{
+			{
+				Profile: &cpb.AccountProfile{
+					Username:   pname,
+					Name:       "Dr Joe (Elixir)",
+					GivenName:  "Dr",
+					FamilyName: "Joe",
+					Picture:    "/identity/static/images/elixir_identity.png",
+				},
+				Properties: &cpb.AccountProperties{
+					Subject:  pname,
+					Email:    "dr_joe@faculty.example.edu",
+					Created:  got.ConnectedAccounts[0].Properties.Created,
+					Modified: got.ConnectedAccounts[0].Properties.Modified,
+				},
+				Provider:     testBroker,
+				Refreshed:    got.ConnectedAccounts[0].Refreshed,
+				Revision:     5,
+				LinkRevision: 1,
+				Passport:     &cpb.Passport{InternalEncryptedVisas: got.ConnectedAccounts[0].Passport.InternalEncryptedVisas},
+			},
+		},
+		Profile: &cpb.AccountProfile{
+			Username:   pname,
+		},
+		Properties: &cpb.AccountProperties{
+			Subject:  accountID,
+			Created:  got.Properties.Created,
+			Modified: got.Properties.Modified,
+		},
+		Revision: 4,
+		State:    "ACTIVE",
+	}
+
+	if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
+		t.Errorf("LoadAccount() = (-want, +got): %s", d)
+	}
+}
+
+func TestLoggedIn_Hydra_Errors_DisableAccount(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+	logs, close := fakesdl.New()
+	defer close()
+	s.logger = logs.Client
+
+	serviceinfo.Project = "p1"
+	serviceinfo.Type = "t1"
+	serviceinfo.Name = "n1"
+
+	pname := "dr_joe_elixir"
+	accountID := "dam_111"
+
+	acct := &cpb.Account{
+		ConnectedAccounts: []*cpb.ConnectedAccount{
+			{
+				Profile: &cpb.AccountProfile{
+					Username: pname,
+				},
+				Properties: &cpb.AccountProperties{
+					Subject: pname,
+				},
+				Provider:     testBroker,
+				Revision:     4,
+				LinkRevision: 1,
+			},
+		},
+		Profile: &cpb.AccountProfile{
+			Username: pname,
+		},
+		Properties: &cpb.AccountProperties{
+			Subject: accountID,
+		},
+		Revision: 2,
+		State:    storage.StateDisabled,
+	}
+
+	lookup := &cpb.AccountLookup{
+		State:    "ACTIVE",
+		Revision: 3,
+		Subject:  accountID,
+	}
+
+	if err := s.scim.SaveAccount(nil, acct, "", nil, accountID, nil); err != nil {
+		t.Fatalf("SaveAccount() failed: %v", err)
+	}
+
+	if err := s.scim.SaveAccountLookup(lookup, storage.DefaultRealm, pname, nil, &ga4gh.Identity{Subject: pname}, nil); err != nil {
+		t.Fatalf("SaveAccountLookup() failed: %v", err)
+	}
+
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
+	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+
+	if h.RejectLoginReq.Code != http.StatusForbidden {
+		t.Errorf("Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusForbidden)
 	}
 }
 
@@ -2083,16 +2326,16 @@ func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
 		t.Errorf("Location wants %s got %s", hydraPublicURL, l)
 	}
 
-	if *h.AcceptLoginReq.Subject != pname {
-		t.Errorf("h.AcceptLoginReq.Subject wants %s got %s", pname, *h.AcceptLoginReq.Subject)
+	list := h.AcceptLoginReq.Context["identities"].([]interface{})
+	first := list[0].(string)
+	if !strings.HasPrefix(first, "dam_") {
+		t.Errorf("list[0] = %s wants 'dam_' prefix", first)
 	}
 
-	wantReqContext := map[string]interface{}{
-		"identities": []interface{}{"dr_joe_elixir", "dr_joe@faculty.example.edu"},
-	}
+	wantList := []interface{}{"dr_joe@faculty.example.edu", "dr_joe_elixir"}
 
-	if diff := cmp.Diff(wantReqContext, h.AcceptLoginReq.Context); len(diff) > 0 {
-		t.Errorf("AcceptLoginReq.Context (-want, +got): %s", diff)
+	if diff := cmp.Diff(wantList, list[1:]); len(diff) > 0 {
+		t.Errorf("h.AcceptLoginReq.Context[identities] (-want, +got): %s", diff)
 	}
 }
 

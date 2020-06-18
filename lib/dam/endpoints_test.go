@@ -92,6 +92,9 @@ var (
 		// scim related
 		"/identity/scim/v2/{realm}/Groups",
 		"/identity/scim/v2/{realm}/Groups/{name}",
+		"/identity/scim/v2/{realm}/Me",
+		"/identity/scim/v2/{realm}/Users",
+		"/identity/scim/v2/{realm}/Users/{name}",
 
 		// fake endpoints, will remove soon
 		"GET /tokens",
