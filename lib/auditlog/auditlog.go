@@ -39,7 +39,6 @@ var (
 		"tracing_id",
 		"request_path",
 		"error_type",
-		"pass_auth_check",
 		"resource",
 		"ttl",
 		"cart_id",

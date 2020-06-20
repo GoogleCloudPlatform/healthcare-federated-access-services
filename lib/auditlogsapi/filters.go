@@ -29,7 +29,7 @@ import (
 
 var (
 	// Warning: adding allow characters could lead to injection, need to double check valueEscape().
-	expRE = regexp.MustCompile(`(type|time|text)\s*(=|>=|<=|:)\s*\"([\s\(\)\.\-\+,'#@;%:_0-9A-Za-z]+)\"`)
+	expRE = regexp.MustCompile(`(type|time|text|decision)\s*(=|>=|<=|:)\s*\"([\s\(\)\.\-\+,'#@;%:_/0-9A-Za-z]+)\"`)
 )
 
 // extractFilters validates the filters and returns a Stackdriver Logging filter.
@@ -83,9 +83,14 @@ func parseExp(s string) (*exp, error) {
 			return nil, status.Errorf(codes.InvalidArgument, "not allowed op for type field: %s", ss[1])
 		}
 	case fieldText:
-		// text allows ~= and =
+		// text allows : and =
 		if ss[1] != string(equals) && ss[1] != string(contains) {
 			return nil, status.Errorf(codes.InvalidArgument, "not allowed op for text field: %s", ss[1])
+		}
+	case fieldDecision:
+		// decision allows =
+		if ss[1] != string(equals) {
+			return nil, status.Errorf(codes.InvalidArgument, "not allowed op for decision field: %s", ss[1])
 		}
 	default:
 		return nil, status.Errorf(codes.Internal, "unknown expression field in op checker: %s", field)
@@ -103,7 +108,14 @@ func parseExp(s string) (*exp, error) {
 
 	if field == fieldType {
 		if value != apb.LogType_REQUEST.String() && value != apb.LogType_POLICY.String() {
-			return nil, status.Errorf(codes.InvalidArgument, "type value not allow: %s", value)
+			return nil, status.Errorf(codes.InvalidArgument, "type value not allowed: %s", value)
+		}
+	}
+
+	if field == fieldDecision {
+		value = strings.ToUpper(value)
+		if value != apb.Decision_PASS.String() && value != apb.Decision_FAIL.String() {
+			return nil, status.Errorf(codes.InvalidArgument, "decision value not allowed: %s", value)
 		}
 	}
 
@@ -127,6 +139,8 @@ func (s *exp) toCELFilter() string {
 		return fmt.Sprintf(`labels.type = "%s"`, toAuditLogType(value))
 	case fieldText:
 		return toTextFilter(s.op, value)
+	case fieldDecision:
+		return fmt.Sprintf(`labels.pass_auth_check = "%s"`, toDecisionValue(value))
 	default:
 		return ""
 	}
@@ -164,6 +178,17 @@ func toTextFilter(op expOp, value string) string {
 	return "(" + s + ")"
 }
 
+func toDecisionValue(v string) string {
+	switch v {
+	case apb.Decision_PASS.String():
+		return "true"
+	case apb.Decision_FAIL.String():
+		return "false"
+	default:
+		return ""
+	}
+}
+
 // valueEscape removes double quotes to ensure no injection.
 func valueEscape(s string) string {
 	s = strings.ReplaceAll(s, `"`, ``)
@@ -175,11 +200,12 @@ type expField string
 type expOp string
 
 var (
-	fieldTime expField = "time"
-	fieldText expField = "text"
-	fieldType expField = "type"
+	fieldTime     expField = "time"
+	fieldText     expField = "text"
+	fieldType     expField = "type"
+	fieldDecision expField = "decision"
 
-	allowFields = []expField{fieldTime, fieldText, fieldType}
+	allowFields = []expField{fieldTime, fieldText, fieldType, fieldDecision}
 
 	equals   expOp = "="
 	contains expOp = ":"
