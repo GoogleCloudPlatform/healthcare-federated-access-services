@@ -31,7 +31,7 @@ import (
 	"github.com/cenkalti/backoff" /* copybara-comment */
 	"github.com/golang/glog"
 
-	v1 "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil"
 )
@@ -247,7 +247,7 @@ type ResourceParams struct {
 	DamResourceID         string
 	DamViewID             string
 	DamRoleID             string
-	ServiceTemplate       *v1.ServiceTemplate
+	ServiceTemplate       *pb.ServiceTemplate
 }
 
 type resourceSpec struct {
