@@ -462,7 +462,7 @@ func (wh *AccountWarehouse) createTempCredentialResult(principalARN string, para
 		AccessKeyID:     *aro.Credentials.AccessKeyId,
 		SecretAccessKey: *aro.Credentials.SecretAccessKey,
 		SessionToken:    *aro.Credentials.SessionToken,
-		Format:          "aws",
+		Format:          "aws/session",
 	}, nil
 }
 
@@ -475,7 +475,7 @@ func (wh *AccountWarehouse) ensureAccessKeyResult(ctx context.Context, principal
 		Account:         principalARN,
 		AccessKeyID:     *accessKey.AccessKeyId,
 		SecretAccessKey: *accessKey.SecretAccessKey,
-		Format:          "aws",
+		Format:          "aws/key",
 	}, nil
 }
 
