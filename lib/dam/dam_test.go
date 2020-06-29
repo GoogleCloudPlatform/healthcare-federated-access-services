@@ -38,6 +38,7 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
@@ -1801,7 +1802,7 @@ func TestLogin_Endpoint_Hydra_Success(t *testing.T) {
 	}
 }
 
-func sendLoggedIn(t *testing.T, s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, errStr, state string, tokenType pb.ResourceTokenRequestState_TokenType) *http.Response {
+func sendLoggedIn(t *testing.T, s *Service, cfg *pb.DamConfig, h *fakehydra.Server, code, errStr, realm, state string, tokenType pb.ResourceTokenRequestState_TokenType) *http.Response {
 	t.Helper()
 
 	// Ensure login state exists before request.
@@ -1809,7 +1810,7 @@ func sendLoggedIn(t *testing.T, s *Service, cfg *pb.DamConfig, h *fakehydra.Serv
 		Challenge: loginChallenge,
 		Resources: []*pb.ResourceTokenRequestState_Resource{
 			{
-				Realm:    storage.DefaultRealm,
+				Realm:    realm,
 				Resource: "ga4gh-apis",
 				View:     "gcs_read",
 				Role:     "viewer",
@@ -1817,7 +1818,7 @@ func sendLoggedIn(t *testing.T, s *Service, cfg *pb.DamConfig, h *fakehydra.Serv
 		},
 		Ttl:    int64(time.Hour),
 		Broker: testBroker,
-		Realm:  storage.DefaultRealm,
+		Realm:  realm,
 		Type:   tokenType,
 	}
 
@@ -1859,7 +1860,7 @@ func TestLoggedIn_Hydra_Success(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 
-	resp := sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+	resp := sendLoggedIn(t, s, cfg, h, pname, "", storage.DefaultRealm, loginStateID, pb.ResourceTokenRequestState_DATASET)
 
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
@@ -1908,7 +1909,7 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 
-	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+	sendLoggedIn(t, s, cfg, h, pname, "", storage.DefaultRealm, loginStateID, pb.ResourceTokenRequestState_DATASET)
 
 	logs.Client.Close()
 	got := logs.Server.Logs[0].Entries[0]
@@ -1940,35 +1941,63 @@ func TestLoggedIn_Hydra_Success_Log(t *testing.T) {
 }
 
 func TestLoggedIn_Hydra_Success_CreateAccount(t *testing.T) {
-	s, cfg, _, h, _, err := setupHydraTest(true)
-	if err != nil {
-		t.Fatalf("setupHydraTest() failed: %v", err)
-	}
-	logs, close := fakesdl.New()
-	defer close()
-	s.logger = logs.Client
+	realms := []string{"master", "test"}
 
-	serviceinfo.Project = "p1"
-	serviceinfo.Type = "t1"
-	serviceinfo.Name = "n1"
+	for _, realm := range realms {
+		t.Run(realm, func(t *testing.T) {
+			s, cfg, _, h, _, err := setupHydraTest(true)
+			if err != nil {
+				t.Fatalf("setupHydraTest() failed: %v", err)
+			}
+			logs, close := fakesdl.New()
+			defer close()
+			s.logger = logs.Client
 
-	pname := "dr_joe_elixir"
+			serviceinfo.Project = "p1"
+			serviceinfo.Type = "t1"
+			serviceinfo.Name = "n1"
 
-	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+			pname := "dr_joe_elixir"
 
-	lookup, err := s.scim.LoadAccountLookup(storage.DefaultRealm, pname, nil)
-	if err != nil {
-		t.Fatalf("LoadAccountLookup() failed: %v", err)
-	}
+			sendLoggedIn(t, s, cfg, h, pname, "", realm, loginStateID, pb.ResourceTokenRequestState_DATASET)
 
-	got, _, err := s.scim.LoadAccount(lookup.Subject, storage.DefaultRealm, true, nil)
-	if err != nil {
-		t.Fatalf("LoadAccount() failed: %v", err)
-	}
+			lookup, err := s.scim.LoadAccountLookup(realm, pname, nil)
+			if err != nil {
+				t.Fatalf("LoadAccountLookup() failed: %v", err)
+			}
 
-	want := &cpb.Account{
-		ConnectedAccounts: []*cpb.ConnectedAccount{
-			{
+			got, _, err := s.scim.LoadAccount(lookup.Subject, realm, true, nil)
+			if err != nil {
+				t.Fatalf("LoadAccount() failed: %v", err)
+			}
+
+			if got == nil || len(got.ConnectedAccounts) == 0 {
+				t.Fatalf("LoadAccount() = %+v", got)
+			}
+
+			want := &cpb.Account{
+				ConnectedAccounts: []*cpb.ConnectedAccount{
+					{
+						Profile: &cpb.AccountProfile{
+							Username:   pname,
+							Name:       "Dr Joe (Elixir)",
+							GivenName:  "Dr",
+							FamilyName: "Joe",
+							Picture:    "/identity/static/images/elixir_identity.png",
+						},
+						Properties: &cpb.AccountProperties{
+							Subject:  pname,
+							Email:    "dr_joe@faculty.example.edu",
+							Created:  got.ConnectedAccounts[0].Properties.Created,
+							Modified: got.ConnectedAccounts[0].Properties.Modified,
+						},
+						Provider:     testBroker,
+						Refreshed:    got.ConnectedAccounts[0].Refreshed,
+						Revision:     1,
+						LinkRevision: 1,
+						Passport:     &cpb.Passport{InternalEncryptedVisas: got.ConnectedAccounts[0].Passport.InternalEncryptedVisas},
+					},
+				},
 				Profile: &cpb.AccountProfile{
 					Username:   pname,
 					Name:       "Dr Joe (Elixir)",
@@ -1977,143 +2006,135 @@ func TestLoggedIn_Hydra_Success_CreateAccount(t *testing.T) {
 					Picture:    "/identity/static/images/elixir_identity.png",
 				},
 				Properties: &cpb.AccountProperties{
-					Subject:  pname,
+					Subject:  lookup.Subject,
 					Email:    "dr_joe@faculty.example.edu",
-					Created:  got.ConnectedAccounts[0].Properties.Created,
-					Modified: got.ConnectedAccounts[0].Properties.Modified,
+					Created:  got.Properties.Created,
+					Modified: got.Properties.Modified,
 				},
-				Provider:     testBroker,
-				Refreshed:    got.ConnectedAccounts[0].Refreshed,
-				Revision:     1,
-				LinkRevision: 1,
-				Passport:     &cpb.Passport{InternalEncryptedVisas: got.ConnectedAccounts[0].Passport.InternalEncryptedVisas},
-			},
-		},
-		Profile: &cpb.AccountProfile{
-			Username:   pname,
-			Name:       "Dr Joe (Elixir)",
-			GivenName:  "Dr",
-			FamilyName: "Joe",
-			Picture:    "/identity/static/images/elixir_identity.png",
-		},
-		Properties: &cpb.AccountProperties{
-			Subject:  lookup.Subject,
-			Email:    "dr_joe@faculty.example.edu",
-			Created:  got.Properties.Created,
-			Modified: got.Properties.Modified,
-		},
-		Revision: 1,
-		State:    "ACTIVE",
-	}
+				Revision: 1,
+				State:    "ACTIVE",
+			}
 
-	if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
-		t.Errorf("LoadAccount() = (-want, +got): %s", d)
+			if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
+				t.Errorf("LoadAccount() = (-want, +got): %s", d)
+			}
+		})
 	}
 }
 
 func TestLoggedIn_Hydra_Success_UpdateAccount(t *testing.T) {
-	s, cfg, _, h, _, err := setupHydraTest(true)
-	if err != nil {
-		t.Fatalf("setupHydraTest() failed: %v", err)
-	}
-	logs, close := fakesdl.New()
-	defer close()
-	s.logger = logs.Client
+	realms := []string{"master", "test"}
 
-	serviceinfo.Project = "p1"
-	serviceinfo.Type = "t1"
-	serviceinfo.Name = "n1"
+	for _, realm := range realms {
+		t.Run(realm, func(t *testing.T) {
+			s, cfg, _, h, _, err := setupHydraTest(true)
+			if err != nil {
+				t.Fatalf("setupHydraTest() failed: %v", err)
+			}
+			logs, close := fakesdl.New()
+			defer close()
+			s.logger = logs.Client
 
-	pname := "dr_joe_elixir"
-	accountID := "dam_111"
+			serviceinfo.Project = "p1"
+			serviceinfo.Type = "t1"
+			serviceinfo.Name = "n1"
 
-	acct := &cpb.Account{
-		ConnectedAccounts: []*cpb.ConnectedAccount{
-			{
+			pname := "dr_joe_elixir"
+			accountID := "dam_111"
+
+			acct := &cpb.Account{
+				ConnectedAccounts: []*cpb.ConnectedAccount{
+					{
+						Profile: &cpb.AccountProfile{
+							Username: pname,
+						},
+						Properties: &cpb.AccountProperties{
+							Subject: pname,
+						},
+						Provider:     testBroker,
+						Revision:     4,
+						LinkRevision: 1,
+					},
+				},
 				Profile: &cpb.AccountProfile{
 					Username: pname,
 				},
 				Properties: &cpb.AccountProperties{
-					Subject: pname,
+					Subject: accountID,
 				},
-				Provider:     testBroker,
-				Revision:     4,
-				LinkRevision: 1,
-			},
-		},
-		Profile: &cpb.AccountProfile{
-			Username: pname,
-		},
-		Properties: &cpb.AccountProperties{
-			Subject: accountID,
-		},
-		Revision: 2,
-		State:    "ACTIVE",
-	}
+				Revision: 2,
+				State:    "ACTIVE",
+			}
 
-	lookup := &cpb.AccountLookup{
-		State:    "ACTIVE",
-		Revision: 3,
-		Subject:  accountID,
-	}
+			lookup := &cpb.AccountLookup{
+				State:    "ACTIVE",
+				Revision: 3,
+				Subject:  accountID,
+			}
 
-	if err := s.scim.SaveAccount(nil, acct, "", nil, accountID, nil); err != nil {
-		t.Fatalf("SaveAccount() failed: %v", err)
-	}
+			if err := s.scim.SaveAccount(nil, acct, "", accountID, realm, nil, nil); err != nil {
+				t.Fatalf("SaveAccount() failed: %v", err)
+			}
 
-	if err := s.scim.SaveAccountLookup(lookup, storage.DefaultRealm, pname, nil, &ga4gh.Identity{Subject: pname}, nil); err != nil {
-		t.Fatalf("SaveAccountLookup() failed: %v", err)
-	}
+			if err := s.scim.SaveAccountLookup(lookup, realm, pname, nil, &ga4gh.Identity{Subject: pname}, nil); err != nil {
+				t.Fatalf("SaveAccountLookup() failed: %v", err)
+			}
 
-	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+			sendLoggedIn(t, s, cfg, h, pname, "", realm, loginStateID, pb.ResourceTokenRequestState_DATASET)
 
-	lookup, err = s.scim.LoadAccountLookup(storage.DefaultRealm, pname, nil)
-	if err != nil {
-		t.Fatalf("LoadAccountLookup() failed: %v", err)
-	}
+			lookup, err = s.scim.LoadAccountLookup(realm, pname, nil)
+			if err != nil {
+				t.Fatalf("LoadAccountLookup() failed: %v", err)
+			}
 
-	got, _, err := s.scim.LoadAccount(lookup.Subject, storage.DefaultRealm, true, nil)
-	if err != nil {
-		t.Fatalf("LoadAccount() failed: %v", err)
-	}
+			got, _, err := s.scim.LoadAccount(lookup.Subject, realm, true, nil)
+			if err != nil {
+				t.Fatalf("LoadAccount() failed: %v", err)
+			}
 
-	want := &cpb.Account{
-		ConnectedAccounts: []*cpb.ConnectedAccount{
-			{
+			if got == nil || len(got.ConnectedAccounts) == 0 {
+				t.Fatalf("LoadAccount() = %+v", got)
+			}
+
+			want := &cpb.Account{
+				ConnectedAccounts: []*cpb.ConnectedAccount{
+					{
+						Profile: &cpb.AccountProfile{
+							Username:   pname,
+							Name:       "Dr Joe (Elixir)",
+							GivenName:  "Dr",
+							FamilyName: "Joe",
+							Picture:    "/identity/static/images/elixir_identity.png",
+						},
+						Properties: &cpb.AccountProperties{
+							Subject:  pname,
+							Email:    "dr_joe@faculty.example.edu",
+							Created:  got.ConnectedAccounts[0].Properties.Created,
+							Modified: got.ConnectedAccounts[0].Properties.Modified,
+						},
+						Provider:     testBroker,
+						Refreshed:    got.ConnectedAccounts[0].Refreshed,
+						Revision:     5,
+						LinkRevision: 1,
+						Passport:     &cpb.Passport{InternalEncryptedVisas: got.ConnectedAccounts[0].Passport.InternalEncryptedVisas},
+					},
+				},
 				Profile: &cpb.AccountProfile{
-					Username:   pname,
-					Name:       "Dr Joe (Elixir)",
-					GivenName:  "Dr",
-					FamilyName: "Joe",
-					Picture:    "/identity/static/images/elixir_identity.png",
+					Username: pname,
 				},
 				Properties: &cpb.AccountProperties{
-					Subject:  pname,
-					Email:    "dr_joe@faculty.example.edu",
-					Created:  got.ConnectedAccounts[0].Properties.Created,
-					Modified: got.ConnectedAccounts[0].Properties.Modified,
+					Subject:  accountID,
+					Created:  got.Properties.Created,
+					Modified: got.Properties.Modified,
 				},
-				Provider:     testBroker,
-				Refreshed:    got.ConnectedAccounts[0].Refreshed,
-				Revision:     5,
-				LinkRevision: 1,
-				Passport:     &cpb.Passport{InternalEncryptedVisas: got.ConnectedAccounts[0].Passport.InternalEncryptedVisas},
-			},
-		},
-		Profile: &cpb.AccountProfile{
-			Username:   pname,
-		},
-		Properties: &cpb.AccountProperties{
-			Subject:  accountID,
-			Created:  got.Properties.Created,
-			Modified: got.Properties.Modified,
-		},
-		Revision: 4,
-		State:    "ACTIVE",
-	}
+				Revision: 4,
+				State:    "ACTIVE",
+			}
 
-	if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
-		t.Errorf("LoadAccount() = (-want, +got): %s", d)
+			if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
+				t.Errorf("LoadAccount() = (-want, +got): %s", d)
+			}
+		})
 	}
 }
 
@@ -2163,7 +2184,7 @@ func TestLoggedIn_Hydra_Errors_DisableAccount(t *testing.T) {
 		Subject:  accountID,
 	}
 
-	if err := s.scim.SaveAccount(nil, acct, "", nil, accountID, nil); err != nil {
+	if err := s.scim.SaveAccount(nil, acct, "", accountID, storage.DefaultRealm, nil, nil); err != nil {
 		t.Fatalf("SaveAccount() failed: %v", err)
 	}
 
@@ -2172,10 +2193,45 @@ func TestLoggedIn_Hydra_Errors_DisableAccount(t *testing.T) {
 	}
 
 	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
-	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+	sendLoggedIn(t, s, cfg, h, pname, "", storage.DefaultRealm, loginStateID, pb.ResourceTokenRequestState_DATASET)
 
 	if h.RejectLoginReq.Code != http.StatusForbidden {
 		t.Errorf("Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusForbidden)
+	}
+}
+
+func TestLoggedIn_Hydra_Errors_MissingAccount(t *testing.T) {
+	s, cfg, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+	logs, close := fakesdl.New()
+	defer close()
+	s.logger = logs.Client
+
+	serviceinfo.Project = "p1"
+	serviceinfo.Type = "t1"
+	serviceinfo.Name = "n1"
+
+	pname := "dr_joe_elixir"
+	accountID := "dam_111"
+
+
+	lookup := &cpb.AccountLookup{
+		State:    "ACTIVE",
+		Revision: 3,
+		Subject:  accountID,
+	}
+
+	if err := s.scim.SaveAccountLookup(lookup, storage.DefaultRealm, pname, nil, &ga4gh.Identity{Subject: pname}, nil); err != nil {
+		t.Fatalf("SaveAccountLookup() failed: %v", err)
+	}
+
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
+	sendLoggedIn(t, s, cfg, h, pname, "", storage.DefaultRealm, loginStateID, pb.ResourceTokenRequestState_DATASET)
+
+	if h.RejectLoginReq.Code != http.StatusServiceUnavailable {
+		t.Errorf("Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusServiceUnavailable)
 	}
 }
 
@@ -2209,7 +2265,7 @@ func TestLoggedIn_Hydra_Errors_invalid_state(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := sendLoggedIn(t, s, cfg, h, tc.code, "", tc.stateID, pb.ResourceTokenRequestState_DATASET)
+			resp := sendLoggedIn(t, s, cfg, h, tc.code, "", storage.DefaultRealm, tc.stateID, pb.ResourceTokenRequestState_DATASET)
 
 			if resp.StatusCode != tc.respStatus {
 				t.Errorf("resp.StatusCode wants %d got %d", tc.respStatus, resp.StatusCode)
@@ -2262,7 +2318,7 @@ func TestLoggedIn_Hydra_Errors_with_challenge(t *testing.T) {
 			h.Clear()
 			h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
 
-			resp := sendLoggedIn(t, s, cfg, h, tc.code, tc.errStr, tc.stateID, pb.ResourceTokenRequestState_DATASET)
+			resp := sendLoggedIn(t, s, cfg, h, tc.code, tc.errStr, storage.DefaultRealm, tc.stateID, pb.ResourceTokenRequestState_DATASET)
 
 			if resp.StatusCode != http.StatusSeeOther {
 				t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
@@ -2288,7 +2344,7 @@ func TestLoggedIn_Hydra_Error_Log(t *testing.T) {
 
 	pname := "dr_joe_era_commons"
 
-	sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_DATASET)
+	sendLoggedIn(t, s, cfg, h, pname, "", storage.DefaultRealm, loginStateID, pb.ResourceTokenRequestState_DATASET)
 
 	logs.Client.Close()
 
@@ -2315,7 +2371,7 @@ func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
 
 	pname := "dr_joe_elixir"
 
-	resp := sendLoggedIn(t, s, cfg, h, pname, "", loginStateID, pb.ResourceTokenRequestState_ENDPOINT)
+	resp := sendLoggedIn(t, s, cfg, h, pname, "", storage.DefaultRealm, loginStateID, pb.ResourceTokenRequestState_ENDPOINT)
 
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
@@ -2332,9 +2388,13 @@ func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
 		t.Errorf("list[0] = %s wants 'dam_' prefix", first)
 	}
 
-	wantList := []interface{}{"dr_joe@faculty.example.edu", "dr_joe_elixir"}
+	got := stringset.New()
+	for _, s := range list[1:] {
+		got.Add(s.(string))
+	}
+	want := stringset.New("dr_joe@faculty.example.edu", "dr_joe_elixir")
 
-	if diff := cmp.Diff(wantList, list[1:]); len(diff) > 0 {
+	if diff := cmp.Diff(want, got); len(diff) > 0 {
 		t.Errorf("h.AcceptLoginReq.Context[identities] (-want, +got): %s", diff)
 	}
 }

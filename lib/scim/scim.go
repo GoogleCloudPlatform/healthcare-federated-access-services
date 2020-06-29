@@ -58,6 +58,7 @@ func (s *Scim) LoadAccount(name, realm string, anyState bool, tx storage.Tx) (*c
 	if err != nil {
 		return nil, status, err
 	}
+	// TODO: move state checks to storage package.
 	if acct.State != storage.StateActive && !anyState {
 		return nil, http.StatusNotFound, fmt.Errorf("not found")
 	}
@@ -114,7 +115,7 @@ func (s *Scim) RemoveAccountLookup(rev int64, realm, fedAcct string, r *http.Req
 }
 
 // SaveAccount puts an internal account structure in storage.
-func (s *Scim) SaveAccount(oldAcct, newAcct *cpb.Account, desc string, r *http.Request, subject string, tx storage.Tx) error {
+func (s *Scim) SaveAccount(oldAcct, newAcct *cpb.Account, desc, subject, realm string, r *http.Request, tx storage.Tx) error {
 	newAcct.Revision++
 	newAcct.Properties.Modified = float64(time.Now().UnixNano()) / 1e9
 	if newAcct.Properties.Created == 0 {
@@ -125,7 +126,7 @@ func (s *Scim) SaveAccount(oldAcct, newAcct *cpb.Account, desc string, r *http.R
 		}
 	}
 
-	if err := s.store.WriteTx(storage.AccountDatatype, getRealm(r), storage.DefaultUser, newAcct.Properties.Subject, newAcct.Revision, newAcct, storage.MakeConfigHistory(desc, storage.AccountDatatype, newAcct.Revision, newAcct.Properties.Modified, r, subject, oldAcct, newAcct), tx); err != nil {
+	if err := s.store.WriteTx(storage.AccountDatatype, realm, storage.DefaultUser, newAcct.Properties.Subject, newAcct.Revision, newAcct, storage.MakeConfigHistory(desc, storage.AccountDatatype, newAcct.Revision, newAcct.Properties.Modified, r, subject, oldAcct, newAcct), tx); err != nil {
 		return fmt.Errorf("service storage unavailable: %v, retry later", err)
 	}
 	return nil

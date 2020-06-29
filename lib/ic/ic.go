@@ -1228,11 +1228,11 @@ func makeLoginHint(provider, subject string) string {
 	return provider + ":" + subject
 }
 
-func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity, desc string, r *http.Request, tx storage.Tx, lookup *cpb.AccountLookup) error {
-	if err := s.scim.SaveAccount(nil, newAcct, desc, r, id.Subject, tx); err != nil {
+func (s *Service) saveNewLinkedAccount(newAcct *cpb.Account, id *ga4gh.Identity, realm, desc string, r *http.Request, tx storage.Tx, lookup *cpb.AccountLookup) error {
+	if err := s.scim.SaveAccount(nil, newAcct, desc, id.Subject, realm, r, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
 	}
-	if err := s.scim.SaveAccountLookup(lookup, getRealm(r), id.Subject, r, id, tx); err != nil {
+	if err := s.scim.SaveAccountLookup(lookup, realm, id.Subject, r, id, tx); err != nil {
 		return fmt.Errorf("service dependencies not available; try again later")
 	}
 	return nil

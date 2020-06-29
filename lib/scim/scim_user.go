@@ -474,7 +474,7 @@ func (h *scimUser) Save(r *http.Request, tx storage.Tx, name string, vars map[st
 	if h.save == nil {
 		return nil
 	}
-	return h.s.SaveAccount(h.item, h.save, desc, r, h.auth.ID.Subject, h.tx)
+	return h.s.SaveAccount(h.item, h.save, desc, h.auth.ID.Subject, getRealm(r), r, h.tx)
 }
 
 func (h *scimUser) linkEmail(r *http.Request) error {
@@ -517,7 +517,7 @@ func (h *scimUser) linkEmail(r *http.Request) error {
 	linkAcct.ConnectedAccounts = make([]*cpb.ConnectedAccount, 0)
 	linkAcct.State = "LINKED"
 	linkAcct.Owner = h.save.Properties.Subject
-	if err = h.s.SaveAccount(nil, linkAcct, "LINK account", r, h.auth.ID.Subject, h.tx); err != nil {
+	if err = h.s.SaveAccount(nil, linkAcct, "LINK account", h.auth.ID.Subject, getRealm(r), r, h.tx); err != nil {
 		return err
 	}
 	return nil

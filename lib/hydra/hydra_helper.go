@@ -179,10 +179,15 @@ func SendConsentReject(w http.ResponseWriter, r *http.Request, client *http.Clie
 }
 
 func toRequestDeniedError(err error) *hydraapi.RequestDeniedError {
+	name := errutil.ErrorReason(err)
+	if len(name) == 0 {
+		name = err.Error()
+	}
+
 	return &hydraapi.RequestDeniedError{
 		Code:        int64(httputils.FromError(err)),
 		Description: err.Error(),
-		Name:        errutil.ErrorReason(err),
+		Name:        name,
 	}
 }
 

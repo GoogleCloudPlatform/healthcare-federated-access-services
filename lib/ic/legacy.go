@@ -128,7 +128,7 @@ func (c *adminClaims) Save(r *http.Request, tx storage.Tx, name string, vars map
 	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
 		return nil
 	}
-	if err := c.s.scim.SaveAccount(c.item, c.save, desc, r, c.id.Subject, c.tx); err != nil {
+	if err := c.s.scim.SaveAccount(c.item, c.save, desc, c.id.Subject, getRealm(r), r, c.tx); err != nil {
 		return err
 	}
 	return nil

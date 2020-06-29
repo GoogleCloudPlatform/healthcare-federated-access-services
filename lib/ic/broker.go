@@ -339,7 +339,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, stateID string, state *cpb.Log
 			return nil, err
 		}
 
-		if err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, r, id.Subject, tx); err != nil {
+		if err := s.scim.SaveAccount(nil, acct, "REFRESH claims "+id.Subject, id.Subject, state.Realm, r, tx); err != nil {
 			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
 	} else {
@@ -351,7 +351,7 @@ func (s *Service) finishLogin(id *ga4gh.Identity, stateID string, state *cpb.Log
 			return nil, err
 		}
 
-		if err = s.saveNewLinkedAccount(acct, id, "New Account", r, tx, lookup); err != nil {
+		if err = s.saveNewLinkedAccount(acct, id, state.Realm, "New Account", r, tx, lookup); err != nil {
 			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		}
 		subject = acct.Properties.Subject
