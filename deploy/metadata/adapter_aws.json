@@ -9,10 +9,10 @@
         "serviceVariables": {
            "roles": {
               "type": "const",
-              "regexp": "^.*$",
+              "regexp": "^[*]|([a-zA-Z0-9]+:[a-zA-Z0-9]*[*]?)$",
               "ui": {
-                 "label": "AWS Policies",
-                 "description": "AWS standard or custom policy name starting"
+                 "label": "AWS Actions",
+                 "description": "AWS actions to be allowed for relevant resources"
               }
            }
         },
@@ -28,7 +28,7 @@
         },
          "ui": {
             "label": "AWS S3",
-            "description": "Amazon Simple Storage Service (Amazon S3) is an object storage service that offers industry-leading scalability, data availability, security, and performance."
+            "description": "Amazon Simple Storage Service (Amazon S3) is an object storage service that offers scalability, data availability, security, and performance."
          }
       },
       "redshift": {

@@ -55,7 +55,6 @@ func NewAwsAdapter(store storage.Store, awsClient aws.APIClient) (ServiceAdapter
 		return nil, fmt.Errorf("error registering AWS account key GC: %v", err)
 	}
 
-	// QUESTION: Is this the right place
 	// Update Settings
 	ttl := defaultGcFrequency
 	if err := keyGC.UpdateSettings(ttl, defaultKeysPerAccount, nil); err != nil {
