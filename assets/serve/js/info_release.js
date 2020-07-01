@@ -20,9 +20,11 @@
  */
 function changeSelectAnything() {
   let e = document.getElementById("select-anything");
-  let cbs = document.querySelectorAll(".autoselected");
-  for (let i = 0; i < cbs.length; ++i) {
-    cbs[i].disabled = e.checked;
+  if (!!e) {
+    let cbs = document.querySelectorAll(".autoselected");
+    for (let i = 0; i < cbs.length; ++i) {
+      cbs[i].disabled = e.checked;
+    }
   }
 }
 
@@ -30,10 +32,14 @@ function changeSelectAnything() {
  * init ...
  */
 function init() {
-  document.getElementById("select-anything").onchange = changeSelectAnything;
   document.getElementById("disagree").onclick = () => {
     document.getElementById("reject-form").submit();
   };
+
+  let e = document.getElementById("select-anything");
+  if (!!e) {
+    e.onchange = changeSelectAnything;
+  }
 }
 
 window.onload = init;

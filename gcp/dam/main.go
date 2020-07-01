@@ -64,6 +64,15 @@ var (
 	// hideRejectDetail when set to true will not send visa rejection detail to clients.
 	hideRejectDetail = os.Getenv("HIDE_REJECTION_DETAILS") != ""
 
+	// skipInformationReleasePage is useful if IC and DAM provided by same org.
+	// Use env var "SKIP_INFORMATION_RELEASE_PAGE" = true to set.
+	skipInformationReleasePage = os.Getenv("SKIP_INFORMATION_RELEASE_PAGE") == "true"
+
+	// consentDashboardURL is url to frontend consent dashboard, will replace
+	// ${USER_ID} with userID. If it is not set point to howto doc on github
+	// repo.
+	consentDashboardURL = osenv.VarWithDefault("CONSENT_DASHBOARD_URL", "https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/0f366e73284377571bc314da7666e4b14233c3fa/howto.md#how-do-i-revoke-a-remembered-consent")
+
 	useHydra = os.Getenv("USE_HYDRA") != ""
 	// hydraAdminAddr is the address for the Hydra admin endpoints.
 	hydraAdminAddr = ""
@@ -146,23 +155,25 @@ func main() {
 	r := mux.NewRouter()
 
 	s := dam.New(r, &dam.Options{
-		Domain:                srvAddr,
-		ServiceName:           srvName,
-		DefaultBroker:         defaultBroker,
-		Store:                 store,
-		Warehouse:             wh,
-		ServiceAccountManager: wh,
-		Logger:                logger,
-		SDLC:                  sdlc,
-		AuditLogProject:       project,
-		HidePolicyBasis:       hidePolicyBasis,
-		HideRejectDetail:      hideRejectDetail,
-		UseHydra:              true,
-		HydraAdminURL:         hydraAdminAddr,
-		HydraPublicURL:        hydraPublicAddr,
-		HydraPublicProxy:      hyproxy,
-		Signer:                gcpSigner,
-		Encryption:            gcpEncryption,
+		Domain:                     srvAddr,
+		ServiceName:                srvName,
+		DefaultBroker:              defaultBroker,
+		Store:                      store,
+		Warehouse:                  wh,
+		ServiceAccountManager:      wh,
+		Logger:                     logger,
+		SDLC:                       sdlc,
+		AuditLogProject:            project,
+		HidePolicyBasis:            hidePolicyBasis,
+		HideRejectDetail:           hideRejectDetail,
+		SkipInformationReleasePage: skipInformationReleasePage,
+		ConsentDashboardURL:        consentDashboardURL,
+		UseHydra:                   true,
+		HydraAdminURL:              hydraAdminAddr,
+		HydraPublicURL:             hydraPublicAddr,
+		HydraPublicProxy:           hyproxy,
+		Signer:                     gcpSigner,
+		Encryption:                 gcpEncryption,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

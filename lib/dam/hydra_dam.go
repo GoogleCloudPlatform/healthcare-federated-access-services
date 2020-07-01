@@ -70,7 +70,10 @@ func (s *Service) hydraLogin(ctx context.Context, challenge string, login *hydra
 	}
 
 	in := authHandlerIn{
-		challenge: challenge,
+		challenge:         challenge,
+		requestedAudience: append(login.RequestedAudience, login.Client.ClientID),
+		requestedScope:    login.RequestedScope,
+		clientID:          login.Client.ClientID,
 	}
 
 	// Request tokens for call DAM endpoints, if scope includes "identities".
@@ -129,38 +132,64 @@ func (s *Service) HydraConsent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirect, err := s.hydraConsent(challenge, consent)
+	pageOrRedirect, err := s.hydraConsent(challenge, consent)
 	if err != nil {
 		hydra.SendConsentReject(w, r, s.httpClient, s.hydraAdminURL, challenge, err)
 	} else {
-		httputils.WriteRedirect(w, r, redirect)
+		pageOrRedirect.writeResp(w, r)
 	}
 }
 
 // hydraConsent returns redirect and status error
-func (s *Service) hydraConsent(challenge string, consent *hydraapi.ConsentRequest) (string, error) {
-	identities, sts := hydra.ExtractIdentitiesInConsent(consent)
-	if sts != nil {
-		return "", sts.Err()
+func (s *Service) hydraConsent(challenge string, consent *hydraapi.ConsentRequest) (_ *htmlPageOrRedirectURL, ferr error) {
+	tx, err := s.store.Tx(true)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "%v", err)
 	}
-
-	var stateID string
-	if len(identities) == 0 {
-		stateID, sts = hydra.ExtractStateIDInConsent(consent)
-		if sts != nil {
-			return "", sts.Err()
+	defer func() {
+		err := tx.Finish()
+		if ferr == nil && err != nil {
+			ferr = status.Errorf(codes.Internal, "%v", err)
 		}
+	}()
+	var stateID string
+	stateID, sts := hydra.ExtractStateIDInConsent(consent)
+	if sts != nil {
+		return nil, sts.Err()
 	}
 
-	if len(identities) == 0 && len(stateID) == 0 {
-		return "", status.Errorf(codes.FailedPrecondition, "token format invalid: identities or stateID not found")
+	if len(stateID) == 0 {
+		return nil, status.Errorf(codes.FailedPrecondition, "token format invalid: stateID not found")
 	}
 
+	state := &pb.ResourceTokenRequestState{}
+	err = s.store.ReadTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "read state failed: %v", err)
+	}
+
+	state.ConsentChallenge = challenge
+	err = s.store.WriteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, err.Error())
+	}
+
+	if s.skipInformationReleasePage {
+		return s.hydraConsentSkipInformationReleasePage(consent, stateID, state, tx)
+	}
+	return s.hydraConsentRememberConsentOrInformationReleasePage(consent, stateID, state, tx)
+}
+
+func (s *Service) hydraConsentSkipInformationReleasePage(consent *hydraapi.ConsentRequest, stateID string, state *pb.ResourceTokenRequestState, tx storage.Tx) (*htmlPageOrRedirectURL, error) {
+	return s.acceptHydraConsent(stateID, state, tx)
+}
+
+func (s *Service) acceptHydraConsent(stateID string, state *pb.ResourceTokenRequestState, tx storage.Tx) (*htmlPageOrRedirectURL, error) {
 	tokenID := uuid.New()
 
 	req := &hydraapi.HandledConsentRequest{
-		GrantedAudience: append(consent.RequestedAudience, consent.Client.ClientID),
-		GrantedScope:    consent.RequestedScope,
+		GrantedAudience: state.RequestedAudience,
+		GrantedScope:    state.RequestedScope,
 		Session: &hydraapi.ConsentRequestSessionData{
 			AccessToken: map[string]interface{}{
 				"tid": tokenID,
@@ -171,18 +200,23 @@ func (s *Service) hydraConsent(challenge string, consent *hydraapi.ConsentReques
 		},
 	}
 
-	if len(stateID) > 0 {
+	if state.Type == pb.ResourceTokenRequestState_ENDPOINT {
+		req.Session.AccessToken["identities"] = state.Identities
+		// For endpoint tokens, state is not needed any more. For dataset tokens, state is still needed for exchanging resource token.
+		err := s.store.DeleteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, tx)
+		if err != nil {
+			return nil, status.Errorf(codes.Unavailable, "delete state failed: %v", err)
+		}
+	} else {
 		req.Session.AccessToken["cart"] = stateID
-	} else if len(identities) > 0 {
-		req.Session.AccessToken["identities"] = identities
 	}
 
-	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, challenge, req)
+	resp, err := hydra.AcceptConsent(s.httpClient, s.hydraAdminURL, state.ConsentChallenge, req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return resp.RedirectTo, nil
+	return &htmlPageOrRedirectURL{redirect: resp.RedirectTo}, nil
 }
 
 func (s *Service) extractCartFromAccessToken(id *ga4gh.Identity) (string, error) {
@@ -201,4 +235,17 @@ func (s *Service) extractCartFromAccessToken(id *ga4gh.Identity) (string, error)
 	}
 
 	return cart, nil
+}
+
+type htmlPageOrRedirectURL struct {
+	page     string
+	redirect string
+}
+
+func (h *htmlPageOrRedirectURL) writeResp(w http.ResponseWriter, r *http.Request) {
+	if len(h.page) > 0 {
+		httputils.WriteHTMLResp(w, h.page, nil)
+	} else {
+		httputils.WriteRedirect(w, r, h.redirect)
+	}
 }

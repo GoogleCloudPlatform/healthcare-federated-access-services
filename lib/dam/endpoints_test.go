@@ -32,6 +32,9 @@ var (
 		// service info
 		"GET /dam",
 
+		// asset path
+		"/dam/static/",
+
 		// login related
 		"GET /dam/login",
 		"GET /dam/consent",

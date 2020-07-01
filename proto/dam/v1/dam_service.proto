@@ -430,18 +430,21 @@ message ResourceTokenRequestState {
     string url = 6;
   }
   repeated Resource resources = 1;
-  string client_id = 2 [deprecated = true];
+  string client_id = 2;
   string state = 3 [deprecated = true];
   string broker = 4;
   string redirect = 5 [deprecated = true];
   int64 ttl = 6;
   bool response_key_file = 7;
-  string challenge = 8;
+  string login_challenge = 8;
   string issuer = 9;
   string subject = 10;
   int64 epoch_seconds = 11;
   string realm = 13;
   repeated string identities = 14;
+  repeated string requested_audience = 15;
+  repeated string requested_scope = 16;
+  string consent_challenge = 17;
 }
 
 message AuthCode {

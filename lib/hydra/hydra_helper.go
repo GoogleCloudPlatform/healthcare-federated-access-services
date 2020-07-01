@@ -67,32 +67,6 @@ func ExtractStateIDInConsent(consent *hydraapi.ConsentRequest) (string, *status.
 	return stateID, nil
 }
 
-// ExtractIdentitiesInConsent extracts identities in ConsentRequest Context.
-func ExtractIdentitiesInConsent(consent *hydraapi.ConsentRequest) ([]string, *status.Status) {
-	v, ok := consent.Context["identities"]
-	if !ok {
-		return nil, nil
-	}
-
-	var identities []string
-
-	l, ok := v.([]interface{})
-	if !ok {
-		return nil, httputils.NewInfoStatus(codes.Internal, "", "consent.Context[identities] in wrong type")
-	}
-
-	for i, it := range l {
-		id, ok := it.(string)
-		if !ok {
-			return nil, httputils.NewInfoStatus(codes.Internal, "", fmt.Sprintf("consent.Context[identities][%d] in wrong type", i))
-		}
-
-		identities = append(identities, id)
-	}
-
-	return identities, nil
-}
-
 // ExtractTokenIDInIntrospect finds token id in introspect result, return error if not found or in wront type.
 func ExtractTokenIDInIntrospect(in *hydraapi.Introspection) (string, error) {
 	v, ok := in.Extra["tid"]
