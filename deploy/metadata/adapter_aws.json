@@ -40,10 +40,10 @@
          "serviceVariables": {
             "roles": {
                "type": "const",
-               "regexp": "^.*$",
+               "regexp": "^[*]|([a-zA-Z0-9]+:[a-zA-Z0-9]*[*]?)$",
                "ui": {
-                  "label": "AWS Policies",
-                  "description": "AWS standard or custom policy name starting"
+                  "label": "AWS Actions",
+                  "description": "AWS actions to be allowed for relevant resources"
                }
             }
          },
