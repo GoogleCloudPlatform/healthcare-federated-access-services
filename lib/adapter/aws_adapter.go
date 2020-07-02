@@ -157,13 +157,7 @@ func createAwsResourceTokenCreationParams(userID string, input *Action) (*aws.Re
 	}, nil
 }
 
-func registerAccountGC(store storage.Store, keyGC *processgc.KeyGC, wh *aws.AccountWarehouse) error {
-	// IMPORTANT this transaction is closed in `process.go`
-	// maybe move this transaction creation closer to where it is used/closed?
-	tx, err := store.Tx(true)
-	if err != nil {
-		return err
-	}
-	_, err = keyGC.RegisterWork(wh.GetAwsAccount(), nil, tx)
+func registerAccountGC(_ storage.Store, keyGC *processgc.KeyGC, wh *aws.AccountWarehouse) error {
+	_, err := keyGC.RegisterWork(wh.GetAwsAccount(), nil, nil)
 	return err
 }
