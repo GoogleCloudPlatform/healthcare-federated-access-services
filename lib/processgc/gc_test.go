@@ -19,11 +19,12 @@ import (
 	"testing"
 	"time"
 
-	glog "github.com/golang/glog" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+
+	glog "github.com/golang/glog" /* copybara-comment */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
 
@@ -36,7 +37,9 @@ func TestKeyGC(t *testing.T) {
 	}
 	wh := clouds.NewMockAccountManager(accounts)
 	processName := "gcp_keys"
-	gc := NewKeyGC(processName, wh, store, 10*time.Second, 10)
+	gc := NewKeyGC(processName, wh, store, 10*time.Second, 10, func(sa *clouds.Account) bool {
+		return sa.ID != "mary@example.org"
+	})
 	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
@@ -102,7 +105,9 @@ func TestKeyGC_UpdateSettings(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	wh := clouds.NewMockAccountManager([]*clouds.Account{})
 	processName := "gcp_keys"
-	gc := NewKeyGC(processName, wh, store, 10*time.Hour, 10)
+	gc := NewKeyGC(processName, wh, store, 10*time.Hour, 10, func(sa *clouds.Account) bool {
+		return true
+	})
 	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}

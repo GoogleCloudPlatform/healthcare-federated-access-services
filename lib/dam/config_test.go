@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
@@ -32,6 +33,7 @@ func TestConfigHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
 	}
+	awsClient := aws.NewMockAPIClient("123456", "dam-user-id")
 
 	s := NewService(&Options{
 		HTTPClient:     server.Client(),
@@ -40,6 +42,7 @@ func TestConfigHandlers(t *testing.T) {
 		DefaultBroker:  "no-broker",
 		Store:          store,
 		Warehouse:      wh,
+		AWSClient:      awsClient,
 		UseHydra:       useHydra,
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,

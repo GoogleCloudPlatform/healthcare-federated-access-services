@@ -1,0 +1,75 @@
+{
+   "services": {
+      "s3bucket": {
+         "platform": "aws",
+         "properties": {
+            "isAggregate": false,
+            "canBeAggregated": true
+         },
+        "serviceVariables": {
+           "roles": {
+              "type": "const",
+              "regexp": "^[*]|([a-zA-Z0-9]+:[a-zA-Z0-9]*[*]?)$",
+              "ui": {
+                 "label": "AWS Actions",
+                 "description": "AWS actions to be allowed for relevant resources"
+              }
+           }
+        },
+        "itemVariables": {
+           "bucket": {
+              "type": "const",
+              "regexp": "^[a-z]([-a-z0-9]*[a-z0-9])$",
+              "ui": {
+                 "label": "AWS Bucket name",
+                 "description": "The globally unique s3 bucket name"
+              }
+           }
+        },
+         "ui": {
+            "label": "AWS S3",
+            "description": "Amazon Simple Storage Service (Amazon S3) is an object storage service that offers scalability, data availability, security, and performance."
+         }
+      },
+      "redshift": {
+         "platform": "aws",
+         "properties": {
+            "isAggregate": false,
+            "canBeAggregated": true
+         },
+         "serviceVariables": {
+            "roles": {
+               "type": "const",
+               "regexp": "^[*]|([a-zA-Z0-9]+:[a-zA-Z0-9]*[*]?)$",
+               "ui": {
+                  "label": "AWS Actions",
+                  "description": "AWS actions to be allowed for relevant resources"
+               }
+            }
+         },
+         "itemVariables": {
+            "cluster": {
+               "type": "const",
+               "regexp": "^arn:[^:]+:redshift:[a-z]([-a-z0-9]*[a-z0-9]):[0-9]+:cluster:[a-z]([-a-z0-9]*[a-z0-9])$",
+               "ui": {
+                  "label": "AWS Cluster ARN",
+                  "description": "The globally unique ARN for this cluster"
+               }
+            },
+            "group": {
+               "type": "const",
+               "regexp": "^arn:[^:]+:redshift:[a-z]([-a-z0-9]*[a-z0-9]):[0-9]+:dbgroup:[a-z]([-a-z0-9]*[a-z0-9])/[a-z]([-a-z0-9]*[a-z0-9])$",
+               "optional": true,
+               "ui": {
+                  "label": "AWS Cluster DB Group ARN",
+                  "description": "The globally unique ARN a Redshift Database group in a cluster"
+               }
+            }
+         },
+         "ui": {
+            "label": "AWS Redshift",
+            "description": "Amazon Redshift is a fully managed, petabyte-scale data warehouse service in the cloud."
+         }
+      }
+   }
+}

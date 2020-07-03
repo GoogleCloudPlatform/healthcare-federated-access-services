@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,7 +29,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam" /* copybara-comment */
 	"github.com/aws/aws-sdk-go/service/sts" /* copybara-comment */
 	"github.com/cenkalti/backoff" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
 
@@ -129,6 +133,107 @@ func NewWarehouse(_ context.Context, awsClient APIClient) (*AccountWarehouse, er
 // users, roles, and policies.
 func (wh *AccountWarehouse) GetAwsAccount() string {
 	return wh.account
+}
+
+// GetServiceAccounts returns IAM users created by this warehouse in the warehouse AWS account.
+func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, _ string) (<-chan *clouds.Account, error) {
+	c := make(chan *clouds.Account)
+	go func() {
+		defer close(c)
+		f := func(acct *iam.User) error {
+			a := &clouds.Account{
+				ID:          aws.StringValue(acct.UserName),
+				DisplayName: aws.StringValue(acct.UserName),
+			}
+			select {
+			case c <- a:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			return nil
+		}
+		// TODO: get PathPrefix from config
+		accounts, err := wh.apiClient.ListUsers(&iam.ListUsersInput{
+			PathPrefix: aws.String("/ddap/"),
+		})
+		if err != nil {
+			glog.Errorf("getting users list: %v", err)
+			return
+		}
+		users := accounts.Users
+		for _, user := range users {
+			if err := f(user); err != nil {
+				glog.Errorf("getting user accounts list: %v", err)
+				return
+			}
+		}
+
+	}()
+	return c, nil
+}
+
+// RemoveServiceAccount is not yet a supported operation, but the definition exists to implement
+// the AccountManager interface.
+func (wh *AccountWarehouse) RemoveServiceAccount(_ context.Context, _, _ string) error {
+	// TODO
+	// Unlike the AWS Management Console, when
+	//       you delete a user programmatically, you must delete the items  attached
+	//       to  the user manually, or the deletion fails. For more information, see
+	//       Deleting an IAM User . Before attempting to delete a user,  remove  the
+	//       following items
+	// Refer: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_manage.html#id_users_deleting_cli
+	return fmt.Errorf("removing service accounts is not yet implemented")
+}
+
+// ManageAccountKeys is the main method where key removal happens
+func (wh *AccountWarehouse) ManageAccountKeys(_ context.Context, _, accountID string, _, maxKeyTTL time.Duration, now time.Time, keysPerAccount int64) (int, int, error) {
+	// A key has expired if key.CreatedDate + maxTTL < now, i.e. key.ValidAfterTime < now - maxTTL
+	expired := now.Add(-1 * maxKeyTTL).Format(time.RFC3339)
+	accessKeys, err := wh.apiClient.ListAccessKeys(&iam.ListAccessKeysInput{
+		UserName: aws.String(accountID),
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("error getting aws key list: %v", err)
+	}
+	keys := accessKeys.AccessKeyMetadata
+	var actives []*iam.AccessKeyMetadata
+	active := len(keys)
+	for _, key := range keys {
+		t := aws.TimeValue(key.CreateDate).Format(time.RFC3339)
+		if t < expired {
+			// Access key deletion
+			_, err := wh.apiClient.DeleteAccessKey(&iam.DeleteAccessKeyInput{
+				AccessKeyId: key.AccessKeyId,
+				UserName:    aws.String(accountID),
+			})
+			if err != nil {
+				return active, len(keys) - active, fmt.Errorf("error deleting aws access key: %v", err)
+			}
+			active--
+			continue
+		}
+		actives = append(actives, key)
+	}
+
+	if int64(len(actives)) < keysPerAccount {
+		return active, len(keys) - active, nil
+	}
+
+	// Remove earliest expiring keys
+	sort.Slice(actives, func(i, j int) bool {
+		return aws.TimeValue(actives[i].CreateDate).After(aws.TimeValue(actives[j].CreateDate))
+	})
+	for _, key := range actives[keysPerAccount:] {
+		_, err := wh.apiClient.DeleteAccessKey(&iam.DeleteAccessKeyInput{
+			AccessKeyId: key.AccessKeyId,
+			UserName:    aws.String(accountID),
+		})
+		if err != nil {
+			return active, len(keys) - active, fmt.Errorf("deleting key: %v", err)
+		}
+		active--
+	}
+	return active, len(keys) - active, nil
 }
 
 // ResourceParams contains all the arguments necessary to call MintTokenWithTTL on an
@@ -359,12 +464,12 @@ func (wh *AccountWarehouse) createTempCredentialResult(principalARN string, para
 		AccessKeyID:     *aro.Credentials.AccessKeyId,
 		SecretAccessKey: *aro.Credentials.SecretAccessKey,
 		SessionToken:    *aro.Credentials.SessionToken,
-		Format:          "aws",
+		Format:          "aws/session",
 	}, nil
 }
 
 func (wh *AccountWarehouse) ensureAccessKeyResult(ctx context.Context, principalARN string, princSpec *principalSpec) (*ResourceTokenResult, error) {
-	accessKey, err := wh.ensureAccessKey(princSpec)
+	accessKey, err := wh.ensureAccessKey(ctx, princSpec, wh.svcUserARN)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +477,7 @@ func (wh *AccountWarehouse) ensureAccessKeyResult(ctx context.Context, principal
 		Account:         principalARN,
 		AccessKeyID:     *accessKey.AccessKeyId,
 		SecretAccessKey: *accessKey.SecretAccessKey,
-		Format:          "aws",
+		Format:          "aws/key",
 	}, nil
 }
 
@@ -427,8 +532,15 @@ func (wh *AccountWarehouse) assumeRole(sessionName string, roleARN string, ttl t
 	return aro, nil
 }
 
-func (wh *AccountWarehouse) ensureAccessKey(princSpec *principalSpec) (*iam.AccessKey, error) {
+func (wh *AccountWarehouse) ensureAccessKey(ctx context.Context, princSpec *principalSpec, svcUserARN string) (*iam.AccessKey, error) {
+	// garbage collection call
+	makeRoom := princSpec.params.ManagedKeysPerAccount - 1
+	keyTTL := timeutil.KeyTTL(princSpec.params.MaxKeyTTL, princSpec.params.ManagedKeysPerAccount)
 	userID := princSpec.getID()
+	if _, _, err := wh.ManageAccountKeys(ctx, svcUserARN, userID, princSpec.params.TTL, keyTTL, time.Now(), int64(makeRoom)); err != nil {
+		return nil, fmt.Errorf("garbage collecting keys: %v", err)
+	}
+
 	kres, err := wh.apiClient.CreateAccessKey(&iam.CreateAccessKeyInput{UserName: aws.String(userID)})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create access key for user %s: %v", userID, err)

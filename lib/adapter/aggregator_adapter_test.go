@@ -29,7 +29,6 @@ import (
 )
 
 func TestAggregatorAdapter(t *testing.T) {
-	store := storage.NewMemoryStorage("dam-static", "testdata/config")
 	warehouse := clouds.NewMockTokenCreator(false)
 	secretStore := storage.NewMemoryStorage("dam", "testdata/config")
 	secrets := &pb.DamSecrets{}
@@ -41,7 +40,7 @@ func TestAggregatorAdapter(t *testing.T) {
 		ByServiceName: make(map[string]adapter.ServiceAdapter),
 		Descriptors:   make(map[string]*pb.ServiceDescriptor),
 	}
-	saws, err := adapter.NewSawAdapter(store, warehouse, nil, adapters)
+	saws, err := adapter.NewSawAdapter(warehouse)
 	if err != nil {
 		t.Fatalf("error creating SAW adapter: %v", err)
 	}
@@ -51,7 +50,7 @@ func TestAggregatorAdapter(t *testing.T) {
 		adapters.Descriptors[k] = v
 	}
 
-	adapt, err := adapter.NewAggregatorAdapter(store, warehouse, nil, adapters)
+	adapt, err := adapter.NewAggregatorAdapter(adapters)
 	if err != nil {
 		t.Fatalf("new aggregator adapter: %v", err)
 	}
@@ -162,10 +161,12 @@ func TestAggregatorAdapter(t *testing.T) {
 				Config:          &cfg,
 				GrantRole:       "bad",
 				MaxTTL:          1 * time.Hour,
+				ResourceID:      rname,
 				Resource:        res,
 				ServiceRole:     sRole,
 				ServiceTemplate: st,
 				TTL:             400 * time.Hour,
+				ViewID:          vname,
 				View:            view,
 			},
 			fail: true,

@@ -22,7 +22,6 @@ import (
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -32,8 +31,6 @@ import (
 )
 
 func TestGatekeeperAdapter(t *testing.T) {
-	store := storage.NewMemoryStorage("dam-static", "testdata/config")
-	warehouse := clouds.NewMockTokenCreator(false)
 	secretStore := storage.NewMemoryStorage("dam", "testdata/config")
 	secrets := &pb.DamSecrets{}
 	if err := secretStore.Read(storage.SecretsDatatype, storage.DefaultRealm, storage.DefaultUser, storage.DefaultID, storage.LatestRev, secrets); err != nil {
@@ -47,7 +44,7 @@ func TestGatekeeperAdapter(t *testing.T) {
 
 	key := testkeys.Default
 	signer := localsign.New(&key)
-	adapt, err := adapter.NewGatekeeperAdapter(store, warehouse, signer, adapters)
+	adapt, err := adapter.NewGatekeeperAdapter(signer)
 	if err != nil {
 		t.Fatalf("new gatekeeper adapter: %v", err)
 	}
@@ -110,10 +107,12 @@ func TestGatekeeperAdapter(t *testing.T) {
 				Config:          &cfg,
 				GrantRole:       "bad",
 				MaxTTL:          1 * time.Hour,
+				ResourceID:      rname,
 				Resource:        res,
 				ServiceRole:     sRole,
 				ServiceTemplate: st,
 				TTL:             400 * time.Hour,
+				ViewID:          vname,
 				View:            view,
 			},
 			fail: true,

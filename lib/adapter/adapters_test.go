@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
@@ -30,7 +31,7 @@ import (
 )
 
 const (
-	expectedNumOfAdapters = 3
+	expectedNumOfAdapters = 4
 )
 
 func TestCreateAdapters(t *testing.T) {
@@ -44,7 +45,13 @@ func TestCreateAdapters(t *testing.T) {
 
 	key := testkeys.Default
 	signer := localsign.New(&key)
-	adapters, err := adapter.CreateAdapters(store, warehouse, signer)
+	awsClient := aws.NewMockAPIClient("123456", "dam-user-id")
+	adapters, err := adapter.CreateAdapters(&adapter.Options{
+		Store:     store,
+		Warehouse: warehouse,
+		AWSClient: awsClient,
+		Signer:    signer,
+	})
 	if err != nil {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}
@@ -88,7 +95,13 @@ func TestGetItemVariables(t *testing.T) {
 	}
 	key := testkeys.Default
 	signer := localsign.New(&key)
-	adapters, err := adapter.CreateAdapters(store, warehouse, signer)
+	awsClient := aws.NewMockAPIClient("123456", "dam-user-id")
+	adapters, err := adapter.CreateAdapters(&adapter.Options{
+		Store:     store,
+		Warehouse: warehouse,
+		AWSClient: awsClient,
+		Signer:    signer,
+	})
 	if err != nil {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}
@@ -209,7 +222,13 @@ func TestExperimentalVarsCheck(t *testing.T) {
 	}
 	key := testkeys.Default
 	signer := localsign.New(&key)
-	adapters, err := adapter.CreateAdapters(store, warehouse, signer)
+	awsClient := aws.NewMockAPIClient("123456", "dam-user-id")
+	adapters, err := adapter.CreateAdapters(&adapter.Options{
+		Store:     store,
+		Warehouse: warehouse,
+		AWSClient: awsClient,
+		Signer:    signer,
+	})
 	if err != nil {
 		t.Fatalf("CreateAdapters(store, warehouse): want success, got error: %v", err)
 	}

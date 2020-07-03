@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
@@ -53,10 +54,12 @@ type Action struct {
 	Identity        *ga4gh.Identity
 	Issuer          string
 	MaxTTL          time.Duration
+	ResourceID      string
 	Resource        *pb.Resource
 	ServiceRole     *pb.ServiceRole
 	ServiceTemplate *pb.ServiceTemplate
 	TTL             time.Duration
+	ViewID          string
 	View            *pb.View
 	TokenFormat     string
 }
@@ -103,17 +106,39 @@ type ServiceAdapters struct {
 	errors        []error
 }
 
+// Options contains parameters to adapters.
+type Options struct {
+	// Store: data storage and configuration storage
+	Store storage.Store
+	// Warehouse: resource token creator service
+	Warehouse clouds.ResourceTokenCreator
+	// AWSClient: a client for interacting with the AWS API
+	AWSClient aws.APIClient
+	// Signer: the signer use for signing jwt.
+	Signer kms.Signer
+}
+
 // CreateAdapters registers and collects all adapters with the system.
-func CreateAdapters(store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer) (*ServiceAdapters, error) {
+func CreateAdapters(opts *Options) (*ServiceAdapters, error) {
 	adapters := &ServiceAdapters{
 		ByAdapterName: make(map[string]ServiceAdapter),
 		ByServiceName: make(map[string]ServiceAdapter),
 		Descriptors:   make(map[string]*pb.ServiceDescriptor),
 		errors:        []error{},
 	}
-	registerAdapter(adapters, store, warehouse, signer, NewSawAdapter)
-	registerAdapter(adapters, store, warehouse, signer, NewGatekeeperAdapter)
-	registerAdapter(adapters, store, warehouse, signer, NewAggregatorAdapter)
+
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewSawAdapter(opts.Warehouse)
+	})
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewGatekeeperAdapter(opts.Signer)
+	})
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewAwsAdapter(opts.Store, opts.AWSClient)
+	})
+	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+		return NewAggregatorAdapter(adapters)
+	})
 
 	if len(adapters.errors) > 0 {
 		return nil, adapters.errors[0]
@@ -167,8 +192,8 @@ func ResolveServiceRole(roleName string, view *pb.View, res *pb.Resource, cfg *p
 	return sRole, nil
 }
 
-func registerAdapter(adapters *ServiceAdapters, store storage.Store, warehouse clouds.ResourceTokenCreator, signer kms.Signer, init func(storage.Store, clouds.ResourceTokenCreator, kms.Signer, *ServiceAdapters) (ServiceAdapter, error)) {
-	adapt, err := init(store, warehouse, signer, adapters)
+func registerAdapter(adapters *ServiceAdapters, init func(adapters *ServiceAdapters) (ServiceAdapter, error)) {
+	adapt, err := init(adapters)
 	if err != nil {
 		adapters.errors = append(adapters.errors, err)
 		return
