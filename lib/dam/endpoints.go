@@ -28,6 +28,10 @@ const (
 	// Redirected to here from Identity Broker.
 	// TODO: rename to "accept" which is a more idiomatic OIDC name.
 	loggedInPath = "/dam/oidc/loggedin"
+	// Redirected here from claim release consent page.
+	acceptInformationReleasePath = "/dam/inforelease/accept"
+	// Redirected here from claim release consent page.
+	rejectInformationReleasePath = "/dam/inforelease/reject"
 
 	// resourceTokensPath: returns the batch of access tokens for the requested
 	// resources.

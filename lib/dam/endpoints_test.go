@@ -40,6 +40,8 @@ var (
 		"GET /dam/login",
 		"GET /dam/consent",
 		"GET /dam/oidc/loggedin",
+		"POST /dam/inforelease/accept",
+		"POST /dam/inforelease/reject",
 		"GET|POST /dam/checkout",
 
 		// proxy hydra token endpoint

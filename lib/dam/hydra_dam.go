@@ -74,6 +74,7 @@ func (s *Service) hydraLogin(ctx context.Context, challenge string, login *hydra
 		requestedAudience: append(login.RequestedAudience, login.Client.ClientID),
 		requestedScope:    login.RequestedScope,
 		clientID:          login.Client.ClientID,
+		clientName:        login.Client.Name,
 	}
 
 	// Request tokens for call DAM endpoints, if scope includes "identities".
@@ -249,3 +250,4 @@ func (h *htmlPageOrRedirectURL) writeResp(w http.ResponseWriter, r *http.Request
 		httputils.WriteRedirect(w, r, h.redirect)
 	}
 }
+

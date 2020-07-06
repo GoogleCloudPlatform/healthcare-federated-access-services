@@ -219,6 +219,7 @@ type authHandlerIn struct {
 	redirect          string
 	ttl               time.Duration
 	clientID          string
+	clientName        string
 	responseKeyFile   bool
 	resources         []resourceViewRole
 	challenge         string
@@ -339,6 +340,7 @@ func (s *Service) auth(ctx context.Context, in authHandlerIn) (_ *authHandlerOut
 	state := &pb.ResourceTokenRequestState{
 		Type:              in.tokenType,
 		ClientId:          in.clientID,
+		ClientName:        in.clientName,
 		State:             in.stateID,
 		Broker:            s.defaultBroker,
 		Redirect:          in.redirect,
@@ -573,6 +575,10 @@ func (s *Service) loggedInForEndpointToken(id *ga4gh.Identity, state *pb.Resourc
 	}
 
 	state.Identities = identities
+
+	state.Issuer = id.Issuer
+	state.Subject = id.Subject
+
 	err := s.store.WriteTx(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, stateID, storage.LatestRev, state, nil, tx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, err.Error())
@@ -735,3 +741,4 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 
 	httputils.WriteError(w, status.Errorf(codes.Unimplemented, "oidc service not supported"))
 }
+

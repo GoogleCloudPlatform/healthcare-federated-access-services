@@ -445,6 +445,7 @@ message ResourceTokenRequestState {
   repeated string requested_audience = 15;
   repeated string requested_scope = 16;
   string consent_challenge = 17;
+  string client_name = 18;
 }
 
 message AuthCode {

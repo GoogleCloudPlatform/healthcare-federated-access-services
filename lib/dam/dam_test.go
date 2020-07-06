@@ -39,6 +39,7 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
@@ -58,12 +59,14 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/testhttp" /* copybara-comment: testhttp */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/validator" /* copybara-comment: validator */
 
 	lspb "google.golang.org/genproto/googleapis/logging/type" /* copybara-comment: log_severity_go_proto */
 	lepb "google.golang.org/genproto/googleapis/logging/v2" /* copybara-comment: log_entry_go_proto */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
+	cspb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/store/consents" /* copybara-comment: go_proto */
 )
 
 const (
@@ -2422,8 +2425,8 @@ func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
 		t.Errorf("list[0] = %s wants 'dam_' prefix", first)
 	}
 
-	want := []string{"dr_joe@faculty.example.edu", "dr_joe_elixir"}
-	got := list[1:]
+	want := stringset.New("dr_joe@faculty.example.edu", "dr_joe_elixir")
+	got := stringset.New(list[1:]...)
 
 	if diff := cmp.Diff(want, got); len(diff) > 0 {
 		t.Errorf("h.AcceptLoginReq.Context[identities] (-want, +got): %s", diff)
@@ -2435,6 +2438,7 @@ func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, dataset boo
 
 	// Ensure login state exists before request.
 	login := &pb.ResourceTokenRequestState{
+		Subject:           "sub",
 		ConsentChallenge:  consentChallenge,
 		Ttl:               int64(time.Hour),
 		Broker:            testBroker,
@@ -2442,6 +2446,7 @@ func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, dataset boo
 		RequestedAudience: []string{"cid"},
 		RequestedScope:    []string{"openid"},
 		ClientId:          "cid",
+		ClientName:        "test-client",
 	}
 
 	if dataset {
@@ -2558,6 +2563,51 @@ func TestHydraConsent(t *testing.T) {
 	}
 }
 
+func TestHydraConsent_HasRemembered(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	now := time.Now()
+	rcp := &cspb.RememberedConsentPreference{
+		ClientName:       "test-client",
+		CreateTime:       timeutil.TimestampProto(now),
+		ExpireTime:       timeutil.TimestampProto(now.Add(rememberedConsentExpires)),
+		RequestMatchType: cspb.RememberedConsentPreference_ANYTHING,
+		ReleaseType:      cspb.RememberedConsentPreference_ANYTHING_NEEDED,
+	}
+
+	err = s.store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, "sub", "sub", storage.LatestRev, rcp, nil)
+	if err != nil {
+		t.Fatalf("write remember consent failed: %v", err)
+	}
+
+	resp := sendHydraConsent(t, s, h, true, consentStateID)
+
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
+	}
+
+	l := resp.Header.Get("Location")
+	if l != hydraPublicURL {
+		t.Errorf("Location wants %s got %s", hydraPublicURL, l)
+	}
+
+	want := &hydraapi.HandledConsentRequest{
+		GrantedAudience: []string{"cid"},
+		GrantedScope:    []string{"openid"},
+		Session: &hydraapi.ConsentRequestSessionData{
+			AccessToken: map[string]interface{}{"cart": consentStateID, "tid": h.AcceptConsentReq.Session.AccessToken["tid"]},
+			IDToken:     map[string]interface{}{"tid": h.AcceptConsentReq.Session.AccessToken["tid"]},
+		},
+	}
+
+	if diff := cmp.Diff(want, h.AcceptConsentReq); len(diff) != 0 {
+		t.Errorf("AcceptConsentReq (-want +got): %s", diff)
+	}
+}
+
 func TestHydraConsent_skipPage(t *testing.T) {
 	s, _, _, h, _, err := setupHydraTest(true)
 	if err != nil {
@@ -2645,6 +2695,232 @@ func TestHydraConsent_Error(t *testing.T) {
 				t.Errorf("RejectConsentReq.Code = %d, wants %d", h.RejectConsentReq.Code, http.StatusBadRequest)
 			}
 		})
+	}
+}
+
+func sendAcceptInformationRelease(t *testing.T, s *Service, h *fakehydra.Server, reqState string, dataset, remember bool) *http.Response {
+	t.Helper()
+
+	h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
+
+	state := &pb.ResourceTokenRequestState{
+		Subject:           "sub",
+		ConsentChallenge:  consentChallenge,
+		Ttl:               int64(time.Hour),
+		Broker:            testBroker,
+		Realm:             storage.DefaultRealm,
+		RequestedAudience: []string{"cid"},
+		RequestedScope:    []string{"openid"},
+		ClientId:          "cid",
+		ClientName:        "test-client",
+	}
+
+	if dataset {
+		state.Type = pb.ResourceTokenRequestState_DATASET
+		state.Resources = []*pb.ResourceTokenRequestState_Resource{
+			{
+				Realm:    storage.DefaultRealm,
+				Resource: "ga4gh-apis",
+				View:     "gcs_read",
+				Role:     "viewer",
+			},
+		}
+	} else {
+		state.Type = pb.ResourceTokenRequestState_ENDPOINT
+		state.Identities = []string{"a@example.com", "b@example.com"}
+	}
+	err := s.store.Write(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, consentStateID, storage.LatestRev, state, nil)
+	if err != nil {
+		t.Fatalf("store.Write loginState failed: %v", err)
+	}
+
+	q := url.Values{}
+	q.Set("state", reqState)
+	q.Set("remember", "remember-none")
+	if remember {
+		q.Set("remember", "remember-release-any")
+	}
+	u := damURL + acceptInformationReleasePath
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, u, bytes.NewBufferString(q.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	s.Handler.ServeHTTP(w, r)
+
+	return w.Result()
+}
+
+func TestAcceptInformationRelease(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		dataset  bool
+		remember bool
+		want     *hydraapi.HandledConsentRequest
+	}{
+		{
+			name:     "dataset not remember",
+			dataset:  true,
+			remember: false,
+			want: &hydraapi.HandledConsentRequest{
+				GrantedAudience: []string{"cid"},
+				GrantedScope:    []string{"openid"},
+				Session: &hydraapi.ConsentRequestSessionData{
+					AccessToken: map[string]interface{}{"cart": "cs-1234"},
+					IDToken:     map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name:     "endpoint not remember",
+			dataset:  false,
+			remember: false,
+			want: &hydraapi.HandledConsentRequest{
+				GrantedAudience: []string{"cid"},
+				GrantedScope:    []string{"openid"},
+				Session: &hydraapi.ConsentRequestSessionData{
+					AccessToken: map[string]interface{}{"identities": []interface{}{string("a@example.com"), string("b@example.com")}},
+					IDToken:     map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name:     "dataset remember",
+			dataset:  true,
+			remember: true,
+			want: &hydraapi.HandledConsentRequest{
+				GrantedAudience: []string{"cid"},
+				GrantedScope:    []string{"openid"},
+				Session: &hydraapi.ConsentRequestSessionData{
+					AccessToken: map[string]interface{}{"cart": "cs-1234"},
+					IDToken:     map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name:     "endpoint remember",
+			dataset:  false,
+			remember: true,
+			want: &hydraapi.HandledConsentRequest{
+				GrantedAudience: []string{"cid"},
+				GrantedScope:    []string{"openid"},
+				Session: &hydraapi.ConsentRequestSessionData{
+					AccessToken: map[string]interface{}{"identities": []interface{}{string("a@example.com"), string("b@example.com")}},
+					IDToken:     map[string]interface{}{},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := sendAcceptInformationRelease(t, s, h, consentStateID, tc.dataset, tc.remember)
+			if resp.StatusCode != http.StatusSeeOther {
+				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
+			}
+
+			tc.want.Session.AccessToken["tid"] = h.AcceptConsentReq.Session.AccessToken["tid"]
+			tc.want.Session.IDToken["tid"] = h.AcceptConsentReq.Session.AccessToken["tid"]
+			if d := cmp.Diff(tc.want, h.AcceptConsentReq); len(d) > 0 {
+				t.Errorf("AcceptConsentReq (-want, +got): %s", d)
+			}
+
+			state := &pb.ResourceTokenRequestState{}
+			err = s.store.Read(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, consentStateID, storage.LatestRev, state)
+
+			if tc.dataset {
+				if err != nil {
+					t.Errorf("read ResourceTokenRequestState failed: %v", err)
+				}
+			} else {
+				if err == nil || !storage.ErrNotFound(err) {
+					t.Errorf("ResourceTokenRequestState should be not found, err = %v", err)
+				}
+			}
+
+			rcp := &cspb.RememberedConsentPreference{}
+			err = s.store.Read(storage.RememberedConsentDatatype, storage.DefaultRealm, "sub", "sub", storage.LatestRev, rcp)
+			if tc.remember {
+				if err != nil {
+					t.Errorf("read RememberedConsent failed: %v", err)
+				}
+			} else {
+				if err == nil || !storage.ErrNotFound(err) {
+					t.Errorf("RememberedConsent should be not found, err = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestAcceptInformationRelease_Err(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendAcceptInformationRelease(t, s, h, "", false, false)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
+	}
+}
+
+func sendRejectInformationRelease(t *testing.T, s *Service, h *fakehydra.Server, reqState string) *http.Response {
+	t.Helper()
+
+	h.RejectLoginResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
+
+	state := &pb.ResourceTokenRequestState{Subject: "sub", ConsentChallenge: consentChallenge}
+	err := s.store.Write(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, consentStateID, storage.LatestRev, state, nil)
+	if err != nil {
+		t.Fatalf("store.Write loginState failed: %v", err)
+	}
+
+	q := url.Values{}
+	q.Add("state", reqState)
+	u := damURL + rejectInformationReleasePath
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, u, bytes.NewBufferString(q.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	s.Handler.ServeHTTP(w, r)
+
+	return w.Result()
+}
+
+func TestRejectInformationRelease(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendRejectInformationRelease(t, s, h, consentStateID)
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
+	}
+
+	if h.RejectConsentReq.Code != http.StatusUnauthorized {
+		t.Errorf("Code = %d, wants %d", h.RejectLoginReq.Code, http.StatusUnauthorized)
+	}
+
+	state := &pb.ResourceTokenRequestState{}
+	err = s.store.Read(storage.ResourceTokenRequestStateDataType, storage.DefaultRealm, storage.DefaultUser, consentStateID, storage.LatestRev, state)
+	if err == nil || !storage.ErrNotFound(err) {
+		t.Fatalf("ResourceTokenRequestState should be not found, err = %v", err)
+	}
+}
+
+func TestRejectInformationRelease_Err(t *testing.T) {
+	s, _, _, h, _, err := setupHydraTest(true)
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	resp := sendRejectInformationRelease(t, s, h, "")
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
 	}
 }
 
