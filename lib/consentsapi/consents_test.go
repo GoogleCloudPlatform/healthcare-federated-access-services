@@ -35,15 +35,7 @@ import (
 )
 
 func TestListConsents(t *testing.T) {
-	stub := &stub{}
-	store := fakestore.New()
-
-	handler := handlerfactory.MakeHandler(store, ListConsentsFactory(&Service{
-		Store:                        store,
-		FindRememberedConsentsByUser: stub.findRememberedConsentsByUser,
-		Clients:                      stub.clients,
-	}, "/identity/v1alpha/{realm}/users/{user}/consents"))
-
+	timeNow = func() time.Time { return time.Time{} }
 	time1 := timeutil.TimestampProto(time.Time{}.Add(100 * time.Hour))
 	time2 := timeutil.TimestampProto(time.Time{}.Add(200 * time.Hour))
 	consents := map[string]*storepb.RememberedConsentPreference{
@@ -213,10 +205,19 @@ func TestListConsents(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			stub.consents = tc.consents
+			stub := &stub{}
+			store := fakestore.New()
+
+			handler := handlerfactory.MakeHandler(store, ListConsentsFactory(&Service{
+				Store:   store,
+				Clients: stub.clients,
+			}, "/identity/v1alpha/{realm}/users/{user}/consents"))
+
 			stub.clis = tc.clients
 
-			r := httptest.NewRequest(http.MethodGet, "/identity/v1alpha/masterusers/user1/consents", nil)
+			storeRememberedConsents(t, store, "user1", storage.DefaultRealm, tc.consents)
+
+			r := httptest.NewRequest(http.MethodGet, "/identity/v1alpha/master/user1/consents", nil)
 			r = mux.SetURLVars(r, map[string]string{
 				"user":  "user1",
 				"realm": "master",
@@ -244,10 +245,9 @@ func TestDeleteConsent(t *testing.T) {
 
 	store := fakestore.New()
 	handler := handlerfactory.MakeHandler(store, DeleteConsentFactory(&Service{
-		Store:                        store,
-		FindRememberedConsentsByUser: stub.findRememberedConsentsByUser,
-		Clients:                      stub.clients,
-	}, "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}"))
+		Store:   store,
+		Clients: stub.clients,
+	}, "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}", true))
 
 	consentID := "00000000-0000-0000-0000-000000000001"
 	invalidConsentID := "00000000-0000-0000-0000-000000000000"
@@ -292,13 +292,17 @@ func TestDeleteConsent(t *testing.T) {
 	}
 }
 
-type stub struct {
-	consents map[string]*storepb.RememberedConsentPreference
-	clis     map[string]*cpb.Client
+func storeRememberedConsents(t *testing.T, store storage.Store, subject, realm string, consents map[string]*storepb.RememberedConsentPreference) {
+	t.Helper()
+	for id, rcp := range consents {
+		if err := store.Write(storage.RememberedConsentDatatype, realm, subject, id, storage.LatestRev, rcp, nil); err != nil {
+			t.Fatalf("store RememberedConsentData failed: %v", err)
+		}
+	}
 }
 
-func (s *stub) findRememberedConsentsByUser(store storage.Store, subject, realm, clientName string, offset, pageSize int, tx storage.Tx) (map[string]*storepb.RememberedConsentPreference, error) {
-	return s.consents, nil
+type stub struct {
+	clis map[string]*cpb.Client
 }
 
 func (s *stub) clients(tx storage.Tx) (map[string]*cpb.Client, error) {

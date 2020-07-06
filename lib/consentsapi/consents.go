@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"time"
 
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
@@ -40,14 +41,14 @@ const (
 )
 
 var (
-	uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	uuidRE  = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	timeNow = time.Now
 )
 
 // Service contains store and funcs to access data.
 type Service struct {
-	Store                        storage.Store
-	FindRememberedConsentsByUser func(store storage.Store, subject, realm, clientName string, offset, pageSize int, tx storage.Tx) (map[string]*storepb.RememberedConsentPreference, error)
-	Clients                      func(tx storage.Tx) (map[string]*cpb.Client, error)
+	Store   storage.Store
+	Clients func(tx storage.Tx) (map[string]*cpb.Client, error)
 }
 
 // ListConsentsFactory http handler for "/identity/v1alpha/{realm}/users/{user}/consents"
@@ -75,7 +76,7 @@ func (s *listConsentsHandler) Setup(r *http.Request, tx storage.Tx) (int, error)
 	userID := mux.Vars(r)["user"]
 	realm := mux.Vars(r)["realm"]
 
-	rcs, err := s.s.FindRememberedConsentsByUser(s.s.Store, userID, realm, "", 0, maxRememberedConsent, tx)
+	rcs, err := findRememberedConsentsByUser(s.s.Store, userID, realm, "", 0, maxRememberedConsent, tx)
 	if err != nil {
 		return httputils.FromError(err), err
 	}
@@ -151,18 +152,22 @@ func toConsentVisas(list []*storepb.RememberedConsentPreference_Visa) []*cspb.Co
 }
 
 // DeleteConsentFactory http handler for "/identity/v1alpha/{realm}/users/{user}/consents/{consent_id}"
-func DeleteConsentFactory(serv *Service, consentPath string) *handlerfactory.Options {
-	return &handlerfactory.Options{
+func DeleteConsentFactory(serv *Service, consentPath string, consentIDUseUUID bool) *handlerfactory.Options {
+	opts := &handlerfactory.Options{
 		TypeName:            "consent",
 		PathPrefix:          consentPath,
 		HasNamedIdentifiers: false,
-		NameChecker: map[string]*regexp.Regexp{
-			"consent_id": uuidRE,
-		},
 		Service: func() handlerfactory.Service {
 			return &deleteConsentHandler{s: serv}
 		},
 	}
+
+	if consentIDUseUUID {
+		opts.NameChecker = map[string]*regexp.Regexp{
+			"consent_id": uuidRE,
+		}
+	}
+	return opts
 }
 
 type deleteConsentHandler struct {
@@ -190,4 +195,38 @@ func (s *deleteConsentHandler) Save(r *http.Request, tx storage.Tx, name string,
 		return status.Errorf(codes.Unavailable, "delete consent DeleteTx failed: %v", err)
 	}
 	return nil
+}
+
+// findRememberedConsentsByUser returns all RememberedConsents of user of client.
+func findRememberedConsentsByUser(store storage.Store, subject, realm, clientName string, offset, pageSize int, tx storage.Tx) (map[string]*storepb.RememberedConsentPreference, error) {
+	content := make(map[string]map[string]proto.Message)
+	count, err := store.MultiReadTx(storage.RememberedConsentDatatype, realm, subject, nil, offset, pageSize, content, &storepb.RememberedConsentPreference{}, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable, "findRememberedConsentsByUser MultiReadTx() failed: %v", err)
+	}
+
+	res := map[string]*storepb.RememberedConsentPreference{}
+	if count == 0 {
+		return res, nil
+	}
+
+	now := timeNow().Unix()
+	for k, v := range content[subject] {
+		rcp, ok := v.(*storepb.RememberedConsentPreference)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "findRememberedConsentsByUser obj type incorrect: user=%s, id=%s", subject, k)
+		}
+		// remove expired items
+		if rcp.ExpireTime.Seconds < now {
+			continue
+		}
+		// filter for clientName
+		if len(clientName) > 0 && rcp.ClientName != clientName {
+			continue
+		}
+
+		res[k] = rcp
+	}
+
+	return res, nil
 }

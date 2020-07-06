@@ -677,8 +677,7 @@ func (s *Service) clients(tx storage.Tx) (map[string]*cpb.Client, error) {
 
 func (s *Service) consentService() *consentsapi.Service {
 	return &consentsapi.Service{
-		Store:                        s.store,
-		FindRememberedConsentsByUser: findRememberedConsentsByUser,
-		Clients:                      s.clients,
+		Store:   s.store,
+		Clients: s.clients,
 	}
 }

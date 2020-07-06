@@ -101,6 +101,9 @@ const (
 	fakeTokenPath  = "/tokens/"
 
 	// End-point for managing consents. See "proto/tokens/v1/tokens.proto"
+	listConsentPath   = "/dam/v1alpha/{realm}/users/{user}/consents"
+	deleteConsentPath = "/dam/v1alpha/{realm}/users/{user}/consents/{consent_id}"
+	// TODO: delete the mocked endpoints when complete.
 	consentsPath = "/consents"
 	consentPath  = "/consents/"
 

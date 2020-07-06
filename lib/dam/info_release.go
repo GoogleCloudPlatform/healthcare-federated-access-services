@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/consentsapi" /* copybara-comment: consentsapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
@@ -243,4 +244,11 @@ func (s *Service) rejectInformationRelease(r *http.Request) (_ string, ferr erro
 	}
 
 	return challenge, errutil.WithErrorReason("user_denied", status.Errorf(codes.Unauthenticated, "User denied releasing consent"))
+}
+
+func (s *Service) consentService() *consentsapi.Service {
+	return &consentsapi.Service{
+		Store:   s.store,
+		Clients: s.clients,
+	}
 }

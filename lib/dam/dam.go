@@ -149,9 +149,9 @@ type Options struct {
 	// Store: data storage and configuration storage
 	Store storage.Store
 	// Warehouse: resource token creator service
-	Warehouse             clouds.ResourceTokenCreator
+	Warehouse clouds.ResourceTokenCreator
 	// AWSClient: a client for interacting with the AWS API
-	AWSClient	aws.APIClient
+	AWSClient             aws.APIClient
 	ServiceAccountManager *saw.AccountWarehouse
 	// Logger: audit log logger
 	Logger *logging.Client
@@ -1538,6 +1538,11 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(fakeTokenPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).DeleteToken, s.checker, auth.RequireUserToken)).Methods(http.MethodDelete)
 
 	// consents service endpoints
+	consentService := s.consentService()
+	r.HandleFunc(listConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.ListConsentsFactory(consentService, listConsentPath)), s.checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(deleteConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.DeleteConsentFactory(consentService, deleteConsentPath, false)), s.checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+
+	// TODO: delete the mocked endpoints when complete.
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
 	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).ListConsents, s.checker, auth.RequireUserToken)).Methods(http.MethodGet)
 	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).DeleteConsent, s.checker, auth.RequireUserToken)).Methods(http.MethodDelete)
