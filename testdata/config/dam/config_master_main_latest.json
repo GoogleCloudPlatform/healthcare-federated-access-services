@@ -484,6 +484,63 @@
             "label": "File Read",
             "description": "GCS File Read"
           }
+        },
+        "s3-test": {
+          "serviceTemplate": "awsstorage",
+          "labels": {
+            "version": "Phase 2"
+          },
+          "contentTypes": [],
+          "items": [
+            {
+              "args": {
+                "bucket": "max-dev-test-bucket"
+              }
+            }
+          ],
+          "roles": {
+            "viewer": {
+              "policies": [
+                {
+                  "name": "bona_fide"
+                }
+              ]
+            }
+          },
+          "defaultRole": "viewer",
+          "ui": {
+            "label": "S3 bucket view",
+            "description": "S3 bucket view"
+          }
+        },
+        "redshift-test": {
+          "serviceTemplate": "redshift",
+          "labels": {
+            "version": "test"
+          },
+          "contentTypes": [],
+          "roles": {
+            "dbuser": {
+              "policies": [
+                {
+                  "name": "bona_fide"
+                }
+              ]
+            }
+          },
+          "items": [
+            {
+              "args": {
+                "cluster": "arn:aws:redshift:us-east-1:582623027427:cluster:max-dam-test-cluster",
+                "group": "arn:aws:redshift:us-east-1:582623027427:dbgroup:max-dam-test-cluster/admin"
+              }
+            }
+          ],
+          "defaultRole": "dbuser",
+          "ui": {
+            "description": "redshift view",
+            "label": "redshift view"
+          }
         }
       },
       "maxTokenTtl": "1h",
@@ -624,6 +681,68 @@
       "ui": {
         "label": "Multiple Resource Views",
         "description": "Offers Resource Viewer access across multiple views"
+      }
+    },
+    "awsstorage": {
+      "serviceName": "s3bucket",
+      "roles": {
+        "viewer": {
+          "serviceArgs": {
+            "roles": {
+              "values": [
+                "s3:GetObject"
+              ]
+            }
+          },
+          "damRoleCategories": [
+            "metadata",
+            "list",
+            "read"
+          ],
+          "ui": {
+            "description": "List and read files",
+            "label": "File Viewer"
+          }
+        }
+      },
+      "interfaces": {
+        "http:aws:s3": "https://s3.amazonaws.com/${bucket}"
+      },
+      "ui": {
+        "label": "AWS storage",
+        "description": ""
+      }
+    },
+    "redshift": {
+      "serviceName": "redshift",
+      "interfaces": {
+        "http:aws:redshift:arn": "${cluster}"
+      },
+      "roles": {
+        "dbuser": {
+          "serviceArgs": {
+            "roles": {
+              "values": [
+                "redshift:GetClusterCredentials",
+                "redshift:CreateClusterUser",
+                "redshift:JoinGroup"
+              ]
+            }
+          },
+          "damRoleCategories": [
+            "metadata",
+            "list",
+            "read"
+          ],
+          "ui": {
+            "description": "Ability to login as new user with group",
+            "label": "Ability to Get DB Credentials"
+          }
+        }
+      },
+      "ui": {
+        "description": "Offers AWS Redshift Access",
+        "label": "AWS Redshift"
       }
     }
   },

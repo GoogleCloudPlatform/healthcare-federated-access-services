@@ -17,6 +17,7 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils"
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
@@ -104,7 +105,25 @@ func (a *AwsAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *AwsAdapter) CheckConfig(_ string, _ *pb.ServiceTemplate, _, _ string, _ *pb.View, _ *pb.DamConfig, _ *ServiceAdapters) (string, error) {
+func (a *AwsAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *ServiceAdapters) (string, error) {
+	if view == nil {
+		return "", nil
+	}
+	if len(view.Items) == 1 {
+		vars, path, err := GetItemVariables(adapters, template.ServiceName, view.Items[0])
+		if err != nil {
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", path), err
+		}
+		if template.ServiceName == "S3ItemFormat" && vars["bucket"] == "" {
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "bucket"), fmt.Errorf("no bucket specified")
+		}
+		if template.ServiceName == "RedshiftItemFormat" && vars["cluster"] == "" {
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "cluster"), fmt.Errorf("no cluster specified")
+		}
+	}
+	if len(view.Items) > 1 {
+		return httputils.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("more than one item is declared for the view %q", viewName)
+	}
 	return "", nil
 }
 
