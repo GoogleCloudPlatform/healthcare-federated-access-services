@@ -2,7 +2,19 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.6...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.7...HEAD)
+
+## [v0.9.7](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.7)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.6...v0.9.7)
+
+**Highlight Updates**
+
+* Add information release page on DAM
+* Add information release management endpoints on DAM:
+
+  * GET "/dam/v1alpha/{realm}/users/{user}/consents"
+  * DELETE "/dam/v1alpha/{realm}/users/{user}/consents/{consent_id}"
 
 ## [v0.9.6](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.6)
 
