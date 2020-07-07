@@ -1188,6 +1188,9 @@ func normalizeConfig(cfg *pb.DamConfig) error {
 	if cfg.Clients == nil {
 		cfg.Clients = make(map[string]*cpb.Client)
 	}
+	if cfg.TestPersonas == nil {
+		cfg.TestPersonas = make(map[string]*cpb.TestPersona)
+	}
 	for _, p := range cfg.TestPersonas {
 		sort.Strings(p.Access)
 	}
