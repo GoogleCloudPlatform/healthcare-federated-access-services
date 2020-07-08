@@ -46,6 +46,14 @@ func (c *clientService) ClientByName(name string) *cpb.Client {
 	return c.cfg.Clients[name]
 }
 
+func (c *clientService) ClientSecret(tx storage.Tx, clientId string) string{
+	secrets, err := c.s.loadSecrets(tx)
+	if err != nil {
+		fmt.Errorf("loading secrets failure: %v \n", err)
+	}
+	return secrets.ClientSecrets[clientId]
+}
+
 func (c *clientService) HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Identity, int, error) {
 	cfg, id, status, err := c.s.handlerSetup(tx, r, noScope, nil)
 	if err != nil {

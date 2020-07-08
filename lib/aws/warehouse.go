@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/aws/aws-sdk-go/aws" /* copybara-comment */
 	"github.com/aws/aws-sdk-go/aws/awserr" /* copybara-comment */
 	"github.com/aws/aws-sdk-go/service/iam" /* copybara-comment */
@@ -40,23 +41,33 @@ const (
 	// TemporaryCredMaxTTL is the maximum TTL for an AWS access token.
 	TemporaryCredMaxTTL = 12 * time.Hour
 	// S3ItemFormat is the canonical item format identifier for S3 buckets.
-	S3ItemFormat = "s3bucket"
+	S3ItemFormat        = "s3bucket"
 	// RedshiftItemFormat is the canonical item format identifier for Redshift clusters.
-	RedshiftItemFormat = "redshift"
+	RedshiftItemFormat  = "redshift"
+	// RedshiftConsoleItemFormat is the canonical item format identifier for the Redshift console.
+	RedshiftConsoleItemFormat  = "redshift-console"
+	// HumanInterfacePrefix is the canonical prefix for interface URNs that grant console access to AWS resources.
+	HumanInterfacePrefix = "web:aws:"
 )
 
 type principalType int
-
 const (
 	userType principalType = iota
 	roleType
 )
 
-type resourceType int
+type credentialType int
+const (
+	temporaryKey credentialType = iota
+	permanentKey
+	usernamePassword
+)
 
+type resourceType int
 const (
 	otherRType resourceType = iota
 	bucketType
+	clusterUserType
 )
 
 const (
@@ -92,22 +103,29 @@ type APIClient interface {
 	CreateUser(input *iam.CreateUserInput) (*iam.CreateUserOutput, error)
 	GetRole(input *iam.GetRoleInput) (*iam.GetRoleOutput, error)
 	CreateRole(input *iam.CreateRoleInput) (*iam.CreateRoleOutput, error)
+	CreateLoginProfile(input *iam.CreateLoginProfileInput) (*iam.CreateLoginProfileOutput, error)
+	UpdateLoginProfile(input *iam.UpdateLoginProfileInput) (*iam.UpdateLoginProfileOutput, error)
+	GetLoginProfile(input *iam.GetLoginProfileInput) (*iam.GetLoginProfileOutput, error)
 }
 
 // ResourceTokenResult is returned from MintTokenWithTTL for aws adapter.
 type ResourceTokenResult struct {
 	Account         string
+	PrincipalARN    string
 	Format          string
-	AccessKeyID     string
-	SecretAccessKey string
-	SessionToken    string
+	AccessKeyID     *string
+	SecretAccessKey *string
+	SessionToken    *string
+	UserName        *string
+	Password        *string
 }
 
 // AccountWarehouse is used to create AWS IAM Users and temporary credentials
 type AccountWarehouse struct {
-	account    string
-	svcUserARN string
-	apiClient  APIClient
+	account     string
+	svcUserARN  string
+	svcUserName string
+	apiClient   APIClient
 }
 
 // NewWarehouse creates a new AccountWarehouse using the provided client
@@ -122,6 +140,10 @@ func NewWarehouse(_ context.Context, awsClient APIClient) (*AccountWarehouse, er
 	}
 	wh.svcUserARN = *gcio.Arn
 	wh.account, err = extractAccount(wh.svcUserARN)
+	if err != nil {
+		return nil, err
+	}
+	wh.svcUserName, err = extractUserName(wh.svcUserARN)
 	if err != nil {
 		return nil, err
 	}
@@ -249,49 +271,70 @@ type ResourceParams struct {
 	DamResourceID         string
 	DamViewID             string
 	DamRoleID             string
+	DamInterfaceID        string
 	ServiceTemplate       *pb.ServiceTemplate
 }
 
 type resourceSpec struct {
-	rType resourceType
-	arn   string
-	id    string
+	rType      resourceType
+	arn        string
 }
 
 type principalSpec struct {
 	pType principalType
 	// Used for roles that must be assumed
-	damPrincipalARN string
-	account         string
-	params          *ResourceParams
+	damPrincipalARN      string
+	damPrincipalUserName string
+	// path must start and end with slash
+	path                 string
+	account              string
+	params               *ResourceParams
+}
+
+type credentialSpec struct {
+	cType         credentialType
+	principalSpec *principalSpec
+	params        *ResourceParams
 }
 
 type policySpec struct {
-	principal *principalSpec
+	credSpec  *credentialSpec
 	rSpecs    []*resourceSpec
 	params    *ResourceParams
 }
 
 func (spec *policySpec) getID() string {
-	return spec.principal.getDamResourceViewRoleID()
+	return spec.credSpec.principalSpec.getDamResourceViewRoleID()
+}
+
+func (spec *policySpec) sessionScoped() bool {
+	if spec.credSpec.principalSpec.pType == roleType {
+		for _, rSpec:= range spec.rSpecs {
+			if rSpec.rType == clusterUserType {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (spec *principalSpec) getID() string {
 	if spec.pType == roleType {
 		return spec.getDamResourceViewRoleID()
 	}
-	return convertDamUserIDtoAwsName(spec.params.UserID, spec.damPrincipalARN)
+	return convertDamUserIDtoAwsName(spec.params.UserID, spec.damPrincipalUserName)
 }
 
 func (spec *principalSpec) getDamResourceViewRoleID() string {
-	return fmt.Sprintf("%s,%s,%s@%s", spec.params.DamResourceID, spec.params.DamViewID, spec.params.DamRoleID, extractUserName(spec.damPrincipalARN))
+	return fmt.Sprintf("%s,%s,%s@%s", spec.params.DamResourceID, spec.params.DamViewID, spec.params.DamRoleID, spec.damPrincipalUserName)
 }
 
 func (spec *principalSpec) getARN() string {
 	if spec.pType == roleType {
-		return fmt.Sprintf("arn:aws:iam::%s:role/%s", spec.account, spec.getID())
+		return fmt.Sprintf("arn:aws:iam::%s:role%s%s", spec.account, spec.path, spec.getID())
 	}
-	return fmt.Sprintf("arn:aws:iam::%s:user/%s", spec.account, spec.getID())
+	return fmt.Sprintf("arn:aws:iam::%s:user%s%s", spec.account, spec.path, spec.getID())
 }
 
 func calculateDBuserARN(clusterARN string, userName string) (string, error) {
@@ -312,53 +355,42 @@ func extractAccount(arn string) (string, error) {
 	return parts[4], nil
 }
 
-func extractClusterName(arn string) (string, error) {
-	parts := strings.Split(arn, ":")
-	if len(parts) < 7 {
-		return "", fmt.Errorf("argument is not a proper ARN: %s", arn)
-	}
-
-	return parts[6], nil
-}
-
-func extractDBGroupName(arn string) (string, error) {
-	arnParts := strings.Split(arn, ":")
-	if len(arnParts) < 7 {
-		return "", fmt.Errorf("argument is not a proper ARN: %s", arn)
-	}
-	pathParts := strings.Split(arnParts[6], "/")
-
-	return pathParts[len(pathParts)-1], nil
-}
-
 // MintTokenWithTTL returns an AccountKey or an AccessToken depending on the TTL requested.
 func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, params *ResourceParams) (*ResourceTokenResult, error) {
 	if params.TTL > params.MaxKeyTTL {
 		return nil, fmt.Errorf("given ttl [%s] is greater than max ttl [%s]", params.TTL, params.MaxKeyTTL)
 	}
 
-	princSpec := wh.determinePrincipalSpec(params)
+	credSpec := wh.determineCredentialSpec(params)
 
 	rSpecs, err := wh.determineResourceSpecs(params)
 	if err != nil {
 		return nil, err
 	}
 	polSpec := &policySpec{
-		principal: princSpec,
-		rSpecs:    rSpecs,
-		params:    params,
+		credSpec: credSpec,
+		rSpecs:   rSpecs,
+		params:   params,
 	}
 
-	principalARN, err := wh.ensurePrincipal(princSpec)
-	if err != nil {
-		return nil, err
-	}
-	err = wh.ensurePolicy(polSpec)
+	principalARN, err := wh.ensurePrincipal(credSpec.principalSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	return wh.ensureTokenResult(ctx, principalARN, princSpec)
+	return wh.ensureTokenResult(ctx, principalARN, polSpec)
+}
+
+func removeDuplicatesUnordered(elements []string) []string {
+	encountered := map[string]bool{}
+	for v:= range elements {
+		encountered[elements[v]] = true
+	}
+	var result []string
+	for key, _ := range encountered {
+		result = append(result, key)
+	}
+	return result
 }
 
 func (wh *AccountWarehouse) determineResourceSpecs(params *ResourceParams) ([]*resourceSpec, error) {
@@ -368,102 +400,145 @@ func (wh *AccountWarehouse) determineResourceSpecs(params *ResourceParams) ([]*r
 		if !ok {
 			return nil, fmt.Errorf("no bucket specified")
 		}
-		return []*resourceSpec{
-			{
-				id:    bucket,
-				arn:   fmt.Sprintf("arn:aws:s3:::%s/*", bucket),
+		paths, ok := params.Vars["paths"]
+		if !ok || paths == "" || paths == "*" || paths == "/*" {
+			return []*resourceSpec{
+				{
+					arn:   fmt.Sprintf("arn:aws:s3:::%s/*", bucket),
+					rType: bucketType,
+				},
+				{
+					arn:   fmt.Sprintf("arn:aws:s3:::%s", bucket),
+					rType: bucketType,
+				},
+			}, nil
+		}
+		uniquePaths := removeDuplicatesUnordered(strings.Split(paths, ";"))
+		var resourceSpecs []*resourceSpec
+		for i := range uniquePaths {
+			resourceSpecs = append(resourceSpecs, &resourceSpec{
+				arn:   fmt.Sprintf("arn:aws:s3:::%s%s", bucket, uniquePaths[i]),
 				rType: bucketType,
-			},
-			{
-				id:    bucket,
-				arn:   fmt.Sprintf("arn:aws:s3:::%s", bucket),
-				rType: bucketType,
-			},
-		}, nil
+			})
+		}
+		return resourceSpecs, nil
 	case RedshiftItemFormat:
 		clusterARN, ok := params.Vars["cluster"]
 		if !ok {
 			return nil, fmt.Errorf("no cluster specified")
 		}
-		clusterName, err := extractClusterName(clusterARN)
-		if err != nil {
-			return nil, err
-		}
 		clusterSpec := &resourceSpec{
 			rType: otherRType,
 			arn:   clusterARN,
-			id:    clusterName,
 		}
-		dbUser := convertDamUserIDtoAwsName(params.UserID, wh.svcUserARN)
+		dbUser := convertDamUserIDtoAwsName(params.UserID, wh.svcUserName)
 		dbUserARN, err := calculateDBuserARN(clusterARN, dbUser)
 		if err != nil {
 			return nil, err
 		}
 		userSpec := &resourceSpec{
-			rType: otherRType,
-			arn:   dbUserARN,
-			id:    dbUser,
+			rType:      clusterUserType,
+			arn:        dbUserARN,
 		}
 		group, ok := params.Vars["group"]
 		if ok {
-			dbGroupName, err := extractDBGroupName(group)
-			if err != nil {
-				return nil, err
-			}
 			return []*resourceSpec{
 				clusterSpec,
 				userSpec,
 				{
 					rType: otherRType,
 					arn:   group,
-					id:    dbGroupName,
 				},
 			}, nil
 		}
 		return []*resourceSpec{clusterSpec, userSpec}, nil
+	case RedshiftConsoleItemFormat:
+		packedResources, ok := params.Vars["resources"]
+		var resources []string
+		if ok {
+			resources = strings.Split(packedResources, ";")
+		} else {
+			resources = []string{"*"}
+		}
+
+		var specs []*resourceSpec
+		for _, res := range resources {
+			specs = append(specs, &resourceSpec{
+				rType: otherRType,
+				arn:   res,
+			})
+		}
+
+		return specs, nil
 
 	default:
 		return nil, fmt.Errorf("unrecognized item format [%s] for AWS target adapter", params.ServiceTemplate.ServiceName)
 	}
 }
 
-func (wh *AccountWarehouse) determinePrincipalSpec(params *ResourceParams) *principalSpec {
+func (wh *AccountWarehouse) determineCredentialSpec(params *ResourceParams) *credentialSpec {
+	credentialSpec := &credentialSpec{params: params}
+	if strings.HasPrefix(params.DamInterfaceID, HumanInterfacePrefix) {
+		credentialSpec.cType = usernamePassword
+	} else if params.TTL > TemporaryCredMaxTTL {
+		credentialSpec.cType = permanentKey
+	} else {
+		credentialSpec.cType = temporaryKey
+	}
+	credentialSpec.principalSpec = wh.determinePrincipalSpec(credentialSpec)
+
+	return credentialSpec
+}
+
+func (wh *AccountWarehouse) determinePrincipalSpec(credSpec *credentialSpec) *principalSpec {
+	params := credSpec.params
 	princSpec := &principalSpec{
-		damPrincipalARN: wh.svcUserARN,
-		account:         wh.account,
-		params:          params,
+		damPrincipalARN:      wh.svcUserARN,
+		damPrincipalUserName: wh.svcUserName,
+		account:              wh.account,
+		params:               params,
+		// TODO: Make prefix configurable for different dam deployments
+		path:                 "/ddap/",
 	}
 
-	if params.TTL > TemporaryCredMaxTTL {
-		princSpec.pType = userType
-	} else {
+	if credSpec.cType == temporaryKey {
 		princSpec.pType = roleType
+	} else {
+		princSpec.pType = userType
 	}
+
 	return princSpec
 }
 
-func (wh *AccountWarehouse) ensureTokenResult(ctx context.Context, principalARN string, princSpec *principalSpec) (*ResourceTokenResult, error) {
-	switch princSpec.pType {
-	case userType:
-		return wh.ensureAccessKeyResult(ctx, principalARN, princSpec)
-	case roleType:
-		return wh.createTempCredentialResult(principalARN, princSpec.params)
+func (wh *AccountWarehouse) ensureTokenResult(ctx context.Context, principalARN string, polSpec *policySpec) (*ResourceTokenResult, error) {
+	err := wh.ensureIdentityPolicy(polSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	switch polSpec.credSpec.cType {
+	case permanentKey:
+		return wh.ensureAccessKeyResult(ctx, principalARN, polSpec.credSpec.principalSpec)
+	case temporaryKey:
+		return wh.createTempCredentialResult(polSpec)
+	case usernamePassword:
+		return wh.createUsernamePasswordResult(principalARN)
 	default:
-		return nil, fmt.Errorf("cannot generate token for invalid spec with [%v] principal type", princSpec.pType)
+		return nil, fmt.Errorf("cannot generate token for invalid spec with [%v] credential type", polSpec.credSpec.cType)
 	}
 }
 
-func (wh *AccountWarehouse) createTempCredentialResult(principalARN string, params *ResourceParams) (*ResourceTokenResult, error) {
-	userID := convertDamUserIDtoAwsName(params.UserID, wh.svcUserARN)
-	aro, err := wh.assumeRole(userID, principalARN, params.TTL)
+func(wh *AccountWarehouse) createTempCredentialResult(polSpec *policySpec) (*ResourceTokenResult, error) {
+	aro, err := wh.assumeRole(polSpec)
 	if err != nil {
 		return nil, err
 	}
 	return &ResourceTokenResult{
-		Account:         *aro.AssumedRoleUser.Arn,
-		AccessKeyID:     *aro.Credentials.AccessKeyId,
-		SecretAccessKey: *aro.Credentials.SecretAccessKey,
-		SessionToken:    *aro.Credentials.SessionToken,
+		Account:         wh.account,
+		PrincipalARN:    *aro.AssumedRoleUser.Arn,
+		AccessKeyID:     aro.Credentials.AccessKeyId,
+		SecretAccessKey: aro.Credentials.SecretAccessKey,
+		SessionToken:    aro.Credentials.SessionToken,
 		Format:          "aws/session",
 	}, nil
 }
@@ -474,37 +549,60 @@ func (wh *AccountWarehouse) ensureAccessKeyResult(ctx context.Context, principal
 		return nil, err
 	}
 	return &ResourceTokenResult{
-		Account:         principalARN,
-		AccessKeyID:     *accessKey.AccessKeyId,
-		SecretAccessKey: *accessKey.SecretAccessKey,
+		Account:         wh.account,
+		PrincipalARN:    principalARN,
+		AccessKeyID:     accessKey.AccessKeyId,
+		SecretAccessKey: accessKey.SecretAccessKey,
 		Format:          "aws/key",
 	}, nil
 }
 
-func (wh *AccountWarehouse) ensurePrincipal(princSpec *principalSpec) (string, error) {
+func (wh *AccountWarehouse) createUsernamePasswordResult(principalARN string) (*ResourceTokenResult, error) {
+	userName, err := extractUserName(principalARN)
+	if err != nil {
+		return nil, fmt.Errorf("generated principal ARN is invalid: %v", err)
+	}
+
+	password, err := wh.ensureLoginProfile(userName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ResourceTokenResult{
+		Account:      wh.account,
+		PrincipalARN: principalARN,
+		UserName:     &userName,
+		Password:     &password,
+		Format:       "aws",
+	}, nil
+}
+
+func(wh *AccountWarehouse) ensurePrincipal(princSpec *principalSpec) (string, error) {
 	if princSpec.pType == roleType {
 		return wh.ensureRole(princSpec)
 	}
 	return wh.ensureUser(princSpec)
 }
 
-func (wh *AccountWarehouse) ensurePolicy(spec *policySpec) error {
+func(wh *AccountWarehouse) ensureIdentityPolicy(spec *policySpec) error {
 	if len(spec.rSpecs) == 0 {
 		return fmt.Errorf("cannot have policy without any resources")
 	}
-	switch spec.principal.pType {
+
+	switch spec.credSpec.principalSpec.pType {
 	case userType:
 		return wh.ensureUserPolicy(spec)
 	case roleType:
 		return wh.ensureRolePolicy(spec)
 	default:
-		return fmt.Errorf("cannot generate policy for invalid spec with [%v] principal type", spec.principal.pType)
+		return fmt.Errorf("cannot generate policy for invalid spec with [%v] principal type", spec.credSpec.principalSpec.pType)
 	}
 }
 
-func convertDamUserIDtoAwsName(damUserID, damSvcARN string) string {
-	parts := strings.SplitN(damUserID, "|", 2)
-	sessionName := parts[0] + "@" + extractUserName(damSvcARN)
+func convertDamUserIDtoAwsName(endUserID, damSvcUserName string) string {
+	parts := strings.SplitN(endUserID, "|", 2)
+
+	sessionName := parts[0] + "@" + damSvcUserName
 	maxLen := 64
 	if len(sessionName) < 64 {
 		maxLen = len(sessionName)
@@ -512,14 +610,34 @@ func convertDamUserIDtoAwsName(damUserID, damSvcARN string) string {
 	return sessionName[0:maxLen]
 }
 
-func (wh *AccountWarehouse) assumeRole(sessionName string, roleARN string, ttl time.Duration) (*sts.AssumeRoleOutput, error) {
+func(wh *AccountWarehouse) assumeRole(polSpec *policySpec) (*sts.AssumeRoleOutput, error) {
+	params := polSpec.params
+	roleARN := polSpec.credSpec.principalSpec.getARN()
+	sessionName := convertDamUserIDtoAwsName(params.UserID, wh.svcUserName)
+
+	var sessPolicy *string = nil
+	/*
+	 Session scope policy restricts permissions granted by identity policy on roles.
+	 Read more here: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session
+	 We need this for resources like redshift dbuser where we want to use a role, but each session only should get
+	 access for a particular db user
+	*/
+	if polSpec.sessionScoped() {
+		policyJSON, err := convertToPolicyJSON(polSpec)
+		if err != nil {
+			return nil, err
+		}
+		sessPolicy = aws.String(string(policyJSON))
+	}
+
 	var aro *sts.AssumeRoleOutput
 	f := func() error {
 		var err error
 		aro, err = wh.apiClient.AssumeRole(&sts.AssumeRoleInput{
 			RoleArn:         aws.String(roleARN),
 			RoleSessionName: aws.String(sessionName),
-			DurationSeconds: toSeconds(ttl),
+			DurationSeconds: toSeconds(params.TTL),
+			Policy: sessPolicy,
 		})
 
 		return err
@@ -530,6 +648,44 @@ func (wh *AccountWarehouse) assumeRole(sessionName string, roleARN string, ttl t
 		return nil, fmt.Errorf("unable to assume role %s: %v", roleARN, err)
 	}
 	return aro, nil
+}
+
+func(wh *AccountWarehouse) ensureLoginProfile(userName string) (string, error) {
+	password := uuid.New().String()
+	var call func() error
+
+	_, err := wh.apiClient.GetLoginProfile(&iam.GetLoginProfileInput{UserName: aws.String(userName)})
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == iam.ErrCodeNoSuchEntityException {
+			call = func() error {
+				_, err := wh.apiClient.CreateLoginProfile(&iam.CreateLoginProfileInput{
+					UserName:              aws.String(userName),
+					Password:              aws.String(password),
+					PasswordResetRequired: aws.Bool(false),
+				})
+
+				return err
+			}
+		} else {
+			return "", err
+		}
+	} else {
+		call = func() error {
+			_, err := wh.apiClient.UpdateLoginProfile(&iam.UpdateLoginProfileInput{
+				UserName:              aws.String(userName),
+				Password:              aws.String(password),
+				PasswordResetRequired: aws.Bool(false),
+			})
+
+			return err
+		}
+	}
+
+	err = backoff.Retry(call, exponentialBackoff)
+	if err != nil {
+		return "", fmt.Errorf("unable to create login profile for user %s: %v", userName, err)
+	}
+	return password, nil
 }
 
 func (wh *AccountWarehouse) ensureAccessKey(ctx context.Context, princSpec *principalSpec, svcUserARN string) (*iam.AccessKey, error) {
@@ -562,8 +718,57 @@ type statement struct {
 	Condition map[string]interface{} `json:"Condition,omitempty"`
 }
 
-func (wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
+func(wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
+	spec, err := widenUserScopedResources(*spec)
+	if err != nil {
+		return fmt.Errorf("unable to generate role policy: %v", err)
+	}
 	// TODO: handle policy versioning
+	policyJSON, err := convertToPolicyJSON(spec)
+	if err != nil {
+		return fmt.Errorf("error creating AWS policy JSON: %v", err)
+	}
+
+	f := func() error { return wh.putRolePolicy(spec, string(policyJSON)) }
+	return backoff.Retry(f, exponentialBackoff)
+}
+
+func widenUserScopedResources(spec policySpec) (*policySpec, error) {
+	rSpecs := make([]*resourceSpec, len(spec.rSpecs))
+	for i, rSpec:= range spec.rSpecs {
+		if rSpec.rType == clusterUserType {
+			orig := spec.rSpecs[i]
+			widened := *orig
+			arnParts := strings.SplitN(orig.arn, ":", 7)
+			if len(arnParts) != 7 {
+				return nil, fmt.Errorf("given arn is not a cluster DB user: %s", orig.arn)
+			}
+			dbUserParts := strings.SplitN(arnParts[6], "/", 2)
+			if len(dbUserParts) != 2 {
+				return nil, fmt.Errorf("given arn is not a cluster DB user: %s", orig.arn)
+			}
+
+			widened.arn = fmt.Sprintf(
+				"%s:%s:%s:%s:%s:%s:%s/*",
+				arnParts[0],
+				arnParts[1],
+				arnParts[2],
+				arnParts[3],
+				arnParts[4],
+				arnParts[5],
+				dbUserParts[0],
+			)
+			rSpecs[i] = &widened
+		} else {
+			rSpecs[i] = spec.rSpecs[i]
+		}
+	}
+	spec.rSpecs = rSpecs
+
+	return &spec, nil
+}
+
+func convertToPolicyJSON(spec *policySpec) ([]byte, error) {
 	resourceARNs := resourceARNToArray(spec.rSpecs)
 	policy := &policy{
 		Version: "2012-10-17",
@@ -573,23 +778,18 @@ func (wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
 			Resource: resourceARNs,
 		},
 	}
-	policyJSON, err := json.Marshal(policy)
-	if err != nil {
-		return fmt.Errorf("error creating AWS policy JSON: %v", err)
-	}
 
-	f := func() error { return wh.putRolePolicy(spec, string(policyJSON)) }
-	return backoff.Retry(f, exponentialBackoff)
+	return json.Marshal(policy)
 }
 
 func (wh *AccountWarehouse) putRolePolicy(spec *policySpec, policy string) error {
 	_, err := wh.apiClient.PutRolePolicy(&iam.PutRolePolicyInput{
 		PolicyName:     aws.String(spec.getID()),
-		RoleName:       aws.String(spec.principal.getID()),
+		RoleName:       aws.String(spec.credSpec.principalSpec.getID()),
 		PolicyDocument: aws.String(policy),
 	})
 	if err != nil {
-		return fmt.Errorf("unable to create AWS role policy %s: %v", spec.principal.getID(), err)
+		return fmt.Errorf("unable to create AWS role policy %s: %v", spec.credSpec.principalSpec.getID(), err)
 	}
 	return nil
 }
@@ -598,13 +798,13 @@ func (wh *AccountWarehouse) ensureUserPolicy(spec *policySpec) error {
 	// TODO: handle policy versioning
 	resources := resourceARNToArray(spec.rSpecs)
 	policy := &policy{
-		Version: "2012-10-17",
+		Version:   "2012-10-17",
 		Statement: statement{
 			Effect:   "Allow",
 			Action:   spec.params.TargetRoles,
 			Resource: resources,
 			Condition: map[string]interface{}{
-				"DateLessThanEquals": map[string]string{
+				"DateLessThanEquals": map[string]string {
 					"aws:CurrentTime": (time.Now().Add(spec.params.TTL)).Format(time.RFC3339),
 				},
 			},
@@ -622,14 +822,15 @@ func (wh *AccountWarehouse) ensureUserPolicy(spec *policySpec) error {
 func (wh *AccountWarehouse) putUserPolicy(spec *policySpec, policy string) error {
 	_, err := wh.apiClient.PutUserPolicy(&iam.PutUserPolicyInput{
 		PolicyName:     aws.String(spec.getID()),
-		UserName:       aws.String(spec.principal.getID()),
+		UserName:       aws.String(spec.credSpec.principalSpec.getID()),
 		PolicyDocument: aws.String(policy),
 	})
 	if err != nil {
-		return fmt.Errorf("unable to create AWS user policy %s: %v", spec.principal.getID(), err)
+		return fmt.Errorf("unable to create AWS user policy %s: %v", spec.credSpec.principalSpec.getID(), err)
 	}
 	return nil
 }
+
 
 // ensures user is created and returns non-empty user ARN if successful
 func (wh *AccountWarehouse) ensureUser(spec *principalSpec) (string, error) {
@@ -638,8 +839,7 @@ func (wh *AccountWarehouse) ensureUser(spec *principalSpec) (string, error) {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == iam.ErrCodeNoSuchEntityException {
 			cuo, err := wh.apiClient.CreateUser(&iam.CreateUserInput{
 				UserName: aws.String(spec.getID()),
-				// TODO: Make prefix configurable for different dam deployments
-				Path: aws.String("/ddap/"),
+				Path: aws.String(spec.path),
 			})
 			if err != nil {
 				return "", fmt.Errorf("unable to create IAM user %s: %v", spec.getID(), err)
@@ -656,13 +856,13 @@ func (wh *AccountWarehouse) ensureRole(spec *principalSpec) (string, error) {
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == iam.ErrCodeNoSuchEntityException {
 			policy := &policy{
-				Version: "2012-10-17",
+				Version:   "2012-10-17",
 				Statement: statement{
-					Effect: "Allow",
+					Effect:    "Allow",
 					Principal: map[string]interface{}{
 						"AWS": spec.damPrincipalARN,
 					},
-					Action: []string{"sts:AssumeRole"},
+					Action:   []string{"sts:AssumeRole"},
 				},
 			}
 			policyJSON, err := json.Marshal(policy)
@@ -673,9 +873,8 @@ func (wh *AccountWarehouse) ensureRole(spec *principalSpec) (string, error) {
 			cro, err := wh.apiClient.CreateRole(&iam.CreateRoleInput{
 				AssumeRolePolicyDocument: aws.String(string(policyJSON)),
 				RoleName:                 aws.String(spec.getID()),
-				// TODO: Make prefix configurable for different dam deployments
-				Path:               aws.String("/ddap/"),
-				MaxSessionDuration: toSeconds(TemporaryCredMaxTTL),
+				Path:                     aws.String(spec.path),
+				MaxSessionDuration:       toSeconds(TemporaryCredMaxTTL),
 				Tags: []*iam.Tag{
 					{Key: aws.String("DamResource"), Value: aws.String(spec.params.DamResourceID)},
 					{Key: aws.String("DamView"), Value: aws.String(spec.params.DamViewID)},
@@ -692,11 +891,14 @@ func (wh *AccountWarehouse) ensureRole(spec *principalSpec) (string, error) {
 	return *gro.Role.Arn, nil
 }
 
-func extractUserName(userARN string) string {
+func extractUserName(userARN string) (string, error) {
 	arnParts := strings.Split(userARN, ":")
+	if len(arnParts) < 6 {
+		return "", fmt.Errorf("argument is not a proper user ARN: %s", userARN)
+	}
 	pathParts := strings.Split(arnParts[5], "/")
 
-	return pathParts[len(pathParts)-1]
+	return pathParts[len(pathParts)-1], nil
 }
 
 func toSeconds(duration time.Duration) *int64 {

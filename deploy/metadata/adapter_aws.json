@@ -24,6 +24,15 @@
                  "label": "AWS Bucket name",
                  "description": "The globally unique s3 bucket name"
               }
+           },
+           "paths": {
+              "type": "split_pattern",
+              "regexp": "^(/[-a-z0-9_\\.]+)+(/?\\*)?$",
+              "optional": true,
+              "ui": {
+                 "label": "S3 directory and file paths",
+                 "description": "A list of directories and files that may end in a '*' to indicate it is a prefix match"
+              }
            }
         },
          "ui": {
@@ -69,6 +78,38 @@
          "ui": {
             "label": "AWS Redshift",
             "description": "Amazon Redshift is a fully managed, petabyte-scale data warehouse service in the cloud."
+         }
+      },
+      "redshift-console": {
+         "platform": "aws",
+         "properties": {
+            "isAggregate": false,
+            "canBeAggregated": true
+         },
+         "serviceVariables": {
+            "roles": {
+               "type": "const",
+               "regexp": "^[*]|([a-zA-Z0-9]+:[a-zA-Z0-9]*[*]?)$",
+               "ui": {
+                  "label": "AWS Actions",
+                  "description": "AWS action name"
+               }
+            }
+         },
+         "itemVariables": {
+            "resources": {
+               "type": "split_pattern",
+               "regexp": "^[*]|(arn:.*)$",
+               "optional": true,
+               "ui": {
+                  "label": "AWS resource ARNs",
+                  "description": "The globally unique ARNs for resources used in the generated policy"
+               }
+            }
+         },
+         "ui": {
+            "label": "AWS Redshift Web Console",
+            "description": "AWS Redshift Web Console"
          }
       }
    }

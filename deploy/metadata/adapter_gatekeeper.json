@@ -10,7 +10,7 @@
       "serviceVariables": {
         "scopes": {
           "type": "const",
-          "regexp": ".",
+          "regexp": ".*",
           "ui": {
             "label": "Scopes",
             "description": "An identifier to include in the 'scope' claim as part of the token permission model"
@@ -20,7 +20,7 @@
       "itemVariables": {
         "aud": {
           "type": "const",
-          "regexp": ".",
+          "regexp": ".*",
           "ui": {
             "label": "Audience",
             "description": "A unique JWT audience for the token to distiguish this resource or view from all others"

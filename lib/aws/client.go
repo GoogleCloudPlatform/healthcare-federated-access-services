@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package aws abstracts interacting with certain aspects of AWS,
+// such as creating IAM roles and user, account keys, and access tokens.
 package aws
 
 import (
@@ -95,6 +97,18 @@ func (sac *sdkAPIClient) CreateRole(input *iam.CreateRoleInput) (*iam.CreateRole
 	return sac.iamSvc.CreateRole(input)
 }
 
+func (sac *sdkAPIClient) CreateLoginProfile(input *iam.CreateLoginProfileInput) (*iam.CreateLoginProfileOutput, error) {
+	return sac.iamSvc.CreateLoginProfile(input)
+}
+
+func (sac *sdkAPIClient) UpdateLoginProfile(input *iam.UpdateLoginProfileInput) (*iam.UpdateLoginProfileOutput, error) {
+	return sac.iamSvc.UpdateLoginProfile(input)
+}
+
+func (sac *sdkAPIClient) GetLoginProfile(input *iam.GetLoginProfileInput) (*iam.GetLoginProfileOutput, error) {
+	return sac.iamSvc.GetLoginProfile(input)
+}
+
 // NewMockAPIClient provides an API client implementation suitable for unit tests.
 func NewMockAPIClient(account string, userID string) *MockAwsClient {
 	return &MockAwsClient{
@@ -103,19 +117,71 @@ func NewMockAPIClient(account string, userID string) *MockAwsClient {
 	}
 }
 
-// MockAwsClient for testing
+type fullLoginProfile struct {
+	loginProfile *iam.LoginProfile
+	password     *string
+}
+
+// Mock AWS Client
 type MockAwsClient struct {
-	Account      string
-	UserID       string
-	Roles        []*iam.Role
-	RolePolicies []*iam.PutRolePolicyInput
-	Users        []*iam.User
-	UserPolicies []*iam.PutUserPolicyInput
-	AccessKeys   []*iam.AccessKey
+	Account          string
+	UserID           string
+	Roles            []*iam.Role
+	RolePolicies     []*iam.PutRolePolicyInput
+	AssumedRoles     []*sts.AssumeRoleInput
+	Users            []*iam.User
+	UserPolicies     []*iam.PutUserPolicyInput
+	AccessKeys       []*iam.AccessKey
+	FullLoginProfile []*fullLoginProfile
+}
+
+func (m *MockAwsClient) CreateLoginProfile(input *iam.CreateLoginProfileInput) (*iam.CreateLoginProfileOutput, error) {
+	if _, err := m.GetLoginProfile(&iam.GetLoginProfileInput{UserName: input.UserName}); err == nil {
+		return nil, awserr.New(iam.ErrCodeEntityAlreadyExistsException, "should not depend on this", nil)
+	}
+
+	fullLoginProfile := &fullLoginProfile{
+		loginProfile: &iam.LoginProfile{
+			CreateDate:            aws.Time(time.Now()),
+			PasswordResetRequired: input.PasswordResetRequired,
+			UserName:              input.UserName,
+		},
+		password: input.Password,
+	}
+
+	m.FullLoginProfile = append(m.FullLoginProfile, fullLoginProfile)
+
+	return &iam.CreateLoginProfileOutput{
+		LoginProfile: fullLoginProfile.loginProfile,
+	}, nil
+}
+
+func (m *MockAwsClient) UpdateLoginProfile(input *iam.UpdateLoginProfileInput) (*iam.UpdateLoginProfileOutput, error) {
+	for _, flp := range m.FullLoginProfile {
+		if *flp.loginProfile.UserName == *input.UserName {
+			flp.password = input.Password
+			flp.loginProfile.PasswordResetRequired = input.PasswordResetRequired
+			return &iam.UpdateLoginProfileOutput{}, nil
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "shouldn't rely on this", nil)
+}
+
+func (m *MockAwsClient) GetLoginProfile(input *iam.GetLoginProfileInput) (*iam.GetLoginProfileOutput, error) {
+	for _, flp := range m.FullLoginProfile {
+		if *flp.loginProfile.UserName == *input.UserName {
+			return &iam.GetLoginProfileOutput{
+				LoginProfile: flp.loginProfile,
+			}, nil
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "shouldn't rely on this", nil)
 }
 
 // ListUsers ...
-func (m *MockAwsClient) ListUsers(input *iam.ListUsersInput) (*iam.ListUsersOutput, error) {
+func (m *MockAwsClient) ListUsers(_ *iam.ListUsersInput) (*iam.ListUsersOutput, error) {
 	panic("implement me")
 }
 
@@ -173,6 +239,7 @@ func (m *MockAwsClient) GetCallerIdentity(_ *sts.GetCallerIdentityInput) (*sts.G
 func (m *MockAwsClient) AssumeRole(input *sts.AssumeRoleInput) (*sts.AssumeRoleOutput, error) {
 	for _, role := range m.Roles {
 		if *input.RoleArn == *role.Arn {
+			m.AssumedRoles = append(m.AssumedRoles, input)
 			duration := time.Duration(*input.DurationSeconds) * time.Second
 			cred := fmt.Sprintf("%s-%d", time.Now().String(), rand.Int())
 			return &sts.AssumeRoleOutput{

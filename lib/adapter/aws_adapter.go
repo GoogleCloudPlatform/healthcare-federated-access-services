@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/clouds" /* copybara-comment: clouds */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -104,7 +105,25 @@ func (a *AwsAdapter) IsAggregator() bool {
 }
 
 // CheckConfig validates that a new configuration is compatible with this adapter.
-func (a *AwsAdapter) CheckConfig(_ string, _ *pb.ServiceTemplate, _, _ string, _ *pb.View, _ *pb.DamConfig, _ *ServiceAdapters) (string, error) {
+func (a *AwsAdapter) CheckConfig(templateName string, template *pb.ServiceTemplate, resName, viewName string, view *pb.View, cfg *pb.DamConfig, adapters *ServiceAdapters) (string, error) {
+	if view == nil {
+		return "", nil
+	}
+	if len(view.Items) == 1 {
+		vars, path, err := GetItemVariables(adapters, template.ServiceName, view.Items[0])
+		if err != nil {
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", path), err
+		}
+		if template.ServiceName == "S3ItemFormat" && vars["bucket"] == "" {
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "bucket"), fmt.Errorf("no bucket specified")
+		}
+		if template.ServiceName == "RedshiftItemFormat" && vars["cluster"] == "" {
+			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "cluster"), fmt.Errorf("no cluster specified")
+		}
+	}
+	if len(view.Items) > 1 {
+		return httputils.StatusPath("resources", resName, "views", viewName, "items"), fmt.Errorf("more than one item is declared for the view %q", viewName)
+	}
 	return "", nil
 }
 
@@ -123,13 +142,28 @@ func (a *AwsAdapter) MintToken(ctx context.Context, input *Action) (*MintTokenRe
 		return nil, fmt.Errorf("AWS minting token: %v", err)
 	}
 
+	credentials := map[string]string{
+		"account":   result.Account,
+		"principal": result.PrincipalARN,
+	}
+	if result.AccessKeyID != nil {
+		credentials["access_key_id"] = *result.AccessKeyID
+	}
+	if result.SecretAccessKey != nil {
+		credentials["secret"] = *result.SecretAccessKey
+	}
+	if result.SessionToken != nil {
+		credentials["session_token"] = *result.SessionToken
+	}
+	if result.UserName != nil {
+		credentials["username"] = *result.UserName
+	}
+	if result.Password != nil {
+		credentials["password"] = *result.Password
+	}
+
 	return &MintTokenResult{
-		Credentials: map[string]string{
-			"account":       result.Account,
-			"access_key_id": result.AccessKeyID,
-			"secret":        result.SecretAccessKey,
-			"session_token": result.SessionToken,
-		},
+		Credentials: credentials,
 		TokenFormat: result.Format,
 	}, nil
 }
@@ -168,6 +202,7 @@ func createAwsResourceTokenCreationParams(userID string, input *Action) (*aws.Re
 		DamResourceID:         input.ResourceID,
 		DamViewID:             input.ViewID,
 		DamRoleID:             input.GrantRole,
+		DamInterfaceID:        input.Interface,
 		ServiceTemplate:       input.ServiceTemplate,
 	}, nil
 }
