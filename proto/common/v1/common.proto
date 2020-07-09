@@ -84,6 +84,8 @@ message RejectedPolicy {
   int32 rejections = 1;
   repeated RejectedVisa rejected_visas = 2;
   repeated string policy_basis = 3;
+  string requested_resource = 4;
+  string message = 5;
 }
 
 message Passport {

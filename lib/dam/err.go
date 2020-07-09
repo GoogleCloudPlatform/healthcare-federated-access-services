@@ -55,8 +55,8 @@ func rejectedPolicy(err error) *cpb.RejectedPolicy {
 // error types for checkAuthorization
 const (
 	errUntrustedIssuer          = "dam:check_auth:untrusted_issuer"
-	errResourceNotFoound        = "dam:check_auth:resource_not_found"
-	errResourceViewNotFoound    = "dam:check_auth:resource_view_not_found"
+	errResourceNotFound         = "dam:check_auth:resource_not_found"
+	errResourceViewNotFound     = "dam:check_auth:resource_view_not_found"
 	errResolveAggregatesFail    = "dam:check_auth:resolve_aggregates_fail"
 	errRoleNotAvailable         = "dam:check_auth:role_not_available"
 	errCannotResolveServiceRole = "dam:check_auth:cannot_resolve_service_role"

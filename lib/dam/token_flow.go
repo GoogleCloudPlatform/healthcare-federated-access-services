@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
+	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/adapter" /* copybara-comment: adapter */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
@@ -527,7 +528,13 @@ func writePolicyDeccisionLog(logger *logging.Client, id *ga4gh.Identity, res *pb
 		log.ErrorType = errutil.ErrorReason(err)
 
 		if reject := rejectedPolicy(err); reject != nil {
-			log.Message = reject
+			marshaler := jsonpb.Marshaler{}
+			s, err := marshaler.MarshalToString(reject)
+			if err != nil {
+				s = err.Error()
+			}
+
+			log.Message = s
 		} else {
 			log.Message = err.Error()
 		}
@@ -741,4 +748,3 @@ func (s *Service) LoggedInHandler(w http.ResponseWriter, r *http.Request) {
 
 	httputils.WriteError(w, status.Errorf(codes.Unimplemented, "oidc service not supported"))
 }
-

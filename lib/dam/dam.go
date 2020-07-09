@@ -17,7 +17,6 @@ package dam
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -591,11 +590,11 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 	}
 	srcRes, ok := cfg.Resources[resourceName]
 	if !ok {
-		return errutil.WithErrorReason(errResourceNotFoound, status.Errorf(codes.NotFound, "resource %q not found", resourceName))
+		return errutil.WithErrorReason(errResourceNotFound, status.Errorf(codes.NotFound, "resource %q not found", resourceName))
 	}
 	srcView, ok := srcRes.Views[viewName]
 	if !ok {
-		return errutil.WithErrorReason(errResourceViewNotFoound, status.Errorf(codes.NotFound, "resource %q view %q not found", resourceName, viewName))
+		return errutil.WithErrorReason(errResourceViewNotFound, status.Errorf(codes.NotFound, "resource %q view %q not found", resourceName, viewName))
 	}
 	entries, err := resolveAggregates(srcRes, srcView, cfg, vopts.Services)
 	if err != nil {
@@ -644,8 +643,8 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 				return errutil.WithErrorReason(errCannotValidateIdentity, status.Errorf(codes.PermissionDenied, "cannot validate identity (subject %q, issuer %q): internal error", id.Subject, id.Issuer))
 			}
 			if !ok {
-				details, s := buildRejectedPolicy(id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Services), vopts)
-				return errutil.WithErrorReason(errRejectedPolicy, withRejectedPolicy(details, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (policy requirements failed)\n\n%s", resourceName, viewName, roleName, s)))
+				details := buildRejectedPolicy(resourceName+"/"+viewName+"/"+roleName, id.RejectedVisas, makePolicyBasis(roleName, view, res, cfg, vopts.HidePolicyBasis, vopts.Services), vopts)
+				return errutil.WithErrorReason(errRejectedPolicy, withRejectedPolicy(details, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (policy requirements failed)", resourceName, viewName, roleName)))
 			}
 			active = true
 		}
@@ -953,7 +952,7 @@ func isItemVariable(str string) bool {
 }
 
 // buildRejectedPolicy combines the given information to build RejectedPolicy and the marshalled json.
-func buildRejectedPolicy(rejected []*ga4gh.RejectedVisa, policyBasis map[string]bool, vopts ValidateCfgOpts) (*cpb.RejectedPolicy, string) {
+func buildRejectedPolicy(requestedResource string, rejected []*ga4gh.RejectedVisa, policyBasis map[string]bool, vopts ValidateCfgOpts) *cpb.RejectedPolicy {
 	rejections := len(rejected)
 	if vopts.HideRejectDetail {
 		rejected = nil
@@ -965,8 +964,9 @@ func buildRejectedPolicy(rejected []*ga4gh.RejectedVisa, policyBasis map[string]
 		}
 	}
 	detail := &cpb.RejectedPolicy{
-		Rejections:  int32(rejections),
-		PolicyBasis: basis,
+		Rejections:        int32(rejections),
+		PolicyBasis:       basis,
+		RequestedResource: requestedResource,
 	}
 	for _, rv := range rejected {
 		if rv == nil {
@@ -974,13 +974,12 @@ func buildRejectedPolicy(rejected []*ga4gh.RejectedVisa, policyBasis map[string]
 		}
 		detail.RejectedVisas = append(detail.RejectedVisas, ga4gh.ToRejectedVisaProto(rv))
 	}
-
-	b, err := json.Marshal(detail)
-	if err != nil {
-		// Already in the error state and this is optional detail, just return something.
-		return detail, fmt.Sprintf(`{"rejections":%d}`, rejections)
+	if rejections == 0 {
+		// TODO: need a better struct or message for this case.
+		detail.Message = "this passport is missing one or more visas required to meet the policy for the requested resource"
 	}
-	return detail, string(b)
+
+	return detail
 }
 
 func makePolicyBasis(roleName string, srcView *pb.View, srcRes *pb.Resource, cfg *pb.DamConfig, hidePolicyBasis bool, tas *adapter.ServiceAdapters) map[string]bool {

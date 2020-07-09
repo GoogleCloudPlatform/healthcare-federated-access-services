@@ -1191,8 +1191,8 @@ func TestCheckAuthorization_ResourceNotFound(t *testing.T) {
 	if status.Code(err) != codes.NotFound {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
 	}
-	if errutil.ErrorReason(err) != errResourceNotFoound {
-		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errResourceNotFoound)
+	if errutil.ErrorReason(err) != errResourceNotFound {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errResourceNotFound)
 	}
 }
 
@@ -1209,8 +1209,8 @@ func TestCheckAuthorization_ResourceViewNotFoound(t *testing.T) {
 	if status.Code(err) != codes.NotFound {
 		t.Errorf("checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed, expected %d, got: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, codes.NotFound, err)
 	}
-	if errutil.ErrorReason(err) != errResourceViewNotFoound {
-		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errResourceViewNotFoound)
+	if errutil.ErrorReason(err) != errResourceViewNotFound {
+		t.Errorf("errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errResourceViewNotFound)
 	}
 }
 
@@ -2431,8 +2431,24 @@ func TestLoggedIn_Hydra_Error_Log(t *testing.T) {
 	if got.Labels["error_type"] != errRejectedPolicy {
 		t.Errorf("Labels[pass_auth_check] = %s want %s", got.Labels["error_type"], errRejectedPolicy)
 	}
-	if got.GetJsonPayload() == nil {
-		t.Errorf("got.GetJsonPayload() want not nil")
+
+	if len(got.GetTextPayload()) == 0 {
+		t.Errorf("got.GetTextPayload() want not empty")
+	}
+
+	wantRejectedPolicy := &cpb.RejectedPolicy{
+		RequestedResource: "ga4gh-apis/gcs_read/viewer",
+		PolicyBasis:       []string{"ResearcherStatus", "AcceptedTermsAndPolicies"},
+		Message:           "this passport is missing one or more visas required to meet the policy for the requested resource",
+	}
+
+	gotRejectedPolicy := &cpb.RejectedPolicy{}
+	if err := jsonpb.UnmarshalString(got.GetTextPayload(), gotRejectedPolicy); err != nil {
+		t.Fatalf("Unmarshal() failed: %v", err)
+	}
+
+	if d := cmp.Diff(wantRejectedPolicy, gotRejectedPolicy, protocmp.Transform()); len(d) > 0 {
+		t.Errorf("RejectedPolicy (-want, +got): %s", d)
 	}
 }
 
