@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"bitbucket.org/creachadair/stringset"
 	"github.com/google/uuid"
 	"github.com/aws/aws-sdk-go/aws" /* copybara-comment */
 	"github.com/aws/aws-sdk-go/aws/awserr" /* copybara-comment */
@@ -381,18 +382,6 @@ func (wh *AccountWarehouse) MintTokenWithTTL(ctx context.Context, params *Resour
 	return wh.ensureTokenResult(ctx, principalARN, polSpec)
 }
 
-func removeDuplicatesUnordered(elements []string) []string {
-	encountered := map[string]bool{}
-	for v:= range elements {
-		encountered[elements[v]] = true
-	}
-	var result []string
-	for key, _ := range encountered {
-		result = append(result, key)
-	}
-	return result
-}
-
 func (wh *AccountWarehouse) determineResourceSpecs(params *ResourceParams) ([]*resourceSpec, error) {
 	switch params.ServiceTemplate.ServiceName {
 	case S3ItemFormat:
@@ -413,11 +402,11 @@ func (wh *AccountWarehouse) determineResourceSpecs(params *ResourceParams) ([]*r
 				},
 			}, nil
 		}
-		uniquePaths := removeDuplicatesUnordered(strings.Split(paths, ";"))
+		uniquePaths := stringset.New(strings.Split(paths, ";")...)
 		var resourceSpecs []*resourceSpec
-		for i := range uniquePaths {
+		for _, v := range uniquePaths.Elements() {
 			resourceSpecs = append(resourceSpecs, &resourceSpec{
-				arn:   fmt.Sprintf("arn:aws:s3:::%s%s", bucket, uniquePaths[i]),
+				arn:   fmt.Sprintf("arn:aws:s3:::%s%s", bucket, v),
 				rType: bucketType,
 			})
 		}

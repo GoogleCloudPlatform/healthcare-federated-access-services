@@ -388,6 +388,8 @@ func TestAWS_ManageAccountKeys_Expired(t *testing.T) {
 }
 
 func validateMintedRoleCredentials(t *testing.T, expectedAccount, expectedPrincipal string, result *ResourceTokenResult, err error) {
+	t.Helper()
+
 	if err != nil {
 		t.Errorf("expected minting a token but got error: %v", err)
 		return
@@ -421,6 +423,8 @@ func validateMintedRoleCredentials(t *testing.T, expectedAccount, expectedPrinci
 }
 
 func validateMintedAccessKey(t *testing.T, expectedAccount, expectedPrincipal string, result *ResourceTokenResult, err error) {
+	t.Helper()
+
 	if err != nil {
 		t.Errorf("expected minting a token but got error: %v", err)
 		return
@@ -452,6 +456,8 @@ func validateMintedAccessKey(t *testing.T, expectedAccount, expectedPrincipal st
 }
 
 func validateMintedUsernamePassword(t *testing.T, expectedAccount, expectedPrincipalARN, expectedUserName string, result *ResourceTokenResult, err error) {
+	t.Helper()
+
 	if err != nil {
 		t.Errorf("expected minting a token but got error: %v", err)
 		return
@@ -478,6 +484,8 @@ func validateMintedUsernamePassword(t *testing.T, expectedAccount, expectedPrinc
 }
 
 func validateCreatedRolePolicy(t *testing.T, apiClient *MockAwsClient, expectedRoleName string, targetRoles []string) {
+	t.Helper()
+
 	if len(apiClient.Roles) != 1 {
 		t.Fatalf("expected a single role to be created but found %v", apiClient.Roles)
 	} else {
@@ -502,6 +510,8 @@ func validateCreatedRolePolicy(t *testing.T, apiClient *MockAwsClient, expectedR
 }
 
 func validatePolicyDoc(t *testing.T, targetRoles []string, policyDoc *string) {
+	t.Helper()
+
 	if policyDoc == nil {
 		t.Fatalf("expected a policy doc but none found")
 	}
@@ -516,6 +526,8 @@ func validatePolicyDoc(t *testing.T, targetRoles []string, policyDoc *string) {
 }
 
 func validatePolicyResourceARNs(t *testing.T, expectedResourceARNs []string, policyDoc *string) {
+	t.Helper()
+
 	if policyDoc == nil {
 		t.Errorf("expected a session policy but none found")
 		return
@@ -531,6 +543,8 @@ func validatePolicyResourceARNs(t *testing.T, expectedResourceARNs []string, pol
 }
 
 func validateCreatedUserPolicy(t *testing.T, apiClient *MockAwsClient, expectedUserName string, targetRoles []string) {
+	t.Helper()
+
 	if len(apiClient.Users) != 1 {
 		t.Errorf("expected a single user to be created but found %v", apiClient.Users)
 	} else {
