@@ -1490,32 +1490,32 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(syncClientsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.syncClientsFactory()), s.checker, auth.RequireClientIDAndSecret))
 
 	// administration endpoints
-	r.HandleFunc(realmPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.realmFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, s.checker, auth.RequireAdminToken)).Methods(http.MethodGet)
-	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, s.checker, auth.RequireAdminToken)).Methods(http.MethodGet)
-	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, s.checker, auth.RequireAdminToken)).Methods(http.MethodGet)
-	r.HandleFunc(configTestPersonasPath, auth.MustWithAuth(s.ConfigTestPersonas, s.checker, auth.RequireAdminToken)).Methods(http.MethodGet)
-	r.HandleFunc(configPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configOptionsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configOptionsFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configResourcePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configResourceFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configViewPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configViewFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configTrustedIssuerPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configIssuerFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configTrustedSourcePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configSourceFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configPolicyPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPolicyFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configVisaTypePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configVisaTypeFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configServiceTemplateFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPersonaFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(configClientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientFactory()), s.checker, auth.RequireAdminToken))
+	r.HandleFunc(realmPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.realmFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configHistoryPath, auth.MustWithAuth(s.ConfigHistory, s.checker, auth.RequireAdminTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(configHistoryRevisionPath, auth.MustWithAuth(s.ConfigHistoryRevision, s.checker, auth.RequireAdminTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(configResetPath, auth.MustWithAuth(s.ConfigReset, s.checker, auth.RequireAdminTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(configTestPersonasPath, auth.MustWithAuth(s.ConfigTestPersonas, s.checker, auth.RequireAdminTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(configPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configOptionsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configOptionsFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configResourcePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configResourceFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configViewPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configViewFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configTrustedIssuerPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configIssuerFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configTrustedSourcePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configSourceFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configPolicyPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPolicyFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configVisaTypePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configVisaTypeFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configServiceTemplatePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configServiceTemplateFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configTestPersonaPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configPersonaFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(configClientPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.configClientFactory()), s.checker, auth.RequireAdminTokenClientCredential))
 
-	r.HandleFunc(processesPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processesFactory()), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(processPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processFactory()), s.checker, auth.RequireAdminToken))
+	r.HandleFunc(processesPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processesFactory()), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(processPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.processFactory()), s.checker, auth.RequireAdminTokenClientCredential))
 
 	// scim service endpoints
-	r.HandleFunc(scimGroupPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupFactory(s.GetStore(), scimGroupPath)), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(scimGroupsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupsFactory(s.GetStore(), scimGroupsPath)), s.checker, auth.RequireAdminToken))
-	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.MeFactory(s.GetStore(), s.domainURL, scimMePath)), s.checker, auth.RequireAccountAdminUserToken))
-	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UserFactory(s.GetStore(), s.domainURL, scimUserPath)), s.checker, auth.RequireAccountAdminUserToken))
-	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.domainURL, scimUsersPath)), s.checker, auth.RequireAdminToken))
+	r.HandleFunc(scimGroupPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupFactory(s.GetStore(), scimGroupPath)), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(scimGroupsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupsFactory(s.GetStore(), scimGroupsPath)), s.checker, auth.RequireAdminTokenClientCredential))
+	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.MeFactory(s.GetStore(), s.domainURL, scimMePath)), s.checker, auth.RequireAccountAdminUserTokenCredential))
+	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UserFactory(s.GetStore(), s.domainURL, scimUserPath)), s.checker, auth.RequireAccountAdminUserTokenCredential))
+	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.domainURL, scimUsersPath)), s.checker, auth.RequireAdminTokenClientCredential))
 
 	// hydra related oidc endpoints
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, s.checker, auth.RequireNone)).Methods(http.MethodGet)
@@ -1529,28 +1529,28 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(loggedInPath, auth.MustWithAuth(s.LoggedInHandler, s.checker, auth.RequireNone)).Methods(http.MethodGet)
 
 	// resource token exchange endpoint
-	r.HandleFunc(resourceTokensPath, auth.MustWithAuth(s.ResourceTokens, s.checker, auth.RequireUserToken)).Methods(http.MethodGet, http.MethodPost)
+	r.HandleFunc(resourceTokensPath, auth.MustWithAuth(s.ResourceTokens, s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodGet, http.MethodPost)
 
 	// token service endpoints
-	r.HandleFunc(tokensPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.ListTokensFactory(tokensPath, s.tokenProviders, s.store)), s.checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(tokenPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.DeleteTokenFactory(tokenPath, s.tokenProviders, s.store)), s.checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	r.HandleFunc(tokensPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.ListTokensFactory(tokensPath, s.tokenProviders, s.store)), s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(tokenPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, tokensapi.DeleteTokenFactory(tokenPath, s.tokenProviders, s.store)), s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodDelete)
 
 	// TODO: to remove.
-	r.HandleFunc(fakeTokensPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).ListTokens, s.checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(fakeTokenPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).DeleteToken, s.checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	r.HandleFunc(fakeTokensPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).ListTokens, s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(fakeTokenPath, auth.MustWithAuth(faketokensapi.NewTokensHandler(s.tokens).DeleteToken, s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodDelete)
 
 	// consents service endpoints
 	consentService := s.consentService()
-	r.HandleFunc(listConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.ListConsentsFactory(consentService, listConsentPath)), s.checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(deleteConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.DeleteConsentFactory(consentService, deleteConsentPath, false)), s.checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	r.HandleFunc(listConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.ListConsentsFactory(consentService, listConsentPath)), s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(deleteConsentPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), consentsapi.DeleteConsentFactory(consentService, deleteConsentPath, false)), s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodDelete)
 
 	// TODO: delete the mocked endpoints when complete.
 	consents := &consentsapi.StubConsents{Consent: consentsapi.FakeConsent}
-	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).ListConsents, s.checker, auth.RequireUserToken)).Methods(http.MethodGet)
-	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).DeleteConsent, s.checker, auth.RequireUserToken)).Methods(http.MethodDelete)
+	r.HandleFunc(consentsPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).ListConsents, s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodGet)
+	r.HandleFunc(consentPath, auth.MustWithAuth(consentsapi.NewMockConsentsHandler(consents).DeleteConsent, s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodDelete)
 
 	// audit logs endpoints
-	r.HandleFunc(auditlogsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, auditlogsapi.ListAuditlogsPathFactory(auditlogsPath, s.auditlogs)), s.checker, auth.RequireUserToken)).Methods(http.MethodGet)
+	r.HandleFunc(auditlogsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, auditlogsapi.ListAuditlogsPathFactory(auditlogsPath, s.auditlogs)), s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodGet)
 
 	// proxy hydra oauth token endpoint
 	if s.hydraPublicURLProxy != nil {

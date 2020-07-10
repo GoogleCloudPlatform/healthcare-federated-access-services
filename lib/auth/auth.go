@@ -64,27 +64,34 @@ const (
 
 // Require defines the Authorization Requirement.
 type Require struct {
+	Nothing      bool
 	ClientID     bool
 	ClientSecret bool
 	// Roles current supports "user" and "admin". Check will check the role inside the bearer token.
 	// not requirement bearer token if "Role" is empty.
 	Role       Role
 	EditScopes []string
+	// client id of self
+	SelfClientID string
+	// allow using issuer as aud or azp
+	AllowIssuerInAudOrAzp bool
+	// allow azp
+	AllowAzp bool
 }
 
 var (
 	// RequireNone -> requires nothing for authorization
-	RequireNone = Require{ClientID: false, ClientSecret: false, Role: None}
+	RequireNone = Require{Nothing: true}
 	// RequireClientID -> only require client id
 	RequireClientID = Require{ClientID: true, ClientSecret: false, Role: None}
 	// RequireClientIDAndSecret -> require client id and matched secret
 	RequireClientIDAndSecret = Require{ClientID: true, ClientSecret: true, Role: None}
-	// RequireAdminToken -> require an admin token, also the client id and secret
-	RequireAdminToken = Require{ClientID: true, ClientSecret: true, Role: Admin}
-	// RequireUserToken -> require an user token, also the client id and secret
-	RequireUserToken = Require{ClientID: true, ClientSecret: true, Role: User}
-	// RequireAccountAdminUserToken -> require a user token, client id & secret, and non-admins require "account_admin" scope for edits methods
-	RequireAccountAdminUserToken = Require{ClientID: true, ClientSecret: true, Role: User, EditScopes: []string{"account_admin"}}
+	// RequireAdminTokenClientCredential -> require an admin token, also the client id and secret
+	RequireAdminTokenClientCredential = Require{ClientID: true, ClientSecret: true, Role: Admin, AllowIssuerInAudOrAzp: true, AllowAzp: true}
+	// RequireUserTokenClientCredential -> require an user token, also the client id and secret
+	RequireUserTokenClientCredential = Require{ClientID: true, ClientSecret: true, Role: User, AllowIssuerInAudOrAzp: true, AllowAzp: true}
+	// RequireAccountAdminUserTokenCredential -> require a user token, client id & secret, and non-admins require "account_admin" scope for edits methods
+	RequireAccountAdminUserTokenCredential = Require{ClientID: true, ClientSecret: true, Role: User, EditScopes: []string{"account_admin"}, AllowIssuerInAudOrAzp: true, AllowAzp: true}
 )
 
 // Checker stores information and functions for authorization check.
@@ -162,10 +169,6 @@ func MustWithAuth(handler func(http.ResponseWriter, *http.Request), checker *Che
 // WithAuth wraps the handler func with authorization check includes client credentials, bearer token validation and role in token.
 // function will return error if passed in invalid requirement.
 func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker, require Require) (func(http.ResponseWriter, *http.Request), error) {
-	if !require.ClientID && (require.ClientSecret || len(require.Role) != 0) {
-		return nil, status.Errorf(codes.Internal, "must require client_id when require client_secret or bearer token")
-	}
-
 	switch require.Role {
 	case None, User, Admin:
 	default:
@@ -176,7 +179,7 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 		var linkedID *ga4gh.Identity
 		log, id, isAdmin, err := checker.check(r, require)
 		if err == nil && len(r.Header.Get(LinkAuthorizationHeader)) > 0 {
-			linkedID, err = checker.verifiedBearerToken(r, LinkAuthorizationHeader, oathclients.ExtractClientID(r))
+			linkedID, err = checker.verifiedBearerToken(r, LinkAuthorizationHeader, oathclients.ExtractClientID(r), require.AllowIssuerInAudOrAzp, require.AllowAzp)
 			if err == nil && !strutil.ContainsWord(linkedID.Scope, "link") {
 				err = errutil.WithErrorReason(errScopeMissing, status.Errorf(codes.Unauthenticated, "linked auth bearer token missing required 'link' scope"))
 			}
@@ -234,6 +237,11 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.RequestLog,
 	}
 
 	r.ParseForm()
+
+	if require.Nothing {
+		return log, nil, false, nil
+	}
+
 	cID := oathclients.ExtractClientID(r)
 
 	if require.ClientID {
@@ -242,6 +250,12 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.RequestLog,
 		if err := s.verifyClientCredentials(cID, cSec, require); err != nil {
 			return log, nil, false, err
 		}
+	} else {
+		cID = require.SelfClientID
+	}
+
+	if len(cID) == 0 {
+		return log, nil, false, errutil.WithErrorReason(errClientIDMissing, status.Error(codes.Internal, "endpoint requirement does not setup correct: does not have a client id to verify the token"))
 	}
 
 	id, isAdmin, err := s.verifyAccessToken(r, cID, require)
@@ -269,6 +283,10 @@ func (s *Checker) check(r *http.Request, require Require) (*auditlog.RequestLog,
 // checks if the client is known and the provided secret matches the secret
 // for that client.
 func (s *Checker) verifyClientCredentials(client, secret string, require Require) error {
+	if s.fetchClientSecrets == nil {
+		return errutil.WithErrorReason(errFetchClientSecretsMissing, status.Error(codes.Internal, "endpoint setup is incorrect: no fetchClientSecrets function but require client id"))
+	}
+
 	secrets, err := s.fetchClientSecrets()
 	if err != nil {
 		return errutil.WithErrorReason(errClientUnavailable, err)
@@ -303,14 +321,17 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 		return &ga4gh.Identity{}, false, nil
 	}
 
-	id, err := s.verifiedBearerToken(r, UserAuthorizationHeader, clientID)
+	id, err := s.verifiedBearerToken(r, UserAuthorizationHeader, clientID, require.AllowIssuerInAudOrAzp, require.AllowAzp)
 	if err != nil {
 		return &ga4gh.Identity{}, false, err
 	}
 
-	isAdmin, err := s.permissions.CheckAdmin(id)
-	if err != nil {
-		return id, false, errutil.WithErrorReason(errCheckAdminFailed, status.Errorf(codes.Unavailable, "loadPermissions failed: %v", err))
+	isAdmin := false
+	if s.permissions != nil {
+		isAdmin, err = s.permissions.CheckAdmin(id)
+		if err != nil {
+			return id, false, errutil.WithErrorReason(errCheckAdminFailed, status.Errorf(codes.Unavailable, "loadPermissions failed: %v", err))
+		}
 	}
 
 	switch require.Role {
@@ -339,7 +360,7 @@ func (s *Checker) verifyAccessToken(r *http.Request, clientID string, require Re
 
 // verifiedBearerToken extracts the bearer token from the request and verifies it.
 // Returns the identity for the token, token information, and error type, and error.
-func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID string) (*ga4gh.Identity, error) {
+func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID string, allowIssuerInAudAndAzp, allowAzp bool) (*ga4gh.Identity, error) {
 	parts := strings.SplitN(r.Header.Get(authHeader), " ", 2)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 		return nil, errutil.WithErrorReason(errIDVerifyFailed, status.Errorf(codes.Unauthenticated, "invalid brearer token"))
@@ -351,7 +372,7 @@ func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID stri
 		return nil, err
 	}
 
-	if err := verifyToken(r.Context(), v, tok, s.issuer, clientID); err != nil {
+	if err := verifyToken(r.Context(), v, tok, s.issuer, clientID, allowIssuerInAudAndAzp, allowAzp); err != nil {
 		return nil, err
 	}
 
@@ -375,8 +396,12 @@ func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identit
 }
 
 // verifyToken oidc spec verfiy token.
-func verifyToken(ctx context.Context, v *verifier.AccessTokenVerifier, tok, iss, clientID string) error {
-	err := v.Verify(ctx, tok, verifier.AccessTokenOption(clientID, iss))
+func verifyToken(ctx context.Context, v *verifier.AccessTokenVerifier, tok, iss, clientID string, allowIssuerInAudAndAzp, allowAzp bool) error {
+	issuerInAudAndAzp := iss
+	if !allowIssuerInAudAndAzp {
+		issuerInAudAndAzp = ""
+	}
+	err := v.Verify(ctx, tok, verifier.AccessTokenOption(clientID, issuerInAudAndAzp, allowAzp))
 	if err == nil {
 		return nil
 	}

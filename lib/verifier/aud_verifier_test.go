@@ -145,7 +145,7 @@ func TestVisaAudienceVerifier_Verify_Fail(t *testing.T) {
 func TestAccessTokenAudienceVerifier_Verify(t *testing.T) {
 	clientID := "cid"
 	selfURL := "http://example.com"
-	option := AccessTokenOption(clientID, selfURL)
+	option := AccessTokenOption(clientID, selfURL, true)
 	tests := []struct {
 		name   string
 		claims *ga4gh.StdClaims
@@ -204,6 +204,24 @@ func TestAccessTokenAudienceVerifier_Verify(t *testing.T) {
 				AuthorizedParty: "something_else2",
 			},
 			opt:  option,
+			pass: false,
+		},
+		{
+			name: "not match: no selfURL",
+			claims: &ga4gh.StdClaims{
+				Audience:        []string{"something_else"},
+				AuthorizedParty: "something_else2",
+			},
+			opt:  AccessTokenOption(clientID, "", true),
+			pass: false,
+		},
+		{
+			name: "not match: not use azp",
+			claims: &ga4gh.StdClaims{
+				Audience:        []string{"something_else"},
+				AuthorizedParty: clientID,
+			},
+			opt:  AccessTokenOption(clientID, "", false),
 			pass: false,
 		},
 		{

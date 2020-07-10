@@ -62,11 +62,11 @@ var (
 		"/norequirement":    RequireNone,
 		"/clientidonly":     RequireClientID,
 		"/clientsecret":     RequireClientIDAndSecret,
-		"/usertoken":        RequireUserToken,
-		"/usertoken/{user}": RequireUserToken,
-		"/admintoken":       RequireAdminToken,
-		"/auditlog/{name}":  RequireUserToken,
-		"/acctadmin/{name}": RequireAccountAdminUserToken,
+		"/usertoken":        RequireUserTokenClientCredential,
+		"/usertoken/{user}": RequireUserTokenClientCredential,
+		"/admintoken":       RequireAdminTokenClientCredential,
+		"/auditlog/{name}":  RequireUserTokenClientCredential,
+		"/acctadmin/{name}": RequireAccountAdminUserTokenCredential,
 	}
 )
 
@@ -1204,6 +1204,287 @@ func Test_writeRequestLog_auth_failed(t *testing.T) {
 	got.Timestamp = nil
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestUserTokenOnly(t *testing.T) {
+	router, oidc, c, stub, _, close := setup(t)
+	defer close()
+
+	p := "/usertokenonly"
+	require := Require{Role: User, SelfClientID: test.TestClientID}
+	h, err := WithAuth(stub.handle, c, require)
+	if err != nil {
+		t.Fatalf("WithAuth(_, _, %v) failed for %s: %v", require, p, err)
+	}
+
+	router.HandleFunc(p, h)
+
+	now := time.Now().Unix()
+	claims := &ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "sub",
+		Scope:     "openid offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	}
+
+	tok, err := oidc.Sign(nil, claims)
+	if err != nil {
+		t.Fatalf("oidc.Sign() failed: %v", err)
+	}
+
+	resp := sendRequest(http.MethodGet, "/usertokenonly", "", "", tok, "", "", router, oidc)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+func TestUserTokenOnly_Err(t *testing.T) {
+	router, oidc, c, stub, _, close := setup(t)
+	defer close()
+
+	p := "/usertokenonly"
+	require := Require{Role: User, SelfClientID: test.TestClientID}
+	h, err := WithAuth(stub.handle, c, require)
+	if err != nil {
+		t.Fatalf("WithAuth(_, _, %v) failed for %s: %v", require, p, err)
+	}
+
+	router.HandleFunc(p, h)
+
+	now := time.Now().Unix()
+
+	tests := []struct {
+		name   string
+		claims *ga4gh.Identity
+		status int
+	}{
+		{
+			name: "iss not match",
+			claims: &ga4gh.Identity{
+				Issuer:    "https://invalid.com",
+				Subject:   "sub",
+				Scope:     "openid offline",
+				IssuedAt:  now,
+				Expiry:    now + 10000,
+				Audiences: ga4gh.NewAudience(test.TestClientID),
+			},
+			status: http.StatusUnauthorized,
+		},
+		{
+			name: "aud not match",
+			claims: &ga4gh.Identity{
+				Issuer:    issuerURL,
+				Subject:   "sub",
+				Scope:     "openid offline",
+				IssuedAt:  now,
+				Expiry:    now + 10000,
+				Audiences: ga4gh.NewAudience(issuerURL),
+			},
+			status: http.StatusUnauthorized,
+		},
+		{
+			name: "use azp not match",
+			claims: &ga4gh.Identity{
+				Issuer:          issuerURL,
+				Subject:         "sub",
+				Scope:           "openid offline",
+				IssuedAt:        now,
+				Expiry:          now + 10000,
+				AuthorizedParty: test.TestClientID,
+			},
+			status: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tok, err := oidc.Sign(nil, tc.claims)
+			if err != nil {
+				t.Fatalf("oidc.Sign() failed: %v", err)
+			}
+
+			resp := sendRequest(http.MethodGet, "/usertokenonly", "", "", tok, "", "", router, oidc)
+
+			if resp.StatusCode != tc.status {
+				t.Errorf("status = %d, wants %d", resp.StatusCode, tc.status)
+			}
+		})
+	}
+}
+
+func TestAllowIssuerOnAudAzp_AllowAzp(t *testing.T) {
+	router, oidc, c, stub, _, close := setup(t)
+	defer close()
+
+	paths := map[string]Require{
+		"/false/false": {Role: User, SelfClientID: test.TestClientID},
+		"/false/true":  {Role: User, SelfClientID: test.TestClientID, AllowAzp: true},
+		"/true/false":  {Role: User, SelfClientID: test.TestClientID, AllowIssuerInAudOrAzp: true},
+		"/true/true":   {Role: User, SelfClientID: test.TestClientID, AllowIssuerInAudOrAzp: true, AllowAzp: true},
+	}
+
+	for k, v := range paths {
+		h, err := WithAuth(stub.handle, c, v)
+		if err != nil {
+			t.Fatalf("WithAuth(_, _, %v) failed for %s: %v", v, k, err)
+		}
+		router.HandleFunc(k, h)
+	}
+
+	tests := []struct {
+		name string
+		path string
+		aud  string
+		azp  string
+		want int
+	}{
+		{
+			name: "not allow issuer not allow azp, aud = empty, azp = empty",
+			path: "/false/false",
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "not allow issuer not allow azp, aud = clientid, azp = empty",
+			path: "/false/false",
+			aud:  test.TestClientID,
+			want: http.StatusOK,
+		},
+		{
+			name: "not allow issuer not allow azp, aud = empty, azp = clientid",
+			path: "/false/false",
+			azp:  test.TestClientID,
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "not allow issuer not allow azp, aud = issuer, azp = empty",
+			path: "/false/false",
+			aud:  issuerURL,
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "not allow issuer not allow azp, aud = empty, azp = issuer",
+			path: "/false/false",
+			azp:  issuerURL,
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "allow issuer not allow azp, aud = empty, azp = empty",
+			path: "/true/false",
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "allow issuer not allow azp, aud = clientid, azp = empty",
+			path: "/true/false",
+			aud:  test.TestClientID,
+			want: http.StatusOK,
+		},
+		{
+			name: "allow issuer not allow azp, aud = empty, azp = clientid",
+			path: "/true/false",
+			azp:  test.TestClientID,
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "allow issuer not allow azp, aud = issuer, azp = empty",
+			path: "/true/false",
+			aud:  issuerURL,
+			want: http.StatusOK,
+		},
+		{
+			name: "allow issuer not allow azp, aud = empty, azp = issuer",
+			path: "/true/false",
+			azp:  issuerURL,
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "not allow issuer allow azp, aud = empty, azp = empty",
+			path: "/false/true",
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "not allow issuer allow azp, aud = clientid, azp = empty",
+			path: "/false/true",
+			aud:  test.TestClientID,
+			want: http.StatusOK,
+		},
+		{
+			name: "not allow issuer allow azp, aud = empty, azp = clientid",
+			path: "/false/true",
+			azp:  test.TestClientID,
+			want: http.StatusOK,
+		},
+		{
+			name: "not allow issuer allow azp, aud = issuer, azp = empty",
+			path: "/false/true",
+			aud:  issuerURL,
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "not allow issuer allow azp, aud = empty, azp = issuer",
+			path: "/false/true",
+			azp:  issuerURL,
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "allow issuer allow azp, aud = empty, azp = empty",
+			path: "/true/true",
+			want: http.StatusUnauthorized,
+		},
+		{
+			name: "allow issuer allow azp, aud = clientid, azp = empty",
+			path: "/true/true",
+			aud:  test.TestClientID,
+			want: http.StatusOK,
+		},
+		{
+			name: "allow issuer allow azp, aud = empty, azp = clientid",
+			path: "/true/true",
+			azp:  test.TestClientID,
+			want: http.StatusOK,
+		},
+		{
+			name: "allow issuer allow azp, aud = issuer, azp = empty",
+			path: "/true/true",
+			aud:  issuerURL,
+			want: http.StatusOK,
+		},
+		{
+			name: "allow issuer allow azp, aud = empty, azp = issuer",
+			path: "/true/true",
+			azp:  issuerURL,
+			want: http.StatusOK,
+		},
+	}
+
+	now := time.Now().Unix()
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			claims := &ga4gh.Identity{
+				Issuer:          issuerURL,
+				Subject:         "sub",
+				Scope:           "openid offline",
+				IssuedAt:        now,
+				Expiry:          now + 10000,
+				Audiences:       []string{tc.aud},
+				AuthorizedParty: tc.azp,
+			}
+
+			tok, err := oidc.Sign(nil, claims)
+			if err != nil {
+				t.Fatalf("oidc.Sign() failed: %v", err)
+			}
+
+			resp := sendRequest(http.MethodGet, tc.path, "", "", tok, "", "", router, oidc)
+
+			if resp.StatusCode != tc.want {
+				t.Errorf("status = %d, wants %d", resp.StatusCode, tc.want)
+			}
+		})
 	}
 }
 

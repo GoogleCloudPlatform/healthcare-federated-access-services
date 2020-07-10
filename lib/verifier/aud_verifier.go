@@ -70,15 +70,17 @@ type accessTokenAudienceVerifier struct {
 type accessTokenOption struct {
 	clientID string
 	self     string
+	useAzp   bool
 }
 
 func (s *accessTokenOption) isOption() {}
 
 // AccessTokenOption for verifier aud/azp claims.
-func AccessTokenOption(clientID, self string) Option {
+func AccessTokenOption(clientID, self string, useAzp bool) Option {
 	return &accessTokenOption{
 		clientID: clientID,
 		self:     self,
+		useAzp:   useAzp,
 	}
 }
 
@@ -100,12 +102,18 @@ func (s *accessTokenAudienceVerifier) Verify(claims *ga4gh.StdClaims, opts ...Op
 	}
 
 	if len(opt.self) > 0 {
-		if opt.self == claims.AuthorizedParty || stringset.Contains([]string(claims.Audience), opt.self) {
+		if opt.useAzp && opt.self == claims.AuthorizedParty {
+			return nil
+		}
+		if stringset.Contains([]string(claims.Audience), opt.self) {
 			return nil
 		}
 	}
 
-	if opt.clientID == claims.AuthorizedParty || stringset.Contains([]string(claims.Audience), opt.clientID) {
+	if opt.useAzp && opt.clientID == claims.AuthorizedParty {
+		return nil
+	}
+	if stringset.Contains([]string(claims.Audience), opt.clientID) {
 		return nil
 	}
 
