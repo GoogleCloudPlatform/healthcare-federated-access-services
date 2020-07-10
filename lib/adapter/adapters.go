@@ -133,9 +133,11 @@ func CreateAdapters(opts *Options) (*ServiceAdapters, error) {
 	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
 		return NewGatekeeperAdapter(opts.Signer)
 	})
-	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
-		return NewAwsAdapter(opts.Store, opts.AWSClient)
-	})
+	if opts.AWSClient != nil {
+		registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
+			return NewAwsAdapter(opts.Store, opts.AWSClient)
+		})
+	}
 	registerAdapter(adapters, func(adapters *ServiceAdapters) (ServiceAdapter, error) {
 		return NewAggregatorAdapter(adapters)
 	})

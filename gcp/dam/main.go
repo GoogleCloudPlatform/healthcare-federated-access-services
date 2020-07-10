@@ -31,6 +31,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dam" /* copybara-comment: dam */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/grpcutil" /* copybara-comment: grpcutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
@@ -153,9 +154,12 @@ func main() {
 		}
 	}
 
-	awsClient, err := aws.NewAPIClient()
-	if err != nil {
-		glog.Fatalf("aws.NewAPIClient failed: %v", err)
+	var awsClient aws.APIClient = nil
+	if globalflags.EnableAWSAdapter {
+		awsClient, err = aws.NewAPIClient()
+		if err != nil {
+			glog.Fatalf("aws.NewAPIClient failed: %v", err)
+		}
 	}
 
 	r := mux.NewRouter()

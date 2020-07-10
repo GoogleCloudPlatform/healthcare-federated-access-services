@@ -35,4 +35,8 @@ var (
 	// DisableIAMConditionExpiry is a global flag determining if you want to use IAM condition to manage user IAM expiry.
 	// Set from env var: `export DISABLE_IAM_CONDITION_EXPIRY=true`
 	DisableIAMConditionExpiry = os.Getenv("DISABLE_IAM_CONDITION_EXPIRY") == "true"
+
+	// EnableAWSAdapter is a global flag determining if you want to use enable management of AWS resources.
+	// Set from env var: `export ENABLE_AWS_ADAPTER=true`
+	EnableAWSAdapter = os.Getenv("ENABLE_AWS_ADAPTER") == "true"
 )

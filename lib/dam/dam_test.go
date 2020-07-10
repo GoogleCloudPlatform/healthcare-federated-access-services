@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -2446,6 +2447,9 @@ func TestLoggedIn_Hydra_Error_Log(t *testing.T) {
 	if err := jsonpb.UnmarshalString(got.GetTextPayload(), gotRejectedPolicy); err != nil {
 		t.Fatalf("Unmarshal() failed: %v", err)
 	}
+
+	sort.Strings(wantRejectedPolicy.PolicyBasis)
+	sort.Strings(gotRejectedPolicy.PolicyBasis)
 
 	if d := cmp.Diff(wantRejectedPolicy, gotRejectedPolicy, protocmp.Transform()); len(d) > 0 {
 		t.Errorf("RejectedPolicy (-want, +got): %s", d)
