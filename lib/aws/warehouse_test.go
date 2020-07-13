@@ -25,7 +25,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws" /* copybara-comment */
 
-	v1 "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1"
+	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment */
 )
 
 // end Mock AWS Client
@@ -46,7 +46,7 @@ func NewMockBucketParams(ttl time.Duration, paths *string) *ResourceParams {
 		DamResourceID:         "res-id",
 		DamViewID:             "view-id",
 		DamRoleID:             "role-id",
-		ServiceTemplate:       &v1.ServiceTemplate{ServiceName: "s3bucket"},
+		ServiceTemplate:       &pb.ServiceTemplate{ServiceName: "s3bucket"},
 	}
 }
 
@@ -72,7 +72,7 @@ func NewMockRedshiftParams(ttl time.Duration) *ResourceParams {
 		DamResourceID:         "res-id",
 		DamViewID:             "view-id",
 		DamRoleID:             "role-id",
-		ServiceTemplate:       &v1.ServiceTemplate{ServiceName: "redshift"},
+		ServiceTemplate:       &pb.ServiceTemplate{ServiceName: "redshift"},
 	}
 }
 
