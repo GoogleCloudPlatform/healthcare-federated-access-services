@@ -29,6 +29,7 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -48,6 +49,11 @@ const (
 	UserAuthorizationHeader = "Authorization"
 	// LinkAuthorizationHeader is an additional auth token in the request header for linking accounts.
 	LinkAuthorizationHeader = "X-Link-Authorization"
+)
+
+var (
+	// HTTPClient used for external calls.
+	HTTPClient *http.Client = nil
 )
 
 // Role requirement of access.
@@ -176,6 +182,10 @@ func WithAuth(handler func(http.ResponseWriter, *http.Request), checker *Checker
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		if HTTPClient != nil {
+			r = r.WithContext(oidc.ClientContext(r.Context(), HTTPClient))
+		}
+
 		var linkedID *ga4gh.Identity
 		log, id, isAdmin, err := checker.check(r, require)
 		if err == nil && len(r.Header.Get(LinkAuthorizationHeader)) > 0 {
@@ -392,7 +402,11 @@ func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identit
 		return nil, errutil.WithErrorReason(errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err))
 	}
 	id.Issuer = normalize(id.Issuer)
-	return s.transformIdentity(id), nil
+
+	if s.transformIdentity != nil {
+		return s.transformIdentity(id), nil
+	}
+	return id, nil
 }
 
 // verifyToken oidc spec verfiy token.
