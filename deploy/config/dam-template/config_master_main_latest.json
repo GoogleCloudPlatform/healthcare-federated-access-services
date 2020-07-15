@@ -217,35 +217,35 @@
     "AffiliationAndRole": {
       "ui": {
         "label": "Affiliation and Role",
-        "description": "The Identity’s roles within affiliated institutions as specified by eduPerson with specific vocabulary extensions",
+        "description": "The Identity’s role within an affiliated institution as specified by eduPerson with specific vocabulary extensions",
         "infoUrl": "https://bit.ly/ga4gh-passport-v1#affiliationandrole"
       }
     },
     "AcceptedTermsAndPolicies": {
       "ui": {
         "label": "Accepted Terms and Policies",
-        "description": "Canonical URLs that indicate that a researcher or either organization has acknowledged the specific terms and conditions indicated by the URL",
+        "description": "Canonical URL that indicates a researcher or organization has acknowledged the specific terms and conditions indicated by the URL",
         "infoUrl": "https://bit.ly/ga4gh-passport-v1#acceptedtermsandpolicies"
       }
     },
     "ResearcherStatus": {
       "ui": {
         "label": "Bona Fide Researcher Status",
-        "description": "Canonical URLs that indicate that the person has been acknowledged to be a bona fide researcher",
+        "description": "Canonical URL that indicates the person has been acknowledged to be a bona fide researcher",
         "infoUrl": "https://bit.ly/ga4gh-passport-v1#researcherstatus"
       }
     },
     "ControlledAccessGrants": {
       "ui": {
         "label": "Controlled Access Grants",
-        "description": "A list of datasets or other objects for which controlled access has been granted to this researcher",
+        "description": "A dataset or other object for which controlled access has been granted to this researcher",
         "infoUrl": "https://bit.ly/ga4gh-passport-v1#controlledaccessgrants"
       }
     },
     "LinkedIdentities": {
       "ui": {
         "label": "Linked Identities",
-        "description": "The value of this visa lists multiple identities that are the same person as Passport Visa Identity (i.e. identity as indicated by the visa's issuer and subject claims)",
+        "description": "A set of alternative accounts or identities that have been confirmed by a specified source to also represent the same user across various platforms",
         "infoUrl": "https://bit.ly/ga4gh-passport-v1#linkedidentities"
       }
     }
