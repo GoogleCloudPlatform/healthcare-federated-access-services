@@ -494,7 +494,7 @@
           "items": [
             {
               "args": {
-                "bucket": "max-dev-test-bucket"
+                "bucket": "example-bucket-name"
               }
             }
           ],
@@ -531,8 +531,8 @@
           "items": [
             {
               "args": {
-                "cluster": "arn:aws:redshift:us-east-1:582623027427:cluster:max-dam-test-cluster",
-                "group": "arn:aws:redshift:us-east-1:582623027427:dbgroup:max-dam-test-cluster/admin"
+                "cluster": "arn:aws:redshift:us-east-1:582623027427:cluster:example-cluster-name",
+                "group": "arn:aws:redshift:us-east-1:582623027427:dbgroup:example-cluster-name/admin"
               }
             }
           ],

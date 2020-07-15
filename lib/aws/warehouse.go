@@ -517,7 +517,7 @@ func (wh *AccountWarehouse) ensureTokenResult(ctx context.Context, principalARN 
 	}
 }
 
-func(wh *AccountWarehouse) createTempCredentialResult(polSpec *policySpec) (*ResourceTokenResult, error) {
+func (wh *AccountWarehouse) createTempCredentialResult(polSpec *policySpec) (*ResourceTokenResult, error) {
 	aro, err := wh.assumeRole(polSpec)
 	if err != nil {
 		return nil, err
@@ -566,14 +566,14 @@ func (wh *AccountWarehouse) createUsernamePasswordResult(principalARN string) (*
 	}, nil
 }
 
-func(wh *AccountWarehouse) ensurePrincipal(princSpec *principalSpec) (string, error) {
+func (wh *AccountWarehouse) ensurePrincipal(princSpec *principalSpec) (string, error) {
 	if princSpec.pType == roleType {
 		return wh.ensureRole(princSpec)
 	}
 	return wh.ensureUser(princSpec)
 }
 
-func(wh *AccountWarehouse) ensureIdentityPolicy(spec *policySpec) error {
+func (wh *AccountWarehouse) ensureIdentityPolicy(spec *policySpec) error {
 	if len(spec.rSpecs) == 0 {
 		return fmt.Errorf("cannot have policy without any resources")
 	}
@@ -599,7 +599,7 @@ func convertDamUserIDtoAwsName(endUserID, damSvcUserName string) string {
 	return sessionName[0:maxLen]
 }
 
-func(wh *AccountWarehouse) assumeRole(polSpec *policySpec) (*sts.AssumeRoleOutput, error) {
+func (wh *AccountWarehouse) assumeRole(polSpec *policySpec) (*sts.AssumeRoleOutput, error) {
 	params := polSpec.params
 	roleARN := polSpec.credSpec.principalSpec.getARN()
 	sessionName := convertDamUserIDtoAwsName(params.UserID, wh.svcUserName)
@@ -639,7 +639,7 @@ func(wh *AccountWarehouse) assumeRole(polSpec *policySpec) (*sts.AssumeRoleOutpu
 	return aro, nil
 }
 
-func(wh *AccountWarehouse) ensureLoginProfile(userName string) (string, error) {
+func (wh *AccountWarehouse) ensureLoginProfile(userName string) (string, error) {
 	password := uuid.New().String()
 	var call func() error
 
@@ -707,7 +707,7 @@ type statement struct {
 	Condition map[string]interface{} `json:"Condition,omitempty"`
 }
 
-func(wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
+func (wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
 	spec, err := widenUserScopedResources(*spec)
 	if err != nil {
 		return fmt.Errorf("unable to generate role policy: %v", err)

@@ -114,11 +114,16 @@ func (a *AwsAdapter) CheckConfig(templateName string, template *pb.ServiceTempla
 		if err != nil {
 			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", path), err
 		}
-		if template.ServiceName == "S3ItemFormat" && vars["bucket"] == "" {
-			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "bucket"), fmt.Errorf("no bucket specified")
-		}
-		if template.ServiceName == "RedshiftItemFormat" && vars["cluster"] == "" {
-			return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "cluster"), fmt.Errorf("no cluster specified")
+		if template.ServiceName == aws.S3ItemFormat {
+			if vars["bucket"] == "" {
+				return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "bucket"), fmt.Errorf("no bucket specified")
+			}
+		} else if template.ServiceName == aws.RedshiftItemFormat {
+			if vars["cluster"] == "" {
+				return httputils.StatusPath("resources", resName, "views", viewName, "items", "0", "vars", "cluster"), fmt.Errorf("no cluster specified")
+			}
+		} else if template.ServiceName != aws.RedshiftConsoleItemFormat {
+			return httputils.StatusPath("serviceTemplates", templateName, "serviceName", template.ServiceName), fmt.Errorf("invalid service name: %s", template.ServiceName)
 		}
 	}
 	if len(view.Items) > 1 {
