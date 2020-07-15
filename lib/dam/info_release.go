@@ -43,7 +43,7 @@ const (
 func (s *Service) hydraConsentRememberConsentOrInformationReleasePage(consent *hydraapi.ConsentRequest, stateID string, state *pb.ResourceTokenRequestState, tx storage.Tx) (*htmlPageOrRedirectURL, error) {
 
 	rcp := &cspb.RememberedConsentPreference{}
-	err := s.store.ReadTx(storage.RememberedConsentDatatype, storage.DefaultRealm, state.Subject, state.Subject, storage.LatestRev, rcp, tx)
+	err := s.store.ReadTx(storage.RememberedConsentDatatype, state.Realm, state.Subject, state.Subject, storage.LatestRev, rcp, tx)
 	if err != nil && !storage.ErrNotFound(err) {
 		return nil, status.Errorf(codes.Internal, "read remembered consent failed: %v", err)
 	}
@@ -51,7 +51,7 @@ func (s *Service) hydraConsentRememberConsentOrInformationReleasePage(consent *h
 	found := err == nil
 
 	if found && rcp.ExpireTime.Seconds < time.Now().Unix() {
-		err := s.store.DeleteTx(storage.RememberedConsentDatatype, storage.DefaultRealm, state.Subject, state.Subject, storage.LatestRev, tx)
+		err := s.store.DeleteTx(storage.RememberedConsentDatatype, state.Realm, state.Subject, state.Subject, storage.LatestRev, tx)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "delete expired remembered consent failed: %v", err)
 		}

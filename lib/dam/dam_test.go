@@ -2498,7 +2498,7 @@ func TestLoggedIn_Endpoint_Hydra_Success(t *testing.T) {
 	}
 }
 
-func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, dataset bool, stateID string) *http.Response {
+func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, dataset bool, stateID, realm string) *http.Response {
 	t.Helper()
 
 	// Ensure login state exists before request.
@@ -2507,7 +2507,7 @@ func sendHydraConsent(t *testing.T, s *Service, h *fakehydra.Server, dataset boo
 		ConsentChallenge:  consentChallenge,
 		Ttl:               int64(time.Hour),
 		Broker:            testBroker,
-		Realm:             storage.DefaultRealm,
+		Realm:             realm,
 		RequestedAudience: []string{"cid"},
 		RequestedScope:    []string{"openid"},
 		ClientId:          "cid",
@@ -2601,7 +2601,7 @@ func TestHydraConsent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := sendHydraConsent(t, s, h, tc.datasetToken, consentStateID)
+			resp := sendHydraConsent(t, s, h, tc.datasetToken, consentStateID, "test")
 
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("resp.StatusCode wants %d got %d", http.StatusOK, resp.StatusCode)
@@ -2643,12 +2643,12 @@ func TestHydraConsent_HasRemembered(t *testing.T) {
 		ReleaseType:      cspb.RememberedConsentPreference_ANYTHING_NEEDED,
 	}
 
-	err = s.store.Write(storage.RememberedConsentDatatype, storage.DefaultRealm, "sub", "sub", storage.LatestRev, rcp, nil)
+	err = s.store.Write(storage.RememberedConsentDatatype, "test", "sub", "sub", storage.LatestRev, rcp, nil)
 	if err != nil {
 		t.Fatalf("write remember consent failed: %v", err)
 	}
 
-	resp := sendHydraConsent(t, s, h, true, consentStateID)
+	resp := sendHydraConsent(t, s, h, true, consentStateID, "test")
 
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
@@ -2680,7 +2680,7 @@ func TestHydraConsent_skipPage(t *testing.T) {
 	}
 	s.skipInformationReleasePage = true
 
-	resp := sendHydraConsent(t, s, h, true, consentStateID)
+	resp := sendHydraConsent(t, s, h, true, consentStateID, "test")
 
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
@@ -2712,7 +2712,7 @@ func TestHydraConsent_Endpoint_skipPage(t *testing.T) {
 	}
 	s.skipInformationReleasePage = true
 
-	resp := sendHydraConsent(t, s, h, false, consentStateID)
+	resp := sendHydraConsent(t, s, h, false, consentStateID, "test")
 
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Errorf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
@@ -2750,7 +2750,7 @@ func TestHydraConsent_Error(t *testing.T) {
 			s.skipInformationReleasePage = skipPage
 			h.Clear()
 
-			resp := sendHydraConsent(t, s, h, true, "")
+			resp := sendHydraConsent(t, s, h, true, "", "test")
 
 			if resp.StatusCode != http.StatusSeeOther {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
@@ -2763,7 +2763,7 @@ func TestHydraConsent_Error(t *testing.T) {
 	}
 }
 
-func sendAcceptInformationRelease(t *testing.T, s *Service, h *fakehydra.Server, reqState string, dataset, remember bool) *http.Response {
+func sendAcceptInformationRelease(t *testing.T, s *Service, h *fakehydra.Server, reqState, realm string, dataset, remember bool) *http.Response {
 	t.Helper()
 
 	h.AcceptConsentResp = &hydraapi.RequestHandlerResponse{RedirectTo: hydraPublicURL}
@@ -2773,7 +2773,7 @@ func sendAcceptInformationRelease(t *testing.T, s *Service, h *fakehydra.Server,
 		ConsentChallenge:  consentChallenge,
 		Ttl:               int64(time.Hour),
 		Broker:            testBroker,
-		Realm:             storage.DefaultRealm,
+		Realm:             realm,
 		RequestedAudience: []string{"cid"},
 		RequestedScope:    []string{"openid"},
 		ClientId:          "cid",
@@ -2784,7 +2784,7 @@ func sendAcceptInformationRelease(t *testing.T, s *Service, h *fakehydra.Server,
 		state.Type = pb.ResourceTokenRequestState_DATASET
 		state.Resources = []*pb.ResourceTokenRequestState_Resource{
 			{
-				Realm:    storage.DefaultRealm,
+				Realm:    realm,
 				Resource: "ga4gh-apis",
 				View:     "gcs_read",
 				Role:     "viewer",
@@ -2882,7 +2882,7 @@ func TestAcceptInformationRelease(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := sendAcceptInformationRelease(t, s, h, consentStateID, tc.dataset, tc.remember)
+			resp := sendAcceptInformationRelease(t, s, h, consentStateID, "test", tc.dataset, tc.remember)
 			if resp.StatusCode != http.StatusSeeOther {
 				t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusSeeOther)
 			}
@@ -2907,7 +2907,7 @@ func TestAcceptInformationRelease(t *testing.T) {
 			}
 
 			rcp := &cspb.RememberedConsentPreference{}
-			err = s.store.Read(storage.RememberedConsentDatatype, storage.DefaultRealm, "sub", "sub", storage.LatestRev, rcp)
+			err = s.store.Read(storage.RememberedConsentDatatype, "test", "sub", "sub", storage.LatestRev, rcp)
 			if tc.remember {
 				if err != nil {
 					t.Errorf("read RememberedConsent failed: %v", err)
@@ -2927,7 +2927,7 @@ func TestAcceptInformationRelease_Err(t *testing.T) {
 		t.Fatalf("setupHydraTest() failed: %v", err)
 	}
 
-	resp := sendAcceptInformationRelease(t, s, h, "", false, false)
+	resp := sendAcceptInformationRelease(t, s, h, "", "test", false, false)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("resp.StatusCode = %d, wants %d", resp.StatusCode, http.StatusBadRequest)
 	}
