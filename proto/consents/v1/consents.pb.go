@@ -17,13 +17,12 @@
 
 // Package v1 provides protocol buffer versions of Remembered Consents API for
 // listing and revoking Remembered consents.
+
 package v1
 
 import (
 	context "context"
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
@@ -31,6 +30,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -726,9 +726,7 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "consents.v1.Consent.Client.UiEntry")
 }
 
-func init() {
-	proto.RegisterFile("proto/consents/v1/consents.proto", fileDescriptor_0bb2e176a5b7c192)
-}
+func init() { proto.RegisterFile("proto/consents/v1/consents.proto", fileDescriptor_0bb2e176a5b7c192) }
 
 var fileDescriptor_0bb2e176a5b7c192 = []byte{
 	// 1118 bytes of a gzipped FileDescriptorProto
@@ -806,11 +804,11 @@ var fileDescriptor_0bb2e176a5b7c192 = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConnInterface
+var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+const _ = grpc.SupportPackageIsVersion4
 
 // ConsentsClient is the client API for Consents service.
 //
@@ -829,10 +827,10 @@ type ConsentsClient interface {
 }
 
 type consentsClient struct {
-	cc grpc.ClientConnInterface
+	cc *grpc.ClientConn
 }
 
-func NewConsentsClient(cc grpc.ClientConnInterface) ConsentsClient {
+func NewConsentsClient(cc *grpc.ClientConn) ConsentsClient {
 	return &consentsClient{cc}
 }
 

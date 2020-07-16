@@ -125,6 +125,7 @@ func setupAccountProfile(id *ga4gh.Identity) *pb.AccountProfile {
 		Picture:    id.Picture,
 		ZoneInfo:   id.ZoneInfo,
 		Locale:     id.Locale,
+		Language:   id.Locale, // OIDC Identity does not have "language"
 	}
 }
 

@@ -491,9 +491,7 @@ func init() {
 	proto.RegisterType((*ConfigClientResponse)(nil), "common.ConfigClientResponse")
 }
 
-func init() {
-	proto.RegisterFile("proto/common/v1/oauthclient.proto", fileDescriptor_e55280de4537fe26)
-}
+func init() { proto.RegisterFile("proto/common/v1/oauthclient.proto", fileDescriptor_e55280de4537fe26) }
 
 var fileDescriptor_e55280de4537fe26 = []byte{
 	// 788 bytes of a gzipped FileDescriptorProto

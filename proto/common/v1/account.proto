@@ -49,8 +49,14 @@ message AccountProfile {
   string profile = 7;
   string picture = 8;
   string zone_info = 9;
+  // BCP47 locale (see "language" for override).
   string locale = 10;
   string formatted_name = 11;
+  // BCP47 for language specifically to override "locale", when set. When
+  // both "locale" and "language" are set, then "language" shall be used
+  // for written and spoken language whereas "locale" shall be used for other
+  // localization such as datetime format, currency, etc.
+  string language = 12;
 }
 
 message ConnectedAccount {

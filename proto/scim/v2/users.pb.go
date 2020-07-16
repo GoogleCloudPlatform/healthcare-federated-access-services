@@ -20,6 +20,7 @@
 // responses using these messages.
 // Core Schema: https://tools.ietf.org/html/rfc7643
 // Protocol: https://tools.ietf.org/html/rfc7644
+
 package v2
 
 import (
@@ -1219,9 +1220,7 @@ func init() {
 	proto.RegisterType((*ListUsersResponse)(nil), "scim.v2.ListUsersResponse")
 }
 
-func init() {
-	proto.RegisterFile("proto/scim/v2/users.proto", fileDescriptor_b3fc69dcb8163414)
-}
+func init() { proto.RegisterFile("proto/scim/v2/users.proto", fileDescriptor_b3fc69dcb8163414) }
 
 var fileDescriptor_b3fc69dcb8163414 = []byte{
 	// 1280 bytes of a gzipped FileDescriptorProto

@@ -68,10 +68,19 @@ var (
 			return acctProto(p).GetProperties().Subject
 		},
 		"locale": func(p proto.Message) string {
-			return acctProto(p).GetProfile().Locale
+			profile := acctProto(p).GetProfile()
+			if len(profile.Locale) > 0 {
+				return profile.Locale
+			}
+			// Returning the language match, if set, is not perfect by semantic meaning but better than nothing.
+			return profile.Language
 		},
 		"preferredlanguage": func(p proto.Message) string {
-			return acctProto(p).GetProfile().Locale
+			profile := acctProto(p).GetProfile()
+			if len(profile.Language) > 0 {
+				return profile.Language
+			}
+			return profile.Locale
 		},
 		"name.formatted": func(p proto.Message) string {
 			return formattedName(acctProto(p))
@@ -329,13 +338,13 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 				h.save.State = storage.StateActive
 
 			default:
-				return nil, fmt.Errorf("invalid active operation %q or value %q", patch.Op, patch.Value)
+				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("invalid active operation %q or value %q", patch.Op, patch.Value)).Err()
 			}
 
 		case "name.formatted":
 			dst = &h.save.Profile.FormattedName
 			if patch.Op == "remove" || len(src) == 0 {
-				return nil, fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
+				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: cannot set %q to an empty value", i, path)).Err()
 			}
 
 		case "name.familyName":
@@ -350,7 +359,13 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "displayName":
 			dst = &h.save.Profile.Name
 			if patch.Op == "remove" || len(src) == 0 {
-				return nil, fmt.Errorf("operation %d: cannot set %q to an empty value", i, path)
+				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: cannot set %q to an empty value", i, path)).Err()
+			}
+
+		case "preferredLanguage":
+			dst = &h.save.Profile.Language
+			if len(src) > 0 && !timeutil.IsLocale(src) {
+				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: %q is not a recognized locale", i, path)).Err()
 			}
 
 		case "profileUrl":
@@ -359,13 +374,13 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "locale":
 			dst = &h.save.Profile.Locale
 			if len(src) > 0 && !timeutil.IsLocale(src) {
-				return nil, fmt.Errorf("operation %d: %q is not a recognized locale", i, path)
+				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: %q is not a recognized locale", i, path)).Err()
 			}
 
 		case "timezone":
 			dst = &h.save.Profile.ZoneInfo
 			if len(src) > 0 && !timeutil.IsTimeZone(src) {
-				return nil, fmt.Errorf("operation %d: %q is not a recognized time zone", i, src)
+				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: %q is not a recognized time zone", i, src)).Err()
 			}
 
 		case "emails":
@@ -421,11 +436,11 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "photo":
 			dst = &h.save.Profile.Picture
 			if !strutil.IsImageURL(src) {
-				return nil, fmt.Errorf("invalid photo URL %q", src)
+				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("invalid photo URL %q", src)).Err()
 			}
 
 		default:
-			return nil, fmt.Errorf("operation %d: invalid path %q", i, path)
+			return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: invalid path %q", i, path)).Err()
 		}
 		if patch.Op != "remove" && len(src) == 0 {
 			return nil, fmt.Errorf("operation %d: cannot set an empty value", i)
@@ -441,7 +456,7 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "remove":
 			*dst = ""
 		default:
-			return nil, fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
+			return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: invalid op %q", i, patch.Op)).Err()
 		}
 	}
 	return newScimUser(h.save, getRealm(r), h.domainURL, h.userPath), nil
@@ -703,7 +718,7 @@ func newScimUser(acct *cpb.Account, realm, domainURL, abstractPath string) *spb.
 		},
 		DisplayName:       acct.Profile.Name,
 		ProfileUrl:        acct.Profile.Profile,
-		PreferredLanguage: acct.Profile.Locale,
+		PreferredLanguage: acct.Profile.Language,
 		Locale:            acct.Profile.Locale,
 		Timezone:          acct.Profile.ZoneInfo,
 		UserName:          acct.Properties.Subject,

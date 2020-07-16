@@ -181,9 +181,7 @@ func init() {
 	proto.RegisterType((*DamSecrets_GatekeeperTokenKeys)(nil), "dam.v1.DamSecrets.GatekeeperTokenKeys")
 }
 
-func init() {
-	proto.RegisterFile("proto/dam/v1/dam_secrets.proto", fileDescriptor_e301ca973d5091dc)
-}
+func init() { proto.RegisterFile("proto/dam/v1/dam_secrets.proto", fileDescriptor_e301ca973d5091dc) }
 
 var fileDescriptor_e301ca973d5091dc = []byte{
 	// 423 bytes of a gzipped FileDescriptorProto

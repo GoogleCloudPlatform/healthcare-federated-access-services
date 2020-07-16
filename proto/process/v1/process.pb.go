@@ -16,15 +16,15 @@
 // source: proto/process/v1/process.proto
 
 // Package process provides protocol buffers for background process state.
+
 package v1
 
 import (
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -510,9 +510,7 @@ func init() {
 	proto.RegisterType((*Process_Work)(nil), "process.Process.Work")
 }
 
-func init() {
-	proto.RegisterFile("proto/process/v1/process.proto", fileDescriptor_b24df3f2bd7a2000)
-}
+func init() { proto.RegisterFile("proto/process/v1/process.proto", fileDescriptor_b24df3f2bd7a2000) }
 
 var fileDescriptor_b24df3f2bd7a2000 = []byte{
 	// 880 bytes of a gzipped FileDescriptorProto

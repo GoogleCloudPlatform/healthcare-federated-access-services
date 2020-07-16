@@ -3803,7 +3803,6 @@ type ResourceTokenRequestState struct {
 	RequestedAudience    []string                              `protobuf:"bytes,15,rep,name=requested_audience,json=requestedAudience,proto3" json:"requested_audience,omitempty"`
 	RequestedScope       []string                              `protobuf:"bytes,16,rep,name=requested_scope,json=requestedScope,proto3" json:"requested_scope,omitempty"`
 	ConsentChallenge     string                                `protobuf:"bytes,17,opt,name=consent_challenge,json=consentChallenge,proto3" json:"consent_challenge,omitempty"`
-
 	ClientName           string                                `protobuf:"bytes,18,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                              `json:"-"`
 	XXX_unrecognized     []byte                                `json:"-"`
@@ -3955,7 +3954,6 @@ func (m *ResourceTokenRequestState) GetConsentChallenge() string {
 	}
 	return ""
 }
-
 
 func (m *ResourceTokenRequestState) GetClientName() string {
 	if m != nil {
@@ -4529,9 +4527,7 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "dam.v1.ResourceResults.ResourceAccess.LabelsEntry")
 }
 
-func init() {
-	proto.RegisterFile("proto/dam/v1/dam_service.proto", fileDescriptor_b1b3693f36078fb7)
-}
+func init() { proto.RegisterFile("proto/dam/v1/dam_service.proto", fileDescriptor_b1b3693f36078fb7) }
 
 var fileDescriptor_b1b3693f36078fb7 = []byte{
 	// 4331 bytes of a gzipped FileDescriptorProto
@@ -4807,4 +4803,3 @@ var fileDescriptor_b1b3693f36078fb7 = []byte{
 	0xfd, 0xb6, 0x2c, 0x10, 0xaf, 0xe9, 0xbf, 0xb4, 0xdf, 0xab, 0xb2, 0xd6, 0x07, 0xff, 0x1b, 0x00,
 	0x00, 0xff, 0xff, 0x58, 0x2e, 0x7d, 0x7a, 0x80, 0x3f, 0x00, 0x00,
 }
-

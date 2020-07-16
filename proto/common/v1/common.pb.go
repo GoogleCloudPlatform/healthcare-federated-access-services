@@ -1539,9 +1539,7 @@ func init() {
 	proto.RegisterType((*OidcTokenResponse_Info)(nil), "common.OidcTokenResponse.Info")
 }
 
-func init() {
-	proto.RegisterFile("proto/common/v1/common.proto", fileDescriptor_988ca6f500b2cf3b)
-}
+func init() { proto.RegisterFile("proto/common/v1/common.proto", fileDescriptor_988ca6f500b2cf3b) }
 
 var fileDescriptor_988ca6f500b2cf3b = []byte{
 	// 1864 bytes of a gzipped FileDescriptorProto

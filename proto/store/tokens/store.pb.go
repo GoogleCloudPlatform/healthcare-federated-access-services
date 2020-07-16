@@ -16,13 +16,13 @@
 // source: proto/store/tokens/store.proto
 
 // Package tokens provides object in storage for tokens.
+
 package tokens
 
 import (
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -82,9 +82,7 @@ func init() {
 	proto.RegisterType((*PendingDeleteToken)(nil), "tokens.PendingDeleteToken")
 }
 
-func init() {
-	proto.RegisterFile("proto/store/tokens/store.proto", fileDescriptor_1acf45993fe37728)
-}
+func init() { proto.RegisterFile("proto/store/tokens/store.proto", fileDescriptor_1acf45993fe37728) }
 
 var fileDescriptor_1acf45993fe37728 = []byte{
 	// 171 bytes of a gzipped FileDescriptorProto

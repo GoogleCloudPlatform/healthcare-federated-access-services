@@ -16,14 +16,14 @@
 // source: proto/store/consents/store.proto
 
 // Package consents provides Remembered Consents PB for storage
+
 package consents
 
 import (
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -317,9 +317,7 @@ func init() {
 	proto.RegisterType((*RememberedConsentPreference_Visa)(nil), "consents.RememberedConsentPreference.Visa")
 }
 
-func init() {
-	proto.RegisterFile("proto/store/consents/store.proto", fileDescriptor_0ffa029a8674e90e)
-}
+func init() { proto.RegisterFile("proto/store/consents/store.proto", fileDescriptor_0ffa029a8674e90e) }
 
 var fileDescriptor_0ffa029a8674e90e = []byte{
 	// 638 bytes of a gzipped FileDescriptorProto

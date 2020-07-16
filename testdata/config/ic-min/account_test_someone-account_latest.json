@@ -6,6 +6,7 @@
     "givenName": "Someone",
     "middleName": "at",
     "familyName": "Somewhere",
+    "language": "en-CA",
     "profile": "https://example.org/users/someone",
     "locale": "en-US",
     "zoneInfo": "America/New_York"
