@@ -105,6 +105,12 @@ func TestConfigHandlers(t *testing.T) {
 		},
 		{
 			Method: "GET",
+			Path:   "/dam/v1alpha/master/localeMetadata",
+			Output: `*{"locales":{*"en-CA"*},"timeZones":{*"America/Los_Angeles"*}}*`,
+			Status: http.StatusOK,
+		},
+		{
+			Method: "GET",
 			Path:   "/dam/v1alpha/master/passportTranslators",
 			Output: `{"passportTranslators":{"dbgap_translator":{"compatibleIssuers":["https://dbgap.nlm.nih.gov/aa"],"ui":{"label":"dbGaP Passport Translator"}}}}`,
 			Status: http.StatusOK,

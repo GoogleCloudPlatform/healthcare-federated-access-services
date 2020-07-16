@@ -29,6 +29,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
@@ -337,6 +338,15 @@ func (s *Service) getIssuerTranslator(ctx context.Context, issuer string, cfg *p
 
 func createIssuerTranslator(ctx context.Context, cfgTpi *pb.TrustedIssuer, secrets *pb.DamSecrets, signer kms.Signer) (translator.Translator, error) {
 	return translator.CreateTranslator(ctx, cfgTpi.Issuer, cfgTpi.TranslateUsing, cfgTpi.ClientId, "", "", signer)
+}
+
+// GetLocaleMetadata implements the corresponding REST API endpoint.
+func (s *Service) GetLocaleMetadata(w http.ResponseWriter, r *http.Request) {
+	type response struct {
+		Locales   map[string]string `json:"locales"`
+		TimeZones map[string]string `json:"timeZones"`
+	}
+	httputils.WriteNonProtoResp(w, &response{Locales: timeutil.GetLocales(), TimeZones: timeutil.GetTimeZones()})
 }
 
 // GetPassportTranslators implements the corresponding REST API endpoint.

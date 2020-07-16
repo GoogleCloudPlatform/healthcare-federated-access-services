@@ -224,6 +224,7 @@ IC configuration. They filter out sensitive parts of the configuration.
 
 *  "/identity/v1alpha/{realm}/identityProviders"
 *  "/identity/v1alpha/{realm}/clients/{name}"
+*  "/identity/v1alpha/{realm}/localeMetadata"
 *  "/identity/v1alpha/{realm}/passportTranslators"
 
 ### Static Page Assets
@@ -308,6 +309,7 @@ They require valid "client_id" and "client_secret" parameters on the request.
 *  /dam/v1alpha/{realm}/resources
 *  /dam/v1alpha/{realm}/resources/{name}
 *  /dam/v1alpha/{realm}/flatViews
+*  /dam/v1alpha/{realm}/localeMetadata
 *  /dam/v1alpha/{realm}/passportTranslators
 *  /dam/v1alpha/{realm}/resources/{name}/views
 *  /dam/v1alpha/{realm}/resources/{name}/views/{view}

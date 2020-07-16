@@ -108,6 +108,7 @@ const (
 	// have admin permission.
 	identityProvidersPath = "/identity/v1alpha/{realm}/identityProviders"
 	clientPath            = "/identity/v1alpha/{realm}/clients/{name}"
+	localeMetadataPath    = "/identity/v1alpha/{realm}/localeMetadata"
 	translatorsPath       = "/identity/v1alpha/{realm}/passportTranslators"
 
 	// ---------------------------------------------------------------------------

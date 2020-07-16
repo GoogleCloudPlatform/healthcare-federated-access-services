@@ -89,6 +89,7 @@ var (
 		// read-only non-admin access to configurations
 		"/identity/v1alpha/{realm}/config/identityProviders/{name}",
 		"GET /identity/v1alpha/{realm}/identityProviders",
+		"GET /identity/v1alpha/{realm}/localeMetadata",
 		"GET /identity/v1alpha/{realm}/passportTranslators",
 
 		// fake endpoints, will remove soon

@@ -1482,6 +1482,7 @@ func registerHandlers(r *mux.Router, s *Service) {
 	r.HandleFunc(rolesPath, auth.MustWithAuth(s.GetViewRoles, s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(rolePath, auth.MustWithAuth(s.GetViewRole, s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(servicesPath, auth.MustWithAuth(s.GetServiceDescriptors, s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
+	r.HandleFunc(localeMetadataPath, auth.MustWithAuth(s.GetLocaleMetadata, s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(translatorsPath, auth.MustWithAuth(s.GetPassportTranslators, s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(damRoleCategoriesPath, auth.MustWithAuth(s.GetDamRoleCategories, s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 	r.HandleFunc(testPersonasPath, auth.MustWithAuth(s.GetTestPersonas, s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)

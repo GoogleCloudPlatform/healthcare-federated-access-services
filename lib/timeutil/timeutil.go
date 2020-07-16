@@ -16,7 +16,9 @@
 package timeutil
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,7 +26,9 @@ import (
 
 	"golang.org/x/text/language" /* copybara-comment */
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
 
+	glog "github.com/golang/glog" /* copybara-comment */
 	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
 	tspb "github.com/golang/protobuf/ptypes/timestamp" /* copybara-comment */
 )
@@ -38,6 +42,11 @@ const (
 var (
 	dayRE  = regexp.MustCompile(`^(.*[dhms])?([\d\.]+)d(.*)$`)
 	hourRE = regexp.MustCompile(`^(.*[dhms])?([\d\.]+)h(.*)$`)
+
+	// For performance reasons, initialize these structures as part of the startup sequence
+	// so that they are always available.
+	localeMap   = generateLocales()
+	timeZoneMap = generateTimeZones()
 )
 
 // ParseDuration parses the given duration string to time.Duration.
@@ -125,19 +134,95 @@ func IsTimeZone(name string) bool {
 	if name == "" {
 		return false
 	}
+	if _, ok := timeZoneMap[name]; ok {
+		return true
+	}
+	// Fallback to environment check.
 	if _, err := time.LoadLocation(name); err != nil {
 		return false
 	}
 	return true
 }
 
+// GetTimeZones returns a map of canonical timezone names to region names.
+func GetTimeZones() map[string]string {
+	return timeZoneMap
+}
+
+// generateTimeZones returns a map of canonical timezone names to region names.
+// Example: {"America/Los_Angeles": "America"}
+// TODO: use standard time functions for other platforms if https://github.com/golang/go/issues/20629 is implemented.
+func generateTimeZones() map[string]string {
+	zoneDirs := []string{
+		"/usr/share/zoneinfo/",
+		"/usr/share/lib/zoneinfo/",
+		"/usr/lib/locale/TZ/",
+	}
+
+	out := make(map[string]string)
+	for _, dir := range zoneDirs {
+		genZones(dir, "", out)
+	}
+
+	if len(out) == 0 {
+		glog.Warningf("failed to load time zones: check that the OS is unix-based")
+	}
+
+	return out
+}
+
+func genZones(dir, path string, out map[string]string) {
+	files, err := ioutil.ReadDir(dir + path)
+	if err != nil {
+		return // not all files need to be present
+	}
+	for _, f := range files {
+		if f.Name() != strings.ToUpper(f.Name()[:1])+f.Name()[1:] {
+			continue
+		}
+		if f.IsDir() {
+			genZones(dir, path+"/"+f.Name(), out)
+		} else {
+			zone := path
+			if len(zone) > 0 {
+				zone = zone[1:]
+			}
+			out[(path + "/" + f.Name())[1:]] = zone
+		}
+	}
+}
+
 // IsLocale returns true if the "name" provided is a locale name as per
 // https://tools.ietf.org/html/bcp47.
 func IsLocale(name string) bool {
+	if _, ok := localeMap[name]; ok {
+		return true
+	}
+	// Fallback to environment check.
 	if _, err := language.Parse(name); err != nil {
 		return false
 	}
 	return true
+}
+
+// GetLocales returns a map of locale identifiers to English labels.
+func GetLocales() map[string]string {
+	return localeMap
+}
+
+// generateLocales returns a map of canonical BCP47 locale identifiers to English labels. See IsLocale() for identifier details.
+func generateLocales() map[string]string {
+	out := make(map[string]string)
+	data, err := srcutil.LoadFile("deploy/metadata/standard_locales.json")
+	if err != nil {
+		glog.Errorf("failed to load time zones (check that the OS is unix-based): %v", err)
+		return out
+	}
+	if err := json.Unmarshal([]byte(data), &out); err != nil {
+		glog.Errorf("failed to unmarshal time zone data: %v", err)
+		return out
+	}
+	return out
 }
 
 // TimestampString returns a RFC3339 date/time string for seconds sinc epoch.

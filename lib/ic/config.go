@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/translator" /* copybara-comment: translator */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -42,6 +43,15 @@ func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 		resp.IdentityProviders[name] = makeIdentityProvider(idp)
 	}
 	httputils.WriteResp(w, resp)
+}
+
+// LocaleMetadata implements the corresponding REST API endpoint.
+func (s *Service) LocaleMetadata(w http.ResponseWriter, r *http.Request) {
+	type response struct {
+		Locales   map[string]string `json:"locales"`
+		TimeZones map[string]string `json:"timeZones"`
+	}
+	httputils.WriteNonProtoResp(w, &response{Locales: timeutil.GetLocales(), TimeZones: timeutil.GetTimeZones()})
 }
 
 // PassportTranslators returns part of config: Passport Translators

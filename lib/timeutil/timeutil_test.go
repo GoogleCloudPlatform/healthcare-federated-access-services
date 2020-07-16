@@ -15,6 +15,7 @@
 package timeutil
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -217,6 +218,16 @@ func TestIsLocale(t *testing.T) {
 	}
 }
 
+func TestGetLocales(t *testing.T) {
+	locales := GetLocales()
+	if len(locales) < 100 {
+		t.Errorf("expected more than 100 locales, got %d: %+v", len(locales), locales)
+	}
+	if !strings.Contains(locales["en-CA"], "Canada") {
+		t.Errorf("mismatch or missing en-CA: got %q, want result to contain %q", locales["en-CA"], "Canada")
+	}
+}
+
 func TestIsTimeZone(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -245,5 +256,17 @@ func TestIsTimeZone(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("test case %q: IsTimeZone(%q) = %v, want %v", tc.name, tc.input, got, tc.want)
 		}
+	}
+}
+
+func TestGetTimeZones(t *testing.T) {
+	tz := GetTimeZones()
+	if len(tz) < 100 {
+		t.Errorf("expected more than 100 time zones, got %d: %+v", len(tz), tz)
+	}
+	z := "America/Los_Angeles"
+	want := "America"
+	if tz[z] != want {
+		t.Errorf("mismatch or missing %q: got %q, want %q", z, tz[z], want)
 	}
 }

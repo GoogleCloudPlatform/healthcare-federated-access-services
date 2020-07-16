@@ -85,6 +85,7 @@ var (
 		"/dam/v1alpha/{realm}/client/{name}",
 		"GET /dam/v1alpha/{realm}/damRoleCategories",
 		"GET /dam/v1alpha/{realm}/flatViews",
+		"GET /dam/v1alpha/{realm}/localeMetadata",
 		"GET /dam/v1alpha/{realm}/passportTranslators",
 		"GET /dam/v1alpha/{realm}/resources",
 		"GET /dam/v1alpha/{realm}/resources/{name}",

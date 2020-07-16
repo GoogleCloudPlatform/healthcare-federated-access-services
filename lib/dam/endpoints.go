@@ -127,6 +127,7 @@ const (
 	rolesPath             = "/dam/v1alpha/{realm}/resources/{name}/views/{view}/roles"
 	rolePath              = "/dam/v1alpha/{realm}/resources/{name}/views/{view}/roles/{role}"
 	servicesPath          = "/dam/v1alpha/{realm}/services"
+	localeMetadataPath    = "/dam/v1alpha/{realm}/localeMetadata"
 	translatorsPath       = "/dam/v1alpha/{realm}/passportTranslators"
 	damRoleCategoriesPath = "/dam/v1alpha/{realm}/damRoleCategories"
 	testPersonasPath      = "/dam/v1alpha/{realm}/testPersonas"
