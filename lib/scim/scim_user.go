@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
@@ -338,13 +339,13 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 				h.save.State = storage.StateActive
 
 			default:
-				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("invalid active operation %q or value %q", patch.Op, patch.Value)).Err()
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("invalid active operation %q or value %q", patch.Op, patch.Value))
 			}
 
 		case "name.formatted":
 			dst = &h.save.Profile.FormattedName
 			if patch.Op == "remove" || len(src) == 0 {
-				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: cannot set %q to an empty value", i, path)).Err()
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("cannot set %q to an empty value", path))
 			}
 
 		case "name.familyName":
@@ -359,13 +360,13 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "displayName":
 			dst = &h.save.Profile.Name
 			if patch.Op == "remove" || len(src) == 0 {
-				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: cannot set %q to an empty value", i, path)).Err()
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("cannot set %q to an empty value", path))
 			}
 
 		case "preferredLanguage":
 			dst = &h.save.Profile.Language
 			if len(src) > 0 && !timeutil.IsLocale(src) {
-				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: %q is not a recognized locale", i, path)).Err()
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("%q is not a recognized locale", path))
 			}
 
 		case "profileUrl":
@@ -374,30 +375,30 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "locale":
 			dst = &h.save.Profile.Locale
 			if len(src) > 0 && !timeutil.IsLocale(src) {
-				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: %q is not a recognized locale", i, path)).Err()
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("%q is not a recognized locale", path))
 			}
 
 		case "timezone":
 			dst = &h.save.Profile.ZoneInfo
 			if len(src) > 0 && !timeutil.IsTimeZone(src) {
-				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: %q is not a recognized time zone", i, src)).Err()
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("%q is not a recognized time zone", src))
 			}
 
 		case "emails":
 			if patch.Op == "add" {
 				// SCIM extension for linking accounts.
 				if src != auth.LinkAuthorizationHeader {
-					return nil, fmt.Errorf("operation %d: %q must be set to %q", i, src, auth.LinkAuthorizationHeader)
+					return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("%q must be set to %q", src, auth.LinkAuthorizationHeader))
 				}
 				if err := h.linkEmail(r); err != nil {
-					return nil, err
+					return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, err.Error())
 				}
 				break
 			}
 			// Standard SCIM email functionality.
 			link, match, err := selectLink(patch.Path, emailPathRE, scimEmailFilterMap, h.save)
 			if err != nil {
-				return nil, err
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, err.Error())
 			}
 			dst = nil // operation can be skipped by logic after this switch block (i.e. no destination to write)
 			if link == nil {
@@ -406,17 +407,17 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 			if len(match[2]) == 0 {
 				// When match[2] is empty, the operation applies to the entire email object.
 				if patch.Op != "remove" {
-					return nil, fmt.Errorf("operation %d: path %q only supported for remove", i, path)
+					return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("path %q only supported for remove", path))
 				}
 				if len(h.save.ConnectedAccounts) < 2 {
-					return nil, fmt.Errorf("operation %d: cannot unlink the only email address for a given account", i)
+					return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("cannot unlink the only email address for a given account"))
 				}
 				// Unlink account
 				for idx, connect := range h.save.ConnectedAccounts {
 					if connect.Properties.Subject == link.Properties.Subject {
 						h.save.ConnectedAccounts = append(h.save.ConnectedAccounts[:idx], h.save.ConnectedAccounts[idx+1:]...)
 						if err := h.s.RemoveAccountLookup(link.LinkRevision, getRealm(r), link.Properties.Subject, r, h.auth.ID, h.tx); err != nil {
-							return nil, fmt.Errorf("service dependencies not available; try again later")
+							return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("service dependencies not available; try again later"))
 						}
 						break
 					}
@@ -436,11 +437,11 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "photo":
 			dst = &h.save.Profile.Picture
 			if !strutil.IsImageURL(src) {
-				return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("invalid photo URL %q", src)).Err()
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("invalid photo URL %q", src))
 			}
 
 		default:
-			return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: invalid path %q", i, path)).Err()
+			return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("invalid path %q", path))
 		}
 		if patch.Op != "remove" && len(src) == 0 {
 			return nil, fmt.Errorf("operation %d: cannot set an empty value", i)
@@ -456,7 +457,7 @@ func (h *scimUser) Patch(r *http.Request, name string) (proto.Message, error) {
 		case "remove":
 			*dst = ""
 		default:
-			return nil, httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath("scim", "user", name, "profile", path), fmt.Sprintf("operation %d: invalid op %q", i, patch.Op)).Err()
+			return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "user", "profile", path), i, fmt.Sprintf("invalid op %q", patch.Op))
 		}
 	}
 	return newScimUser(h.save, getRealm(r), h.domainURL, h.userPath), nil

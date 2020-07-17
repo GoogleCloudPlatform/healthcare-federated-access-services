@@ -514,7 +514,7 @@ func TestHandlers(t *testing.T) {
 			Persona: "non-admin",
 			Scope:   persona.AccountScope,
 			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"replace","path":"photos[type eq \"thumbnail\"].value","value":"I am a teapot"}]}`,
-			Output:  `^.*invalid photo.*`,
+			Output:  `^.*invalid photo.*"type.googleapis.com/google.rpc.ErrorInfo","metadata":{"index":"0"}.*`,
 			Status:  http.StatusBadRequest,
 		},
 		{
@@ -725,7 +725,7 @@ func TestHandlers(t *testing.T) {
 			LinkPersona: "admin",
 			LinkScope:   persona.LinkScope,
 			Input:       `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"emails","value":"X-Link-Authorization"}]}`,
-			Output:      `{"code":3,"message":"bearer token unauthorized for scope \"link\""}`,
+			Output:      `*{"code":3,"message":"bearer token unauthorized for scope \"link\""*scim/user/profile/emails*}*`,
 			Status:      http.StatusBadRequest,
 		},
 		{

@@ -26,6 +26,22 @@ import (
 	edpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
 )
 
+func TestNewIndexError(t *testing.T) {
+	err := NewIndexError(codes.InvalidArgument, "name", 3, "this is an error message")
+	want := []interface{}{
+		&edpb.ResourceInfo{ResourceName: "name", Description: "this is an error message"},
+		&edpb.ErrorInfo{Metadata: map[string]string{"index": "3"}},
+	}
+
+	s, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("FromError() failed")
+	}
+	if d := cmp.Diff(want, s.Details(), protocmp.Transform()); len(d) > 0 {
+		t.Errorf("s.Details (-want, +got): %s", d)
+	}
+}
+
 func TestWithErrorReason(t *testing.T) {
 	errReason := "reason"
 
@@ -64,5 +80,39 @@ func TestErrorReason_NotStatusErr(t *testing.T) {
 	got := ErrorReason(err)
 	if len(got) > 0 {
 		t.Errorf("ErrorReason() = %s want \"\"", got)
+	}
+}
+
+func TestErrorPath(t *testing.T) {
+	got := ErrorPath("a", "b", "c")
+	want := "a/b/c"
+	if got != want {
+		t.Errorf("mismatch: got %q, want %q", got, want)
+	}
+}
+
+func TestWithMetadata(t *testing.T) {
+	meta := map[string]string{
+		"a": "1",
+		"b": "2",
+		"c": "3",
+	}
+
+	err := status.Error(codes.Internal, "this is a error")
+	for k, v := range meta {
+		err = WithMetadata(k, v, err)
+	}
+
+	s, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("status.FromError(%v) failed", err)
+	}
+
+	want := []interface{}{
+		&edpb.ErrorInfo{Metadata: meta},
+	}
+
+	if d := cmp.Diff(want, s.Details(), protocmp.Transform()); len(d) > 0 {
+		t.Errorf("s.Details() (-want, +got): %s", d)
 	}
 }
