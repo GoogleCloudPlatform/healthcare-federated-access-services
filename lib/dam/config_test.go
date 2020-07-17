@@ -64,13 +64,13 @@ func TestConfigHandlers(t *testing.T) {
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/resources/ga4gh-apis",
-			Output: `*{"resource":` + resource + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer"]}*`,
+			Output: `*{"resource":` + resource + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer","ga4gh-apis/redshift-test/dbuser","ga4gh-apis/s3-test/viewer"]}*`,
 			Status: http.StatusOK,
 		},
 		{
 			Method: "GET",
 			Path:   "/dam/v1alpha/test/resources/ga4gh-apis/views",
-			Output: `*{"views":` + views + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer"]}*`,
+			Output: `*{"views":` + views + `,"access":["ga4gh-apis/beacon/discovery","ga4gh-apis/gcs_read/viewer","ga4gh-apis/redshift-test/dbuser","ga4gh-apis/s3-test/viewer"]}*`,
 			Status: http.StatusOK,
 		},
 		{

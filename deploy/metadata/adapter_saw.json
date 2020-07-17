@@ -18,7 +18,7 @@
         "scopes": {
           "type": "const",
           "optional": true,
-          "regexp": ".",
+          "regexp": ".*",
           "ui": {
             "label": "GCP Scopes",
             "description": "An advanced GCP identifier to include in the 'scope' claim as part of the token permission model. Default: 'https://www.googleapis.com/auth/cloud-platform'"
@@ -85,7 +85,7 @@
         "scopes": {
           "type": "const",
           "optional": true,
-          "regexp": ".",
+          "regexp": ".*",
           "ui": {
             "label": "GCP Scopes",
             "description": "An advanced GCP identifier to include in the 'scope' claim as part of the token permission model. Default: 'https://www.googleapis.com/auth/cloud-platform'"

@@ -106,7 +106,7 @@ func responseKeyFile(r *http.Request) bool {
 	return httputils.QueryParam(r, "response_type") == "key-file-type"
 }
 
-func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceName, viewName, role string, ttl time.Duration, useKeyFile bool, id *ga4gh.Identity, cfg *pb.DamConfig, res *pb.Resource, view *pb.View) (*pb.ResourceResults_ResourceAccess, int, error) {
+func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceName, viewName, role, iface string, ttl time.Duration, useKeyFile bool, id *ga4gh.Identity, cfg *pb.DamConfig, res *pb.Resource, view *pb.View) (*pb.ResourceResults_ResourceAccess, int, error) {
 	sRole, err := adapter.ResolveServiceRole(role, view, res, cfg)
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
@@ -145,6 +145,7 @@ func (s *Service) generateResourceToken(ctx context.Context, clientID, resourceN
 		TTL:             ttl,
 		ViewID:          viewName,
 		View:            view,
+		Interface:       iface,
 		TokenFormat:     tokenFormat,
 	}
 	result, err := adapt.MintToken(ctx, adapterAction)
@@ -664,7 +665,7 @@ func (s *Service) fetchResourceTokens(r *http.Request) (_ *pb.ResourceResults, f
 			return nil, status.Errorf(codes.NotFound, "view %q not found for resource %q", r.View, r.Resource)
 		}
 
-		result, st, err := s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, time.Duration(state.Ttl), keyFile, id, cfg, res, view)
+		result, st, err := s.generateResourceToken(ctx, state.ClientId, r.Resource, r.View, r.Role, r.Interface, time.Duration(state.Ttl), keyFile, id, cfg, res, view)
 		if err != nil {
 			return nil, status.Errorf(httputils.RPCCode(st), "%v", err)
 		}
