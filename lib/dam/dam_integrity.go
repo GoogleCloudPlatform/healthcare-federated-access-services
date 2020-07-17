@@ -370,7 +370,7 @@ func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, 
 		return path, err
 	}
 	if path, err := checkAccessRoles(view.Roles, templateName, template.ServiceName, cfg, vopts); err != nil {
-		return httputils.StatusPath("views", viewName, "roles", path), fmt.Errorf("view %q roles: %v", viewName, err)
+		return httputils.StatusPath("views", viewName, "roles", path), fmt.Errorf("invalid view: %v", err)
 	}
 	desc, ok := vopts.Services.Descriptors[template.ServiceName]
 	if !ok {
@@ -396,7 +396,7 @@ func checkAccessRequirements(templateName string, template *pb.ServiceTemplate, 
 
 func checkAccessRoles(roles map[string]*pb.ViewRole, templateName, serviceName string, cfg *pb.DamConfig, vopts ValidateCfgOpts) (string, error) {
 	if len(roles) == 0 {
-		return "", fmt.Errorf("does not provide any roles")
+		return "", fmt.Errorf("a view must have at least one role with a selected policy")
 	}
 	desc := vopts.Services.Descriptors[serviceName]
 	for rname, role := range roles {
