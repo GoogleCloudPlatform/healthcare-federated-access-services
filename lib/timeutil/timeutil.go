@@ -164,8 +164,18 @@ func generateTimeZones() map[string]string {
 		genZones(dir, "", out)
 	}
 
-	if len(out) == 0 {
-		glog.Warningf("failed to load time zones: check that the OS is unix-based")
+	data, err := srcutil.LoadFile("deploy/metadata/standard_timezones.json")
+	if err != nil {
+		glog.Errorf("failed to load time zones: %v", err)
+		return out
+	}
+	loaded := make(map[string]string)
+	if err := json.Unmarshal([]byte(data), &loaded); err != nil {
+		glog.Errorf("failed to unmarshal time zone data: %v", err)
+		return out
+	}
+	for k, v := range loaded {
+		out[k] = v
 	}
 
 	return out
@@ -215,11 +225,11 @@ func generateLocales() map[string]string {
 	out := make(map[string]string)
 	data, err := srcutil.LoadFile("deploy/metadata/standard_locales.json")
 	if err != nil {
-		glog.Errorf("failed to load time zones (check that the OS is unix-based): %v", err)
+		glog.Errorf("failed to load locales: %v", err)
 		return out
 	}
 	if err := json.Unmarshal([]byte(data), &out); err != nil {
-		glog.Errorf("failed to unmarshal time zone data: %v", err)
+		glog.Errorf("failed to unmarshal locale data: %v", err)
 		return out
 	}
 	return out
