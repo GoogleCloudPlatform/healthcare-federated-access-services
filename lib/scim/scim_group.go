@@ -319,8 +319,10 @@ func (h *GroupHandler) Patch(r *http.Request, name string) (proto.Message, error
 			return nil, fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
 		}
 	}
-	// Output the new result: Get() will return contents from h.item.
-	h.item = h.save
+	// Output the new result: Get() will return contents from h.item with the latest edits from h.save.
+	// Needs a deep copy since h.save as the item saved will not include members once Save() is called
+	// but the item returned to the client will include members.
+	h.item = proto.Clone(h.save).(*spb.Group)
 	return h.Get(r, name)
 }
 
