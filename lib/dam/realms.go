@@ -15,16 +15,20 @@
 package dam
 
 import (
+	"fmt"
 	"net/http"
 
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/pborman/uuid" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auth" /* copybara-comment: auth */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
+	ppb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/process/v1" /* copybara-comment: go_proto */
 )
 
 func (s *Service) realmFactory() *handlerfactory.Options {
@@ -102,11 +106,17 @@ func (h *realmHandler) Patch(r *http.Request, name string) (proto.Message, error
 }
 
 func (h *realmHandler) Remove(r *http.Request, name string) (proto.Message, error) {
-	if err := h.s.store.Wipe(name); err != nil {
+	if name == storage.DefaultRealm {
+		return nil, fmt.Errorf("cannot remove the master realm")
+	}
+	a, err := auth.FromContext(r.Context())
+	if err != nil {
 		return nil, err
 	}
-	if name == storage.DefaultRealm {
-		return nil, ImportConfig(h.s.store, h.s.serviceName, h.s.warehouse, nil, true, true, true)
+	id := uuid.New()
+	work, err := h.s.lro.AddRealmRemoval(id, name, a.ID, h.tx)
+	if err != nil {
+		return nil, err
 	}
 	cfg, err := h.s.loadConfig(h.tx, storage.DefaultRealm)
 	if err != nil {
@@ -115,7 +125,12 @@ func (h *realmHandler) Remove(r *http.Request, name string) (proto.Message, erro
 	if cfg.Options.GcpServiceAccountProject != h.cfg.Options.GcpServiceAccountProject {
 		return nil, h.s.unregisterProject(h.cfg.Options.GcpServiceAccountProject, h.tx)
 	}
-	return nil, nil
+	return &ppb.WorkResponse{
+		Id:      id,
+		State:   "queued",
+		Details: work,
+		Uri:     h.s.lroURI(id),
+	}, nil
 }
 
 func (h *realmHandler) CheckIntegrity(*http.Request) *status.Status {

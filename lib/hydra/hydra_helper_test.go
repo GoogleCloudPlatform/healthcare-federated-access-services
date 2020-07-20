@@ -36,8 +36,8 @@ func TestNormalizeIdentity(t *testing.T) {
 		},
 		Scope: "aaa bbb",
 		Identities: map[string][]string{
-			"a@example.com": nil,
-			"b@example.com": nil,
+			"a@example.com": []string{"DAM", "IC"},
+			"b@example.com": []string{"DAM", "IC"},
 		},
 	}
 

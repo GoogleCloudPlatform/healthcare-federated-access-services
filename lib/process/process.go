@@ -250,12 +250,14 @@ func (p *Process) UpdateSettings(scheduleFrequency time.Duration, settings *pb.P
 // should be based on the size of the processing work between updates and the expected
 // total time for each run with sufficient tolerance for errors and retries to minimize
 // collisions with 2+ workers grabbing control of the state.
-func (p *Process) UpdateFlowControl(initialWaitDuration time.Duration, minScheduleFrequency time.Duration) error {
+func (p *Process) UpdateFlowControl(initialWaitDuration, minScheduleFrequency, progressFrequency time.Duration) error {
 	if p.running {
 		return fmt.Errorf("UpdateFlowControl failed: background process is already running")
 	}
 	p.initialWaitDuration = initialWaitDuration
 	p.minScheduleFrequency = minScheduleFrequency
+	p.scheduleFrequency = minScheduleFrequency
+	p.progressFrequency = progressFrequency
 	return nil
 }
 
@@ -689,6 +691,9 @@ func (p *Process) cutoff(state *pb.Process) *tspb.Timestamp {
 		d = time.Hour
 	}
 	freq := int64(d.Seconds())
+	if freq < 1 {
+		freq = 1
+	}
 	c := int64(now/freq) * freq
 	if cutoff == 0 || c < cutoff {
 		cutoff = c

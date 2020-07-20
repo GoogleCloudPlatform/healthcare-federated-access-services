@@ -66,7 +66,7 @@ func main() {
 			glog.Exitf("attempted wipe failed: only works if specific safety value set. See -h for help.")
 		}
 		glog.Infof("WIPE STORAGE FOR SERVICE %q...", service)
-		if err := store.Wipe(storage.AllRealms); err != nil {
+		if _, err := store.Wipe(ctx, storage.AllRealms, 0, 0); err != nil {
 			glog.Exitf("error wiping storage for service %q: %v", service, err)
 		}
 		glog.Infof("Wipe complete")

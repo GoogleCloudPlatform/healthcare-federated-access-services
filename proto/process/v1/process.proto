@@ -156,3 +156,29 @@ message Process {
   // Aggregate stats over all time periods for all work items since last reset.
   map<string, double> aggregate_stats = 10;
 }
+
+// WorkResponse returns the state of one work item related to. For use with
+// endpoint responses such as LROs.
+message WorkResponse {
+  // Identifier for the work item.
+  string id = 1;
+
+  // The completion state of the work item as one of the following:
+  //   "unspecified": Status.State.UNSPECIFIED
+  //   "queued":      Status.State.NEW
+  //   "active":      Status.State.ACTIVE
+  //   "aborted":     Status.State.ABORTED
+  //   "incomplete":  Status.State.INCOMPLETE
+  //   "completed":   Status.State.COMPLETED
+  //   "dropped":     On the DroppedWork list
+  //   "cleanup":     On the CleanupWork list
+  //   "purged":      Status was removed from the system (or never existed)
+  string state = 2;
+
+  // The work processing/queuing details. Only available when the work item
+  // is on the ActiveWork list.
+  Process.Work details = 3;
+
+  // The URI of where to fetch the more information about the work item.
+  string uri = 4;
+}

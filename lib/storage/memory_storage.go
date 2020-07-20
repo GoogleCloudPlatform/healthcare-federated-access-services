@@ -15,6 +15,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -35,25 +36,27 @@ const (
 
 // MemoryStorage is designed as a single threading storage. Will throw exception if multiple TX request.
 type MemoryStorage struct {
-	service   string
-	path      string
-	pathParts []string
-	cache     *StorageCache
-	fs        *FileStorage
-	deleted   map[string]bool
-	lock      chan bool
-	lastLock  time.Time
+	service     string
+	path        string
+	pathParts   []string
+	cache       *StorageCache
+	fs          *FileStorage
+	deleted     map[string]bool
+	wipedRealms map[string]bool
+	lock        chan bool
+	lastLock    time.Time
 }
 
 func NewMemoryStorage(service, path string) *MemoryStorage {
 	return &MemoryStorage{
-		service:  service,
-		path:     path,
-		cache:    NewStorageCache(),
-		fs:       NewFileStorage(service, path),
-		deleted:  make(map[string]bool),
-		lock:     make(chan bool, 1),
-		lastLock: time.Unix(0, 0),
+		service:     service,
+		path:        path,
+		cache:       NewStorageCache(),
+		fs:          NewFileStorage(service, path),
+		deleted:     make(map[string]bool),
+		wipedRealms: make(map[string]bool),
+		lock:        make(chan bool, 1),
+		lastLock:    time.Unix(0, 0),
 	}
 }
 
@@ -71,7 +74,7 @@ func (m *MemoryStorage) Exists(datatype, realm, user, id string, rev int64) (boo
 	if _, ok := m.cache.GetEntity(fname); ok {
 		return true, nil
 	}
-	if m.deleted[fname] {
+	if m.deleted[fname] || m.wipedRealms[realm] {
 		return false, nil
 	}
 	return m.fs.Exists(datatype, realm, user, id, rev)
@@ -104,7 +107,7 @@ func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, cont
 		return nil
 	}
 
-	if m.deleted[fname] {
+	if m.deleted[fname] || m.wipedRealms[realm] {
 		return fmt.Errorf("not found: %q", fname)
 	}
 
@@ -137,7 +140,7 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Fi
 	}
 	count := 0
 	err := m.findPath(datatype, realm, user, typ, func(path, userMatch, idMatch string, p proto.Message) error {
-		if m.deleted[m.fname(datatype, realm, userMatch, idMatch, LatestRev)] {
+		if m.deleted[m.fname(datatype, realm, userMatch, idMatch, LatestRev)] || m.wipedRealms[realm] {
 			return nil
 		}
 		if !MatchProtoFilters(filters, p) {
@@ -387,11 +390,13 @@ func (m *MemoryStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) (ferr
 	})
 }
 
-func (m *MemoryStorage) Wipe(realm string) error {
-	// Wipe everything, not just for the realm provided.
+func (m *MemoryStorage) Wipe(ctx context.Context, realm string, batchNum, maxEntries int) (int, error) {
+	// Wipe everything, not just for the realm provided or the maxEntries.
+	count := len(m.cache.entityCache) + len(m.cache.historyCache)
 	m.cache = NewStorageCache()
 	m.deleted = make(map[string]bool)
-	return nil
+	m.wipedRealms[realm] = true
+	return count, nil
 }
 
 func (m *MemoryStorage) Tx(update bool) (Tx, error) {

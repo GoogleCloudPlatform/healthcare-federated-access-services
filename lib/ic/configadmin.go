@@ -402,7 +402,7 @@ func (s *Service) ConfigReset(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(httputils.RPCCode(sts), "%v", err))
 		return
 	}
-	if err = s.store.Wipe(storage.AllRealms); err != nil {
+	if _, err = s.store.Wipe(r.Context(), storage.AllRealms, 0, 0); err != nil {
 		httputils.WriteError(w, status.Errorf(codes.Internal, "%v", err))
 		return
 	}

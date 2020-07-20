@@ -196,7 +196,7 @@ func NormalizeIdentity(id *ga4gh.Identity) *ga4gh.Identity {
 			continue
 		}
 
-		id.Identities[identity] = nil
+		id.Identities[identity] = []string{"DAM", "IC"}
 	}
 
 	return id

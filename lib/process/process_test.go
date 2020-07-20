@@ -63,7 +63,7 @@ func TestProcess(t *testing.T) {
 	mock := &mockWorker{}
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	process := NewProcess(testProcessName, mock, store, 0, nil)
-	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond, 50*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
 	params := &pb.Process_Params{
@@ -190,7 +190,7 @@ func TestProcess_Merge(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	mock := &mockMergeWorker{store: store}
 	process := NewProcess(testProcessName, mock, store, 0, nil)
-	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond, 50*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
 	process.progressFrequency = -time.Second // force updates and possible merged on every work item
@@ -273,7 +273,7 @@ func TestProcess_Conflict(t *testing.T) {
 	store := storage.NewMemoryStorage("dam", "testdata/config")
 	mock := &mockWorker{}
 	process := NewProcess(testProcessName, mock, store, 0, nil)
-	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond, 50*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
 
@@ -306,7 +306,7 @@ func TestProcess_UpdateSettings(t *testing.T) {
 		StringParams: map[string]string{"hello": "world"},
 	}
 	process := NewProcess(testProcessName, mock, store, initFreq, initSettings)
-	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+	if err := process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond, 50*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
 	process.RegisterWork("foo", nil, nil)
@@ -336,8 +336,9 @@ func TestProcess_UpdateFlowControl(t *testing.T) {
 	initFreq := 3 * time.Hour
 	waitFreq := 500 * time.Millisecond
 	scheduleFreq := 100 * time.Millisecond
+	progFreq := 50 * time.Millisecond
 	process := NewProcess(testProcessName, mock, store, initFreq, &pb.Process_Params{})
-	if err := process.UpdateFlowControl(waitFreq, scheduleFreq); err != nil {
+	if err := process.UpdateFlowControl(waitFreq, scheduleFreq, progFreq); err != nil {
 		t.Fatalf("UpdateFlowControl(%v,%v) failed: %v", waitFreq, scheduleFreq, err)
 	}
 	if process.initialWaitDuration != waitFreq {
@@ -345,5 +346,11 @@ func TestProcess_UpdateFlowControl(t *testing.T) {
 	}
 	if process.minScheduleFrequency != scheduleFreq {
 		t.Errorf("minScheduleFrequency mismatch, got %v, want %v", process.minScheduleFrequency, scheduleFreq)
+	}
+	if process.scheduleFrequency != scheduleFreq {
+		t.Errorf("scheduleFrequency mismatch, got %v, want %v", process.scheduleFrequency, scheduleFreq)
+	}
+	if process.progressFrequency != progFreq {
+		t.Errorf("progressFrequency mismatch, got %v, want %v", process.progressFrequency, progFreq)
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakelro" /* copybara-comment: fakelro */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/muxtest" /* copybara-comment: muxtest */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
@@ -107,6 +108,9 @@ var (
 		"/identity/scim/v2/{realm}/Users",
 		"/identity/scim/v2/{realm}/Users/{name}",
 
+		// LRO related
+		"GET /dam/v1alpha/{realm}/lro/{name}",
+
 		// fake endpoints, will remove soon
 		"GET /tokens",
 		"DELETE /tokens/",
@@ -137,6 +141,7 @@ func TestEndpoints(t *testing.T) {
 		UseHydra:         useHydra,
 		HydraPublicProxy: proxy,
 		HydraPublicURL:   hydraPublicURL,
+		LRO:              fakelro.New(),
 	})
 
 	got := muxtest.PathsInRouter(t, r)

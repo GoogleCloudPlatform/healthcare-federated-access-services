@@ -19,6 +19,7 @@
 package fakestore
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -385,10 +386,10 @@ func (s *Store) multiDelete(datatype, realm, user string, state State) error {
 }
 
 // Wipe clears a realm.
-func (s *Store) Wipe(realm string) (ferr error) {
+func (s *Store) Wipe(ctx context.Context, realm string, batchNum, maxEntries int) (done int, ferr error) {
 	ntx, err := s.Tx(true)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() {
 		err := ntx.Finish()
@@ -399,16 +400,22 @@ func (s *Store) Wipe(realm string) (ferr error) {
 
 	ntx.(*Tx).mu.Lock()
 	defer ntx.(*Tx).mu.Unlock()
-	return s.wipe(realm, ntx.(*Tx).state)
+	count, err := s.wipe(realm, ntx.(*Tx).state)
+	if err != nil {
+		return count, err
+	}
+	return count, nil
 }
 
-func (s *Store) wipe(realm string, state State) error {
+func (s *Store) wipe(realm string, state State) (int, error) {
+	count := 0
 	for k := range state.Data {
 		if k.Realm == realm {
+			count++
 			delete(state.Data, k)
 		}
 	}
-	return nil
+	return count, nil
 }
 
 // LockTx creates a lock with the give name.

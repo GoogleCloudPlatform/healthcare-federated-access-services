@@ -51,6 +51,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/lro" /* copybara-comment: lro */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/oathclients" /* copybara-comment: oathclients */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -128,6 +129,7 @@ type Service struct {
 	skipInformationReleasePage bool
 	infomationReleasePageTmpl  *template.Template
 	consentDashboardURL        string
+	lro                        lro.LRO
 }
 
 type ServiceHandler struct {
@@ -181,6 +183,8 @@ type Options struct {
 	// ConsentDashboardURL is url to frontend consent dashboard, will replace
 	// ${USER_ID} with userID.
 	ConsentDashboardURL string
+	// LRO: the long running operation background process
+	LRO lro.LRO
 }
 
 // NewService create DAM service
@@ -232,6 +236,7 @@ func New(r *mux.Router, params *Options) *Service {
 		auditlogs:                  auditlogsapi.NewAuditLogs(params.SDLC, params.AuditLogProject, params.ServiceName),
 		signer:                     params.Signer,
 		encryption:                 params.Encryption,
+		lro:                        params.LRO,
 	}
 
 	if s.httpClient == nil {
@@ -305,6 +310,8 @@ func New(r *mux.Router, params *Options) *Service {
 	a := authChecker{s: s}
 	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity)
 	s.checker = checker
+
+	go s.lro.Run(ctx)
 
 	sh.s = s
 	sh.Handler = r
@@ -392,6 +399,11 @@ func (s *Service) getIssuerString() string {
 	}
 
 	return ""
+}
+
+func (s *Service) lroURI(id string) string {
+	uri := strings.Replace(strings.TrimRight(s.domainURL, "/")+lroPath, "{name}", id, -1)
+	return strings.Replace(uri, "{realm}", storage.DefaultRealm, -1)
 }
 
 func (s *Service) upstreamTokenToPassportIdentity(ctx context.Context, cfg *pb.DamConfig, tx storage.Tx, tok, clientID string) (*ga4gh.Identity, error) {
@@ -1552,6 +1564,9 @@ func registerHandlers(r *mux.Router, s *Service) {
 
 	// audit logs endpoints
 	r.HandleFunc(auditlogsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.store, auditlogsapi.ListAuditlogsPathFactory(auditlogsPath, s.auditlogs)), s.checker, auth.RequireUserTokenClientCredential)).Methods(http.MethodGet)
+
+	// LRO endpoints
+	r.HandleFunc(lroPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), s.lroFactory()), s.checker, auth.RequireClientIDAndSecret)).Methods(http.MethodGet)
 
 	// proxy hydra oauth token endpoint
 	if s.hydraPublicURLProxy != nil {

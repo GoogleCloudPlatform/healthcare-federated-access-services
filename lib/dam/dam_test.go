@@ -54,6 +54,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakehydra" /* copybara-comment: fakehydra */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakelro" /* copybara-comment: fakelro */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/httptestclient" /* copybara-comment: httptestclient */
@@ -120,6 +121,7 @@ func TestHandlers(t *testing.T) {
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
 		Encryption:     fakeencryption.New(),
+		LRO:            fakelro.New(),
 	})
 	tests := []test.HandlerTest{
 		// Realm tests.
@@ -156,7 +158,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "DELETE",
 			Path:    "/dam/v1alpha/test",
 			Persona: "admin",
-			Output:  ``,
+			Output:  `*{"id":"*","state":"queued","details":{},"uri":"test.org/dam/v1alpha/master/lro/*-*-*-*"}*`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -237,6 +239,20 @@ func TestHandlers(t *testing.T) {
 			Persona: "admin",
 			Output:  `^.*not allowed`,
 			Status:  http.StatusBadRequest,
+		},
+		{
+			Method:  "GET",
+			Path:    "/dam/v1alpha/master/lro/00000000-0000-0000-0000-000000000001",
+			Persona: "admin",
+			Output:  `*{"id":"00000000-0000-0000-0000-000000000001","state":"completed","details":{*COMPLETED*}}*`,
+			Status:  http.StatusOK,
+		},
+		{
+			Method:  "GET",
+			Path:    "/dam/v1alpha/master/lro/00000000-0000-0000-0000-000000000045",
+			Persona: "admin",
+			Output:  `*{"id":"00000000-0000-0000-0000-000000000045","state":"purged"*}*`,
+			Status:  http.StatusOK,
 		},
 		{
 			Method:  "GET",
@@ -930,6 +946,7 @@ func TestMinConfig(t *testing.T) {
 		HidePolicyBasis:  true,
 		HideRejectDetail: true,
 		Encryption:       fakeencryption.New(),
+		LRO:              fakelro.New(),
 	}
 	s := NewService(opts)
 	verifyService(t, s.domainURL, opts.Domain, "domainURL")
@@ -983,6 +1000,7 @@ func TestConfig_Add_NilTestPersonas(t *testing.T) {
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
 		Encryption:     fakeencryption.New(),
+		LRO:            fakelro.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1028,6 +1046,7 @@ func TestConfig_Add_NilResource(t *testing.T) {
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
 		Encryption:     fakeencryption.New(),
+		LRO:            fakelro.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1118,6 +1137,7 @@ func setupAuthorizationTest(t *testing.T) *authTestContext {
 		HydraAdminURL:  hydraAdminURL,
 		HydraPublicURL: hydraPublicURL,
 		Encryption:     fakeencryption.New(),
+		LRO:            fakelro.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1387,6 +1407,7 @@ func Test_populateIdentityVisas_oidc_and_jku(t *testing.T) {
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
 		Encryption:     fakeencryption.New(),
+		LRO:            fakelro.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)
@@ -1523,6 +1544,7 @@ func setupHydraTest(readOnlyMasterRealm bool) (*Service, *pb.DamConfig, *pb.DamS
 		HydraPublicURL: hydraPublicURL,
 		HydraSyncFreq:  time.Nanosecond,
 		Encryption:     fakeencryption.New(),
+		LRO:            fakelro.New(),
 	})
 
 	cfg, err := s.loadConfig(nil, storage.DefaultRealm)

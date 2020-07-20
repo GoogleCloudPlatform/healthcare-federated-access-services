@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
@@ -37,6 +38,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydraproxy" /* copybara-comment: hydraproxy */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpsign" /* copybara-comment: gcpsign */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/lro" /* copybara-comment: lro */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/osenv" /* copybara-comment: osenv */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/saw" /* copybara-comment: saw */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/server" /* copybara-comment: server */
@@ -158,8 +160,13 @@ func main() {
 	if globalflags.EnableAWSAdapter {
 		awsClient, err = aws.NewAPIClient()
 		if err != nil {
-			glog.Fatalf("aws.NewAPIClient failed: %v", err)
+			glog.Exitf("aws.NewAPIClient failed: %v", err)
 		}
+	}
+
+	lros, err := lro.New("lro", 60*time.Second, 60*time.Second, store, nil)
+	if err != nil {
+		glog.Exitf("lro.New failed: %v", err)
 	}
 
 	r := mux.NewRouter()
@@ -185,6 +192,7 @@ func main() {
 		HydraPublicProxy:           hyproxy,
 		Signer:                     gcpSigner,
 		Encryption:                 gcpEncryption,
+		LRO:                        lros,
 	})
 
 	r.HandleFunc("/liveness_check", httputils.LivenessCheckHandler)

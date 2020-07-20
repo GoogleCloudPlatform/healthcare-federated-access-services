@@ -40,7 +40,7 @@ func TestKeyGC(t *testing.T) {
 	gc := NewKeyGC(processName, wh, store, 10*time.Second, 10, func(sa *clouds.Account) bool {
 		return sa.ID != "mary@example.org"
 	})
-	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond, 50*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
 	waits := 0
@@ -108,13 +108,13 @@ func TestKeyGC_UpdateSettings(t *testing.T) {
 	gc := NewKeyGC(processName, wh, store, 10*time.Hour, 10, func(sa *clouds.Account) bool {
 		return true
 	})
-	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond); err != nil {
+	if err := gc.process.UpdateFlowControl(500*time.Millisecond, 100*time.Millisecond, 50*time.Millisecond); err != nil {
 		t.Fatalf("UpdateFlowControl(_,_) failed: %v", err)
 	}
 
 	initFreq := time.Hour
-	if initFreq != gc.process.ScheduleFrequency() {
-		t.Errorf("process scheduleFrequency mismatch: want %v, got %v", initFreq, gc.process.ScheduleFrequency())
+	if initFreq <= gc.process.ScheduleFrequency() {
+		t.Errorf("process scheduleFrequency unexpected result: want at most %v, got %v", initFreq, gc.process.ScheduleFrequency())
 	}
 
 	gc.UpdateSettings(100*time.Hour, 6, nil)

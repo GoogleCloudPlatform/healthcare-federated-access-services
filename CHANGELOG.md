@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.8...HEAD)
 
+** Highlight Updates**
+
+* Introduce LRO processes: Includes an implementation of realm deletion using this infrastructure.
+
 ## [v0.9.8](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.8)
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.7...v0.9.8)

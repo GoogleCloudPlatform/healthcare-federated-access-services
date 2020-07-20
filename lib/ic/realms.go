@@ -99,7 +99,7 @@ func (c *realm) Patch(r *http.Request, name string) (proto.Message, error) {
 }
 
 func (c *realm) Remove(r *http.Request, name string) (proto.Message, error) {
-	if err := c.s.store.Wipe(name); err != nil {
+	if _, err := c.s.store.Wipe(r.Context(), name, 0, 0); err != nil {
 		return nil, err
 	}
 	if name == storage.DefaultRealm {

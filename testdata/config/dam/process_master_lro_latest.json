@@ -1,0 +1,53 @@
+{
+  "processName":"lro",
+  "instance":"439bfc29-dfac-4b71-bfd4-394ba5c57267",
+  "scheduleFrequency":"300s",
+  "activeWork":{
+    "lro": {
+      "modified":"2020-01-01T15:00:00Z",
+      "params":{},
+      "status":{
+        "startTime":"2020-01-02T15:00:00Z",
+        "progressTime":"2020-01-02T16:00:00Z",
+        "finishTime":"2020-01-02T16:00:00Z",
+        "stats":{
+          "removeRealms.itemsRemoved": "934"
+        },
+        "errors":[],
+        "totalErrors":"0",
+        "state":"NEW"
+      }
+    }
+  },
+  "cleanupWork":{},
+  "droppedWork":{},
+  "settings": {
+    "intParams": {
+      "maxProgressDuration": "60",
+      "scheduleFrequency":   "300",
+      "wakeFrequency":       "60"
+    }
+  },
+  "processStatus":{
+    "startTime":"2020-01-02T15:00:00Z",
+    "progressTime":"2020-01-02T16:00:00Z",
+    "finishTime":"2020-01-02T16:00:00Z",
+    "stats":{
+      "errors":"0",
+      "workItemsCleaned":"0"
+    },
+    "errors":[],
+    "totalErrors":"0",
+    "state":"COMPLETED"
+  },
+  "aggregateStats":{
+    "duration":"1000",
+    "errors":"10",
+    "workItems":"3",
+    "workItemsCleaned":"1",
+    "runs":"993",
+    "state.completed":"990",
+    "state.aborted":"1",
+    "state.incomplete":"2"
+  }
+}

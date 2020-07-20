@@ -15,6 +15,7 @@
 package storage
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -66,5 +67,25 @@ func TestMemoryStorageMultiRead(t *testing.T) {
 	}
 	if got != want {
 		t.Errorf("MultiReadTx() count results mismatch with count %d: got %d, want %d", count, got, want)
+	}
+}
+
+func TestMemoryStorageWipe(t *testing.T) {
+	realm := "test"
+	user := "admin"
+	ctx := context.Background()
+	store := NewMemoryStorage("ic-min", "testdata/config")
+	account := &cpb.Account{}
+	if err := store.Read(AccountDatatype, realm, DefaultUser, user, LatestRev, account); err != nil {
+		t.Fatalf("Read(%q, default, %q, %q, ...): %v", AccountDatatype, realm, user, err)
+	}
+	if _, err := store.Wipe(ctx, realm, 0, 0); err != nil {
+		t.Fatalf("Wipe() realm %q error: %v", realm, err)
+	}
+	if !store.wipedRealms[realm] {
+		t.Fatalf("Wipe() wiped realm %q not marked as wiped to avoid future file reads", realm)
+	}
+	if err := store.Read(AccountDatatype, realm, DefaultUser, user, LatestRev, account); err == nil || !ErrNotFound(err) {
+		t.Fatalf("Read(%q, default, %q, %q, ...) after Wipe(): expected not found, got %v", AccountDatatype, realm, user, err)
 	}
 }

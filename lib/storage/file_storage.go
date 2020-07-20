@@ -15,6 +15,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -206,8 +207,8 @@ func (f *FileStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) error {
 }
 
 // Wipe deletes all records within a realm.
-func (f *FileStorage) Wipe(realm string) error {
-	return fmt.Errorf("file storage does not support Wipe")
+func (f *FileStorage) Wipe(ctx context.Context, realm string, batchNum, maxEntries int) (int, error) {
+	return 0, fmt.Errorf("file storage does not support Wipe")
 }
 
 func (f *FileStorage) Tx(update bool) (Tx, error) {

@@ -15,6 +15,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -42,6 +43,7 @@ const (
 	GroupMemberDatatype               = "member"
 	LockDatatype                      = "lock"
 	LoginStateDatatype                = "login_state"
+	LongRunningOperationDatatype      = "lro"
 	ProcessDataType                   = "process"
 	PermissionsDatatype               = "permissions"
 	SecretsDatatype                   = "secrets"
@@ -85,7 +87,8 @@ type Store interface {
 	Delete(datatype, realm, user, id string, rev int64) error
 	DeleteTx(datatype, realm, user, id string, rev int64, tx Tx) error
 	MultiDeleteTx(datatype, realm, user string, tx Tx) error
-	Wipe(realm string) error
+	// Wipe removes any items from a realm up to maxEntries (if > 0). Returns count of deleted items and error.
+	Wipe(ctx context.Context, realm string, batchNum, maxEntries int) (int, error)
 	Tx(update bool) (Tx, error)
 	LockTx(lockName string, minFrequency time.Duration, tx Tx) Tx
 }
