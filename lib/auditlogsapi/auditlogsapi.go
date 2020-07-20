@@ -70,7 +70,9 @@ func (s *AuditLogs) ListAuditLogs(ctx context.Context, req *apb.ListAuditLogsReq
 	if err != nil {
 		return nil, err
 	}
-	resp := &apb.ListAuditLogsResponse{}
+	resp := &apb.ListAuditLogsResponse{
+		NextPageToken: sdlResp.GetNextPageToken(),
+	}
 	for _, e := range sdlResp.GetEntries() {
 		a, err := ToAuditLog(e)
 		if err != nil {

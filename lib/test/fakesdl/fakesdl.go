@@ -17,6 +17,7 @@ package fakesdl
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 
@@ -34,22 +35,37 @@ type Server struct {
 	// Logs that have been sent to the server.
 	Logs []*lpb.WriteLogEntriesRequest
 
-	Enteries []*lepb.LogEntry
+	Entries []*lepb.LogEntry
 }
 
 // WriteLogEntries stores the logs.
 func (s *Server) WriteLogEntries(ctx context.Context, req *lpb.WriteLogEntriesRequest) (*lpb.WriteLogEntriesResponse, error) {
 	glog.Infof("Logger.WriteLogEntries Request: %+v", req)
 	s.Logs = append(s.Logs, proto.Clone(req).(*lpb.WriteLogEntriesRequest))
-	s.Enteries = append(s.Enteries, req.GetEntries()...)
+	s.Entries = append(s.Entries, req.GetEntries()...)
 	return &lpb.WriteLogEntriesResponse{}, nil
 }
 
 func (s *Server) ListLogEntries(ctx context.Context, req *lpb.ListLogEntriesRequest) (*lpb.ListLogEntriesResponse, error) {
 	glog.Infof("Logger.ListLogEntries Request: %+v", req)
 	resp := &lpb.ListLogEntriesResponse{}
-	for _, e := range s.Enteries {
-		resp.Entries = append(resp.Entries, proto.Clone(e).(*lepb.LogEntry))
+	start := 0
+	if next := req.PageToken; len(next) > 0 {
+		start, _ = strconv.Atoi(next)
+	}
+
+	psize := int(req.GetPageSize())
+	if psize == 0 {
+		psize = 50
+	}
+	rows := len(s.Entries) - start
+
+	for i := 0; i < rows; i++ {
+		if i >= psize {
+			resp.NextPageToken = strconv.Itoa(start + i)
+			break
+		}
+		resp.Entries = append(resp.Entries, proto.Clone(s.Entries[start+i]).(*lepb.LogEntry))
 	}
 	return resp, nil
 }

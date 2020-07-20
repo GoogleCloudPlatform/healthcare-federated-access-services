@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc" /* copybara-comment */
+	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
@@ -79,11 +81,29 @@ func Test_RequestLog(t *testing.T) {
 		Message:        `{"error": "This is a json err"}`,
 	}
 	auditlog.WritePolicyDecisionLog(f.logger, pl)
+	a2 := &auditlog.RequestLog{
+		TokenID:         "tid",
+		TokenSubject:    "sub",
+		TokenIssuer:     "http://issuer.example.com",
+		TracingID:       "",
+		RequestMethod:   http.MethodPost,
+		RequestEndpoint: "/path/of/endpoint",
+		RequestIP:       "127.0.0.1",
+		ErrorType:       "",
+		PassAuthCheck:   true,
+		ResponseCode:    http.StatusOK,
+		Payload:         "success message",
+		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/endpoint", nil),
+	}
+	for i := 0; i < 100; i++ {
+		a2.TracingID = strconv.Itoa(i + 1000)
+		auditlog.WriteRequestLog(ctx, f.logger, a2)
+	}
 	after := time.Now()
 
 	u, _ := url.Parse("https://example.com/dam/v1alpha/users/fake-user/auditlogs")
 	q := url.Values{}
-	q.Add("page_size", "1")
+	q.Add("page_size", "10")
 	u.RawQuery = q.Encode()
 	r := httptest.NewRequest(http.MethodGet, u.String(), nil)
 	w := httptest.NewRecorder()
@@ -147,9 +167,93 @@ func Test_RequestLog(t *testing.T) {
 				ConfigRevision: "0",
 			},
 		},
+		NextPageToken: "10",
 	}
+	a2want := &apb.AuditLog{
+		Name:             "users/sub@http:%2F%2Fissuer.example.com/auditlogs/",
+		Type:             apb.LogType_REQUEST,
+		ServiceName:      "unset-serviceinfo-Name",
+		ServiceType:      "unset-serviceinfo-Type",
+		TokenId:          "tid",
+		TokenSubject:     "sub",
+		TokenIssuer:      "http://issuer.example.com",
+		Decision:         apb.Decision_PASS,
+		Reason:           "success message",
+		MethodName:       http.MethodGet,
+		ResourceName:     "/path/of/endpoint",
+		TracingId:        "",
+		CallerIp:         "127.0.0.1",
+		HttpResponseCode: http.StatusOK,
+		HttpRequest:      nil,
+	}
+	for i := 0; i < 8; i++ {
+		cp := proto.Clone(a2want).(*apb.AuditLog)
+		cp.TracingId = strconv.Itoa(i + 1000)
+		want.AuditLogs = append(want.AuditLogs, cp)
+	}
+
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("ListAuditLogs() returned diff (-want +got):\n%s", diff)
+	}
+}
+
+func Test_RequestLog_NextPageToken(t *testing.T) {
+	ctx := context.Background()
+
+	project := "fake-project-id"
+
+	f, close := newFix(t, project)
+	defer close()
+
+	auditlog.LogSync = true
+	a := &auditlog.RequestLog{
+		TokenID:         "tid",
+		TokenSubject:    "sub",
+		TokenIssuer:     "http://issuer.example.com",
+		TracingID:       "1",
+		RequestMethod:   http.MethodGet,
+		RequestEndpoint: "/path/of/endpoint",
+		RequestIP:       "127.0.0.1",
+		ErrorType:       "token_expired",
+		PassAuthCheck:   false,
+		ResponseCode:    http.StatusUnauthorized,
+		Payload:         "This is message",
+		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/endpoint", nil),
+	}
+	for i := 0; i < 100; i++ {
+		a.TracingID = strconv.Itoa(i)
+		auditlog.WriteRequestLog(ctx, f.logger, a)
+	}
+
+	u, _ := url.Parse("https://example.com/dam/v1alpha/users/fake-user/auditlogs")
+	q := url.Values{}
+	q.Add("page_size", "10")
+	q.Add("page_token", "20")
+	u.RawQuery = q.Encode()
+	r := httptest.NewRequest(http.MethodGet, u.String(), nil)
+	w := httptest.NewRecorder()
+
+	f.router.ServeHTTP(w, r)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+
+	got := &apb.ListAuditLogsResponse{}
+	httputils.MustDecodeJSONPBResp(t, resp, got)
+
+	if len(got.GetAuditLogs()) != 10 {
+		t.Fatalf("failed to fill 2nd page result count: got %v, want %v", len(got.GetAuditLogs()), 10)
+	}
+
+	got1 := got.GetAuditLogs()[0]
+	if got1.TracingId != "20" {
+		t.Fatalf("first result id mismatch: got %q, want %q", got1.TracingId, "20")
+	}
+
+	if got.NextPageToken != "30" {
+		t.Fatalf("next page token mismatch: got %q, want %q", got.NextPageToken, "30")
 	}
 }
 
