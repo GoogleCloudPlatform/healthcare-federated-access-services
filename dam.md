@@ -77,10 +77,11 @@ Each `view` publishes a set of available `roles`:
    order to gain access to that role.
    * Users typically meet policy criteria by presenting a set of Passport Visas
      that prove that the criteria have been met.
-   * DAM also provides an email address whitelisting mechanism to allow a small
+   * DAM also provides an email address allowlist mechanism to allow a small
      set of users to share data in the prepublication phase of a dataset before
      visas have been established.
-   * Whitelists and visas cannot be used within the same view of the data.
+   * Allowlists and visas cannot be used within the same set of policies on a
+     view of the data.
 *  For example, a view can publish three roles: `beacon`, `viewer`, and
    `editor`.
    *  `beacon` could represent a GA4GH Beacon discovery service that provides a

@@ -103,7 +103,7 @@ declare -A COMMANDS=(
 )
 
 # Only commands on this list are allowed in the COMMANDS list above.
-declare -A COMMAND_WHITELIST=(
+declare -A COMMAND_ALLOWLIST=(
   ["curl_login"]=true
   ["curl_public"]=true
   ["dam_curl_auth"]=true
@@ -458,14 +458,14 @@ run_command() {
     args+=( $arg )
   done
 
-  # Check whitelist to see if this command is authorized to limit risk from
+  # Check allowlist to see if this command is authorized to limit risk from
   # variables injecting bad stuff.
-  if [[ "${COMMAND_WHITELIST[${args[0]}]}" == "" ]]; then
-    echo -e "${RED?}command \"${args[0]}\" is not whitelisted and therefore this command is unauthorized${RESET?}"
+  if [[ "${COMMAND_ALLOWLIST[${args[0]}]}" == "" ]]; then
+    echo -e "${RED?}command \"${args[0]}\" is not on the allowlist and therefore this command is unauthorized${RESET?}"
     exit 2
   fi
 
-  # Execute the whitelisted command with parameters.
+  # Execute the allowlisted command with parameters.
   ${args[@]}
   if [[ "$?" == "0" ]]; then
     echo -e "${GREEN?}done${RESET?}"

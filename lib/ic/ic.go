@@ -139,8 +139,8 @@ var (
 		Type:         "bool",
 		DefaultValue: "false",
 	}
-	descWhitelistedRealms = &cpb.Descriptor{
-		Label:       "Whitelisted Realms",
+	descAllowlistedRealms = &cpb.Descriptor{
+		Label:       "Allowlisted Realms",
 		Description: "By default any realm name can be created, but when this option is populated the IC will only allow realms on this list to be created (the master realm is allowed implicitly)",
 		Type:        "string",
 		IsList:      true,
@@ -1160,7 +1160,7 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 	out.ComputedDescriptors = map[string]*cpb.Descriptor{
 		"accountNameLength":       descAccountNameLength,
 		"readOnlyMasterRealm":     descReadOnlyMasterRealm,
-		"whitelistedRealms":       descWhitelistedRealms,
+		"whitelistedRealms":       descAllowlistedRealms,
 		"defaultPassportTokenTtl": descDefaultPassportTokenTTL,
 		"maxPassportTokenTtl":     descMaxPassportTokenTTL,
 		"authCodeTokenTtl":        descAuthCodeTokenTTL,

@@ -154,7 +154,7 @@ func TestLookupAccount_Error(t *testing.T) {
 }
 
 func TestLoadGroup(t *testing.T) {
-	groupName := "whitelisted"
+	groupName := "allowlisted"
 	realm := "test"
 	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
 	group, err := s.LoadGroup(groupName, realm, nil)
@@ -164,7 +164,7 @@ func TestLoadGroup(t *testing.T) {
 	if group == nil {
 		t.Fatalf("LoadGroup(%q, %q, nil) = (%+v, _) group not found", groupName, realm, group)
 	}
-	want := "whitelisted"
+	want := "allowlisted"
 	if group.Id != want {
 		t.Fatalf("LoadGroup(%q, %q, nil) = (%+v, _) ID mismatch: got %q, want %q", groupName, realm, group, group.Id, want)
 	}
@@ -184,7 +184,7 @@ func TestLoadGroup_NotFound(t *testing.T) {
 }
 
 func TestLoadGroupMember(t *testing.T) {
-	groupName := "whitelisted"
+	groupName := "allowlisted"
 	memberName := "dr_joe@faculty.example.edu"
 	realm := "test"
 	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
@@ -201,7 +201,7 @@ func TestLoadGroupMember(t *testing.T) {
 }
 
 func TestLoadGroupMember_NotFound(t *testing.T) {
-	groupName := "whitelisted"
+	groupName := "allowlisted"
 	memberName := "no_exists@faculty.example.edu"
 	realm := "test"
 	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))

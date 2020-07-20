@@ -446,41 +446,6 @@
           }
         ]
       }
-    },
-    "test_user_with_access": {
-      "passport": {
-        "standardClaims": {
-          "iss": "https://ic-${YOUR_PROJECT_ID}.appspot.com/oidc",
-          "email": "test-user-with-access@dnastack.com",
-          "picture": "/identity/static/images/google.png"
-        },
-        "ga4ghAssertions": [
-          {
-            "type": "testing.only.Whitelist",
-            "source": "https://ddap.test.source.dnastack.com",
-            "value": "https://ddap-frontend.staging.dnastack.com",
-            "assertedDuration": "1d",
-            "expiresDuration": "30d",
-            "by": "so"
-          }
-        ]
-      },
-      "ui": {
-        "label": "Test User Access"
-      }
-    },
-    "test_user_without_access": {
-      "passport": {
-        "standardClaims": {
-          "iss": "https://ddap.test.source.dnastack.com",
-          "email": "test-user-no-access@dnastack.com",
-          "picture": "/identity/static/images/google.png"
-        },
-        "ga4ghAssertions": []
-      },
-      "ui": {
-        "label": "Test user no access"
-      }
     }
   },
   "clients": {

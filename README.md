@@ -28,7 +28,7 @@ This repository contains the Identity Concentrator ("IC"), which performs the ro
 
 #### The problem
 
-In order to access controlled-access datasets, data accessors must prove to data controllers that they have the qualifications required by the data controller. This is done by submitting an application to the data controller who manually reviews the information provided. If acceptable, the data controller adds the data accessor to a whitelist or other static access control mechanism. The data accessor must then use the specific identity (e.g. a Google Cloud credential) for which the access was granted. The data accessor must repeat this process for each dataset that they wish to work with. This results in data accessors accumulating many disparate identities, each specific to a different data controller.
+In order to access controlled-access datasets, data accessors must prove to data controllers that they have the qualifications required by the data controller. This is done by submitting an application to the data controller who manually reviews the information provided. If acceptable, the data controller adds the data accessor to an allowlist or other static access control mechanism. The data accessor must then use the specific identity (e.g. a Google Cloud credential) for which the access was granted. The data accessor must repeat this process for each dataset that they wish to work with. This results in data accessors accumulating many disparate identities, each specific to a different data controller.
 
 #### The solution
 

@@ -133,7 +133,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Groups",
 			Persona: "admin",
-			Output:  `{"Resources":[{"id":"admins","displayName":"System Administrators"},{"id":"auditors","displayName":"Auditors"},{"id":"lab","displayName":"Lab Members"},{"id":"whitelisted","displayName":"Whitelisted Users"}],"startIndex":1,"itemsPerPage":4,"totalResults":4,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
+			Output:  `{"Resources":[{"id":"admins","displayName":"System Administrators"},{"id":"allowlisted","displayName":"Allowlisted Users"},{"id":"auditors","displayName":"Auditors"},{"id":"lab","displayName":"Lab Members"}],"startIndex":1,"itemsPerPage":4,"totalResults":4,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -159,8 +159,8 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Groups",
 			Persona: "admin",
-			Params:  `filter=id%20co%20"it"`,
-			Output:  `{"Resources":[{"id":"auditors","displayName":"Auditors"},{"id":"whitelisted","displayName":"Whitelisted Users"}],"startIndex":1,"itemsPerPage":2,"totalResults":2,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
+			Params:  `filter=id%20co%20"l"`,
+			Output:  `{"Resources":[{"id":"allowlisted","displayName":"Allowlisted Users"},{"id":"lab","displayName":"Lab Members"}],"startIndex":1,"itemsPerPage":2,"totalResults":2,"schemas":["urn:ietf:params:scim:api:messages:2.0:ListResponse"]}`,
 			Status:  http.StatusOK,
 		},
 		{

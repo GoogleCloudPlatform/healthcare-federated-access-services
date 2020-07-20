@@ -581,7 +581,7 @@ func TestHandlers(t *testing.T) {
 		},
 		{
 			Method:  "DELETE",
-			Path:    "/dam/v1alpha/test/config/policies/whitelist",
+			Path:    "/dam/v1alpha/test/config/policies/allowlist",
 			Persona: "admin",
 			Output:  `*built-in policy*`,
 			Status:  http.StatusBadRequest,
@@ -1324,7 +1324,7 @@ func TestCheckAuthorization_RejectedPolicy(t *testing.T) {
 	}
 }
 
-func TestCheckAuthorization_Whitelist(t *testing.T) {
+func TestCheckAuthorization_Allowlist(t *testing.T) {
 	auth := setupAuthorizationTest(t)
 	auth.resource = "dataset_example"
 
@@ -1342,28 +1342,28 @@ func TestCheckAuthorization_Whitelist(t *testing.T) {
 		t.Errorf("setup errutil.ErrorReason() = %s want %s", errutil.ErrorReason(err), errRejectedPolicy)
 	}
 
-	// Now try again with being on the whitelist.
+	// Now try again with being on the allowlist.
 	auth.cfg.Resources[auth.resource].Views[auth.view].Roles[auth.role].Policies = []*pb.ViewRole_ViewPolicy{{
-		Name: whitelistPolicyName,
+		Name: allowlistPolicyName,
 		Args: map[string]string{
 			"users": "abc@example.org;dr_joe@faculty.example.edu;foo@bar.org",
 		},
 	}}
 	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if err != nil {
-		t.Errorf("whitelist by email: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, err)
+		t.Errorf("allowlist by email: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, err)
 	}
 
-	// Use group membership whitelist
+	// Use group membership allowlist
 	auth.cfg.Resources[auth.resource].Views[auth.view].Roles[auth.role].Policies = []*pb.ViewRole_ViewPolicy{{
-		Name: whitelistPolicyName,
+		Name: allowlistPolicyName,
 		Args: map[string]string{
-			"groups": "whitelisted",
+			"groups": "allowlisted",
 		},
 	}}
 	err = checkAuthorization(auth.ctx, id, auth.ttl, auth.resource, auth.view, auth.role, auth.cfg, test.TestClientID, auth.dam.ValidateCfgOpts(storage.DefaultRealm, nil))
 	if err != nil {
-		t.Errorf("whitelist by group membership: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, err)
+		t.Errorf("allowlist by group membership: checkAuthorization(ctx, id, %v, %q, %q, %q, cfg, %q) failed: %v", auth.ttl, auth.resource, auth.view, auth.role, test.TestClientID, err)
 	}
 }
 

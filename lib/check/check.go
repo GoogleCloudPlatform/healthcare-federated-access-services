@@ -29,12 +29,12 @@ import (
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
-func CheckReadOnly(realm string, readOnlyMaster bool, whitelistedRealms []string) error {
+func CheckReadOnly(realm string, readOnlyMaster bool, allowlistedRealms []string) error {
 	if realm == storage.DefaultRealm {
 		if readOnlyMaster {
 			return fmt.Errorf(`config option "readOnlyMasterRealm" setting prevents updating the config on realm %q`, realm)
 		}
-	} else if len(whitelistedRealms) > 0 && !stringset.Contains(whitelistedRealms, realm) {
+	} else if len(allowlistedRealms) > 0 && !stringset.Contains(allowlistedRealms, realm) {
 		return fmt.Errorf(`config option "whitelistedRealms" setting prevents updating realm %q config`, realm)
 	}
 	return nil

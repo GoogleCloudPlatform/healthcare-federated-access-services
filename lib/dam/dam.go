@@ -621,13 +621,13 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 
 		ctxWithTTL := context.WithValue(ctx, validator.RequestTTLInNanoFloat64, float64(ttl.Nanoseconds())/1e9)
 		for _, p := range vRole.Policies {
-			if p.Name == whitelistPolicyName {
-				ok, err := checkWhitelist(p.Args, id, cfg, vopts)
+			if p.Name == allowlistPolicyName {
+				ok, err := checkAllowlist(p.Args, id, cfg, vopts)
 				if err != nil {
-					return errutil.WithErrorReason(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (whitelist unavailable): %v", resourceName, viewName, roleName, err))
+					return errutil.WithErrorReason(errAllowlistUnavailable, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (allowlist unavailable): %v", resourceName, viewName, roleName, err))
 				}
 				if !ok {
-					return errutil.WithErrorReason(errRejectedPolicy, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (user not on whitelist)", resourceName, viewName, roleName))
+					return errutil.WithErrorReason(errRejectedPolicy, status.Errorf(codes.PermissionDenied, "unauthorized for resource %q view %q role %q (user not on allowlist)", resourceName, viewName, roleName))
 				}
 				active = true
 				continue
@@ -655,7 +655,7 @@ func checkAuthorization(ctx context.Context, id *ga4gh.Identity, ttl time.Durati
 	return nil
 }
 
-func checkWhitelist(args map[string]string, id *ga4gh.Identity, cfg *pb.DamConfig, vopts ValidateCfgOpts) (bool, error) {
+func checkAllowlist(args map[string]string, id *ga4gh.Identity, cfg *pb.DamConfig, vopts ValidateCfgOpts) (bool, error) {
 	if id.GA4GH == nil {
 		return false, nil
 	}
@@ -668,22 +668,22 @@ func checkWhitelist(args map[string]string, id *ga4gh.Identity, cfg *pb.DamConfi
 		groups = nil
 	}
 	for _, email := range extractEmails(id) {
-		// Option 1: the whitelist item is an email address.
+		// Option 1: the allowlist item is an email address.
 		for _, wl := range users {
 			addr, err := mail.ParseAddress(wl)
 			if err != nil {
 				// Don't expose the email address to the end user, just hint at the problem being the email format.
-				return false, errutil.WithErrorReason(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "whitelist contains invalid email addresses"))
+				return false, errutil.WithErrorReason(errAllowlistUnavailable, status.Errorf(codes.PermissionDenied, "allowlist contains invalid email addresses"))
 			}
 			if email == addr.Address {
 				return true, nil
 			}
 		}
-		// Option 2: the whitelist item is a group.
+		// Option 2: the allowlist item is a group.
 		for _, wl := range groups {
 			member, err := vopts.Scim.LoadGroupMember(wl, email, vopts.Realm, vopts.Tx)
 			if err != nil {
-				return false, errutil.WithErrorReason(errWhitelistUnavailable, status.Errorf(codes.PermissionDenied, "loading group %q member %q failed: %v", wl, email, err))
+				return false, errutil.WithErrorReason(errAllowlistUnavailable, status.Errorf(codes.PermissionDenied, "loading group %q member %q failed: %v", wl, email, err))
 			}
 			if member != nil {
 				return true, nil
@@ -1090,7 +1090,7 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 			DefaultValue: "false",
 		},
 		"whitelistedRealms": {
-			Label:       "Whitelisted Realms",
+			Label:       "Allowlisted Realms",
 			Description: "By default any realm name can be created, but when this option is populated the DAM will only allow realms on this list to be created (the master realm is allowed implicitly)",
 			Type:        "string",
 			IsList:      true,
@@ -1146,8 +1146,8 @@ func receiveConfigOptions(opts *pb.ConfigOptions, cfg *pb.DamConfig) *pb.ConfigO
 }
 
 var (
-	whitelistPolicyName = "whitelist"
-	whitelistPolicy     = &pb.Policy{
+	allowlistPolicyName = "allowlist"
+	allowlistPolicy     = &pb.Policy{
 		AnyOf: []*cpb.ConditionSet{{AllOf: []*cpb.Condition{}}},
 		VariableDefinitions: map[string]*pb.VariableFormat{
 			"users": &pb.VariableFormat{
@@ -1170,8 +1170,8 @@ var (
 			},
 		},
 		Ui: map[string]string{
-			"label":       "Whitelist",
-			"description": "Allow users and groups to be whitelisted for access directly without using visas",
+			"label":       "Allowlist",
+			"description": "Allow users and groups to be allowlisted for access directly without using visas",
 			"source":      "built-in",
 			"edit":        "immutable",
 		},
@@ -1179,7 +1179,7 @@ var (
 
 	// BuiltinPolicies contains the set of policies that are managed by DAM directly (not the administrator).
 	BuiltinPolicies = map[string]*pb.Policy{
-		whitelistPolicyName: whitelistPolicy,
+		allowlistPolicyName: allowlistPolicy,
 	}
 )
 

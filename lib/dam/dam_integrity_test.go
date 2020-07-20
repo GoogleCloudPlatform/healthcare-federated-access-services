@@ -97,7 +97,7 @@ func TestCheckIntegrity_BadCfg(t *testing.T) {
 		{
 			desc: "edit built-in policy",
 			mutation: func(cfg *pb.DamConfig) {
-				cfg.Policies["whitelist"].Ui["label"] = "edited whitelist label that should be rejected"
+				cfg.Policies["allowlist"].Ui["label"] = "edited allowlist label that should be rejected"
 			},
 			want: codes.InvalidArgument,
 		},
