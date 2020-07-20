@@ -21,11 +21,14 @@ import (
 	"net/mail"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
+	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/handlerfactory" /* copybara-comment: handlerfactory */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -48,6 +51,9 @@ var (
 	}
 
 	scimMemberFilterMap = map[string]func(p proto.Message) string{
+		"member.display": func(p proto.Message) string {
+			return memberProto(p).Display
+		},
 		"member.issuer": func(p proto.Message) string {
 			return memberProto(p).ExtensionIssuer
 		},
@@ -77,9 +83,6 @@ var (
 		},
 	}
 
-	groupMemberRegexps = map[string]*regexp.Regexp{
-		"value": regexp.MustCompile(`[^/\\@]+@[^/\\@]+\.[^/\\@]{2,20}$`),
-	}
 	memberPathRE = regexp.MustCompile(`^members\[\$ref eq "(.*)"\]$`)
 )
 
@@ -178,8 +181,8 @@ func (h *GroupHandler) NormalizeInput(r *http.Request, name string, vars map[str
 		if member == nil {
 			return fmt.Errorf("group %q member %d: cannot have empty members", name, i)
 		}
-		if err := h.normalizeMember(member); err != nil {
-			return fmt.Errorf("group %q member %d: %v", name, i, err)
+		if err := h.normalizeMember(member, i); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -229,9 +232,9 @@ func (h *GroupHandler) Get(r *http.Request, name string) (proto.Message, error) 
 // Post is a POST request.
 func (h *GroupHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	h.save = h.input
-	for _, member := range h.save.Members {
-		if err := httputils.CheckName("value", member.Value, groupMemberRegexps); err != nil {
-			return nil, fmt.Errorf("group member %q email format check failed: %v", member.Value, err)
+	for i, member := range h.save.Members {
+		if err := h.normalizeMember(member, i); err != nil {
+			return nil, err
 		}
 		if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
 			return nil, fmt.Errorf("writing group member %q: %v", member.Value, err)
@@ -357,28 +360,35 @@ func (h *GroupHandler) patchMember(object map[string]string) (*spb.Member, error
 		ExtensionIssuer:  object["issuer"],
 		ExtensionSubject: object["subject"],
 	}
-	if err := h.normalizeMember(member); err != nil {
-		return nil, fmt.Errorf("invalid member format: %v", err)
+	if err := h.normalizeMember(member, 0); err != nil {
+		return nil, err
 	}
 	return member, nil
 }
 
-func (h *GroupHandler) normalizeMember(member *spb.Member) error {
+func (h *GroupHandler) normalizeMember(member *spb.Member, idx int) error {
 	switch member.Type {
 	case "User":
 	case "":
 		member.Type = "User"
 	default:
-		return fmt.Errorf("invalid member type %q", member.Type)
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("group", "members", strconv.Itoa(idx), "type"), idx, fmt.Sprintf("invalid member type"))
 	}
 	email, err := mail.ParseAddress(member.Value)
 	if err != nil {
-		return fmt.Errorf("invalid member email value %q: %v", member.Value, err)
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("group", "members", strconv.Itoa(idx), "value"), idx, "must be an email address")
 	}
 	member.Value = email.Address
-	member.Display = strings.TrimSpace(email.Name)
-	if member.Display == "" {
-		member.Display = member.Value
+	if member.Display == "" && email.Name != "" {
+		member.Display = strings.TrimSpace(email.Name)
+	}
+	if member.Display != "" && strings.Contains(member.Display, "@") {
+		// Do not accept email addresses as the display name.
+		// Reject when a different email address, or remove display field when it repeats the value field.
+		if member.Display != member.Value {
+			return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("group", "members", strconv.Itoa(idx), "display"), idx, "display name as an email address not allowed")
+		}
+		member.Display = ""
 	}
 	if member.ExtensionIssuer != "" && !strutil.IsURL(member.ExtensionIssuer) {
 		return fmt.Errorf("invalid member issuer %q", member.ExtensionIssuer)

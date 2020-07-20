@@ -225,6 +225,78 @@ func TestHandlers(t *testing.T) {
 			Status: http.StatusOK,
 		},
 		{
+			Name:    "Post SCIM group - with members",
+			Method:  "POST",
+			Path:    "/identity/scim/v2/test/Groups/group_2",
+			Persona: "admin",
+			Input: `{
+			  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+				"id": "group_2",
+				"displayName": "Group 2",
+				"members": [
+				  {
+						"type": "User",
+						"display": "Dr. Joe",
+						"value": "dr_joe@example.org"
+					}, {
+						"type": "User",
+						"value": "someone@example.org"
+					}, {
+						"value": "Dr. Joe <dr_joe@home.example.org>"
+					}
+				]
+			}`,
+			Output: ``,
+			Status: http.StatusOK,
+		},
+		{
+			Name:    "Post SCIM group - invalid email address",
+			Method:  "POST",
+			Path:    "/identity/scim/v2/test/Groups/group_3",
+			Persona: "admin",
+			Input: `{
+			  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+				"id": "group_3",
+				"displayName": "Group 3",
+				"members": [{"value": "bad"}]
+			}`,
+			Output: `*"code":3*`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Name:    "Post SCIM group - invalid display name in display field",
+			Method:  "POST",
+			Path:    "/identity/scim/v2/test/Groups/group_3",
+			Persona: "admin",
+			Input: `{
+			  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+				"id": "group_3",
+				"displayName": "Group 3",
+				"members": [
+				  {
+						"display": "dr_joe@example.org",
+						"value": "phishing@scam.com"
+					}
+				]
+			}`,
+			Output: `*"code":3*`,
+			Status: http.StatusBadRequest,
+		},
+		{
+			Name:    "Post SCIM group - invalid display name in email address",
+			Method:  "POST",
+			Path:    "/identity/scim/v2/test/Groups/group_3",
+			Persona: "admin",
+			Input: `{
+			  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+				"id": "group_3",
+				"displayName": "Group 3",
+				"members": [{"value": "dr_joe@example.org <phishing@scam.com>"}]
+			}`,
+			Output: `*"code":3*`,
+			Status: http.StatusBadRequest,
+		},
+		{
 			Name:    "Put SCIM group",
 			Method:  "PUT",
 			Path:    "/identity/scim/v2/test/Groups/group_1",
@@ -254,7 +326,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/scim/v2/test/Groups/group_1",
 			Persona: "admin",
-			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:Group"],"id":"group_1","displayName":"Group 1","members":[{"type":"User","display":"mary@example.org","value":"mary@example.org","$ref":"mary@example.org","issuer":"https://example.org/oidc","subject":"1234"},{"type":"User","display":"Mary Poppins HQ","value":"poppins@example.org","$ref":"poppins@example.org"}]}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:Group"],"id":"group_1","displayName":"Group 1","members":[{"type":"User","value":"mary@example.org","$ref":"mary@example.org","issuer":"https://example.org/oidc","subject":"1234"},{"type":"User","display":"Mary Poppins HQ","value":"poppins@example.org","$ref":"poppins@example.org"}]}`,
 			Status:  http.StatusOK,
 		},
 		// TODO: fix the code and uncomment this test
