@@ -170,8 +170,8 @@ func toTextFilter(op expOp, value string) string {
 	list := []string{
 		fmt.Sprintf(`textPayload %s "%s"`, op, value),
 	}
-	for _, l := range auditlog.SearchableLabels {
-		list = append(list, fmt.Sprintf(`labels.%s %s "%s"`, l, op, value))
+	for _, l := range auditlog.SearchableFields {
+		list = append(list, fmt.Sprintf(`%s %s "%s"`, l, op, value))
 	}
 
 	s := strings.Join(list, " OR ")

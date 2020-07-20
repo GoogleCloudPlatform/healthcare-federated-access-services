@@ -32,16 +32,17 @@ var (
 	// Useful for testing.
 	LogSync bool
 
-	// SearchableLabels lists all labels allow to search via FA endpoints
-	SearchableLabels = []string{
-		"token_id",
-		"token_issuer",
-		"tracing_id",
-		"request_path",
-		"error_type",
-		"resource",
-		"ttl",
-		"cart_id",
+	// SearchableFields lists all labels allow to search via FA endpoints
+	SearchableFields = []string{
+		"httpRequest.requestMethod",
+		"labels.token_id",
+		"labels.token_issuer",
+		"labels.tracing_id",
+		"labels.request_path",
+		"labels.error_type",
+		"labels.resource",
+		"labels.ttl",
+		"labels.cart_id",
 	}
 )
 
