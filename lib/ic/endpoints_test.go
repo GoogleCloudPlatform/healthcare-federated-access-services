@@ -67,6 +67,11 @@ var (
 		"GET /identity/cli/auth/{name}",
 
 		// scim related
+		"/scim/v2/{realm}/Groups",
+		"/scim/v2/{realm}/Groups/{name}",
+		"/scim/v2/{realm}/Me",
+		"/scim/v2/{realm}/Users",
+		"/scim/v2/{realm}/Users/{name}",
 		"/identity/scim/v2/{realm}/Groups",
 		"/identity/scim/v2/{realm}/Groups/{name}",
 		"/identity/scim/v2/{realm}/Me",

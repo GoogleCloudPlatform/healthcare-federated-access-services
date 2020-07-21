@@ -82,12 +82,19 @@ const (
 	configHistoryRevisionPath = "/dam/v1alpha/{realm}/config/history/{name}"
 
 	// Part of SCIM V2 for managing groups. See "proto/scim/v2/groups.proto"
-	scimGroupsPath = "/identity/scim/v2/{realm}/Groups"
-	scimGroupPath  = "/identity/scim/v2/{realm}/Groups/{name}"
+	scimGroupsPath = "/scim/v2/{realm}/Groups"
+	scimGroupPath  = "/scim/v2/{realm}/Groups/{name}"
+	// TODO: remove deprecated SCIM endpoints
+	oldScimGroupsPath = "/identity/scim/v2/{realm}/Groups"
+	oldScimGroupPath  = "/identity/scim/v2/{realm}/Groups/{name}"
 	// Part of SCIM V2 for managing users. See "proto/scim/v2/users.proto"
-	scimUsersPath = "/identity/scim/v2/{realm}/Users"
-	scimUserPath  = "/identity/scim/v2/{realm}/Users/{name}"
-	scimMePath    = "/identity/scim/v2/{realm}/Me"
+	scimUsersPath = "/scim/v2/{realm}/Users"
+	scimUserPath  = "/scim/v2/{realm}/Users/{name}"
+	scimMePath    = "/scim/v2/{realm}/Me"
+	// TODO: remove deprecated SCIM endpoints
+	oldScimUsersPath = "/identity/scim/v2/{realm}/Users"
+	oldScimUserPath  = "/identity/scim/v2/{realm}/Users/{name}"
+	oldScimMePath    = "/identity/scim/v2/{realm}/Me"
 
 	// testPath: performs a set of tests for validity of the current configuration.
 	// TODO: remove and perform tests at the time of config update and reject
