@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/oauth2" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -84,4 +85,70 @@ func TestServer(t *testing.T) {
 	if len(id.VisaJWTs) == 0 {
 		t.Errorf("id.VisaJWTs: wanted more than zero, got none")
 	}
+}
+
+func TestTokenAndUserinfoPatient(t *testing.T) {
+	const (
+		issuerURL   = "https://example.com/oidc"
+		wantPatient = "joe"
+	)
+
+	server, err := New(issuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", true)
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(issuerURL) failed: %v", err)
+	}
+
+	ctx := server.ContextWithClient(context.Background())
+	p, err := oidc.NewProvider(ctx, issuerURL)
+	if err != nil {
+		t.Fatalf("NewProvider() failed: %v", err)
+	}
+
+	conf := oauth2.Config{Endpoint: p.Endpoint()}
+	tokens, err := conf.Exchange(ctx, "dr_joe_elixir")
+	if err != nil {
+		t.Fatalf("Exchange() failed: %v", err)
+	}
+
+	t.Run("access token", func(t *testing.T) {
+		id, err := ga4gh.ConvertTokenToIdentityUnsafe(tokens.AccessToken)
+		if err != nil {
+			t.Fatalf("ConvertTokenToIdentityUnsafe() failed: %v", err)
+		}
+		if id.Patient != wantPatient {
+			t.Errorf("access token: patient = %q, want %q", id.Patient, wantPatient)
+		}
+	})
+
+	t.Run("jwt token userinfo", func(t *testing.T) {
+		ueserinfo, err := p.UserInfo(ctx, oauth2.StaticTokenSource(tokens))
+		if err != nil {
+			t.Fatalf("UserInfo() failed: %v", err)
+		}
+
+		got := &ga4gh.Identity{}
+		if err := ueserinfo.Claims(got); err != nil {
+			t.Fatalf("read identity from userinfo failed: %v", err)
+		}
+
+		if got.Patient != wantPatient {
+			t.Errorf("userinfo: patient = %q, want %q", got.Patient, wantPatient)
+		}
+	})
+
+	t.Run("opaque token userinfo", func(t *testing.T) {
+		ueserinfo, err := p.UserInfo(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "opaque:dr_joe_elixir"}))
+		if err != nil {
+			t.Fatalf("UserInfo() failed: %v", err)
+		}
+
+		got := &ga4gh.Identity{}
+		if err := ueserinfo.Claims(got); err != nil {
+			t.Fatalf("read identity from userinfo failed: %v", err)
+		}
+
+		if got.Patient != wantPatient {
+			t.Errorf("userinfo: patient = %q, want %q", got.Patient, wantPatient)
+		}
+	})
 }

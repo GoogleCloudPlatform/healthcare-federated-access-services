@@ -65,12 +65,21 @@ var (
 	personaKey = testkeys.Keys[testkeys.PersonaBroker]
 )
 
+// AccessTokenWithPatient ...
+type AccessTokenWithPatient struct {
+	ga4gh.AccessData
+
+	// Patient ...
+	Patient string `json:"scope,omitempty"`
+}
+
 // NewAccessToken returns an access token for a persona at a given issuer.
 // The persona parameter may be nil.
 func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPersona) (ga4gh.AccessJWT, string, error) {
 	now := time.Now().Unix()
 	sub := name
 	email := name
+	patient := ""
 	if persona != nil {
 		if s := getStandardClaim(persona, "sub"); len(s) > 0 {
 			sub = s
@@ -79,6 +88,7 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 		if e := getStandardClaim(persona, "email"); len(e) > 0 {
 			email = e
 		}
+		patient = getStandardClaim(persona, "patient")
 	}
 	if len(scope) == 0 {
 		scope = DefaultScope
@@ -96,6 +106,7 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 		Identities: map[string][]string{
 			email: []string{"IC", "DAM"},
 		},
+		Patient: patient,
 	}
 
 	ctx := context.Background()
@@ -180,6 +191,10 @@ func ToIdentity(ctx context.Context, name string, persona *cpb.TestPersona, scop
 		nickname = strings.Split(toName(name), " ")[0]
 	}
 
+	if len(persona.Passport.ExtraScopes) > 0 {
+		scope = scope + " " + persona.Passport.ExtraScopes
+	}
+
 	email := getStandardClaim(persona, "email")
 	identity := ga4gh.Identity{
 		Subject:         sub,
@@ -199,6 +214,7 @@ func ToIdentity(ctx context.Context, name string, persona *cpb.TestPersona, scop
 		Locale:          getStandardClaim(persona, "locale"),
 		Picture:         getStandardClaim(persona, "picture"),
 		Profile:         getStandardClaim(persona, "profile"),
+		Patient:         getStandardClaim(persona, "patient"),
 	}
 
 	if email != "" {

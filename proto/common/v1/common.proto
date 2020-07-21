@@ -92,6 +92,7 @@ message Passport {
   map<string, string> standard_claims = 1;
   repeated Assertion ga4gh_assertions = 2;
   repeated bytes internal_encrypted_visas = 11;
+  string extra_scopes = 3;
 }
 
 message TestPersona {

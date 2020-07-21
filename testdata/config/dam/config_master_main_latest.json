@@ -816,7 +816,8 @@
         "standardClaims": {
           "iss": "https://login.elixir-czech.org/oidc/",
           "email": "dr_joe@faculty.example.edu",
-          "picture": "/identity/static/images/elixir_identity.png"
+          "picture": "/identity/static/images/elixir_identity.png",
+          "patient": "joe"
         },
         "ga4ghAssertions": [
           {

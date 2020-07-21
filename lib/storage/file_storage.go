@@ -130,7 +130,8 @@ func (f *FileStorage) ReadTx(datatype, realm, user, id string, rev int64, conten
 	}
 	defer file.Close()
 	if err := jsonpb.Unmarshal(file, content); err != nil && err != io.EOF {
-		return fmt.Errorf("file %q invalid JSON: %v", fname, err)
+		dat, _ := ioutil.ReadFile(fname)
+		return fmt.Errorf("file %q invalid JSON: %v\n%s", fname, err, string(dat))
 	}
 	if rev == LatestRev {
 		f.cache.PutEntity(fname, content)

@@ -144,12 +144,19 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	token := parts[1]
 
-	src, err := ga4gh.ConvertTokenToIdentityUnsafe(token)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid Authorization token"))
-		return
+	var sub string
+
+	if strings.HasPrefix(token, "opaque:") {
+		sub = strings.TrimPrefix(token, "opaque:")
+	} else {
+		src, err := ga4gh.ConvertTokenToIdentityUnsafe(token)
+		if err != nil {
+			httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid Authorization token"))
+			return
+		}
+		sub = src.Subject
 	}
-	sub := src.Subject
+
 	var persona *cpb.TestPersona
 	var pname string
 	for pn, p := range s.cfg.TestPersonas {
@@ -326,7 +333,16 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.NotFound, "persona %q not found", pname))
 		return
 	}
-	acTok, _, err := NewAccessToken(pname, s.issuerURL, clientID, httputils.QueryParam(r, "scope"), persona)
+
+	scope := httputils.QueryParam(r, "scope")
+	if len(scope) == 0 {
+		scope = DefaultScope
+		if len(persona.Passport.ExtraScopes) > 0 {
+			scope = scope + " " + persona.Passport.ExtraScopes
+		}
+	}
+
+	acTok, _, err := NewAccessToken(pname, s.issuerURL, clientID, scope, persona)
 	if err != nil {
 		httputils.WriteError(w, status.Errorf(codes.Internal, "error creating access token for persona %q: %v", pname, err))
 		return

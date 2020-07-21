@@ -61,6 +61,8 @@ type AccessData struct {
 
 	// TODO: Replace identities with LinkedIdentities visas.
 	Identities map[string][]string `json:"identities,omitempty"`
+
+	Patient string `json:"patient,omitempty"`
 }
 
 // NewAccessFromJWT creates a new Access from a given JWT.
