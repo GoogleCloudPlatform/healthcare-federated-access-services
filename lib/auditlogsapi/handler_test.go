@@ -59,13 +59,14 @@ func Test_RequestLog(t *testing.T) {
 		TokenIssuer:     "http://issuer.example.com",
 		TracingID:       "1",
 		RequestMethod:   http.MethodGet,
-		RequestEndpoint: "/path/of/endpoint",
+		RequestEndpoint: "/path/of/{name}",
+		RequestPath:     "/path/of/resourceX",
 		RequestIP:       "127.0.0.1",
 		ErrorType:       "token_expired",
 		PassAuthCheck:   false,
 		ResponseCode:    http.StatusUnauthorized,
 		Payload:         "This is message",
-		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/endpoint", nil),
+		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/resourceX", nil),
 	}
 	auditlog.WriteRequestLog(ctx, f.logger, al)
 	pl := &auditlog.PolicyDecisionLog{
@@ -87,13 +88,14 @@ func Test_RequestLog(t *testing.T) {
 		TokenIssuer:     "http://issuer.example.com",
 		TracingID:       "",
 		RequestMethod:   http.MethodPost,
-		RequestEndpoint: "/path/of/endpoint",
+		RequestEndpoint: "/path/of/{name}",
+		RequestPath:     "/path/of/resourceX",
 		RequestIP:       "127.0.0.1",
 		ErrorType:       "",
 		PassAuthCheck:   true,
 		ResponseCode:    http.StatusOK,
 		Payload:         "success message",
-		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/endpoint", nil),
+		Request:         httputils.MustNewReq(http.MethodGet, "http://example.com/path/of/resourceX", nil),
 	}
 	for i := 0; i < 100; i++ {
 		a2.TracingID = strconv.Itoa(i + 1000)
@@ -144,7 +146,7 @@ func Test_RequestLog(t *testing.T) {
 				ErrorType:        "token_expired",
 				Reason:           "This is message",
 				MethodName:       http.MethodGet,
-				ResourceName:     "/path/of/endpoint",
+				ResourceName:     "/path/of/resourceX",
 				TracingId:        "1",
 				CallerIp:         "127.0.0.1",
 				HttpResponseCode: http.StatusUnauthorized,
@@ -180,7 +182,7 @@ func Test_RequestLog(t *testing.T) {
 		Decision:         apb.Decision_PASS,
 		Reason:           "success message",
 		MethodName:       http.MethodGet,
-		ResourceName:     "/path/of/endpoint",
+		ResourceName:     "/path/of/resourceX",
 		TracingId:        "",
 		CallerIp:         "127.0.0.1",
 		HttpResponseCode: http.StatusOK,

@@ -235,7 +235,7 @@ func Test_exp_toCELFilter(t *testing.T) {
 				op:    equals,
 				value: "a",
 			},
-			want: `(textPayload = "a" OR httpRequest.requestMethod = "a" OR labels.token_id = "a" OR labels.token_issuer = "a" OR labels.tracing_id = "a" OR labels.request_path = "a" OR labels.error_type = "a" OR labels.resource = "a" OR labels.ttl = "a" OR labels.cart_id = "a")`,
+			want: `(textPayload = "a" OR httpRequest.requestMethod = "a" OR labels.token_id = "a" OR labels.token_issuer = "a" OR labels.tracing_id = "a" OR labels.request_endpoint = "a" OR labels.request_path = "a" OR labels.error_type = "a" OR labels.resource = "a" OR labels.ttl = "a" OR labels.cart_id = "a")`,
 		},
 		{
 			name: "text :",
@@ -244,7 +244,7 @@ func Test_exp_toCELFilter(t *testing.T) {
 				op:    contains,
 				value: "a",
 			},
-			want: `(textPayload : "a" OR httpRequest.requestMethod : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a")`,
+			want: `(textPayload : "a" OR httpRequest.requestMethod : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_endpoint : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a")`,
 		},
 		{
 			name: "type = request",
@@ -289,7 +289,7 @@ func Test_exp_toCELFilter(t *testing.T) {
 				op:    equals,
 				value: "A\" AND true",
 			},
-			want: `(textPayload = "A AND true" OR httpRequest.requestMethod = "A AND true" OR labels.token_id = "A AND true" OR labels.token_issuer = "A AND true" OR labels.tracing_id = "A AND true" OR labels.request_path = "A AND true" OR labels.error_type = "A AND true" OR labels.resource = "A AND true" OR labels.ttl = "A AND true" OR labels.cart_id = "A AND true")`,
+			want: `(textPayload = "A AND true" OR httpRequest.requestMethod = "A AND true" OR labels.token_id = "A AND true" OR labels.token_issuer = "A AND true" OR labels.tracing_id = "A AND true" OR labels.request_endpoint = "A AND true" OR labels.request_path = "A AND true" OR labels.error_type = "A AND true" OR labels.resource = "A AND true" OR labels.ttl = "A AND true" OR labels.cart_id = "A AND true")`,
 		},
 		{
 			name: "escape text :",
@@ -298,7 +298,7 @@ func Test_exp_toCELFilter(t *testing.T) {
 				op:    contains,
 				value: "A\" AND true",
 			},
-			want: `(textPayload : "A AND true" OR httpRequest.requestMethod : "A AND true" OR labels.token_id : "A AND true" OR labels.token_issuer : "A AND true" OR labels.tracing_id : "A AND true" OR labels.request_path : "A AND true" OR labels.error_type : "A AND true" OR labels.resource : "A AND true" OR labels.ttl : "A AND true" OR labels.cart_id : "A AND true")`,
+			want: `(textPayload : "A AND true" OR httpRequest.requestMethod : "A AND true" OR labels.token_id : "A AND true" OR labels.token_issuer : "A AND true" OR labels.tracing_id : "A AND true" OR labels.request_endpoint : "A AND true" OR labels.request_path : "A AND true" OR labels.error_type : "A AND true" OR labels.resource : "A AND true" OR labels.ttl : "A AND true" OR labels.cart_id : "A AND true")`,
 		},
 		{
 			name: "escape type",
@@ -344,12 +344,12 @@ func Test_extractFilters(t *testing.T) {
 		{
 			name:  "all",
 			input: fmt.Sprintf(`time >= "%s" AND time <= "%s" AND type = "REQUEST" AND text : "a" AND decision = "PASS"`, timeStr, timeStr),
-			want:  `timestamp >= "2020-01-02T23:58:59Z" AND timestamp <= "2020-01-02T23:58:59Z" AND labels.type = "request" AND (textPayload : "a" OR httpRequest.requestMethod : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a") AND labels.pass_auth_check = "true"`,
+			want:  `timestamp >= "2020-01-02T23:58:59Z" AND timestamp <= "2020-01-02T23:58:59Z" AND labels.type = "request" AND (textPayload : "a" OR httpRequest.requestMethod : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_endpoint : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a") AND labels.pass_auth_check = "true"`,
 		},
 		{
 			name:  "multi text field",
 			input: `text : "a" AND text = "b"`,
-			want:  `(textPayload : "a" OR httpRequest.requestMethod : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a") AND (textPayload = "b" OR httpRequest.requestMethod = "b" OR labels.token_id = "b" OR labels.token_issuer = "b" OR labels.tracing_id = "b" OR labels.request_path = "b" OR labels.error_type = "b" OR labels.resource = "b" OR labels.ttl = "b" OR labels.cart_id = "b")`,
+			want:  `(textPayload : "a" OR httpRequest.requestMethod : "a" OR labels.token_id : "a" OR labels.token_issuer : "a" OR labels.tracing_id : "a" OR labels.request_endpoint : "a" OR labels.request_path : "a" OR labels.error_type : "a" OR labels.resource : "a" OR labels.ttl : "a" OR labels.cart_id : "a") AND (textPayload = "b" OR httpRequest.requestMethod = "b" OR labels.token_id = "b" OR labels.token_issuer = "b" OR labels.tracing_id = "b" OR labels.request_endpoint = "b" OR labels.request_path = "b" OR labels.error_type = "b" OR labels.resource = "b" OR labels.ttl = "b" OR labels.cart_id = "b")`,
 		},
 	}
 

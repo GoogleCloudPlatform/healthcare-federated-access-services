@@ -442,6 +442,7 @@ func isEditMethod(method string) bool {
 func writeRequestLog(client *logging.Client, entry *auditlog.RequestLog, err error, r *http.Request) {
 	entry.RequestMethod = r.Method
 	entry.RequestEndpoint = httputils.AbsolutePath(r)
+	entry.RequestPath = r.URL.Path
 	entry.RequestIP = httputils.RequesterIP(r)
 	entry.TracingID = httputils.TracingID(r)
 	entry.PassAuthCheck = true

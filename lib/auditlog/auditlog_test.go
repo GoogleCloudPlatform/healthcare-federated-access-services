@@ -40,7 +40,7 @@ func TestWriteRequestLog(t *testing.T) {
 	serviceinfo.Type = "t1"
 	serviceinfo.Name = "n1"
 
-	url := "http://example.com/path/of/endpoint"
+	url := "http://example.com/path/of/resource"
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		t.Fatalf("http.NewRequest() failed: %v", err)
@@ -52,7 +52,8 @@ func TestWriteRequestLog(t *testing.T) {
 		TokenIssuer:     "http://issuer.example.com",
 		TracingID:       "1",
 		RequestMethod:   http.MethodGet,
-		RequestEndpoint: "/path/of/endpoint",
+		RequestEndpoint: "/path/of/{name}",
+		RequestPath:     "/path/of/resource",
 		RequestIP:       "127.0.0.1",
 		ErrorType:       "token_expired",
 		PassAuthCheck:   false,
@@ -70,17 +71,18 @@ func TestWriteRequestLog(t *testing.T) {
 			Payload:  &lepb.LogEntry_TextPayload{TextPayload: al.Payload.(string)},
 			Severity: lspb.LogSeverity_DEFAULT,
 			Labels: map[string]string{
-				"error_type":      al.ErrorType,
-				"request_path":    al.RequestEndpoint,
-				"token_id":        al.TokenID,
-				"token_subject":   al.TokenSubject,
-				"token_issuer":    al.TokenIssuer,
-				"tracing_id":      "1",
-				"type":            TypeRequestLog,
-				"pass_auth_check": "false",
-				"project_id":      "p1",
-				"service_type":    "t1",
-				"service_name":    "n1",
+				"error_type":       al.ErrorType,
+				"request_endpoint": al.RequestEndpoint,
+				"request_path":     al.RequestPath,
+				"token_id":         al.TokenID,
+				"token_subject":    al.TokenSubject,
+				"token_issuer":     al.TokenIssuer,
+				"tracing_id":       "1",
+				"type":             TypeRequestLog,
+				"pass_auth_check":  "false",
+				"project_id":       "p1",
+				"service_type":     "t1",
+				"service_name":     "n1",
 			},
 			HttpRequest: &hrpb.HttpRequest{
 				RequestUrl:    url,

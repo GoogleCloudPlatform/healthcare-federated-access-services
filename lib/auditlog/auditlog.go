@@ -38,6 +38,7 @@ var (
 		"labels.token_id",
 		"labels.token_issuer",
 		"labels.tracing_id",
+		"labels.request_endpoint",
 		"labels.request_path",
 		"labels.error_type",
 		"labels.resource",
@@ -65,8 +66,11 @@ type RequestLog struct {
 	TracingID string
 	// RequestMethod is the http method of the request.
 	RequestMethod string
-	// RequestEndpoint is the absolute path of the request.
+	// RequestEndpoint is the absolute abstract path of the request endpoint registration.
 	RequestEndpoint string
+	// RequestPath is the request's path with concrete variables (such as realm) filled in
+	// as per the caller's absolute path.
+	RequestPath string
 	// RequestIP is the requester IP.
 	RequestIP string
 	// ErrorType formats like "no_token" for search.
@@ -84,17 +88,18 @@ type RequestLog struct {
 // WriteRequestLog puts the access log to StackDriver.
 func WriteRequestLog(ctx context.Context, client *logging.Client, log *RequestLog) {
 	labels := map[string]string{
-		"type":            TypeRequestLog,
-		"token_id":        log.TokenID,
-		"token_subject":   log.TokenSubject,
-		"token_issuer":    log.TokenIssuer,
-		"tracing_id":      log.TracingID,
-		"request_path":    log.RequestEndpoint,
-		"error_type":      log.ErrorType,
-		"pass_auth_check": strconv.FormatBool(log.PassAuthCheck),
-		"project_id":      serviceinfo.Project,
-		"service_type":    serviceinfo.Type,
-		"service_name":    serviceinfo.Name,
+		"type":             TypeRequestLog,
+		"token_id":         log.TokenID,
+		"token_subject":    log.TokenSubject,
+		"token_issuer":     log.TokenIssuer,
+		"tracing_id":       log.TracingID,
+		"request_endpoint": log.RequestEndpoint,
+		"request_path":     log.RequestPath,
+		"error_type":       log.ErrorType,
+		"pass_auth_check":  strconv.FormatBool(log.PassAuthCheck),
+		"project_id":       serviceinfo.Project,
+		"service_type":     serviceinfo.Type,
+		"service_name":     serviceinfo.Name,
 	}
 
 	req := &logging.HTTPRequest{

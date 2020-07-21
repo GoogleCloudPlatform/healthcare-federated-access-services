@@ -133,6 +133,7 @@ func TestAuditLog(ctx context.Context, s *auditlogsapi.AuditLogs, c lgrpcpb.Logg
 		TracingID:       "fake-tracing-id",
 		RequestMethod:   "fake-method",
 		RequestEndpoint: "fake-endpoint",
+		RequestPath:     "fake-path",
 		RequestIP:       "fake-requester-ip",
 		ErrorType:       "fake-error-type",
 		ResponseCode:    1234,
