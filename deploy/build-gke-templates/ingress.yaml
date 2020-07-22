@@ -59,6 +59,10 @@ spec:
             backend:
               serviceName: ic-service
               servicePort: 8080
+          - path: /scim/*
+            backend:
+              serviceName: ic-service
+              servicePort: 8080
           - path: /tokens/*
             backend:
               serviceName: ic-service
