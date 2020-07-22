@@ -27,6 +27,7 @@ import (
 	"golang.org/x/text/language" /* copybara-comment */
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/strutil" /* copybara-comment: strutil */
 
 	glog "github.com/golang/glog" /* copybara-comment */
 	dpb "github.com/golang/protobuf/ptypes/duration" /* copybara-comment */
@@ -48,6 +49,24 @@ var (
 	localeMap   = generateLocales()
 	timeZoneMap = generateTimeZones()
 )
+
+// LocaleInfo is the descriptor for a locale.
+type LocaleInfo struct {
+	// Base is the base language as defined by BCP47.
+	Base string `json:"base"`
+	// Script is the script character set used as defined by BCP47.
+	Script string `json:"script"`
+	// Region is the geolocation as defined by BCP47.
+	Region string `json:"region"`
+	// UI contains human-friendly labels for UIs to display.
+	UI map[string]string `json:"ui"`
+}
+
+// TimezoneInfo is the descriptor for a time zone.
+type TimezoneInfo struct {
+	// UI contains human-friendly labels for UIs to display.
+	UI map[string]string `json:"ui"`
+}
 
 // ParseDuration parses the given duration string to time.Duration.
 // It supports "d" for days which time.ParseDuration does not.
@@ -145,21 +164,29 @@ func IsTimeZone(name string) bool {
 }
 
 // GetTimeZones returns a map of canonical timezone names to region names.
-func GetTimeZones() map[string]string {
+func GetTimeZones() map[string]*TimezoneInfo {
 	return timeZoneMap
 }
 
-// generateTimeZones returns a map of canonical timezone names to region names.
-// Example: {"America/Los_Angeles": "America"}
+// generateTimeZones returns a map of canonical timezone names to regional information.
+// Example: {
+//   "America/Los_Angeles": {
+//     "ui" {
+//       "label": "Los Angeles (America)",
+//       "region": "America",
+//       "city": "Los Angeles"
+//     }
+//   }
+// }
 // TODO: use standard time functions for other platforms if https://github.com/golang/go/issues/20629 is implemented.
-func generateTimeZones() map[string]string {
+func generateTimeZones() map[string]*TimezoneInfo {
 	zoneDirs := []string{
 		"/usr/share/zoneinfo/",
 		"/usr/share/lib/zoneinfo/",
 		"/usr/lib/locale/TZ/",
 	}
 
-	out := make(map[string]string)
+	out := make(map[string]*TimezoneInfo)
 	for _, dir := range zoneDirs {
 		genZones(dir, "", out)
 	}
@@ -174,14 +201,42 @@ func generateTimeZones() map[string]string {
 		glog.Errorf("failed to unmarshal time zone data: %v", err)
 		return out
 	}
-	for k, v := range loaded {
-		out[k] = v
+	for k := range loaded {
+		out[k] = genZoneInfo(k)
 	}
 
 	return out
 }
 
-func genZones(dir, path string, out map[string]string) {
+func genZoneInfo(key string) *TimezoneInfo {
+	info := &TimezoneInfo{UI: map[string]string{}}
+	p := strings.Split(key, "/")
+	plen := len(p)
+	switch plen {
+	case 1:
+		// Example: "EST"
+		info.UI["label"] = key
+	case 2:
+		// Example: "America/Los_Angeles"
+		info.UI["label"] = fmt.Sprintf("%s (%s)", strutil.ToTitle(p[1]), p[0])
+		info.UI["region"] = p[0]
+		info.UI["city"] = strutil.ToTitle(p[1])
+	default:
+		// Example: "America/Indiana/Indianapolis"
+		info.UI["label"] = fmt.Sprintf("%s (%s, %s)", strutil.ToTitle(p[plen-1]), strutil.ToTitle(p[plen-2]), p[0])
+		info.UI["region"] = p[0]
+		info.UI["subregion"] = strutil.ToTitle(p[1])
+		if plen > 3 {
+			// Found a deep path, just dump the middle levels in "part".
+			// There are no current examples of paths this deep.
+			info.UI["part"] = strings.Join(p[2:plen-1], ", ")
+		}
+		info.UI["city"] = strutil.ToTitle(p[plen-1])
+	}
+	return info
+}
+
+func genZones(dir, path string, out map[string]*TimezoneInfo) {
 	files, err := ioutil.ReadDir(dir + path)
 	if err != nil {
 		return // not all files need to be present
@@ -193,11 +248,8 @@ func genZones(dir, path string, out map[string]string) {
 		if f.IsDir() {
 			genZones(dir, path+"/"+f.Name(), out)
 		} else {
-			zone := path
-			if len(zone) > 0 {
-				zone = zone[1:]
-			}
-			out[(path + "/" + f.Name())[1:]] = zone
+			zone := (path + "/" + f.Name())[1:]
+			out[zone] = genZoneInfo(zone)
 		}
 	}
 }
@@ -216,23 +268,75 @@ func IsLocale(name string) bool {
 }
 
 // GetLocales returns a map of locale identifiers to English labels.
-func GetLocales() map[string]string {
+func GetLocales() map[string]*LocaleInfo {
 	return localeMap
 }
 
 // generateLocales returns a map of canonical BCP47 locale identifiers to English labels. See IsLocale() for identifier details.
-func generateLocales() map[string]string {
-	out := make(map[string]string)
+func generateLocales() map[string]*LocaleInfo {
+	out := make(map[string]*LocaleInfo)
+	loaded := make(map[string]string)
 	data, err := srcutil.LoadFile("deploy/metadata/standard_locales.json")
 	if err != nil {
 		glog.Errorf("failed to load locales: %v", err)
 		return out
 	}
-	if err := json.Unmarshal([]byte(data), &out); err != nil {
+	if err := json.Unmarshal([]byte(data), &loaded); err != nil {
 		glog.Errorf("failed to unmarshal locale data: %v", err)
 		return out
 	}
+	for k, v := range loaded {
+		out[k] = genLocaleInfo(k, v)
+	}
 	return out
+}
+
+func genLocaleInfo(key, label string) *LocaleInfo {
+	info := &LocaleInfo{UI: map[string]string{"label": label}}
+	p := strings.Split(key, "-")
+	info.Base = p[0]
+	info.UI["language"] = strings.Trim(strings.SplitN(label, "(", 2)[0], " ")
+	switch len(p) {
+	case 1:
+		// Label Format: "<language>"
+		// Label Example: "English"
+		// Already captured above.
+	case 2:
+		// Label Format: "<language> (<region>)"
+		// Label Example: "English (Canada)"
+		info.Region = p[1]
+		i2 := strings.Trim(leftOf(rightOf(label, "("), ")"), " ")
+		switch {
+		case len(p[1]) > 3:
+			info.UI["script"] = i2
+		default:
+			info.UI["region"] = i2
+		}
+	case 3:
+		// Label Format: "<language> (<script>, <region>)"
+		// Label Example: "Serbian (Cyrillic, Serbia)"
+		info.Script = p[1]
+		info.Region = p[2]
+		i3 := strings.Split(leftOf(rightOf(label, "("), ")"), ",")
+		switch {
+		case len(i3) == 1:
+			// Found a misformatted string, as a safety check. Assume it is a region.
+			info.UI["region"] = strings.Trim(i3[0], " ")
+		default:
+			info.UI["script"] = strings.Trim(i3[0], " ")
+			info.UI["region"] = strings.Trim(i3[1], " ")
+		}
+	}
+	return info
+}
+
+func leftOf(str, split string) string {
+	return strings.SplitN(str, split, 2)[0]
+}
+
+func rightOf(str, split string) string {
+	parts := strings.Split(str, split)
+	return parts[len(parts)-1]
 }
 
 // TimestampString returns a RFC3339 date/time string for seconds sinc epoch.

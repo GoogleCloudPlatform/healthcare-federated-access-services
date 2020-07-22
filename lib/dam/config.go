@@ -343,8 +343,8 @@ func createIssuerTranslator(ctx context.Context, cfgTpi *pb.TrustedIssuer, secre
 // GetLocaleMetadata implements the corresponding REST API endpoint.
 func (s *Service) GetLocaleMetadata(w http.ResponseWriter, r *http.Request) {
 	type response struct {
-		Locales   map[string]string `json:"locales"`
-		TimeZones map[string]string `json:"timeZones"`
+		Locales   map[string]*timeutil.LocaleInfo   `json:"locales"`
+		TimeZones map[string]*timeutil.TimezoneInfo `json:"timeZones"`
 	}
 	httputils.WriteNonProtoResp(w, &response{Locales: timeutil.GetLocales(), TimeZones: timeutil.GetTimeZones()})
 }

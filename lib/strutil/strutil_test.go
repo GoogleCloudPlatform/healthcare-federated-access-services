@@ -169,6 +169,11 @@ func TestToTitle(t *testing.T) {
 			input: "snake_case",
 			want:  "Snake Case",
 		},
+		{
+			name:  "timezone city name",
+			input: "Los_Angeles",
+			want:  "Los Angeles",
+		},
 	}
 
 	for _, tc := range tests {

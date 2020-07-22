@@ -48,8 +48,8 @@ func (s *Service) IdentityProviders(w http.ResponseWriter, r *http.Request) {
 // LocaleMetadata implements the corresponding REST API endpoint.
 func (s *Service) LocaleMetadata(w http.ResponseWriter, r *http.Request) {
 	type response struct {
-		Locales   map[string]string `json:"locales"`
-		TimeZones map[string]string `json:"timeZones"`
+		Locales   map[string]*timeutil.LocaleInfo   `json:"locales"`
+		TimeZones map[string]*timeutil.TimezoneInfo `json:"timeZones"`
 	}
 	httputils.WriteNonProtoResp(w, &response{Locales: timeutil.GetLocales(), TimeZones: timeutil.GetTimeZones()})
 }

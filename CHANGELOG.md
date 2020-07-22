@@ -4,17 +4,48 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.8...HEAD)
 
-** Highlight Updates**
+**Highlight Updates**
 
-*   Introduce LRO processes: Includes an implementation of realm deletion using
-    this infrastructure.
+* Introduce LRO processes: Includes an implementation of realm deletion using
+  this infrastructure.
 
-** Migration **
+**Migration**
 
-*   Move `/identity/scim/...` endpoints to `/scim/...` endpoints (i.e. "scim" is
-    at the path root).
-    *   **IMPORTANT**: applications should move to use the new paths as the
-        older path endpoints will be removed shortly.
+* Move `/identity/scim/...` endpoints to `/scim/...` endpoints (i.e. "scim" is
+  at the path root).
+  * **IMPORTANT**: applications should move to use the new paths as the
+    older path endpoints will be removed shortly.
+* localeMetadata endpoints now return UI objects with more information instead
+  of strings as the values within the maps.
+
+```
+{
+  "locales": {
+    "uz-Arab-AF": {
+      "base": "uz",
+      "region": "AF",
+      "script": "Arab",
+      "ui": {
+        "label":        "Uzbek (Arabic, Afghanistan)",
+        "language":     "Uzbek",
+        "region":       "Afghanistan",
+        "script":       "Arabic",
+      }
+    },
+    ...
+  },
+  "timeZones": {
+    "America/Indiana/Indianapolis": {
+      "ui":
+        "label":     "Indianapolis (Indiana, America)",
+        "city":      "Indianapolis",
+        "region":    "America",
+        "subregion": "Indiana",
+      }
+    },
+    ...
+  }
+```
 
 ## [v0.9.8](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.8)
 

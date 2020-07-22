@@ -66,7 +66,7 @@ func ToTitle(str string) string {
 	out := ""
 	l := 0
 	for i, ch := range str {
-		if unicode.IsUpper(ch) && i > 0 && str[i-1] != ' ' {
+		if unicode.IsUpper(ch) && i > 0 && str[i-1] != ' ' && str[i-1] != '_' {
 			out += " "
 			l++
 		} else if ch == '_' {

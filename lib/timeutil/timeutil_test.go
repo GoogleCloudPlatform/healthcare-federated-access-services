@@ -15,9 +15,10 @@
 package timeutil
 
 import (
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp" /* copybara-comment */
 )
 
 func TestTimestampString(t *testing.T) {
@@ -223,8 +224,53 @@ func TestGetLocales(t *testing.T) {
 	if len(locales) < 100 {
 		t.Errorf("expected more than 100 locales, got %d: %+v", len(locales), locales)
 	}
-	if !strings.Contains(locales["en-CA"], "Canada") {
-		t.Errorf("mismatch or missing en-CA: got %q, want result to contain %q", locales["en-CA"], "Canada")
+	tests := []struct {
+		locale string
+		want   *LocaleInfo
+	}{
+		{
+			locale: "en-CA",
+			want: &LocaleInfo{
+				Base:   "en",
+				Region: "CA",
+				UI: map[string]string{
+					"label":    "English (Canada)",
+					"language": "English",
+					"region":   "Canada",
+				},
+			},
+		},
+		{
+			locale: "da",
+			want: &LocaleInfo{
+				Base: "da",
+				UI: map[string]string{
+					"label":    "Danish",
+					"language": "Danish",
+				},
+			},
+		},
+		{
+			locale: "uz-Arab-AF",
+			want: &LocaleInfo{
+				Base:   "uz",
+				Region: "AF",
+				Script: "Arab",
+				UI: map[string]string{
+					"label":    "Uzbek (Arabic, Afghanistan)",
+					"language": "Uzbek",
+					"region":   "Afghanistan",
+					"script":   "Arabic",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		got := locales[tc.locale]
+		if d := cmp.Diff(tc.want, got); len(d) > 0 {
+			t.Errorf("GetLocales() %q (-want, +got): %s", tc.locale, d)
+		}
 	}
 }
 
@@ -264,9 +310,45 @@ func TestGetTimeZones(t *testing.T) {
 	if len(tz) < 100 {
 		t.Errorf("expected more than 100 time zones, got %d: %+v", len(tz), tz)
 	}
-	z := "America/Los_Angeles"
-	want := "America"
-	if tz[z] != want {
-		t.Errorf("mismatch or missing %q: got %q, want %q", z, tz[z], want)
+	tests := []struct {
+		tz   string
+		want *TimezoneInfo
+	}{
+		{
+			tz: "America/Los_Angeles",
+			want: &TimezoneInfo{
+				UI: map[string]string{
+					"label":  "Los Angeles (America)",
+					"city":   "Los Angeles",
+					"region": "America",
+				},
+			},
+		},
+		{
+			tz: "America/Indiana/Indianapolis",
+			want: &TimezoneInfo{
+				UI: map[string]string{
+					"label":     "Indianapolis (Indiana, America)",
+					"city":      "Indianapolis",
+					"region":    "America",
+					"subregion": "Indiana",
+				},
+			},
+		},
+		{
+			tz: "EST",
+			want: &TimezoneInfo{
+				UI: map[string]string{
+					"label": "EST",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		got := tz[tc.tz]
+		if d := cmp.Diff(tc.want, got); len(d) > 0 {
+			t.Errorf("GetTimeZones() %q (-want, +got): %s", tc.tz, d)
+		}
 	}
 }
