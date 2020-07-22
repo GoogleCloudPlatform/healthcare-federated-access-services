@@ -112,7 +112,7 @@ func (c *config) Remove(r *http.Request, name string) (proto.Message, error) {
 }
 func (c *config) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
-	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.ValidToWriteConfig(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm); err != nil {
 		return httputils.NewStatus(bad, err.Error())
 	}
 	if len(c.input.Item.Version) == 0 {
@@ -230,7 +230,7 @@ func (c *configIDP) Remove(r *http.Request, name string) (proto.Message, error) 
 }
 func (c *configIDP) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
-	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.ValidToWriteConfig(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm); err != nil {
 		return httputils.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {
@@ -332,7 +332,7 @@ func (c *configOptions) Remove(r *http.Request, name string) (proto.Message, err
 
 func (c *configOptions) CheckIntegrity(r *http.Request) *status.Status {
 	bad := codes.InvalidArgument
-	if err := check.CheckReadOnly(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.ValidToWriteConfig(getRealm(r), c.cfg.Options.ReadOnlyMasterRealm); err != nil {
 		return httputils.NewStatus(bad, err.Error())
 	}
 	if err := configRevision(c.input.Modification, c.cfg); err != nil {

@@ -1101,13 +1101,6 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 			Type:         "bool",
 			DefaultValue: "false",
 		},
-		"whitelistedRealms": {
-			Label:       "Allowlisted Realms",
-			Description: "By default any realm name can be created, but when this option is populated the DAM will only allow realms on this list to be created (the master realm is allowed implicitly)",
-			Type:        "string",
-			IsList:      true,
-			Regexp:      "^[\\w\\-\\.]+$",
-		},
 		"gcpManagedKeysMaxRequestedTtl": {
 			Label:        "GCP Managed Keys Maximum Requested TTL",
 			Description:  "The maximum TTL of a requested access token on GCP and this setting is used in conjunction with managedKeysPerAccount to set up managed access key rotation policies within DAM (disabled by default)",

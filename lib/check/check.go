@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
-	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
@@ -29,13 +28,12 @@ import (
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
-func CheckReadOnly(realm string, readOnlyMaster bool, allowlistedRealms []string) error {
+// ValidToWriteConfig assumes the caller is trying to modify the realm's config and therefore returns an error if it is read only.
+func ValidToWriteConfig(realm string, readOnlyMaster bool) error {
 	if realm == storage.DefaultRealm {
 		if readOnlyMaster {
 			return fmt.Errorf(`config option "readOnlyMasterRealm" setting prevents updating the config on realm %q`, realm)
 		}
-	} else if len(allowlistedRealms) > 0 && !stringset.Contains(allowlistedRealms, realm) {
-		return fmt.Errorf(`config option "whitelistedRealms" setting prevents updating realm %q config`, realm)
 	}
 	return nil
 }

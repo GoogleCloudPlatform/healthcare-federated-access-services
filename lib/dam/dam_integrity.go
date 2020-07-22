@@ -506,9 +506,6 @@ func checkOptionsIntegrity(opts *pb.ConfigOptions, vopts ValidateCfgOpts) *statu
 	}
 	// Get the descriptors.
 	opts = makeConfigOptions(opts)
-	if err := check.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", opts.ComputedDescriptors); err != nil {
-		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "whitelistedRealms"), err.Error())
-	}
 	if err := check.CheckStringOption(opts.GcpManagedKeysMaxRequestedTtl, "gcpManagedKeysMaxRequestedTtl", opts.ComputedDescriptors); err != nil {
 		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "gcpManagedKeysMaxRequestedTtl"), err.Error())
 	}
@@ -523,7 +520,7 @@ func checkOptionsIntegrity(opts *pb.ConfigOptions, vopts ValidateCfgOpts) *statu
 
 func configCheckIntegrity(cfg *pb.DamConfig, mod *pb.ConfigModification, r *http.Request, vopts ValidateCfgOpts) *status.Status {
 	bad := codes.InvalidArgument
-	if err := check.CheckReadOnly(getRealm(r), cfg.Options.ReadOnlyMasterRealm, cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.ValidToWriteConfig(getRealm(r), cfg.Options.ReadOnlyMasterRealm); err != nil {
 		return httputils.NewStatus(bad, err.Error())
 	}
 	if len(cfg.Version) == 0 {

@@ -120,7 +120,8 @@ message ViewRole {
 
 message ConfigOptions {
   bool read_only_master_realm = 1;
-  repeated string whitelisted_realms = 2;
+  // TODO: remove whitelisted_realms config option.
+  repeated string whitelisted_realms = 2 [deprecated = true];
   string gcp_managed_keys_max_requested_ttl = 3;
   int32 gcp_managed_keys_per_account = 4;
   string gcp_service_account_project = 5;

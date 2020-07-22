@@ -88,7 +88,7 @@ func (c *clientService) Save(tx storage.Tx, desc, typeName string, r *http.Reque
 
 func (c *clientService) CheckIntegrity(r *http.Request, m *cpb.ConfigModification) *status.Status {
 	realm := getRealm(r)
-	if err := check.CheckReadOnly(realm, c.cfg.Options.ReadOnlyMasterRealm, c.cfg.Options.WhitelistedRealms); err != nil {
+	if err := check.ValidToWriteConfig(realm, c.cfg.Options.ReadOnlyMasterRealm); err != nil {
 		return httputils.NewStatus(codes.InvalidArgument, err.Error())
 	}
 	if err := configRevision(toDAMModification(m), c.cfg); err != nil {

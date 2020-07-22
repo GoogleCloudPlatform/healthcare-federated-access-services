@@ -139,13 +139,6 @@ var (
 		Type:         "bool",
 		DefaultValue: "false",
 	}
-	descAllowlistedRealms = &cpb.Descriptor{
-		Label:       "Allowlisted Realms",
-		Description: "By default any realm name can be created, but when this option is populated the IC will only allow realms on this list to be created (the master realm is allowed implicitly)",
-		Type:        "string",
-		IsList:      true,
-		Regexp:      "^[\\w\\-\\.]+$",
-	}
 	descDefaultPassportTokenTTL = &cpb.Descriptor{
 		Label:        "Default Passport Token TTL",
 		Description:  "The duration of a passport TTL when no 'ttl' parameter is provided to the token minting endpoint",
@@ -1111,9 +1104,6 @@ func (s *Service) checkConfigIntegrity(cfg *pb.IcConfig) error {
 	if err := check.CheckIntOption(opts.AccountNameLength, "accountNameLength", descs); err != nil {
 		return err
 	}
-	if err := check.CheckStringListOption(opts.WhitelistedRealms, "whitelistedRealms", descs); err != nil {
-		return err
-	}
 	if err := check.CheckStringOption(opts.DefaultPassportTokenTtl, "defaultPassportTokenTtl", descs); err != nil {
 		return err
 	}
@@ -1160,7 +1150,6 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 	out.ComputedDescriptors = map[string]*cpb.Descriptor{
 		"accountNameLength":       descAccountNameLength,
 		"readOnlyMasterRealm":     descReadOnlyMasterRealm,
-		"whitelistedRealms":       descAllowlistedRealms,
 		"defaultPassportTokenTtl": descDefaultPassportTokenTTL,
 		"maxPassportTokenTtl":     descMaxPassportTokenTTL,
 		"authCodeTokenTtl":        descAuthCodeTokenTTL,
