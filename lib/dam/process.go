@@ -64,16 +64,13 @@ func (h *processesHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
 }
 func (h *processesHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	h.item = make(map[string]*ppb.Process)
-	m := make(map[string]map[string]proto.Message)
-	_, err := h.s.store.MultiReadTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &ppb.Process{}, h.tx)
+	results, err := h.s.store.MultiReadTx(storage.ProcessDataType, storage.DefaultRealm, storage.DefaultUser, storage.MatchAllIDs, nil, 0, storage.MaxPageSize, &ppb.Process{}, h.tx)
 	if err != nil {
 		return false
 	}
-	for _, userVal := range m {
-		for k, v := range userVal {
-			if process, ok := v.(*ppb.Process); ok {
-				h.item[k] = process
-			}
+	for _, entry := range results.Entries {
+		if process, ok := entry.Item.(*ppb.Process); ok {
+			h.item[entry.ItemID] = process
 		}
 	}
 	return true

@@ -150,19 +150,18 @@ func (s *Store) read(datatype, realm, user, id string, rev int64, content proto.
 //
 // content's maps are keyed by user and id of the keys.
 func (s *Store) MultiReadTx(
-	datatype, realm, user string,
+	datatype, realm, user, id string,
 	filters [][]storage.Filter,
 	offset, pageSize int,
-	content map[string]map[string]proto.Message,
 	typ proto.Message,
 	tx storage.Tx,
-) (_ int, ferr error) {
+) (_ *storage.Results, ferr error) {
 	ntx := tx
 	if ntx == nil {
 		var err error
 		ntx, err = s.Tx(false)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		defer func() {
 			err := ntx.Finish()
@@ -174,23 +173,17 @@ func (s *Store) MultiReadTx(
 
 	ntx.(*Tx).mu.Lock()
 	defer ntx.(*Tx).mu.Unlock()
-	return s.multiRead(datatype, realm, user, filters, offset, pageSize, content, typ, ntx.(*Tx).state)
+	return s.multiRead(datatype, realm, user, id, filters, offset, pageSize, typ, ntx.(*Tx).state)
 }
 
 func (s *Store) multiRead(
-	datatype, realm, user string,
+	datatype, realm, user, id string,
 	filters [][]storage.Filter,
 	offset, pageSize int,
-	content map[string]map[string]proto.Message,
 	typ proto.Message,
 	state State,
-) (int, error) {
-	if content == nil {
-		return 0, status.Error(codes.InvalidArgument, "content cannot be nil")
-	}
-	if len(content) != 0 {
-		return 0, status.Error(codes.InvalidArgument, "content is not empty")
-	}
+) (*storage.Results, error) {
+	results := storage.NewResults()
 
 	var res KVList
 	for k, v := range state.Data {
@@ -200,7 +193,10 @@ func (s *Store) multiRead(
 		if k.Realm != "" && k.Realm != realm {
 			continue
 		}
-		if k.User != "" && k.User != user {
+		if user != storage.MatchAllUsers && k.User != "" && k.User != user {
+			continue
+		}
+		if id != storage.MatchAllIDs && k.ID != "" && k.ID != id {
 			continue
 		}
 		if k.Rev != storage.LatestRevName {
@@ -222,13 +218,20 @@ func (s *Store) multiRead(
 	for ; i < len(res) && i < offset+pageSize; i++ {
 		k := res[i].K
 		v := res[i].V
-		if _, ok := content[k.User]; !ok {
-			content[k.User] = make(map[string]proto.Message)
-		}
-		content[k.User][k.ID] = proto.Clone(v)
+		results.Entries = append(results.Entries, &storage.Entry{
+			Realm:   k.Realm,
+			GroupID: k.User,
+			ItemID:  k.ID,
+			Item:    proto.Clone(v),
+		})
 	}
 
-	return i - offset, nil
+	count := len(res) - offset
+	if count < 0 {
+		count = 0
+	}
+	results.MatchCount = count
+	return results, nil
 }
 
 // ReadHistory reads the history of a given key.

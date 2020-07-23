@@ -206,20 +206,17 @@ func (h *GroupHandler) Get(r *http.Request, name string) (proto.Message, error) 
 		max = storage.DefaultPageSize
 	}
 
-	m := make(map[string]map[string]proto.Message)
-	_, err = h.store.MultiReadTx(storage.GroupMemberDatatype, getRealm(r), name, filters, offset, max, m, &spb.Member{}, h.tx)
+	results, err := h.store.MultiReadTx(storage.GroupMemberDatatype, getRealm(r), name, storage.MatchAllIDs, filters, offset, max, &spb.Member{}, h.tx)
 	if err != nil {
 		return nil, err
 	}
 	members := make(map[string]*spb.Member)
 	keys := []string{}
-	for _, u := range m {
-		for _, v := range u {
-			if member, ok := v.(*spb.Member); ok {
-				member.Ref = member.Value
-				members[member.Value] = member
-				keys = append(keys, member.Value)
-			}
+	for _, entry := range results.Entries {
+		if member, ok := entry.Item.(*spb.Member); ok {
+			member.Ref = member.Value
+			members[member.Value] = member
+			keys = append(keys, member.Value)
 		}
 	}
 	sort.Strings(keys)
@@ -468,20 +465,17 @@ func (h *GroupsHandler) Get(r *http.Request, name string) (proto.Message, error)
 		max = storage.DefaultPageSize
 	}
 
-	m := make(map[string]map[string]proto.Message)
-	count, err := h.store.MultiReadTx(storage.GroupDatatype, getRealm(r), storage.DefaultUser, filters, offset, max, m, &spb.Group{}, h.tx)
+	results, err := h.store.MultiReadTx(storage.GroupDatatype, getRealm(r), storage.MatchAllGroups, storage.MatchAllIDs, filters, offset, max, &spb.Group{}, h.tx)
 	if err != nil {
 		return nil, err
 	}
 
 	groups := make(map[string]*spb.Group)
 	names := []string{}
-	for _, u := range m {
-		for _, v := range u {
-			if group, ok := v.(*spb.Group); ok {
-				groups[group.Id] = group
-				names = append(names, group.Id)
-			}
+	for _, entry := range results.Entries {
+		if group, ok := entry.Item.(*spb.Group); ok {
+			groups[group.Id] = group
+			names = append(names, group.Id)
 		}
 	}
 	sort.Strings(names)
@@ -490,12 +484,9 @@ func (h *GroupsHandler) Get(r *http.Request, name string) (proto.Message, error)
 		list = append(list, groups[name])
 	}
 
-	if max < count {
-		max = count
-	}
 	resp := &spb.ListGroupsResponse{
 		Schemas:      []string{scimListSchema},
-		TotalResults: uint32(offset + count),
+		TotalResults: uint32(offset + results.MatchCount),
 		ItemsPerPage: uint32(len(list)),
 		StartIndex:   uint32(start),
 		Resources:    list,

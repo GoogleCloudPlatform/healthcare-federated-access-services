@@ -25,6 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
+	spb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2" /* copybara-comment: go_proto */
 )
 
 func TestLoadAccount(t *testing.T) {
@@ -185,7 +186,7 @@ func TestLoadGroup_NotFound(t *testing.T) {
 
 func TestLoadGroupMember(t *testing.T) {
 	groupName := "allowlisted"
-	memberName := "dr_joe@faculty.example.edu"
+	memberName := "dr_joe_elixir"
 	realm := "test"
 	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
 	member, err := s.LoadGroupMember(groupName, memberName, realm, nil)
@@ -211,5 +212,23 @@ func TestLoadGroupMember_NotFound(t *testing.T) {
 	}
 	if member != nil {
 		t.Fatalf("LoadGroupMember(%q, %q, %q, nil) = (%+v, _) expected nil member", groupName, memberName, realm, member)
+	}
+}
+
+func TestLoadGroupMembershipForUser(t *testing.T) {
+	realm := "test"
+	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
+	user := &spb.User{
+		Id: "dr_joe_elixir",
+	}
+	if err := s.LoadGroupMembershipForUser(user, realm, nil); err != nil {
+		t.Fatalf("LoadGroupMembershipForUser(_, %q, nil) failed: %v", realm, err)
+	}
+	want := []*spb.Attribute{
+		{Display: "Allowlisted Users", Value: "allowlisted", Ref: "group/allowlisted/dr_joe_elixir"},
+	}
+	got := user.Groups
+	if d := cmp.Diff(want, got, protocmp.Transform(), cmpopts.EquateEmpty()); len(d) > 0 {
+		t.Fatalf("mismatched group membership (-want +got): %v", d)
 	}
 }

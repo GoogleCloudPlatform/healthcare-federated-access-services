@@ -164,16 +164,13 @@ func (h *adminTokenMetadataHandler) Setup(r *http.Request, tx storage.Tx) (int, 
 
 func (h *adminTokenMetadataHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	h.item = make(map[string]*pb.TokenMetadata)
-	m := make(map[string]map[string]proto.Message)
-	_, err := h.s.store.MultiReadTx(storage.TokensDatatype, getRealm(r), storage.DefaultUser, nil, 0, storage.MaxPageSize, m, &pb.TokenMetadata{}, h.tx)
+	results, err := h.s.store.MultiReadTx(storage.TokensDatatype, getRealm(r), storage.DefaultUser, storage.MatchAllIDs, nil, 0, storage.MaxPageSize, &pb.TokenMetadata{}, h.tx)
 	if err != nil {
 		return false
 	}
-	for userKey, userVal := range m {
-		for idKey, idVal := range userVal {
-			if id, ok := idVal.(*pb.TokenMetadata); ok {
-				h.item[userKey+"/"+idKey] = id
-			}
+	for _, entry := range results.Entries {
+		if id, ok := entry.Item.(*pb.TokenMetadata); ok {
+			h.item[entry.GroupID+"/"+entry.ItemID] = id
 		}
 	}
 	return true

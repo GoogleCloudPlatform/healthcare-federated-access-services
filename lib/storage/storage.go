@@ -33,6 +33,9 @@ const (
 	DefaultUser    = ""
 	DefaultID      = "main"
 	AllRealms      = ""
+	MatchAllGroups = "" // alias for MatchAllUsers
+	MatchAllUsers  = "" // alias for MatchAllGroups
+	MatchAllIDs    = ""
 
 	AccountDatatype                   = "account"
 	AccountLookupDatatype             = "acct_lookup"
@@ -72,6 +75,26 @@ var (
 	orFilterRE = regexp.MustCompile(`(?i)([^\s]+)\s+(eq|ne|co|sw|ew|pr|gt|ge|lt|le)\s+("[^"]*"|true|false)`)
 )
 
+// Entry represents a single storage item and its metadata.
+type Entry struct {
+	// Realm is the realm to which this entry belongs.
+	Realm string
+	// GroupID is a logical grouping for a set of items.
+	GroupID string
+	// ItemID is the identifier for the proto item being stored.
+	ItemID string
+	// Item is the proto that is being stored.
+	Item proto.Message
+}
+
+// Results represents a set of entries returned as part of a query.
+type Results struct {
+	// Entries contains the list of entries returned by the query.
+	Entries []*Entry
+	// MatchCount is the number of matches that exist, starting at any offset provided by the query.
+	MatchCount int
+}
+
 // Store is an interface to the storage layer.
 type Store interface {
 	Info() map[string]string
@@ -79,7 +102,7 @@ type Store interface {
 	Read(datatype, realm, user, id string, rev int64, content proto.Message) error
 	ReadTx(datatype, realm, user, id string, rev int64, content proto.Message, tx Tx) error
 	// MultiReadTx reads a set of objects matching the input parameters and filters. Returns total count and error.
-	MultiReadTx(datatype, realm, user string, filters [][]Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (int, error)
+	MultiReadTx(datatype, realm, user, id string, filters [][]Filter, offset, pageSize int, typ proto.Message, tx Tx) (*Results, error)
 	ReadHistory(datatype, realm, user, id string, content *[]proto.Message) error
 	ReadHistoryTx(datatype, realm, user, id string, content *[]proto.Message, tx Tx) error
 	Write(datatype, realm, user, id string, rev int64, content proto.Message, history proto.Message) error
@@ -107,6 +130,13 @@ type Filter struct {
 	extract func(p proto.Message) string
 	compare string
 	value   string
+}
+
+// NewResults returns a new Results object.
+func NewResults() *Results {
+	return &Results{
+		Entries: []*Entry{},
+	}
 }
 
 func ErrNotFound(err error) bool {

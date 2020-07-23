@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/golang/protobuf/ptypes" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
@@ -152,68 +151,61 @@ func (s *Service) ProcessActiveWork(ctx context.Context, state *pb.Process, work
 
 	var abort error
 	for abort == nil {
-		// First map will always be lroActive for this use case, second map is keyed by ID.
-		content := make(map[string]map[string]proto.Message)
-		count, err := s.store.MultiReadTx(storage.LongRunningOperationDatatype, storage.DefaultRealm, Active, nil, 0, 25, content, &pb.Process_Work{}, tx)
+		results, err := s.store.MultiReadTx(storage.LongRunningOperationDatatype, storage.DefaultRealm, Active, storage.MatchAllIDs, nil, 0, 25, &pb.Process_Work{}, tx)
 		if err != nil {
 			process.AddWorkError(err, workName, state)
 			return err
 		}
-		if count == 0 {
+		if len(results.Entries) == 0 {
 			break
 		}
-		for _, m := range content {
-			for id, p := range m {
-				item, ok := p.(*pb.Process_Work)
-				if !ok {
-					err := fmt.Errorf("cast to process work")
-					if process.AddWorkError(err, workName, state) != processlib.Continue {
-						abort = err
-						break
-					}
-					continue
-				}
-				markStarted(item)
-				strParams := item.GetParams().GetStringParams()
-				op := strParams["operation"]
-				// Do not return early from here so we keep moving last forward, even when errors occur.
-				var err error
-				action := processlib.Continue
-				st := item.GetStatus()
-				switch op {
-				// Add all supported operations to this switch.
-				case opRealmRemoval:
-					action, err = s.removeRealm(ctx, id, item, state, process)
-				case "":
-					st.State = pb.Process_Status_ABORTED
-					err = fmt.Errorf("missing operation")
-				default:
-					st.State = pb.Process_Status_ABORTED
-					err = fmt.Errorf("unknown operation %q", op)
-				}
-				if st.State == pb.Process_Status_ABORTED {
-					move[id] = item
-				}
-				if err != nil {
-					if process.AddWorkError(err, workName, state) != processlib.Continue {
-						markIncomplete(item)
-						abort = err
-						break
-					}
-				}
-				if action != processlib.Continue {
-					markIncomplete(item)
-					st.State = pb.Process_Status_INCOMPLETE
+		for _, entry := range results.Entries {
+			item, ok := entry.Item.(*pb.Process_Work)
+			if !ok {
+				err := fmt.Errorf("cast to process work")
+				if process.AddWorkError(err, workName, state) != processlib.Continue {
 					abort = err
 					break
 				}
-				markCompleted(item)
-				move[id] = item
-				process.Progress(state)
+				continue
 			}
-			if abort != nil {
+			markStarted(item)
+			strParams := item.GetParams().GetStringParams()
+			op := strParams["operation"]
+			// Do not return early from here so we keep moving last forward, even when errors occur.
+			var err error
+			action := processlib.Continue
+			st := item.GetStatus()
+			switch op {
+			// Add all supported operations to this switch.
+			case opRealmRemoval:
+				action, err = s.removeRealm(ctx, entry.ItemID, item, state, process)
+			case "":
+				st.State = pb.Process_Status_ABORTED
+				err = fmt.Errorf("missing operation")
+			default:
+				st.State = pb.Process_Status_ABORTED
+				err = fmt.Errorf("unknown operation %q", op)
+			}
+			if st.State == pb.Process_Status_ABORTED {
+				move[entry.ItemID] = item
+			}
+			if err != nil {
+				if process.AddWorkError(err, workName, state) != processlib.Continue {
+					markIncomplete(item)
+					abort = err
+					break
+				}
+			}
+			if action != processlib.Continue {
+				markIncomplete(item)
+				st.State = pb.Process_Status_INCOMPLETE
+				abort = err
 				break
 			}
+			markCompleted(item)
+			move[entry.ItemID] = item
+			process.Progress(state)
 		}
 		for id, item := range move {
 			if err := s.store.WriteTx(storage.LongRunningOperationDatatype, storage.DefaultRealm, Inactive, id, storage.LatestRev, item, nil, tx); err != nil {

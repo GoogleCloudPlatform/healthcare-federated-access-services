@@ -301,7 +301,11 @@ func (h *scimUser) NormalizeInput(r *http.Request, name string, vars map[string]
 
 // Get sends a GET method response
 func (h *scimUser) Get(r *http.Request, name string) (proto.Message, error) {
-	return newScimUser(h.item, getRealm(r), h.domainURL, h.userPath), nil
+	user := newScimUser(h.item, getRealm(r), h.domainURL, h.userPath)
+	if err := h.s.LoadGroupMembershipForUser(user, getRealm(r), h.tx); err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 // Post receives a POST method request
@@ -606,19 +610,16 @@ func (h *scimUsers) Get(r *http.Request, name string) (proto.Message, error) {
 		max = storage.DefaultPageSize
 	}
 
-	m := make(map[string]map[string]proto.Message)
-	count, err := h.store.MultiReadTx(storage.AccountDatatype, getRealm(r), storage.DefaultUser, filters, offset, max, m, &cpb.Account{}, h.tx)
+	results, err := h.store.MultiReadTx(storage.AccountDatatype, getRealm(r), storage.MatchAllUsers, storage.MatchAllIDs, filters, offset, max, &cpb.Account{}, h.tx)
 	if err != nil {
 		return nil, err
 	}
 	accts := make(map[string]*cpb.Account)
 	subjects := []string{}
-	for _, u := range m {
-		for _, v := range u {
-			if acct, ok := v.(*cpb.Account); ok {
-				accts[acct.Properties.Subject] = acct
-				subjects = append(subjects, acct.Properties.Subject)
-			}
+	for _, entry := range results.Entries {
+		if acct, ok := entry.Item.(*cpb.Account); ok {
+			accts[acct.Properties.Subject] = acct
+			subjects = append(subjects, acct.Properties.Subject)
 		}
 	}
 	sort.Strings(subjects)
@@ -628,12 +629,9 @@ func (h *scimUsers) Get(r *http.Request, name string) (proto.Message, error) {
 		list = append(list, newScimUser(accts[sub], realm, h.domainURL, h.userPath))
 	}
 
-	if max < count {
-		max = count
-	}
 	resp := &spb.ListUsersResponse{
 		Schemas:      []string{scimListSchema},
-		TotalResults: uint32(offset + count),
+		TotalResults: uint32(offset + results.MatchCount),
 		ItemsPerPage: uint32(len(list)),
 		StartIndex:   uint32(start),
 		Resources:    list,

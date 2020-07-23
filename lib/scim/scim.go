@@ -158,6 +158,29 @@ func (s *Scim) LoadGroupMember(groupName, memberName, realm string, tx storage.T
 	return member, nil
 }
 
+// LoadGroupMembershipForUser populates the Groups field with a set of group metadata to which the user belongs.
+func (s *Scim) LoadGroupMembershipForUser(user *spb.User, realm string, tx storage.Tx) error {
+	results, err := s.store.MultiReadTx(storage.GroupMemberDatatype, realm, storage.MatchAllGroups, user.Id, nil, 0, 500, &spb.Member{}, tx)
+	if err != nil {
+		return err
+	}
+	user.Groups = []*spb.Attribute{}
+	for _, entry := range results.Entries {
+		if member, ok := entry.Item.(*spb.Member); ok {
+			group, err := s.LoadGroup(entry.GroupID, realm, tx)
+			if err != nil {
+				return err
+			}
+			user.Groups = append(user.Groups, &spb.Attribute{
+				Display: group.DisplayName,
+				Value:   entry.GroupID,
+				Ref:     fmt.Sprintf("group/%s/%s", entry.GroupID, member.Value),
+			})
+		}
+	}
+	return nil
+}
+
 func (s *Scim) readTx(datatype, realm, user, id string, rev int64, item proto.Message, tx storage.Tx) (int, error) {
 	err := s.store.ReadTx(datatype, realm, user, id, rev, item, tx)
 	if err == nil {

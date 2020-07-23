@@ -120,12 +120,12 @@ func (m *MemoryStorage) ReadTx(datatype, realm, user, id string, rev int64, cont
 }
 
 // MultiReadTx reads a set of objects matching the input parameters and filters
-func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx Tx) (_ int, ferr error) {
+func (m *MemoryStorage) MultiReadTx(datatype, realm, user, id string, filters [][]Filter, offset, pageSize int, typ proto.Message, tx Tx) (_ *Results, ferr error) {
 	if tx == nil {
 		var err error
 		tx, err = m.fs.Tx(false)
 		if err != nil {
-			return 0, fmt.Errorf("file read lock error: %v", err)
+			return nil, fmt.Errorf("file read lock error: %v", err)
 		}
 		defer func() {
 			err := tx.Finish()
@@ -138,9 +138,12 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Fi
 	if pageSize > MaxPageSize {
 		pageSize = MaxPageSize
 	}
-	count := 0
-	err := m.findPath(datatype, realm, user, typ, func(path, userMatch, idMatch string, p proto.Message) error {
+	results := NewResults()
+	err := m.findPath(datatype, realm, user, id, typ, func(path, userMatch, idMatch string, p proto.Message) error {
 		if m.deleted[m.fname(datatype, realm, userMatch, idMatch, LatestRev)] || m.wipedRealms[realm] {
+			return nil
+		}
+		if id != MatchAllIDs && idMatch != id {
 			return nil
 		}
 		if !MatchProtoFilters(filters, p) {
@@ -150,23 +153,23 @@ func (m *MemoryStorage) MultiReadTx(datatype, realm, user string, filters [][]Fi
 			offset--
 			return nil
 		}
-		if pageSize > count {
-			userContent, ok := content[userMatch]
-			if !ok {
-				content[userMatch] = make(map[string]proto.Message)
-				userContent = content[userMatch]
-			}
-			userContent[idMatch] = p
+		if pageSize > results.MatchCount {
+			results.Entries = append(results.Entries, &Entry{
+				Realm:   realm,
+				GroupID: userMatch,
+				ItemID:  idMatch,
+				Item:    p,
+			})
 		}
-		count++
+		results.MatchCount++
 		return nil
 	})
-	return count, err
+	return results, err
 }
 
-func (m *MemoryStorage) findPath(datatype, realm, user string, typ proto.Message, fn func(string, string, string, proto.Message) error) error {
+func (m *MemoryStorage) findPath(datatype, realm, user, id string, typ proto.Message, fn func(string, string, string, proto.Message) error) error {
 	searchUser := user
-	if user == DefaultUser {
+	if user == MatchAllUsers {
 		searchUser = "(.*)"
 	} else {
 		searchUser = "(" + user + ")"
@@ -175,12 +178,18 @@ func (m *MemoryStorage) findPath(datatype, realm, user string, typ proto.Message
 	if realm == AllRealms {
 		searchRealm = "(.*)"
 	}
-	extractID := m.fs.fname(datatype, searchRealm, searchUser, "(.*)", LatestRev)
+	searchID := id
+	if id == MatchAllIDs {
+		searchID = "(.*)"
+	} else {
+		searchID = "(" + id + ")"
+	}
+	extractID := m.fs.fname(datatype, searchRealm, searchUser, searchID, LatestRev)
 	re, err := regexp.Compile(extractID)
 	if err != nil {
 		return fmt.Errorf("file extract ID %q regexp error: %v", extractID, err)
 	}
-	defaultUserID := m.fs.fname(datatype, realm, DefaultUser, "(.*)", LatestRev)
+	defaultUserID := m.fs.fname(datatype, realm, DefaultUser, searchID, LatestRev)
 	dure, err := regexp.Compile(defaultUserID)
 	if err != nil {
 		return fmt.Errorf("file extract ID %q regexp error: %v", defaultUserID, err)
@@ -385,7 +394,7 @@ func (m *MemoryStorage) MultiDeleteTx(datatype, realm, user string, tx Tx) (ferr
 		}()
 	}
 
-	return m.findPath(datatype, realm, user, nil, func(path, userMatch, idMatch string, p proto.Message) error {
+	return m.findPath(datatype, realm, user, MatchAllIDs, nil, func(path, userMatch, idMatch string, p proto.Message) error {
 		return m.DeleteTx(datatype, realm, userMatch, idMatch, LatestRev, tx)
 	})
 }

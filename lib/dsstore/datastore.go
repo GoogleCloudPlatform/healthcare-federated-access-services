@@ -209,15 +209,14 @@ func (s *Store) ReadTx(datatype, realm, user, id string, rev int64, content prot
 // MultiReadTx will not see the writes inside the transaction.
 // If realm is "" reads all realms.
 // if user is "" reads all users.
-// Returns the number of items matching the filter.
-// content is a map of user and id to values.
-func (s *Store) MultiReadTx(datatype, realm, user string, filters [][]storage.Filter, offset, pageSize int, content map[string]map[string]proto.Message, typ proto.Message, tx storage.Tx) (_ int, ferr error) {
+// Returns a results object and error.
+func (s *Store) MultiReadTx(datatype, realm, user, id string, filters [][]storage.Filter, offset, pageSize int, typ proto.Message, tx storage.Tx) (_ *storage.Results, ferr error) {
 	ctx := context.Background() /* TODO: pass ctx from request */
 	if tx == nil {
 		var err error
 		tx, err = s.Tx(false)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		defer func() {
 			err := tx.Finish()
@@ -237,8 +236,11 @@ func (s *Store) MultiReadTx(datatype, realm, user string, filters [][]storage.Fi
 	if realm != storage.AllRealms {
 		q = q.Filter("realm =", realm)
 	}
-	if user != storage.DefaultUser {
+	if user != storage.MatchAllUsers {
 		q = q.Filter("user_id = ", user)
+	}
+	if id != storage.MatchAllIDs {
+		q = q.Filter("id = ", id)
 	}
 	q = q.Filter("rev = ", storage.LatestRev).Order("id")
 	if len(filters) == 0 {
@@ -248,8 +250,8 @@ func (s *Store) MultiReadTx(datatype, realm, user string, filters [][]storage.Fi
 		offset = 0
 	}
 
+	results := storage.NewResults()
 	it := s.client.Run(ctx, q)
-	count := 0
 	for {
 		var e Entity
 		_, err := it.Next(&e)
@@ -257,14 +259,14 @@ func (s *Store) MultiReadTx(datatype, realm, user string, filters [][]storage.Fi
 			break
 		}
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		if len(e.Content) == 0 {
 			continue
 		}
 		p := proto.Clone(typ)
 		if err := jsonpb.Unmarshal(strings.NewReader(e.Content), p); err != nil {
-			return 0, err
+			return nil, err
 		}
 		if !storage.MatchProtoFilters(filters, p) {
 			continue
@@ -275,15 +277,17 @@ func (s *Store) MultiReadTx(datatype, realm, user string, filters [][]storage.Fi
 			offset--
 			continue
 		}
-		if pageSize == 0 || pageSize > count {
-			if _, ok := content[e.User]; !ok {
-				content[e.User] = make(map[string]proto.Message)
-			}
-			content[e.User][e.ID] = p
+		if pageSize == 0 || pageSize > results.MatchCount {
+			results.Entries = append(results.Entries, &storage.Entry{
+				Realm:   realm,
+				GroupID: e.User,
+				ItemID:  e.ID,
+				Item:    p,
+			})
 		}
-		count++
+		results.MatchCount++
 	}
-	return count, nil
+	return results, nil
 }
 
 // ReadHistory reads the history.

@@ -1321,20 +1321,18 @@ func (s *Service) registerAllProjects(tx storage.Tx) error {
 	offset := 0
 	pageSize := 50
 	for {
-		content := make(map[string]map[string]proto.Message)
-		count, err := s.store.MultiReadTx(storage.ConfigDatatype, storage.AllRealms, storage.DefaultUser, nil, offset, pageSize, content, &pb.DamConfig{}, tx)
+		results, err := s.store.MultiReadTx(storage.ConfigDatatype, storage.AllRealms, storage.DefaultUser, storage.MatchAllIDs, nil, offset, pageSize, &pb.DamConfig{}, tx)
 		if err != nil {
 			return err
 		}
-		if count == 0 || len(content) == 0 {
+		count := len(results.Entries)
+		if count == 0 {
 			break
 		}
-		offset += count
-		for _, userVal := range content {
-			for _, v := range userVal {
-				if cfg, ok := v.(*pb.DamConfig); ok && len(cfg.Options.GcpServiceAccountProject) > 0 {
-					projects[cfg.Options.GcpServiceAccountProject] = true
-				}
+		offset += len(results.Entries)
+		for _, entry := range results.Entries {
+			if cfg, ok := entry.Item.(*pb.DamConfig); ok && len(cfg.Options.GcpServiceAccountProject) > 0 {
+				projects[cfg.Options.GcpServiceAccountProject] = true
 			}
 		}
 		if count < pageSize {

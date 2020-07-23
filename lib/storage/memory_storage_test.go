@@ -18,7 +18,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/golang/protobuf/proto" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -43,30 +42,26 @@ func TestMemoryStorageDelete(t *testing.T) {
 
 func TestMemoryStorageMultiRead(t *testing.T) {
 	store := NewMemoryStorage("ic-min", "testdata/config")
-	// content is map[<user>]map[<key>]*cpb.Account.
-	content := make(map[string]map[string]proto.Message)
-	count, err := store.MultiReadTx(AccountDatatype, "test", DefaultUser, nil, 0, 100, content, &cpb.Account{}, nil)
+	results, err := store.MultiReadTx(AccountDatatype, "test", MatchAllUsers, MatchAllIDs, nil, 0, 100, &cpb.Account{}, nil)
 	if err != nil {
 		t.Fatalf("MultiReadTx() failed: %v", err)
 	}
 	want := 4
-	if count != want {
-		t.Errorf("MultiReadTx() count results mismatch: got %d, want %d", count, want)
+	if len(results.Entries) != want {
+		t.Errorf("MultiReadTx() length results mismatch: got %d, want %d", len(results.Entries), want)
+	}
+	if results.MatchCount != want {
+		t.Errorf("MultiReadTx() MatchCount mismatch: got %d, want %d", results.MatchCount, want)
 	}
 	got := 0
-	for user, ucontent := range content {
-		for key, acct := range ucontent {
-			if acct == nil {
-				t.Fatalf("MultiReadTx() invalid results for user %q: key %q content is nil", user, key)
-			}
-			if _, ok := acct.(*cpb.Account); !ok {
-				t.Fatalf("MultiReadTx() invalid results for user %q: key %q content is not an account", user, key)
-			}
-			got++
+	for i, entry := range results.Entries {
+		if entry.Item == nil {
+			t.Fatalf("MultiReadTx() invalid results: index %v item is nil", i)
 		}
-	}
-	if got != want {
-		t.Errorf("MultiReadTx() count results mismatch with count %d: got %d, want %d", count, got, want)
+		if _, ok := entry.Item.(*cpb.Account); !ok {
+			t.Fatalf("MultiReadTx() invalid results: index %v item is not an account", i)
+		}
+		got++
 	}
 }
 

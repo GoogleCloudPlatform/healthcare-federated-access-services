@@ -29,7 +29,6 @@ import (
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/golang/protobuf/jsonpb" /* copybara-comment */
-	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/apis/hydraapi" /* copybara-comment: hydraapi */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -923,9 +922,8 @@ func TestAcceptInformationRelease_Hydra_Accept_Remember(t *testing.T) {
 				t.Fatalf("resp.StatusCode wants %d got %d", http.StatusSeeOther, resp.StatusCode)
 			}
 
-			content := make(map[string]map[string]proto.Message)
-			count, _ := s.store.MultiReadTx(storage.RememberedConsentDatatype, storage.DefaultRealm, LoginSubject, nil, 0, 1000, content, &cspb.RememberedConsentPreference{}, nil)
-			if count == 0 {
+			results, _ := s.store.MultiReadTx(storage.RememberedConsentDatatype, storage.DefaultRealm, LoginSubject, storage.MatchAllIDs, nil, 0, 1000, &cspb.RememberedConsentPreference{}, nil)
+			if len(results.Entries) == 0 {
 				if tc.consentStored {
 					t.Errorf("consent should store in storage")
 				} else {

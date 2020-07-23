@@ -199,22 +199,21 @@ func (s *deleteConsentHandler) Save(r *http.Request, tx storage.Tx, name string,
 
 // findRememberedConsentsByUser returns all RememberedConsents of user of client.
 func findRememberedConsentsByUser(store storage.Store, subject, realm, clientName string, offset, pageSize int, tx storage.Tx) (map[string]*storepb.RememberedConsentPreference, error) {
-	content := make(map[string]map[string]proto.Message)
-	count, err := store.MultiReadTx(storage.RememberedConsentDatatype, realm, subject, nil, offset, pageSize, content, &storepb.RememberedConsentPreference{}, tx)
+	results, err := store.MultiReadTx(storage.RememberedConsentDatatype, realm, subject, storage.MatchAllIDs, nil, offset, pageSize, &storepb.RememberedConsentPreference{}, tx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "findRememberedConsentsByUser MultiReadTx() failed: %v", err)
 	}
 
 	res := map[string]*storepb.RememberedConsentPreference{}
-	if count == 0 {
+	if len(results.Entries) == 0 {
 		return res, nil
 	}
 
 	now := timeNow().Unix()
-	for k, v := range content[subject] {
-		rcp, ok := v.(*storepb.RememberedConsentPreference)
+	for _, entry := range results.Entries {
+		rcp, ok := entry.Item.(*storepb.RememberedConsentPreference)
 		if !ok {
-			return nil, status.Errorf(codes.Internal, "findRememberedConsentsByUser obj type incorrect: user=%s, id=%s", subject, k)
+			return nil, status.Errorf(codes.Internal, "findRememberedConsentsByUser obj type incorrect: user=%s, id=%s", subject, entry.ItemID)
 		}
 		// remove expired items
 		if rcp.ExpireTime.Seconds < now {
@@ -225,7 +224,7 @@ func findRememberedConsentsByUser(store storage.Store, subject, realm, clientNam
 			continue
 		}
 
-		res[k] = rcp
+		res[entry.ItemID] = rcp
 	}
 
 	return res, nil

@@ -695,7 +695,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "admin",
-			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"displayName":"Dr. Joe (ELIXIR)","active":true}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"displayName":"Dr. Joe (ELIXIR)","active":true,"groups":[{"display":"Allowlisted Users","value":"allowlisted","$ref":"group/allowlisted/dr_joe_elixir"}]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -704,7 +704,7 @@ func TestHandlers(t *testing.T) {
 			Path:    "/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
 			Scope:   persona.AccountScope,
-			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"displayName":"Dr. Joe (ELIXIR)","active":true}`,
+			Output:  `{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"id":"dr_joe_elixir","externalId":"dr_joe_elixir","meta":{"resourceType":"User","created":"2019-06-22T13:29:40Z","lastModified":"2019-06-22T18:07:20Z","location":"https://example.com/scim/v2/test/Users/dr_joe_elixir","version":"1"},"userName":"dr_joe_elixir","name":{"formatted":"Dr. Joe (ELIXIR)"},"displayName":"Dr. Joe (ELIXIR)","active":true,"groups":[{"display":"Allowlisted Users","value":"allowlisted","$ref":"group/allowlisted/dr_joe_elixir"}]}`,
 			Status:  http.StatusOK,
 		},
 		{
@@ -712,7 +712,7 @@ func TestHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/scim/v2/test/Users/dr_joe_elixir",
 			Persona: "dr_joe_elixir",
-			Output:  `^.*urn:ietf:params:scim:schemas:core:2.0:User.*`,
+			Output:  `*urn:ietf:params:scim:schemas:core:2.0:User*"groups"*"allowlisted"*`,
 			Status:  http.StatusOK,
 		},
 		{
