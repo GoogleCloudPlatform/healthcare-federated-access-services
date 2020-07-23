@@ -54,7 +54,9 @@ func (c *clientService) HandlerSetup(tx storage.Tx, r *http.Request) (*ga4gh.Ide
 
 func (c *clientService) SaveClient(name, secret string, cli *cpb.Client) {
 	c.cfg.Clients[name] = cli
-	c.sec.ClientSecrets[cli.ClientId] = secret
+	if secret != "" {
+		c.sec.ClientSecrets[cli.ClientId] = secret
+	}
 	c.save = true
 }
 

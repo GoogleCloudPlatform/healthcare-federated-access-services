@@ -284,7 +284,10 @@ func (c *adminClientHandler) Patch(r *http.Request, name string) (proto.Message,
 	}
 
 	out := proto.Clone(input).(*pb.Client)
-	sec := uuid.New()
+	sec := ""
+	if httputils.QueryParam(r, "rotate_secret") == "true" {
+		sec = uuid.New()
+	}
 
 	if c.useHydra {
 		hyCli := toHydraClient(input, name, sec, strfmt.NewDateTime())

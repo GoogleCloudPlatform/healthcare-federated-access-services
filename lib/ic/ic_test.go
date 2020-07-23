@@ -1916,7 +1916,7 @@ func TestConsent_Hydra_RememberedConsentOrInformationRelease(t *testing.T) {
 	}
 }
 
-func icSendTestRequest(t *testing.T, method, path, pathname, realm, personaName, clientID, clientSecret string, data proto.Message, s *Service, iss *persona.Server) *http.Response {
+func icSendTestQuery(t *testing.T, method, path, pathname, realm, personaName string, query url.Values, data proto.Message, s *Service, iss *persona.Server) *http.Response {
 	t.Helper()
 
 	var p *cpb.TestPersona
@@ -1924,6 +1924,11 @@ func icSendTestRequest(t *testing.T, method, path, pathname, realm, personaName,
 		p = iss.Config().TestPersonas[personaName]
 	}
 
+	clientID := ""
+	cid := query["client_id"]
+	if len(cid) > 0 {
+		clientID = cid[0]
+	}
 	hydraPublicURL := hydraURL
 	tok, _, err := persona.NewAccessToken(personaName, hydraPublicURL, clientID, noScope, p)
 	if err != nil {
@@ -1939,12 +1944,18 @@ func icSendTestRequest(t *testing.T, method, path, pathname, realm, personaName,
 
 	path = strings.ReplaceAll(path, "{realm}", realm)
 	path = strings.ReplaceAll(path, "{name}", pathname)
+	h := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
+	return testhttp.SendTestRequest(t, s.Handler, method, path, query, &buf, h)
+}
+
+func icSendTestRequest(t *testing.T, method, path, pathname, realm, personaName, clientID, clientSecret string, data proto.Message, s *Service, iss *persona.Server) *http.Response {
+	t.Helper()
+
 	q := url.Values{
 		"client_id":     []string{clientID},
 		"client_secret": []string{clientSecret},
 	}
-	h := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
-	return testhttp.SendTestRequest(t, s.Handler, method, path, q, &buf, h)
+	return icSendTestQuery(t, method, path, pathname, realm, personaName, q, data, s, iss)
 }
 
 func TestClients_Get(t *testing.T) {
@@ -2524,7 +2535,12 @@ func TestConfigClients_Update_Success(t *testing.T) {
 		ResponseTypes: defaultResponseTypes,
 	}
 
-	resp := sendConfigClientsUpdate(t, pname, clientName, "master", testClientID, testClientSecret, cli, s, iss)
+	query := url.Values{
+		"client_id":     []string{test.TestClientID},
+		"client_secret": []string{test.TestClientSecret},
+		"rotate_secret": []string{"true"},
+	}
+	resp := icSendTestQuery(t, http.MethodPatch, configClientsPath, clientName, "master", pname, query, &cpb.ConfigClientRequest{Item: cli}, s, iss)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
 	}
@@ -2548,6 +2564,57 @@ func TestConfigClients_Update_Success(t *testing.T) {
 
 	if len(h.UpdateClientReq.Secret) == 0 {
 		t.Errorf("should pass secret in hydra request")
+	}
+}
+
+func TestConfigClients_Update_NoSecret(t *testing.T) {
+	s, _, _, h, iss, err := setupHydraTest()
+	if err != nil {
+		t.Fatalf("setupHydraTest() failed: %v", err)
+	}
+
+	clientName := "test_client"
+
+	// Update the client RedirectUris.
+	cli := &cpb.Client{
+		RedirectUris: []string{"http://client.example.com"},
+	}
+
+	pname := "admin"
+
+	h.UpdateClientResp = &hydraapi.Client{
+		ClientID:      testClientID,
+		Name:          clientName,
+		RedirectURIs:  cli.RedirectUris,
+		Scope:         defaultScope,
+		GrantTypes:    defaultGrantTypes,
+		ResponseTypes: defaultResponseTypes,
+	}
+
+	resp := sendConfigClientsUpdate(t, pname, clientName, "master", testClientID, testClientSecret, cli, s, iss)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status=%d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+
+	got := &cpb.ConfigClientResponse{}
+	if err := jsonpb.Unmarshal(resp.Body, got); err != nil && err != io.EOF {
+		t.Fatalf("jsonpb.Unmarshal() failed: %v", err)
+	}
+
+	if got.ClientSecret != h.UpdateClientResp.Secret {
+		t.Errorf("got.ClientSecret = %s, wants %s", got.ClientSecret, h.UpdateClientResp.Secret)
+	}
+
+	if got.ClientSecret != "" {
+		t.Errorf("client secret should updated")
+	}
+
+	if len(h.UpdateClientReq.ClientID) == 0 {
+		t.Errorf("should pass client id in hydra request")
+	}
+
+	if len(h.UpdateClientReq.Secret) != 0 {
+		t.Errorf("should not pass secret in hydra request")
 	}
 }
 
