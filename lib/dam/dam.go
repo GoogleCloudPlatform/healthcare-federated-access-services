@@ -1176,7 +1176,7 @@ var (
 		},
 		Ui: map[string]string{
 			"label":       "Allowlist",
-			"description": "Allow users and groups to be allowlisted for access directly without using visas",
+			"description": "Allow users and groups to be given access directly via their email addresses by verifying email properties and/or trusted LinkedIdentity visas available on user tokens",
 			"source":      "built-in",
 			"edit":        "immutable",
 		},
