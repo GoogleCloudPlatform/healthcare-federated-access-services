@@ -18,6 +18,7 @@ package scim
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gorilla/mux" /* copybara-comment */
@@ -158,26 +159,41 @@ func (s *Scim) LoadGroupMember(groupName, memberName, realm string, tx storage.T
 	return member, nil
 }
 
-// LoadGroupMembershipForUser populates the Groups field with a set of group metadata to which the user belongs.
-func (s *Scim) LoadGroupMembershipForUser(user *spb.User, realm string, tx storage.Tx) error {
-	results, err := s.store.MultiReadTx(storage.GroupMemberDatatype, realm, storage.MatchAllGroups, user.Id, nil, 0, 500, &spb.Member{}, tx)
-	if err != nil {
-		return err
-	}
-	user.Groups = []*spb.Attribute{}
-	for _, entry := range results.Entries {
-		if member, ok := entry.Item.(*spb.Member); ok {
-			group, err := s.LoadGroup(entry.GroupID, realm, tx)
-			if err != nil {
-				return err
+// LoadGroupMembershipForUser populates the Groups field with a set of group metadata to which the user belongs
+// based on email addresses. resolveDisplayName will fill in the group's UI label by doing extra storage lookups
+// when this information is for use by an end user.
+func (s *Scim) LoadGroupMembershipForUser(user *spb.User, realm string, resolveDisplayName bool, tx storage.Tx) error {
+	groups := []*spb.Attribute{}
+	for _, email := range user.GetEmails() {
+		if len(email.Value) == 0 {
+			continue
+		}
+		results, err := s.store.MultiReadTx(storage.GroupMemberDatatype, realm, storage.MatchAllGroups, email.Value, nil, 0, 500, &spb.Member{}, tx)
+		if err != nil {
+			return err
+		}
+		for _, entry := range results.Entries {
+			if _, ok := entry.Item.(*spb.Member); ok {
+				displayName := ""
+				if resolveDisplayName {
+					group, err := s.LoadGroup(entry.GroupID, realm, tx)
+					if err != nil {
+						return err
+					}
+					displayName = group.DisplayName
+				}
+				groups = append(groups, &spb.Attribute{
+					Display: displayName,
+					Value:   entry.GroupID,
+					Ref:     fmt.Sprintf("group/%s/%s", entry.GroupID, email.Value),
+				})
 			}
-			user.Groups = append(user.Groups, &spb.Attribute{
-				Display: group.DisplayName,
-				Value:   entry.GroupID,
-				Ref:     fmt.Sprintf("group/%s/%s", entry.GroupID, member.Value),
-			})
 		}
 	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		return groups[i].Ref < groups[j].Ref
+	})
+	user.Groups = groups
 	return nil
 }
 

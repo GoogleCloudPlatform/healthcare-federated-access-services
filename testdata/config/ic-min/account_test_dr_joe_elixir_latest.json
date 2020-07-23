@@ -9,6 +9,19 @@
     "created": 1561210180,
     "modified": 1561226840
   },
-  "connectedAccounts": [],
+  "connectedAccounts": [
+    {
+      "properties": {
+        "subject": "dr_joe_elixir",
+        "email": "dr_joe@elixir.org"
+      }
+    },
+    {
+      "properties": {
+        "subject": "dr_joe_faculty",
+        "email": "dr_joe@faculty.example.edu"
+      }
+    }
+  ],
   "state": "ACTIVE"
 }

@@ -186,7 +186,7 @@ func TestLoadGroup_NotFound(t *testing.T) {
 
 func TestLoadGroupMember(t *testing.T) {
 	groupName := "allowlisted"
-	memberName := "dr_joe_elixir"
+	memberName := "dr_joe@elixir.org"
 	realm := "test"
 	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
 	member, err := s.LoadGroupMember(groupName, memberName, realm, nil)
@@ -218,17 +218,85 @@ func TestLoadGroupMember_NotFound(t *testing.T) {
 func TestLoadGroupMembershipForUser(t *testing.T) {
 	realm := "test"
 	s := New(storage.NewMemoryStorage("ic-min", "testdata/config"))
-	user := &spb.User{
-		Id: "dr_joe_elixir",
+	tests := []struct {
+		name               string
+		user               *spb.User
+		resolveDisplayName bool
+		want               []*spb.Attribute
+	}{
+		{
+			name: "empty",
+			user: &spb.User{},
+			want: []*spb.Attribute{},
+		},
+		{
+			name: "id only",
+			user: &spb.User{Id: "dr_joe_elixir"},
+			want: []*spb.Attribute{},
+		},
+		{
+			name: "empty email entries",
+			user: &spb.User{
+				Id:     "dr_joe_elixir",
+				Emails: []*spb.Attribute{{}, {}},
+			},
+			want: []*spb.Attribute{},
+		},
+		{
+			name: "one email match",
+			user: &spb.User{
+				Id: "dr_joe_elixir",
+				Emails: []*spb.Attribute{
+					{Value: "dr_joe@faculty.example.edu"},
+				},
+			},
+			resolveDisplayName: true,
+			want: []*spb.Attribute{
+				{Display: "Allowlisted Users", Value: "allowlisted", Ref: "group/allowlisted/dr_joe@faculty.example.edu"},
+			},
+		},
+		{
+			name: "two email match",
+			user: &spb.User{
+				Id: "dr_joe_elixir",
+				Emails: []*spb.Attribute{
+					{Value: "dr_joe@elixir.org"},
+					{Value: "dr_joe@faculty.example.edu"},
+				},
+			},
+			resolveDisplayName: true,
+			want: []*spb.Attribute{
+				{Display: "Allowlisted Users", Value: "allowlisted", Ref: "group/allowlisted/dr_joe@elixir.org"},
+				{Display: "Allowlisted Users", Value: "allowlisted", Ref: "group/allowlisted/dr_joe@faculty.example.edu"},
+				{Display: "Lab Members", Value: "lab", Ref: "group/lab/dr_joe@elixir.org"},
+			},
+		},
+		{
+			name: "two email match - no displayName",
+			user: &spb.User{
+				Id: "dr_joe_elixir",
+				Emails: []*spb.Attribute{
+					{Value: "dr_joe@elixir.org"},
+					{Value: "dr_joe@faculty.example.edu"},
+				},
+			},
+			resolveDisplayName: false,
+			want: []*spb.Attribute{
+				{Value: "allowlisted", Ref: "group/allowlisted/dr_joe@elixir.org"},
+				{Value: "allowlisted", Ref: "group/allowlisted/dr_joe@faculty.example.edu"},
+				{Value: "lab", Ref: "group/lab/dr_joe@elixir.org"},
+			},
+		},
 	}
-	if err := s.LoadGroupMembershipForUser(user, realm, nil); err != nil {
-		t.Fatalf("LoadGroupMembershipForUser(_, %q, nil) failed: %v", realm, err)
-	}
-	want := []*spb.Attribute{
-		{Display: "Allowlisted Users", Value: "allowlisted", Ref: "group/allowlisted/dr_joe_elixir"},
-	}
-	got := user.Groups
-	if d := cmp.Diff(want, got, protocmp.Transform(), cmpopts.EquateEmpty()); len(d) > 0 {
-		t.Fatalf("mismatched group membership (-want +got): %v", d)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := s.LoadGroupMembershipForUser(tc.user, realm, tc.resolveDisplayName, nil); err != nil {
+				t.Fatalf("LoadGroupMembershipForUser(_, %q, nil) failed: %v", realm, err)
+			}
+			got := tc.user.Groups
+			if d := cmp.Diff(tc.want, got, protocmp.Transform(), cmpopts.EquateEmpty()); len(d) > 0 {
+				t.Fatalf("mismatched group membership (-want +got): %v", d)
+			}
+		})
 	}
 }

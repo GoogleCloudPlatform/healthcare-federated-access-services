@@ -302,7 +302,7 @@ func (h *scimUser) NormalizeInput(r *http.Request, name string, vars map[string]
 // Get sends a GET method response
 func (h *scimUser) Get(r *http.Request, name string) (proto.Message, error) {
 	user := newScimUser(h.item, getRealm(r), h.domainURL, h.userPath)
-	if err := h.s.LoadGroupMembershipForUser(user, getRealm(r), h.tx); err != nil {
+	if err := h.s.LoadGroupMembershipForUser(user, getRealm(r), true /*resolveDisplayName*/, h.tx); err != nil {
 		return nil, err
 	}
 	return user, nil
