@@ -47,63 +47,6 @@ combination of places:
     *  VM(s) use different tokens or signed URLs to access resources across
        clouds as needed with the appropriate ACLs and billing settings.
 
-## DAM Resource Configuration
-
-The user can discover a set of resources that are published by a DAM. This can
-include multiple datasets where each dataset may provide multiple views:
-
-*  A `view` may provide a slice of data within a resource. All resources
-   **must** have a view, even if that view is named "all" and provides all the
-   files or tables for that resource.
-*  Each view may provide only one resource service type, such as GCS buckets or
-   BigQuery tables but not both. If a `resource` consists of multiple service
-   type items, then multiple views must be used to include them within the same
-   `resource` within DAM.
-*  Each view has a list of `items` associated with it. The fields that are
-   provided for an `item` vary based on the service type. For example, GCS
-   bucket items provide `project` and `bucket` whereas BigQuery items provide
-   `project` and `table`.
-*  Some `item` fields are required and others are optional. Each service type
-   that DAM supports also publishes a `service descriptor` indicating what
-   fields its `items` understand, and which of those fields are optional.
-
-For example, one `view` of a `resource` may contain two GCS bucket `items` and
-another `view` of that same resource may contain three BigQuery table `items`.
-
-Each `view` publishes a set of available `roles`:
-
-*  Each `role` indicates a different access level on the data.
-*  Each `role` provides a different set of policies that the user must meet in
-   order to gain access to that role.
-   * Users typically meet policy criteria by presenting a set of Passport Visas
-     that prove that the criteria have been met.
-   * DAM also provides an email address allowlist mechanism to allow a small
-     set of users to share data in the prepublication phase of a dataset before
-     visas have been established.
-   * Allowlists and visas cannot be used within the same set of policies on a
-     view of the data.
-*  For example, a view can publish three roles: `beacon`, `viewer`, and
-   `editor`.
-   *  `beacon` could represent a GA4GH Beacon discovery service that provides a
-       way for users to discover if particular genomic variants are present
-       within a dataset with low-risk of exposing PHI, yet still limit the use
-       of this service to qualified Registered Access bona fide researchers.
-   *  `viewer` could represent read access to the bytes of all items within the
-      view.
-   *  `editor` could represent read/write access to the items within the view.
-*  In advanced configurations, `service templates` can be edited to expose
-   various roles for any given service type. Service templates do the work of
-   taking a role like `viewer` and mapping it to roles on the underlying cloud
-   platform that stores the data.
-
-Cloud services, represented by the `service template`, may expose a set of
-`interfaces` for the user to select:
-
-*  Each `interface` represents a protocol or other mechanism to access the data.
-*  For example, the `gcs` service template exposes two interfaces:
-   1.  `gcp:gs` for using the GCS `gsutil` command line tool.
-   1.  `http:gcp:gs` for using the GCS RESTful API.
-
 ## Auth Details for Requesting Access to Resources
 
 Much like described in the
