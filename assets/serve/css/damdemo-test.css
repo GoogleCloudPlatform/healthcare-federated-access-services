@@ -126,14 +126,26 @@ pre {
   margin: 10px 10px;
   padding: 5px 5px;
   border: 1px solid red;
-  background: lightpink;
+  border-radius: 7px;
+  background: #ffe0e0;
   color: red;
+  position: fixed;
+  top: 0px;
+  width: calc(100% - 50px);
 }
 .error {
   margin: 5px 10px;
   padding: 5px 5px;
   border-bottom: 1px solid red;
   font-weight: bold;
+}
+.error-close {
+  position: absolute;
+  top: 0px;
+  right: 5px;
+  font-size: 2em;
+  cursor: pointer;
+  color: #666;
 }
 .error-desc, .error-hint {
   padding: 5px 5px;
@@ -166,4 +178,8 @@ pre {
 }
 .float-left {
   float: left;
+}
+.more-btn {
+  color: blue;
+  cursor: pointer;
 }

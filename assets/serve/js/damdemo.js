@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-let clientId = '903cfaeb-57d9-4ef6-5659-04377794ed65';
-let clientSecret = '48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab';
+let winParams = new URLSearchParams(window.location.search);
+let clientId =
+    winParams.get('client_id') || '903cfaeb-57d9-4ef6-5659-04377794ed65';
+let clientSecret =
+    winParams.get('client_secret') || '48f7e552-d9b7-42f3-ba76-e5ab5b3c70ab';
 let scope = 'openid+offline';
 let identitiesScope = 'openid+offline+identities';
-let loginURL = '_HYDRA_URL_/oauth2/auth?audience=&client_id=' + clientId +
+let loginURL = '_HYDRA_URL_/oauth2/auth?audience=&client_id=_CLIENT-ID_' +
     '&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=' + scope +
     '&state=_STATE_&max_age=_MAX_AGE_&resource=_RESOURCES_';
 let loginIdentitiesURL =
-    '_HYDRA_URL_/oauth2/auth?audience=&client_id=' + clientId +
+    '_HYDRA_URL_/oauth2/auth?audience=&client_id=_CLIENT-ID_' +
     '&nonce=_NONCE_&redirect_uri=_REDIRECT_&response_type=code&scope=' +
     identitiesScope + '&state=_STATE_';
 let tokenURL = '_HYDRA_URL_/oauth2/token';
@@ -31,16 +34,20 @@ let authCodeExchangeToken =
 let refreshExchangeToken =
     'grant_type=refresh_token&redirect_uri=_REDIRECT_&refresh_token=_REFRESH_TOKEN_';
 let resourcesURL =
-    '_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id=' + clientId +
-    '&client_secret=' + clientSecret;
+    '_DAM_URL_/dam/v1alpha/_REALM_/resources?client_id=_CLIENT-ID_' +
+    '&client_secret=_CLIENT-SECRET_';
 let resourceURL =
     '_DAM_URL_/dam/_REALM_/resources/_RESOURCE_/views/_VIEW_/roles/_ROLE_/interfaces/_INTERFACE_';
 let resources = {};
-let checkoutURL = '_DAM_URL_/dam/checkout?client_id=' + clientId +
-    '&client_secret=' + clientSecret;
+let checkoutURL = '_DAM_URL_/dam/checkout?client_id=_CLIENT-ID_' +
+    '&client_secret=_CLIENT-SECRET_';
 let refreshToken = '';
-let accountURL = '_DAM_URL_/identity/scim/v2/_REALM_/Me?client_id=' + clientId +
-    '&client_secret=' + clientSecret;
+let accountURL = '_DAM_URL_/identity/scim/v2/_REALM_/Me?client_id=_CLIENT-ID_' +
+    '&client_secret=_CLIENT-SECRET_';
+let apiRelativePathURL = '_DAM_URL_/dam/v1alpha/_REALM_/_API-PATH_?client_id=' +
+    '_CLIENT-ID_&client_secret=_CLIENT-SECRET_';
+let apiAbsolutePathURL = '_DAM_URL__API-PATH_?client_id=_CLIENT-ID_' +
+    '&client_secret=_CLIENT-SECRET_';
 
 /**
  * validateState ...
@@ -65,6 +72,10 @@ function validateState(stateID) {
             s.id}`,
         `app maybe under attack.`);
     return false;
+  }
+  if (s.clientId) {
+    clientId = s.clientId;
+    clientSecret = s.clientSecret;
   }
 
   window.localStorage.removeItem('state');
@@ -127,6 +138,7 @@ function makeURL(pattern, token, params, state, resources) {
     }
   }
   return pattern.replace(/_PATH_/g, encodeURI(path))
+      .replace(/_API-PATH_/g, $('#api_path').val() || '') // do not escape path
       .replace(/_AUTH_CODE_/g, encodeURIComponent(token))
       .replace(/_REFRESH_TOKEN_/g, encodeURIComponent(token))
       .replace(/_REALM_/g, encodeURIComponent(realm))
@@ -142,7 +154,9 @@ function makeURL(pattern, token, params, state, resources) {
       .replace(/_STATE_/g, state)
       .replace(/_NONCE_/g, state)
       .replace(/_RESOURCES_/g, resEncoded)
-      .replace(/_RESOURCE_/g, encodeURIComponent($('#resource_name').val()));
+      .replace(/_RESOURCE_/g, encodeURIComponent($('#resource_name').val()))
+      .replace(/_CLIENT-ID_/g, encodeURIComponent(clientId))
+      .replace(/_CLIENT-SECRET_/g, encodeURIComponent(clientSecret));
 }
 
 /**
@@ -154,6 +168,10 @@ function auth() {
   let stateID = randomString(16);
   let state = new Object();
   state.id = stateID;
+  if (winParams.get('client_id')) {
+    state.clientId = clientId;
+    state.clientSecret = clientSecret;
+  }
   let u = loginURL;
 
   if (type === 'dataset') {
@@ -212,7 +230,7 @@ function tokenExchange() {
  */
 function refresh() {
   if (!refreshToken) {
-    $('#log').text('must login first...');
+    displayError('must login first...');
     return;
   }
   let url = makeURL(tokenURL);
@@ -243,7 +261,7 @@ function refresh() {
 function accountInfo() {
   let tok = $('#token').text();
   if (!tok) {
-    $('#log').text('must login first...');
+    displayError('must login first...');
     return;
   }
   let url = makeURL(accountURL);
@@ -269,7 +287,7 @@ function accountInfo() {
 function cartTokens() {
   let token = $('#token').text();
   if (!token) {
-    $('#log').text('must authorize resources first...');
+    displayError('must authorize resources first...');
     return;
   }
   let url = makeURL(checkoutURL);
@@ -277,7 +295,7 @@ function cartTokens() {
     url: url,
     type: 'POST',
     beforeSend: function(xhr) {
-      xhr.setRequestHeader('Authorization', 'bearer ' + token);
+      xhr.setRequestHeader('Authorization', 'Bearer ' + token);
     },
     success: function(resp) {
       cart = resp;
@@ -347,6 +365,7 @@ function setupResources() {
  */
 function populateDropdown(id, values) {
   let html = '';
+  values = values || [];
   for (let i = 0; i < values.length; i++) {
     html += `<option val="${values[i]}">${values[i]}</option>`;
   }
@@ -540,6 +559,91 @@ function browseDataset(index) {
 }
 
 /**
+ * apiAjax
+ * @param {string} method
+ * @param {string} payload
+ * @param {string} outputId
+ */
+function apiAjax(method, payload, outputId) {
+  let tok = $('#token').text();
+  if (!tok) {
+    displayError('must login first...');
+    return;
+  }
+  let path = $(`#api_path`).val() || "";
+  let url = path.startsWith("/")
+      ? makeURL(apiAbsolutePathURL) : makeURL(apiRelativePathURL);
+  $.ajax({
+    url: url,
+    type: method,
+    beforeSend: function(xhr) {
+      xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
+    },
+    contentType: "application/json",
+    data: payload || "",
+    success: function(resp) {
+      var json = JSON.stringify(resp, undefined, 2);
+      displaySuccess(json);
+      if (outputId) {
+        document.getElementById(outputId).value = cfg;
+      }
+    },
+    error: function(err) {
+      displayError(
+          'API endpoint failed', path, JSON.stringify(err, undefined, 2));
+    }
+  });
+}
+
+/**
+ * API GET
+ */
+function apiGet() {
+  apiAjax("GET");
+}
+
+/**
+ * API Modify
+ * @param {string} method : optional (default "POST")
+ */
+function apiModify(method) {
+  method = method || "POST";
+  let payload = document.getElementById('api_payload').value.trim();
+  if (!payload) {
+    displayError("must first fill out data payload");
+    return;
+  }
+  let realm = $('#realm').val() || 'master';
+  if (realm == 'master') {
+    displayError("posting changes to the 'master' realm not supported");
+    return;
+  }
+  // sets the outputId to the payload area to make it easier to reuse.
+  apiAjax(method, payload, "api_payload");
+}
+
+/**
+ * API PUT
+ */
+function apiPut() {
+  apiModify("PUT");
+}
+
+/**
+ * API PATCH
+ */
+function apiPatch() {
+  apiModify("PATCH");
+}
+
+/**
+ * API DELETE
+ */
+function apiDelete() {
+  apiAjax("DELETE");
+}
+
+/**
  * reveal element
  * @param {element!} elem
  */
@@ -561,23 +665,35 @@ function debugJWT(selector) {
  * initPage ...
  */
 function initPage() {
-  let params = new URLSearchParams(window.location.search);
-  let code = params.get('code');
+  let code = winParams.get('code');
   if (code) {
     $('#auth_code').text(code);
     $('#auth_code_div').addClass('available');
   }
   populateResources();
-  let error = params.get('error');
+  let error = winParams.get('error');
   if (error) {
     displayError(
-        error, params.get('error_description'), params.get('error_hint'));
+        error, winParams.get('error_description'), winParams.get('error_hint'));
   }
-  if (validateState(params.get('state'))) {
+  if (validateState(winParams.get('state'))) {
     code && tokenExchange();
     window.history.replaceState({}, document.title, makeURL('_PATH_'));
   }
   resourceListChanged();
+  let dam = winParams.get('dam_url');
+  if (dam) {
+    $('#dam_url').val(dam);
+    $('#hydra_url').val(dam);
+  }
+  let loginType = winParams.get('login_type');
+  if (loginType) {
+    $('#token_type').val(loginType);
+  }
+  let realm = winParams.get('realm');
+  if (realm) {
+    $('#realm').val(realm);
+  }
 }
 
 /**
@@ -608,6 +724,19 @@ function init() {
   document.getElementById('cart-btn').onclick = cartTokens;
   document.getElementById('refresh').onclick = refresh;
   document.getElementById("account-info").onclick = accountInfo;
+
+  document.getElementById("api-get").onclick = apiGet;
+  document.getElementById("api-post").onclick = apiModify;  // default: POST
+  document.getElementById("api-put").onclick = apiPut;
+  document.getElementById("api-patch").onclick = apiPatch;
+  document.getElementById("api-delete").onclick = apiDelete;
+  $(`.more-btn`).click(function(e) {
+    let toggle = $(e.delegateTarget).attr("data-toggle");
+    let hide = $(`#${toggle}`).toggleClass("hidden").hasClass("hidden");
+    let arrow = hide ? '\u25B2' : '\u25BC';
+    $(e.delegateTarget).children(`.arrow`).text(arrow);
+  });
+  document.getElementById("error_close").onclick = clearError;
 }
 
 window.onload = init;

@@ -24,6 +24,7 @@
     <h1>DAM Test Page</h1>
     <div id="error_info" class="error-info hidden">
       <div id="error" class="error"></div>
+      <div id="error_close" class="error-close">&times;</div>
       <div id="error_desc" class="error-desc"></div>
       <div id="error_hint" class="error-hint"></div>
     </div>
@@ -72,8 +73,20 @@
         <a id="refresh" class="btn black">Refresh Token</a>
         <a class="btn black" id="account-info">Account Info</a>
       </div>
+      <div class="more-btn" data-toggle="more">more <span class="arrow">&#x25B2;</span></div>
     </div>
-
+    <div id="more" class="box hidden">
+      <h3>4. DAM API (using realm from above)</h3>
+      <input id="api_path" class="full-width" value="config" placeholder="relative API path">
+      <textarea id="api_payload" class="full-width" value="" rows="2" placeholder="payload"></textarea>
+      <div>
+        <a id="api-get" class="btn blue">GET</a>
+        <a id="api-post" class="btn black">POST</a>
+        <a id="api-put" class="btn white">PUT</a>
+        <a id="api-patch" class="btn white">PATCH</a>
+        <a id="api-delete" class="btn red">DELETE</a>
+      </div>
+    </div>
     <pre id="log"></pre>
   </body>
 </html>
