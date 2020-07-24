@@ -2,7 +2,11 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.8...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.9...HEAD)
+
+## [v0.9.9](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.9)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.8...v0.9.9)
 
 **Highlight Updates**
 
