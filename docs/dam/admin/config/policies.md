@@ -13,6 +13,110 @@ of policies is not a concern.
 This section will be discussing the **Enforce Access** mechanism provided by
 the Data Access Manager (DAM).
 
+## Introduction to Policies
+
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/access_policy_evaluation.png" width="1000px">
+
+Policies place requirements on Passport Visa fields in order to met access
+requirements for one or more [resources](resources.md) configured in the DAM.
+The DAM takes care of enforcing several basic [visa
+fields](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-visa-fields),
+such as visa expiry, leaving [four main fields](#policy-condition-fields) for
+policies to add data or service access requirements.
+
+*  A policy condition will instruct DAM's policy engine to find **one** valid
+   visa that meets all four field requirements.
+*  If the DAM cannot find a valid visa that matches a policy condition, or if
+   the issuer is not trusted, the request for access will be denied.
+*  Policies can contain multiple conditions that all must be met via various
+   visas within the same passport.
+   *  **Example**: researcher must have `Bona Fide` status on one visa **AND**
+      must have proof of signing off on a `Confidentiality Agreement` on another
+      visa.
+*  Policies can also encode more than one combination of conditions as
+   "alternative" ways to meet the policy
+   *  **Example**: researcher must meet **one** of the following sets of
+      requirements:
+      *  **Option A**: person must be researcher affiliated with `Institute A`.
+
+      **OR**
+
+      *  **Option B**: researcher must have `Bona Fide` status on one visa
+         **AND** must have proof of signing off on a `Confidentiality Agreement`
+         on another visa.
+
+### Policy Condition Fields
+
+1. **Visa Type**: Represents the meaning of what the visa is asserting, as well
+   as specifying how policies are to interpet the `value` field of the visa.
+   *  For example, an [AffilationAndRole Visa
+      Type](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#affiliationandrole)
+      expects a `value` format of `<role-name>@<affiliation-org-domain>` whereas
+      a [ControlledAccessGrants Visa
+      Type](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#controlledaccessgrants)
+      expects a `value` to be a URI that uniquely identifies the resource
+      (dataset, service, etc).
+   *  See the [GA4GH Passport spec Visa Type
+      definition](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-visa-type)
+      for more details.
+   *  See the [GA4GH Passport spec list of Standard Visa
+      Types](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#ga4gh-standard-passport-visa-type-definitions).
+   *  You may also define your own [Custom Visa
+      Types](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#custom-passport-visa-types)
+      and use them in your policies. However, you must first add them to the DAM
+      using the [Visa Type Configuration](visa-types.md) settings.
+
+1. **Source** (a.k.a. Source Organization Identifier): A URI that uniquely
+   identifies the organization that made the visa assertion. This is the "source
+   of authority" for the visa, which may be different in some cases from the
+   issuer of the visa itself.
+   *  For example:
+      *  Elixir AAI may issue visas and thus be the issuer (i.e. the `iss`
+         claim) for the visa as the infrastructure that has packaged up the visa
+         and assures it is accurately represented.
+      *  An institution on the EduGAIN network, call it "Institution A", may
+         store information about the user and inform Elixir AAI about the role
+         and affiliation of the user.
+      *  In this case, the visa issuer is ``, representing Elixir AAI, whereas
+         the `source` in the visa is something like ``, representing
+         "Institution A".
+   *  When instutitions issue their own visas, not just provide out-of-band data
+      to another visa issuer service, then the issuer and the source may be the
+      same URI string.
+      *  However, it is also possible that the `source` may be a canonical
+         identifier for the institution (which ideally does not change over
+         time) whereas the "issuer" string is the specific software service that
+         is being used at present, so institutions may opt to use a different
+         `source` string than they use for the "issuer" string of the token.
+      *  Therefore policies should not automatically assume that `source` and
+         `issuer` are the same strings, even in cases where institutions issue
+         their own visas. It is recommended that documentation is used to
+         determine what the appropriate `source` string should be.
+
+1. **By**: This is a GA4GH fixed-vocabulary role name for the person or system
+   that is the source of the authorization within the `source` organization that
+   is asserting the visa information.
+   *  This field is optional on some visa types, and required on others.
+   *  See the [GA4GH Passport By Field
+   Definition](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#by)
+      to understand the meaning of each role.
+
+1. **Value**: A string that represents any of the scope, process, identifier and
+   version of the assertion.
+   *  The format of the string can vary by the Passport Visa Type.
+   *  In general, this field represents the "**what**" of the visa assertion.
+      *  **AffilationAndRole** visa type: `value` is "what role and affilation".
+      *  **AcceptedTermsAndPolicies** visa type: `value` is "what document the
+         user or organization acknowledged or agreed to".
+      *  **ResearcherStatus** visa type: `value` is "what standard of researcher
+         this user mets".
+      *  **ControlledAccessGrants** visa type: `value` is "what service or
+         dataset the user has been granted access to".
+      *  **LinkedIdentities** visa type: `value` is "what other identities or
+         email addresses the user is also known by".
+   *  See examples under **Visa Type** entry above to better understand how the
+      format of the value is to be interpreted based on visa type.
+
 ## Simple Policies
 
 To consider a simple policy, assume that there is only qualification needed to
@@ -85,6 +189,43 @@ your policy afterwards.
       met will be suffient to allow access.
    *  That is, clauses specify different sets of requirements that each by
       themselves is enough to achieve access when met.
+
+## Allowlist Policy
+
+DAM supports an `allowlist` policy to directly add email addresses and group
+names in leu of more specific Passport Visas. This policy is buit in to DAM
+and does not require any editing of the policy as described above for other
+policies.
+
+Use cases:
+1. This policy is particularly handy in pre-publication use cases because
+   several researchers need to collaborate as part of building and curating a
+   dataset and no Data Access Committee (DAC) to define and assert visas on
+   behalf of this dataset while under development.
+1. Once datasets are published for secondary use, such datasets may use DAM
+   directly as part of the Data Access Committee approval by adding members to a
+   group specific for a given dataset.
+   *  Useful if the Data Controller does not already have other infrastructure
+      to issue ControlledAccessGrants visas.
+   *  Appropriate up to 1000 users being listed, if backups and DAM user and
+      group import/export infrastructure is developed to ensure that disaster
+      recovery does not lose the set of users allowed.
+
+Details on how it works:
+*  It provides a way to specify a set of users who should have access to a
+   resource.
+*  The policy exposes two variables that are populated as part of setting up a
+   [role within a resource view](resources.md#role-based-access-policies):
+   *  `users`: a set of user email addresses
+   *  `groups`: a set of group names that each contain a set of user email
+      addresses.
+*  When using the policy within a role, you may specify one or both variables
+   to make a combination of individual users as well as groups of users who
+   should have access.
+*  The policy makes use of the [Linked Identities
+   visa](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#linkedidentities)
+   to match user email addresses or determine group membership for the user.
+*  This policy cannot be edited or removed.
 
 ## Managing Multiple Similar Policies
 

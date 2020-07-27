@@ -136,10 +136,6 @@ within resource views.
    <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/tiers_of_access.png" width="800px">
 1. Most policies use GA4GH Passport Visas as evidence of meeting policy
    requirements.
-1. DAM also supports an `allowlist` policy to directly add email addresses and
-   group names in leu of Passport Visas.
-   *  This is particularly handy in pre-publication use cases because several
-      researchers need to collaborate as part of building and curating a
-      dataset.
-   *  Custom datasets may use DAM directly as part of the Data Access Committee
-      approval by adding members to a group specific for a given dataset.
+1. DAM supports an `allowlist` policy to directly add email addresses and
+   group names in leu of more specific Passport Visas. See the [Allowlist Policy
+   documentation](policies.md#allowlist-policy) for more details.
