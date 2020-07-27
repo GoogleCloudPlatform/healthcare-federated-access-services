@@ -47,13 +47,7 @@
     }
   },
   "options": {
-    "accountNameLength": 25,
     "readOnlyMasterRealm": true,
-    "authCodeTokenTtl": "5m",
-    "accessTokenTtl": "1d",
-    "refreshTokenTtl": "180d",
-    "defaultPassportTokenTtl": "1d",
-    "maxPassportTokenTtl": "1d",
     "claimTtlCap": "9125d"
   }
 }

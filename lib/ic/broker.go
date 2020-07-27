@@ -33,6 +33,10 @@ import (
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/ic/v1" /* copybara-comment: go_proto */
 )
 
+const (
+	accountNameLength = 30
+)
+
 type clientLoginPageArgs struct {
 	AssetDir     string
 	Instructions string
@@ -344,9 +348,8 @@ func (s *Service) finishLogin(id *ga4gh.Identity, stateID string, state *cpb.Log
 		}
 	} else {
 		// Create an account for the identity automatically.
-		genlen := getIntOption(cfg.Options.AccountNameLength, descAccountNameLength)
 		accountPrefix := "ic_"
-		acct, lookup, err := scim.NewAccount(r.Context(), s.encryption, id, state.Provider, accountPrefix, genlen)
+		acct, lookup, err := scim.NewAccount(r.Context(), s.encryption, id, state.Provider, accountPrefix, accountNameLength)
 		if err != nil {
 			return nil, err
 		}

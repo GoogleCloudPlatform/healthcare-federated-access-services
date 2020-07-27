@@ -45,8 +45,6 @@ import (
 
 const (
 	maxResourceStateSeconds = 300
-
-	// TODO: should create a config option for this.
 	accountNameLength = 30
 )
 
