@@ -149,11 +149,17 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(token, "opaque:") {
 		sub = strings.TrimPrefix(token, "opaque:")
 	} else {
+		if err := ga4gh.VerifyTokenWithKey(s.key.Public, token); err != nil {
+			httputils.WriteError(w, status.Errorf(codes.Unauthenticated, "invalid token: %v", err))
+			return
+		}
+
 		src, err := ga4gh.ConvertTokenToIdentityUnsafe(token)
 		if err != nil {
 			httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "invalid Authorization token"))
 			return
 		}
+
 		sub = src.Subject
 	}
 

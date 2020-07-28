@@ -117,13 +117,15 @@ type Checker struct {
 	// init the verifier.AccessTokenVerifier
 	init sync.Once
 	// access token verifier
-	verifier *verifier.AccessTokenVerifier
+	verifier verifier.AccessTokenVerifier
+	// use userinfo instead of the token itself to verify access token.
+	useUserinfoVerifyToken bool
 }
 
-func (s *Checker) getVerifier(ctx context.Context) (*verifier.AccessTokenVerifier, error) {
+func (s *Checker) getVerifier(ctx context.Context) (verifier.AccessTokenVerifier, error) {
 	var err error
 	s.init.Do(func() {
-		s.verifier, err = verifier.NewAccessTokenVerifier(ctx, s.issuer)
+		s.verifier, err = verifier.NewAccessTokenVerifier(ctx, s.issuer, s.useUserinfoVerifyToken)
 	})
 
 	if err != nil {
@@ -140,13 +142,14 @@ func (s *Checker) getVerifier(ctx context.Context) (*verifier.AccessTokenVerifie
 // permissions: contains method to check if user admin permission.
 // fetchClientSecrets: fetches client id and client secret.
 // transformIdentity: transform as needed, will run just after token convert to identity.
-func NewChecker(logger *logging.Client, issuer string, permissions *permissions.Permissions, fetchClientSecrets func() (map[string]string, error), transformIdentity func(*ga4gh.Identity) *ga4gh.Identity) *Checker {
+func NewChecker(logger *logging.Client, issuer string, permissions *permissions.Permissions, fetchClientSecrets func() (map[string]string, error), transformIdentity func(*ga4gh.Identity) *ga4gh.Identity, useUserinfoVerifyToken bool) *Checker {
 	return &Checker{
 		logger:             logger,
 		issuer:             issuer,
 		permissions:        permissions,
 		fetchClientSecrets: fetchClientSecrets,
 		transformIdentity:  transformIdentity,
+		useUserinfoVerifyToken: useUserinfoVerifyToken,
 	}
 }
 
@@ -410,12 +413,12 @@ func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identit
 }
 
 // verifyToken oidc spec verfiy token.
-func verifyToken(ctx context.Context, v *verifier.AccessTokenVerifier, tok, iss, clientID string, allowIssuerInAudAndAzp, allowAzp bool) error {
+func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, tok, iss, clientID string, allowIssuerInAudAndAzp, allowAzp bool) error {
 	issuerInAudAndAzp := iss
 	if !allowIssuerInAudAndAzp {
 		issuerInAudAndAzp = ""
 	}
-	err := v.Verify(ctx, tok, verifier.AccessTokenOption(clientID, issuerInAudAndAzp, allowAzp))
+	err := v.Verify(ctx, tok, nil, verifier.AccessTokenOption(clientID, issuerInAudAndAzp, allowAzp))
 	if err == nil {
 		return nil
 	}

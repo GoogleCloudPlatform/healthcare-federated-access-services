@@ -48,13 +48,14 @@ import (
 const (
 	issuerURL = "https://oidc.example.com/"
 
-	verifierErrParseFailed      = "token:parse_failed"
-	verifierErrSubMissing       = "token:sub_missing"
-	verifierErrIssuerNotMatch   = "token:issuer_not_match"
-	verifierErrInvalidSignature = "token:invalid_signature"
-	verifierErrInvalidAudience  = "token:invalid_aud"
-	verifierErrExpired          = "token:expired"
-	verifierErrFutureToken      = "token:future_token"
+	verifierErrParseFailed          = "token:parse_failed"
+	verifierErrSubMissing           = "token:sub_missing"
+	verifierErrIssuerNotMatch       = "token:issuer_not_match"
+	verifierErrInvalidSignature     = "token:invalid_signature"
+	verifierErrInvalidAudience      = "token:invalid_aud"
+	verifierErrExpired              = "token:expired"
+	verifierErrFutureToken          = "token:future_token"
+	verifierErrUserinfoInvalidToken = "token:userinfo_invalid_token"
 )
 
 var (
@@ -71,323 +72,180 @@ var (
 )
 
 func Test_LargeBody(t *testing.T) {
-	router, oidc, _, _, _, close := setup(t)
-	defer close()
-	// Build a big http body
-	sb := strings.Builder{}
-	for i := 0; i < maxHTTPBody+10; i++ {
-		sb.WriteString("a")
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, _ := setup(t, param)
 
-	resp := sendRequest(http.MethodPost, "/norequirement", "", "", "", "", sb.String(), router, oidc)
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusBadRequest)
-	}
+		// Build a big http body
+		sb := strings.Builder{}
+		for i := 0; i < maxHTTPBody+10; i++ {
+			sb.WriteString("a")
+		}
+
+		resp := sendRequest(http.MethodPost, "/norequirement", "", "", "", "", sb.String(), router, oidc)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusBadRequest)
+		}
+	})
 }
 
 func Test_LargeBody_Log(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
-	// Build a big http body
-	sb := strings.Builder{}
-	for i := 0; i < maxHTTPBody+10; i++ {
-		sb.WriteString("a")
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
 
-	sendRequest(http.MethodPost, "/norequirement", "", "", "", "", sb.String(), router, oidc)
+		router, oidc, _, _, logs := setup(t, param)
+		// Build a big http body
+		sb := strings.Builder{}
+		for i := 0; i < maxHTTPBody+10; i++ {
+			sb.WriteString("a")
+		}
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{errBodyTooLarge}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		sendRequest(http.MethodPost, "/norequirement", "", "", "", "", sb.String(), router, oidc)
+
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{errBodyTooLarge}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_ErrorAtClientSecret(t *testing.T) {
-	for path, require := range handlers {
-		t.Run(path, func(t *testing.T) {
-			router, oidc, service, _, _, close := setup(t)
-			defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		for path, require := range handlers {
+			t.Run(path, func(t *testing.T) {
+				router, oidc, service, _, _ := setup(t, param)
 
-			service.fetchClientSecrets = func() (map[string]string, error) {
-				return nil, status.Error(codes.Unavailable, "Unavailable")
-			}
+				service.fetchClientSecrets = func() (map[string]string, error) {
+					return nil, status.Error(codes.Unavailable, "Unavailable")
+				}
 
-			resp := sendRequest(http.MethodGet, path, "", "", "", "", "", router, oidc)
-			if !require.ClientID {
-				if resp.StatusCode != http.StatusOK {
-					t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusOK)
+				resp := sendRequest(http.MethodGet, path, "", "", "", "", "", router, oidc)
+				if !require.ClientID {
+					if resp.StatusCode != http.StatusOK {
+						t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusOK)
+					}
+				} else {
+					if resp.StatusCode != http.StatusServiceUnavailable {
+						t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusServiceUnavailable)
+					}
 				}
-			} else {
-				if resp.StatusCode != http.StatusServiceUnavailable {
-					t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusServiceUnavailable)
-				}
-			}
-		})
-	}
+			})
+		}
+	})
 }
 
 func Test_ErrorAtClientSecret_Log(t *testing.T) {
-	for path, require := range handlers {
-		t.Run(path, func(t *testing.T) {
-			router, oidc, service, _, logs, close := setup(t)
-			defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		for path, require := range handlers {
+			t.Run(path, func(t *testing.T) {
+				router, oidc, service, _, logs := setup(t, param)
 
-			service.fetchClientSecrets = func() (map[string]string, error) {
-				return nil, status.Error(codes.Unavailable, "Unavailable")
-			}
+				service.fetchClientSecrets = func() (map[string]string, error) {
+					return nil, status.Error(codes.Unavailable, "Unavailable")
+				}
 
-			sendRequest(http.MethodGet, path, "", "", "", "", "", router, oidc)
-			if !require.ClientID {
-				ets := errTypesFromLogs(logs)
-				wantErrType := []errType{""}
-				if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-					t.Errorf("error_type (-want +got): %s", diff)
+				sendRequest(http.MethodGet, path, "", "", "", "", "", router, oidc)
+				if !require.ClientID {
+					ets := errTypesFromLogs(logs)
+					wantErrType := []errType{""}
+					if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+						t.Errorf("error_type (-want +got): %s", diff)
+					}
+				} else {
+					ets := errTypesFromLogs(logs)
+					wantErrType := []errType{errClientUnavailable}
+					if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+						t.Errorf("error_type (-want +got): %s", diff)
+					}
 				}
-			} else {
-				ets := errTypesFromLogs(logs)
-				wantErrType := []errType{errClientUnavailable}
-				if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-					t.Errorf("error_type (-want +got): %s", diff)
-				}
-			}
-		})
-	}
+			})
+		}
+	})
 }
 
 func Test_RequiresClientID(t *testing.T) {
-	router, oidc, _, stub, _, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, stub, _ := setup(t, param)
 
-	resp := sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
-	want := "GET /clientidonly"
-	if stub.message != want {
-		t.Errorf("stub.message=%q wants %q", stub.message, want)
-	}
+		resp := sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
+		want := "GET /clientidonly"
+		if stub.message != want {
+			t.Errorf("stub.message=%q wants %q", stub.message, want)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
-	}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+		}
+	})
 }
 
 func Test_RequiresClientID_Log(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, logs := setup(t, param)
 
-	sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
+		sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{""}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{""}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_RequiresClientID_Error(t *testing.T) {
-	tests := []struct {
-		name     string
-		clientID string
-	}{
-		{
-			name: "no clientID",
-		},
-		{
-			name:     "clientID invalid",
-			clientID: "invalid",
-		},
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		tests := []struct {
+			name     string
+			clientID string
+		}{
+			{
+				name: "no clientID",
+			},
+			{
+				name:     "clientID invalid",
+				clientID: "invalid",
+			},
+		}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			router, oidc, _, _, _, close := setup(t)
-			defer close()
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				router, oidc, _, _, _ := setup(t, param)
 
-			resp := sendRequest(http.MethodGet, "/clientidonly", tc.clientID, "", "", "", "", router, oidc)
-			if resp.StatusCode != http.StatusUnauthorized {
-				t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
-			}
-		})
-	}
-}
-
-func Test_RequiresClientID_Error_Log(t *testing.T) {
-	tests := []struct {
-		name     string
-		clientID string
-		et       errType
-	}{
-		{
-			name: "no clientID",
-			et:   errClientMissing,
-		},
-		{
-			name:     "clientID invalid",
-			clientID: "invalid",
-			et:       errClientInvalid,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			router, oidc, _, _, logs, close := setup(t)
-			defer close()
-
-			resp := sendRequest(http.MethodGet, "/clientidonly", tc.clientID, "", "", "", "", router, oidc)
-			if resp.StatusCode != http.StatusUnauthorized {
-				t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
-			}
-
-			ets := errTypesFromLogs(logs)
-			wantErrType := []errType{tc.et}
-			if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-				t.Errorf("error_type (-want +got): %s", diff)
-			}
-		})
-	}
-}
-
-func Test_RequiresClientSecret(t *testing.T) {
-	router, oidc, _, stub, _, close := setup(t)
-	defer close()
-
-	resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
-	want := "GET /clientsecret"
-	if stub.message != want {
-		t.Errorf("stub.message=%q wants %q", stub.message, want)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
-	}
-}
-
-func Test_RequiresClientSecret_Log(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
-
-	sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
-
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{""}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
-}
-
-func Test_RequiresClientSecret_Error(t *testing.T) {
-	tests := []struct {
-		name         string
-		clientSecret string
-	}{
-		{
-			name: "no clientSecret",
-		},
-		{
-			name:         "clientSecret no match",
-			clientSecret: "invalid",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			router, oidc, _, _, _, close := setup(t)
-			defer close()
-
-			resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, tc.clientSecret, "", "", "", router, oidc)
-			if resp.StatusCode != http.StatusUnauthorized {
-				t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
-			}
-		})
-	}
-}
-
-func Test_RequiresClientSecret_Error_Log(t *testing.T) {
-	tests := []struct {
-		name         string
-		clientSecret string
-	}{
-		{
-			name: "no clientSecret",
-		},
-		{
-			name:         "clientSecret no match",
-			clientSecret: "invalid",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			router, oidc, _, _, logs, close := setup(t)
-			defer close()
-
-			sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, tc.clientSecret, "", "", "", router, oidc)
-
-			ets := errTypesFromLogs(logs)
-			wantErrType := []errType{errSecretMismatch}
-			if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-				t.Errorf("error_type (-want +got): %s", diff)
-			}
-		})
-	}
-}
-
-func Test_RequiresToken_Error(t *testing.T) {
-	tests := []struct {
-		name string
-		tok  string
-	}{
-		{
-			name: "no token",
-		},
-		{
-			name: "not a jwt",
-			tok:  "invalid",
-		},
-	}
-
-	paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
-
-	for _, tc := range tests {
-		for _, p := range paths {
-			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, _, close := setup(t)
-				defer close()
-
-				resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tc.tok, "", "", router, oidc)
+				resp := sendRequest(http.MethodGet, "/clientidonly", tc.clientID, "", "", "", "", router, oidc)
 				if resp.StatusCode != http.StatusUnauthorized {
 					t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
 				}
 			})
 		}
-	}
+	})
 }
 
-func Test_RequiresToken_Error_Log(t *testing.T) {
-	tests := []struct {
-		name string
-		tok  string
-		et   errType
-	}{
-		{
-			name: "no token",
-			et:   errIDVerifyFailed,
-		},
-		{
-			name: "not a jwt",
-			tok:  "invalid",
-			et:   verifierErrParseFailed,
-		},
-	}
+func Test_RequiresClientID_Error_Log(t *testing.T) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		tests := []struct {
+			name     string
+			clientID string
+			et       errType
+		}{
+			{
+				name: "no clientID",
+				et:   errClientMissing,
+			},
+			{
+				name:     "clientID invalid",
+				clientID: "invalid",
+				et:       errClientInvalid,
+			},
+		}
 
-	paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				router, oidc, _, _, logs := setup(t, param)
 
-	for _, tc := range tests {
-		for _, p := range paths {
-			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, logs, close := setup(t)
-				defer close()
-
-				sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tc.tok, "", "", router, oidc)
+				resp := sendRequest(http.MethodGet, "/clientidonly", tc.clientID, "", "", "", "", router, oidc)
+				if resp.StatusCode != http.StatusUnauthorized {
+					t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
+				}
 
 				ets := errTypesFromLogs(logs)
 				wantErrType := []errType{tc.et}
@@ -396,74 +254,242 @@ func Test_RequiresToken_Error_Log(t *testing.T) {
 				}
 			})
 		}
-	}
+	})
+}
+
+func Test_RequiresClientSecret(t *testing.T) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, stub, _ := setup(t, param)
+
+		resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
+		want := "GET /clientsecret"
+		if stub.message != want {
+			t.Errorf("stub.message=%q wants %q", stub.message, want)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+		}
+	})
+}
+
+func Test_RequiresClientSecret_Log(t *testing.T) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, logs := setup(t, param)
+
+		sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
+
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{""}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
+}
+
+func Test_RequiresClientSecret_Error(t *testing.T) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		tests := []struct {
+			name         string
+			clientSecret string
+		}{
+			{
+				name: "no clientSecret",
+			},
+			{
+				name:         "clientSecret no match",
+				clientSecret: "invalid",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				router, oidc, _, _, _ := setup(t, param)
+
+				resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, tc.clientSecret, "", "", "", router, oidc)
+				if resp.StatusCode != http.StatusUnauthorized {
+					t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
+				}
+			})
+		}
+	})
+}
+
+func Test_RequiresClientSecret_Error_Log(t *testing.T) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		tests := []struct {
+			name         string
+			clientSecret string
+		}{
+			{
+				name: "no clientSecret",
+			},
+			{
+				name:         "clientSecret no match",
+				clientSecret: "invalid",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				router, oidc, _, _, logs := setup(t, param)
+
+				sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, tc.clientSecret, "", "", "", router, oidc)
+
+				ets := errTypesFromLogs(logs)
+				wantErrType := []errType{errSecretMismatch}
+				if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+					t.Errorf("error_type (-want +got): %s", diff)
+				}
+			})
+		}
+	})
+}
+
+func Test_RequiresToken_Error(t *testing.T) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		tests := []struct {
+			name string
+			tok  string
+		}{
+			{
+				name: "no token",
+			},
+			{
+				name: "not a jwt",
+				tok:  "invalid",
+			},
+		}
+
+		paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
+
+		for _, tc := range tests {
+			for _, p := range paths {
+				t.Run(tc.name+" "+p, func(t *testing.T) {
+					router, oidc, _, _, _ := setup(t, param)
+
+					resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tc.tok, "", "", router, oidc)
+					if resp.StatusCode != http.StatusUnauthorized {
+						t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
+					}
+				})
+			}
+		}
+	})
+}
+
+func Test_RequiresToken_Error_Log(t *testing.T) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		notJWTErr := verifierErrParseFailed
+		if param.useUserinfo {
+			notJWTErr = verifierErrUserinfoInvalidToken
+		}
+		tests := []struct {
+			name string
+			tok  string
+			et   errType
+		}{
+			{
+				name: "no token",
+				et:   errIDVerifyFailed,
+			},
+			{
+				name: "not a jwt",
+				tok:  "invalid",
+				et:   notJWTErr,
+			},
+		}
+
+		paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
+
+		for _, tc := range tests {
+			for _, p := range paths {
+				t.Run(tc.name+" "+p, func(t *testing.T) {
+					router, oidc, _, _, logs := setup(t, param)
+
+					sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tc.tok, "", "", router, oidc)
+
+					ets := errTypesFromLogs(logs)
+					wantErrType := []errType{tc.et}
+					if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+						t.Errorf("error_type (-want +got): %s", diff)
+					}
+				})
+			}
+		}
+	})
 }
 
 func Test_RequiresToken_JWT_Invalid_Signature(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
+		paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
 
-	for _, p := range paths {
-		t.Run(p, func(t *testing.T) {
-			router, oidc, _, _, _, close := setup(t)
-			defer close()
+		for _, p := range paths {
+			t.Run(p, func(t *testing.T) {
+				router, oidc, _, _, _ := setup(t, param)
 
-			tok, err := oidc.Sign(nil, claims)
-			if err != nil {
-				t.Fatalf("oidc.Sign() failed: %v", err)
-			}
+				tok, err := oidc.Sign(nil, claims)
+				if err != nil {
+					t.Fatalf("oidc.Sign() failed: %v", err)
+				}
 
-			tok = tok + "invalid"
+				tok = tok + "invalid"
 
-			resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
-			if resp.StatusCode != http.StatusUnauthorized {
-				t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
-			}
-		})
-	}
+				resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+				if resp.StatusCode != http.StatusUnauthorized {
+					t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+				}
+			})
+		}
+	})
 }
 
 func Test_RequiresToken_JWT_Invalid_Signature_Log(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
+		paths := []string{"/usertoken", "/usertoken/sub", "/admintoken"}
 
-	for _, p := range paths {
-		t.Run(p, func(t *testing.T) {
-			router, oidc, _, _, logs, close := setup(t)
-			defer close()
+		for _, p := range paths {
+			t.Run(p, func(t *testing.T) {
+				router, oidc, _, _, logs := setup(t, param)
 
-			tok, err := oidc.Sign(nil, claims)
-			if err != nil {
-				t.Fatalf("oidc.Sign() failed: %v", err)
-			}
+				tok, err := oidc.Sign(nil, claims)
+				if err != nil {
+					t.Fatalf("oidc.Sign() failed: %v", err)
+				}
 
-			tok = tok + "invalid"
+				tok = tok + "invalid"
 
-			sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+				sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
-			ets := errTypesFromLogs(logs)
-			wantErrType := []errType{verifierErrInvalidSignature}
-			if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-				t.Errorf("error_type (-want +got): %s", diff)
-			}
-		})
-	}
+				ets := errTypesFromLogs(logs)
+				wantErrType := []errType{verifierErrInvalidSignature}
+				if param.useUserinfo {
+					wantErrType = []errType{verifierErrUserinfoInvalidToken}
+				}
+				if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+					t.Errorf("error_type (-want +got): %s", diff)
+				}
+			})
+		}
+	})
 }
 
 func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
@@ -485,7 +511,7 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 			name: "expired",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL,
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now - 100000,
 				Expiry:    now - 10000,
 				Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -495,7 +521,7 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 			name: "future token",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL,
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now + 10000,
 				Expiry:    now + 100000,
 				Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -505,7 +531,7 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 			name: "clientID in token not match in request",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL,
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now,
 				Expiry:    now + 10000,
 				Audiences: ga4gh.NewAudience("invalid"),
@@ -515,7 +541,7 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 			name: "issuer not match",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL + "invalid/",
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now,
 				Expiry:    now + 10000,
 				Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -528,8 +554,7 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 	for _, tc := range tests {
 		for _, p := range paths {
 			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, _, close := setup(t)
-				defer close()
+				router, oidc, _, _, _ := setup(t, &testParam{})
 
 				tok, err := oidc.Sign(nil, tc.claims)
 				if err != nil {
@@ -566,7 +591,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 			name: "expired",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL,
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now - 100000,
 				Expiry:    now - 10000,
 				Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -577,7 +602,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 			name: "future token",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL,
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now + 10000,
 				Expiry:    now + 100000,
 				Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -588,7 +613,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 			name: "clientID in token not match in request",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL,
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now,
 				Expiry:    now + 10000,
 				Audiences: ga4gh.NewAudience("invalid"),
@@ -599,7 +624,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 			name: "issuer not match",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL + "invalid/",
-				Subject:   "sub",
+				Subject:   "non-admin",
 				IssuedAt:  now,
 				Expiry:    now + 10000,
 				Audiences: ga4gh.NewAudience(test.TestClientID),
@@ -613,8 +638,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 	for _, tc := range tests {
 		for _, p := range paths {
 			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, logs, close := setup(t)
-				defer close()
+				router, oidc, _, _, logs := setup(t, &testParam{})
 
 				tok, err := oidc.Sign(nil, tc.claims)
 				if err != nil {
@@ -634,619 +658,642 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 }
 
 func Test_RequiresUserToken(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	paths := []string{"/usertoken", "/usertoken/sub"}
+		paths := []string{"/usertoken", "/usertoken/non-admin"}
 
-	for _, p := range paths {
-		t.Run(p, func(t *testing.T) {
-			router, oidc, _, stub, _, close := setup(t)
-			defer close()
+		for _, p := range paths {
+			t.Run(p, func(t *testing.T) {
+				router, oidc, _, stub, _ := setup(t, param)
 
-			tok, err := oidc.Sign(nil, claims)
-			if err != nil {
-				t.Fatalf("oidc.Sign() failed: %v", err)
-			}
+				tok, err := oidc.Sign(nil, claims)
+				if err != nil {
+					t.Fatalf("oidc.Sign() failed: %v", err)
+				}
 
-			resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
-			want := "GET " + p
-			if stub.message != want {
-				t.Errorf("stub.message=%q wants %q", stub.message, want)
-			}
+				resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+				want := "GET " + p
+				if stub.message != want {
+					t.Errorf("stub.message=%q wants %q", stub.message, want)
+				}
 
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
-			}
-		})
-	}
+				if resp.StatusCode != http.StatusOK {
+					t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+				}
+			})
+		}
+	})
 }
 
 func Test_RequiresUserToken_Log(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	paths := []string{"/usertoken", "/usertoken/sub"}
+		paths := []string{"/usertoken", "/usertoken/non-admin"}
 
-	for _, p := range paths {
-		t.Run(p, func(t *testing.T) {
-			router, oidc, _, _, logs, close := setup(t)
-			defer close()
+		for _, p := range paths {
+			t.Run(p, func(t *testing.T) {
+				router, oidc, _, _, logs := setup(t, param)
 
-			tok, err := oidc.Sign(nil, claims)
-			if err != nil {
-				t.Fatalf("oidc.Sign() failed: %v", err)
-			}
+				tok, err := oidc.Sign(nil, claims)
+				if err != nil {
+					t.Fatalf("oidc.Sign() failed: %v", err)
+				}
 
-			sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+				sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
-			ets := errTypesFromLogs(logs)
-			wantErrType := []errType{""}
-			if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-				t.Errorf("error_type (-want +got): %s", diff)
-			}
-		})
-	}
+				ets := errTypesFromLogs(logs)
+				wantErrType := []errType{""}
+				if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+					t.Errorf("error_type (-want +got): %s", diff)
+				}
+			})
+		}
+	})
 }
 
 func Test_RequiresUserToken_UserMisatch(t *testing.T) {
-	router, oidc, _, _, _, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, _ := setup(t, param)
 
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	resp := sendRequest(http.MethodGet, "/usertoken/someone_else", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
-	}
+		resp := sendRequest(http.MethodGet, "/usertoken/someone_else", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+		}
+	})
 }
 
 func Test_RequiresUserToken_UserMismatch_Log(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, logs := setup(t, param)
 
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	sendRequest(http.MethodGet, "/usertoken/someone_else", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		sendRequest(http.MethodGet, "/usertoken/someone_else", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{errUserMismatch}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{errUserMismatch}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_RequiresAdminToken(t *testing.T) {
-	router, oidc, _, stub, _, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, stub, _ := setup(t, param)
 
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "admin@example.com",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+			Identities: map[string][]string{
+				"admin@example.com": nil,
+			},
+		}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	resp := sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
-	want := "GET /admintoken"
-	if stub.message != want {
-		t.Errorf("stub.message=%q wants %q", stub.message, want)
-	}
+		resp := sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		want := "GET /admintoken"
+		if stub.message != want {
+			t.Errorf("stub.message=%q wants %q", stub.message, want)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
-	}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+		}
+	})
 }
 
 func Test_RequiresAdminToken_Log(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, logs := setup(t, param)
 
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "admin@example.com",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+			Identities: map[string][]string{
+				"admin@example.com": nil,
+			},
+		}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{""}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{""}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_RequiresAdminToken_Error(t *testing.T) {
-	router, oidc, _, _, _, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, _ := setup(t, param)
 
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	resp := sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
-	}
+		resp := sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+		}
+	})
 }
 
 func Test_RequiresAdminToken_Error_Log(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, logs := setup(t, param)
 
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{errNotAdmin}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{errNotAdmin}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_RequiresAccountAdminUserToken(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid account_admin offline",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid account_admin offline",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	router, oidc, _, stub, _, close := setup(t)
-	defer close()
+		router, oidc, _, stub, _ := setup(t, param)
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	path := "/acctadmin/sub"
-	resp := sendRequest(http.MethodPost, path, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
-	want := "POST " + path
-	if stub.message != want {
-		t.Errorf("stub.message=%q wants %q", stub.message, want)
-	}
+		path := "/acctadmin/sub"
+		resp := sendRequest(http.MethodPost, path, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		want := "POST " + path
+		if stub.message != want {
+			t.Errorf("stub.message=%q wants %q", stub.message, want)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
-	}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+		}
+	})
 }
 
 func Test_RequiresAccountAdminUserToken_Log(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid account_admin offline",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid account_admin offline",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+		router, oidc, _, _, logs := setup(t, param)
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	path := "/acctadmin/sub"
-	sendRequest(http.MethodPost, path, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		path := "/acctadmin/sub"
+		sendRequest(http.MethodPost, path, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{""}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{""}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_RequiresAccountAdminUserToken_Error(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid offline",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid offline",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	router, oidc, _, _, _, close := setup(t)
-	defer close()
+		router, oidc, _, _, _ := setup(t, param)
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	resp := sendRequest(http.MethodPost, "/acctadmin/sub", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
-	}
+		resp := sendRequest(http.MethodPost, "/acctadmin/sub", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("unexpected status code: %d want %d", resp.StatusCode, http.StatusUnauthorized)
+		}
+	})
 }
 
 func Test_RequiresAccountAdminUserToken_Error_Log(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid offline",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid offline",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+		router, oidc, _, _, logs := setup(t, param)
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	sendRequest(http.MethodPost, "/acctadmin/sub", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+		sendRequest(http.MethodPost, "/acctadmin/sub", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{errScopeMissing}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{errScopeMissing}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_UserAndLinkToken(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid offline link",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid offline link",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	router, oidc, _, stub, _, close := setup(t)
-	defer close()
+		router, oidc, _, stub, _ := setup(t, param)
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	headers := map[string]string{
-		"Authorization":        "bearer " + tok,
-		"X-Link-Authorization": "bearer " + tok,
-	}
+		headers := map[string]string{
+			"Authorization":        "bearer " + tok,
+			"X-Link-Authorization": "bearer " + tok,
+		}
 
-	path := "/usertoken/sub"
-	resp := sendRequestWithHeaders(http.MethodPost, path, test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
-	want := "POST " + path
-	if stub.message != want {
-		t.Errorf("stub.message=%q wants %q", stub.message, want)
-	}
+		path := "/usertoken/non-admin"
+		resp := sendRequestWithHeaders(http.MethodPost, path, test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
+		want := "POST " + path
+		if stub.message != want {
+			t.Errorf("stub.message=%q wants %q", stub.message, want)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
-	}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+		}
+	})
 }
 
 func Test_UserAndLinkToken_Error(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid offline",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid offline",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	router, oidc, _, _, _, close := setup(t)
-	defer close()
+		router, oidc, _, _, _ := setup(t, param)
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	headers := map[string]string{
-		"Authorization":        "bearer " + tok,
-		"X-Link-Authorization": "bearer " + tok,
-	}
+		headers := map[string]string{
+			"Authorization":        "bearer " + tok,
+			"X-Link-Authorization": "bearer " + tok,
+		}
 
-	resp := sendRequestWithHeaders(http.MethodPost, "/usertoken/sub", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
+		resp := sendRequestWithHeaders(http.MethodPost, "/usertoken/sub", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
 
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
-	}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+		}
+	})
 }
 
 func Test_UserAndLinkToken_Error_Log(t *testing.T) {
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid offline",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid offline",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+		router, oidc, _, _, logs := setup(t, param)
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	headers := map[string]string{
-		"Authorization":        "bearer " + tok,
-		"X-Link-Authorization": "bearer " + tok,
-	}
+		headers := map[string]string{
+			"Authorization":        "bearer " + tok,
+			"X-Link-Authorization": "bearer " + tok,
+		}
 
-	sendRequestWithHeaders(http.MethodPost, "/usertoken/sub", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
+		sendRequestWithHeaders(http.MethodPost, "/usertoken/non-admin", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
 
-	ets := errTypesFromLogs(logs)
-	wantErrType := []errType{errScopeMissing}
-	if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
-		t.Errorf("error_type (-want +got): %s", diff)
-	}
+		ets := errTypesFromLogs(logs)
+		wantErrType := []errType{errScopeMissing}
+		if diff := cmp.Diff(wantErrType, ets); len(diff) != 0 {
+			t.Errorf("error_type (-want +got): %s", diff)
+		}
+	})
 }
 
 func Test_writeRequestLog_auth_pass(t *testing.T) {
-	now := time.Now().Unix()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		now := time.Now().Unix()
 
-	tests := []struct {
-		name   string
-		claims *ga4gh.Identity
-	}{
-		{
-			name: "tid in extra",
-			claims: &ga4gh.Identity{
-				Issuer:    issuerURL,
-				Subject:   "sub",
-				IssuedAt:  now,
-				Expiry:    now + 10000,
-				Audiences: ga4gh.NewAudience(test.TestClientID),
-				Extra:     map[string]interface{}{"tid": "id"},
-				ID:        "id1",
-				TokenID:   "id2",
-			},
-		},
-		{
-			name: "tid in top level",
-			claims: &ga4gh.Identity{
-				Issuer:    issuerURL,
-				Subject:   "sub",
-				IssuedAt:  now,
-				Expiry:    now + 10000,
-				Audiences: ga4gh.NewAudience(test.TestClientID),
-				ID:        "id1",
-				TokenID:   "id",
-			},
-		},
-		{
-			name: "no tid use jti",
-			claims: &ga4gh.Identity{
-				Issuer:    issuerURL,
-				Subject:   "sub",
-				IssuedAt:  now,
-				Expiry:    now + 10000,
-				Audiences: ga4gh.NewAudience(test.TestClientID),
-				Extra:     map[string]interface{}{"tid": "id"},
-				ID:        "id",
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-
-			router, oidc, _, _, logs, close := setup(t)
-			defer close()
-
-			tok, err := oidc.Sign(nil, tc.claims)
-			if err != nil {
-				t.Fatalf("oidc.Sign() failed: %v", err)
-			}
-
-			tracingID := "1"
-
-			sendRequest(http.MethodGet, "/auditlog/a", test.TestClientID, test.TestClientSecret, tok, tracingID, "", router, oidc)
-			logs.Client.Close()
-
-			want := &lepb.LogEntry{
-				Payload:  &lepb.LogEntry_JsonPayload{},
-				Severity: lspb.LogSeverity_DEFAULT,
-				Labels: map[string]string{
-					"error_type":       "",
-					"tracing_id":       tracingID,
-					"request_endpoint": "/auditlog/{name}",
-					"request_path":     "/auditlog/a",
-					"token_id":         "id",
-					"token_subject":    "sub",
-					"token_issuer":     normalize(issuerURL),
-					"type":             auditlog.TypeRequestLog,
-					"pass_auth_check":  "true",
-					"project_id":       "unset-serviceinfo-Project",
-					"service_type":     "unset-serviceinfo-Type",
-					"service_name":     "unset-serviceinfo-Name",
+		tests := []struct {
+			name   string
+			claims *ga4gh.Identity
+		}{
+			{
+				name: "tid in extra",
+				claims: &ga4gh.Identity{
+					Issuer:    issuerURL,
+					Subject:   "non-admin",
+					IssuedAt:  now,
+					Expiry:    now + 10000,
+					Audiences: ga4gh.NewAudience(test.TestClientID),
+					Extra:     map[string]interface{}{"tid": "id"},
+					ID:        "id1",
+					TokenID:   "id2",
 				},
-				HttpRequest: &hrpb.HttpRequest{
-					RequestUrl:    "/auditlog/a?client_id=" + test.TestClientID + "&client_secret=" + test.TestClientSecret,
-					RequestMethod: http.MethodGet,
-					RemoteIp:      "192.168.1.2",
+			},
+			{
+				name: "tid in top level",
+				claims: &ga4gh.Identity{
+					Issuer:    issuerURL,
+					Subject:   "non-admin",
+					IssuedAt:  now,
+					Expiry:    now + 10000,
+					Audiences: ga4gh.NewAudience(test.TestClientID),
+					ID:        "id1",
+					TokenID:   "id",
 				},
-			}
+			},
+			{
+				name: "no tid use jti",
+				claims: &ga4gh.Identity{
+					Issuer:    issuerURL,
+					Subject:   "non-admin",
+					IssuedAt:  now,
+					Expiry:    now + 10000,
+					Audiences: ga4gh.NewAudience(test.TestClientID),
+					Extra:     map[string]interface{}{"tid": "id"},
+					ID:        "id",
+				},
+			},
+		}
 
-			got := logs.Server.Logs[0].Entries[0]
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
 
-			got.Timestamp = nil
-			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
-				t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
-			}
-		})
-	}
+				router, oidc, _, _, logs := setup(t, param)
+
+				tok, err := oidc.Sign(nil, tc.claims)
+				if err != nil {
+					t.Fatalf("oidc.Sign() failed: %v", err)
+				}
+
+				tracingID := "1"
+
+				sendRequest(http.MethodGet, "/auditlog/a", test.TestClientID, test.TestClientSecret, tok, tracingID, "", router, oidc)
+				logs.Client.Close()
+
+				want := &lepb.LogEntry{
+					Payload:  &lepb.LogEntry_JsonPayload{},
+					Severity: lspb.LogSeverity_DEFAULT,
+					Labels: map[string]string{
+						"error_type":       "",
+						"tracing_id":       tracingID,
+						"request_endpoint": "/auditlog/{name}",
+						"request_path":     "/auditlog/a",
+						"token_id":         "id",
+						"token_subject":    "non-admin",
+						"token_issuer":     normalize(issuerURL),
+						"type":             auditlog.TypeRequestLog,
+						"pass_auth_check":  "true",
+						"project_id":       "unset-serviceinfo-Project",
+						"service_type":     "unset-serviceinfo-Type",
+						"service_name":     "unset-serviceinfo-Name",
+					},
+					HttpRequest: &hrpb.HttpRequest{
+						RequestUrl:    "/auditlog/a?client_id=" + test.TestClientID + "&client_secret=" + test.TestClientSecret,
+						RequestMethod: http.MethodGet,
+						RemoteIp:      "192.168.1.2",
+					},
+				}
+
+				got := logs.Server.Logs[0].Entries[0]
+
+				got.Timestamp = nil
+				if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+					t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+				}
+			})
+		}
+	})
 }
 
 func Test_writeRequestLog_auth_failed(t *testing.T) {
-	router, oidc, _, _, logs, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, _, _, logs := setup(t, param)
 
-	tracingID := "1"
-	sendRequest(http.MethodGet, "/auditlog/a", "", "", "", tracingID, "", router, oidc)
-	logs.Client.Close()
+		tracingID := "1"
+		sendRequest(http.MethodGet, "/auditlog/a", "", "", "", tracingID, "", router, oidc)
+		logs.Client.Close()
 
-	want := &lepb.LogEntry{
-		Payload:  &lepb.LogEntry_TextPayload{TextPayload: "rpc error: code = Unauthenticated desc = requires a valid client ID"},
-		Severity: lspb.LogSeverity_DEFAULT,
-		Labels: map[string]string{
-			"error_type":       string(errClientMissing),
-			"tracing_id":       tracingID,
-			"request_endpoint": "/auditlog/{name}",
-			"request_path":     "/auditlog/a",
-			"token_id":         "",
-			"token_subject":    "",
-			"token_issuer":     "",
-			"type":             auditlog.TypeRequestLog,
-			"pass_auth_check":  "false",
-			"project_id":       "unset-serviceinfo-Project",
-			"service_type":     "unset-serviceinfo-Type",
-			"service_name":     "unset-serviceinfo-Name",
-		},
-		HttpRequest: &hrpb.HttpRequest{
-			RequestUrl:    "/auditlog/a",
-			RequestMethod: http.MethodGet,
-			RemoteIp:      "192.168.1.2",
-			Status:        http.StatusUnauthorized,
-		},
-	}
+		want := &lepb.LogEntry{
+			Payload:  &lepb.LogEntry_TextPayload{TextPayload: "rpc error: code = Unauthenticated desc = requires a valid client ID"},
+			Severity: lspb.LogSeverity_DEFAULT,
+			Labels: map[string]string{
+				"error_type":       string(errClientMissing),
+				"tracing_id":       tracingID,
+				"request_endpoint": "/auditlog/{name}",
+				"request_path":     "/auditlog/a",
+				"token_id":         "",
+				"token_subject":    "",
+				"token_issuer":     "",
+				"type":             auditlog.TypeRequestLog,
+				"pass_auth_check":  "false",
+				"project_id":       "unset-serviceinfo-Project",
+				"service_type":     "unset-serviceinfo-Type",
+				"service_name":     "unset-serviceinfo-Name",
+			},
+			HttpRequest: &hrpb.HttpRequest{
+				RequestUrl:    "/auditlog/a",
+				RequestMethod: http.MethodGet,
+				RemoteIp:      "192.168.1.2",
+				Status:        http.StatusUnauthorized,
+			},
+		}
 
-	got := logs.Server.Logs[0].Entries[0]
+		got := logs.Server.Logs[0].Entries[0]
 
-	got.Timestamp = nil
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
-		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
-	}
+		got.Timestamp = nil
+		if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+			t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
+		}
+	})
 }
 
 func TestUserTokenOnly(t *testing.T) {
-	router, oidc, c, stub, _, close := setup(t)
-	defer close()
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+		router, oidc, c, stub, _ := setup(t, param)
 
-	p := "/usertokenonly"
-	require := Require{Role: User, SelfClientID: test.TestClientID}
-	h, err := WithAuth(stub.handle, c, require)
-	if err != nil {
-		t.Fatalf("WithAuth(_, _, %v) failed for %s: %v", require, p, err)
-	}
+		p := "/usertokenonly"
+		require := Require{Role: User, SelfClientID: test.TestClientID}
+		h, err := WithAuth(stub.handle, c, require)
+		if err != nil {
+			t.Fatalf("WithAuth(_, _, %v) failed for %s: %v", require, p, err)
+		}
 
-	router.HandleFunc(p, h)
+		router.HandleFunc(p, h)
 
-	now := time.Now().Unix()
-	claims := &ga4gh.Identity{
-		Issuer:    issuerURL,
-		Subject:   "sub",
-		Scope:     "openid offline",
-		IssuedAt:  now,
-		Expiry:    now + 10000,
-		Audiences: ga4gh.NewAudience(test.TestClientID),
-	}
+		now := time.Now().Unix()
+		claims := &ga4gh.Identity{
+			Issuer:    issuerURL,
+			Subject:   "non-admin",
+			Scope:     "openid offline",
+			IssuedAt:  now,
+			Expiry:    now + 10000,
+			Audiences: ga4gh.NewAudience(test.TestClientID),
+		}
 
-	tok, err := oidc.Sign(nil, claims)
-	if err != nil {
-		t.Fatalf("oidc.Sign() failed: %v", err)
-	}
+		tok, err := oidc.Sign(nil, claims)
+		if err != nil {
+			t.Fatalf("oidc.Sign() failed: %v", err)
+		}
 
-	resp := sendRequest(http.MethodGet, "/usertokenonly", "", "", tok, "", "", router, oidc)
+		resp := sendRequest(http.MethodGet, "/usertokenonly", "", "", tok, "", "", router, oidc)
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
-	}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
+		}
+	})
 }
 
 func TestUserTokenOnly_Err(t *testing.T) {
-	router, oidc, c, stub, _, close := setup(t)
-	defer close()
+	router, oidc, c, stub, _ := setup(t, &testParam{})
 
 	p := "/usertokenonly"
 	require := Require{Role: User, SelfClientID: test.TestClientID}
@@ -1268,7 +1315,7 @@ func TestUserTokenOnly_Err(t *testing.T) {
 			name: "iss not match",
 			claims: &ga4gh.Identity{
 				Issuer:    "https://invalid.com",
-				Subject:   "sub",
+				Subject:   "non-admin",
 				Scope:     "openid offline",
 				IssuedAt:  now,
 				Expiry:    now + 10000,
@@ -1280,7 +1327,7 @@ func TestUserTokenOnly_Err(t *testing.T) {
 			name: "aud not match",
 			claims: &ga4gh.Identity{
 				Issuer:    issuerURL,
-				Subject:   "sub",
+				Subject:   "non-admin",
 				Scope:     "openid offline",
 				IssuedAt:  now,
 				Expiry:    now + 10000,
@@ -1319,8 +1366,7 @@ func TestUserTokenOnly_Err(t *testing.T) {
 }
 
 func TestAllowIssuerOnAudAzp_AllowAzp(t *testing.T) {
-	router, oidc, c, stub, _, close := setup(t)
-	defer close()
+	router, oidc, c, stub, _ := setup(t, &testParam{})
 
 	paths := map[string]Require{
 		"/false/false": {Role: User, SelfClientID: test.TestClientID},
@@ -1513,7 +1559,33 @@ func Test_normalize(t *testing.T) {
 	}
 }
 
-func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub, *fakesdl.Fake, func()) {
+type testParam struct {
+	useUserinfo bool
+}
+
+func testUseJWTAndUserinfo(t *testing.T, f func(t *testing.T, params *testParam)) {
+	tests := []struct {
+		name  string
+		param *testParam
+	}{
+		{
+			name:  "jwt_access_token",
+			param: &testParam{useUserinfo: false},
+		},
+		{
+			name:  "user_userinfo",
+			param: &testParam{useUserinfo: true},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f(t, tc.param)
+		})
+	}
+}
+
+func setup(t *testing.T, param *testParam) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub, *fakesdl.Fake) {
 	t.Helper()
 
 	oidc, err := fakeoidcissuer.New(issuerURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
@@ -1524,11 +1596,12 @@ func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handle
 	store := storage.NewMemoryStorage("permissions", "testdata/config")
 
 	logs, close := fakesdl.New()
+	t.Cleanup(close)
 
 	ctx := oidc.ContextWithClient(context.Background())
 	verifier.NewPassportVerifier(ctx, issuerURL, test.TestClientID)
 
-	c := NewChecker(logs.Client, issuerURL, permissions.New(store), clientSecrets, transformIdentity)
+	c := NewChecker(logs.Client, issuerURL, permissions.New(store), clientSecrets, transformIdentity, param.useUserinfo)
 
 	stub := &handlerFuncStub{}
 
@@ -1542,7 +1615,7 @@ func setup(t *testing.T) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handle
 		r.HandleFunc(k, h)
 	}
 
-	return r, oidc, c, stub, logs, close
+	return r, oidc, c, stub, logs
 }
 
 func sendRequest(method, path, clientID, clientSecret, token, tracingID, body string, handler http.Handler, oidc *fakeoidcissuer.Server) *http.Response {

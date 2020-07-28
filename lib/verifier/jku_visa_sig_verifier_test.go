@@ -126,39 +126,6 @@ func TestJKUVerifier_Verify_Fail_WrongJKUURL(t *testing.T) {
 	}
 }
 
-func TestJKUVerifier_Verify_Fail_JKUNotMatch(t *testing.T) {
-	f, cleanup := newFix(t)
-	defer cleanup()
-
-	key := f.Issuer0.Keys[0]
-	d := &ga4gh.VisaData{
-		StdClaims: ga4gh.StdClaims{
-			Issuer:    f.Issuer0.URL,
-			Subject:   subject,
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		},
-	}
-	issuer := f.Issuer0.URL
-	jku := jkuURL(issuer)
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, jku, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
-	}
-
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
-
-	v, err := NewVisaVerifier(ctx, issuer, jkuURL(f.Issuer1.URL), "")
-	if err != nil {
-		t.Fatalf("NewVisaVerifier() failed: %v", err)
-	}
-
-	if err := v.Verify(ctx, string(visa.JWT()), jku); errutil.ErrorReason(err) != errJKUNotMatch {
-		t.Errorf("VerifyPassportToken() = %s wants err: %s", errutil.ErrorReason(err), errJKUNotMatch)
-	}
-}
-
 func TestJKUVerifier_Verify_Fail_IssuerNotMatch(t *testing.T) {
 	f, cleanup := newFix(t)
 	defer cleanup()

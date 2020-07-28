@@ -23,6 +23,7 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
 type oidcSigVerifier struct {
@@ -30,7 +31,7 @@ type oidcSigVerifier struct {
 	verifier *oidc.IDTokenVerifier
 }
 
-// newOIDCSigVerifier creates a new oidc token sigVerifier.
+// newOIDCSigVerifier creates a new oidc token extractClaimsAndVerifySignature.
 func newOIDCSigVerifier(ctx context.Context, issuer string) (*oidcSigVerifier, error) {
 	p, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
@@ -49,6 +50,22 @@ func newOIDCSigVerifier(ctx context.Context, issuer string) (*oidcSigVerifier, e
 		issuer:   issuer,
 		verifier: v,
 	}, nil
+}
+
+func (s *oidcSigVerifier) ExtractClaims(ctx context.Context, token string, claims interface{}) (*ga4gh.StdClaims, error) {
+	// extracts the unsafe claims here to allow following step to validate issuer, timestamp.
+	d, err := ga4gh.NewStdClaimsFromJWT(token)
+	if err != nil {
+		return nil, errutil.WithErrorReason(errParseFailed, status.Errorf(codes.Unauthenticated, "NewStdClaimsFromJWT() failed: %v", err))
+	}
+
+	if claims != nil {
+		if err := unsafeClaimsFromJWTToken(token, claims); err != nil {
+			return nil, err
+		}
+	}
+
+	return d, nil
 }
 
 func (s *oidcSigVerifier) VerifySig(ctx context.Context, token string) error {
@@ -72,8 +89,4 @@ func (s *oidcSigVerifier) VerifySig(ctx context.Context, token string) error {
 
 func (s *oidcSigVerifier) Issuer() string {
 	return s.issuer
-}
-
-func (s *oidcSigVerifier) JKU() string {
-	return ""
 }

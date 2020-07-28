@@ -169,7 +169,7 @@ type service struct {
 func serviceNew(t *testing.T, store storage.Store, client *http.Client) *service {
 	checker := auth.NewChecker(nil, hydraPublicURL, permissions.New(store), func() (map[string]string, error) {
 		return map[string]string{test.TestClientID: test.TestClientSecret}, nil
-	}, func(id *ga4gh.Identity) *ga4gh.Identity { return id })
+	}, func(id *ga4gh.Identity) *ga4gh.Identity { return id }, false)
 
 	crypt := fakeencryption.New()
 

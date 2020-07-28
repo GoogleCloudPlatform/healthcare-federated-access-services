@@ -22,9 +22,9 @@ const (
 	errParseFailed          = "token:parse_failed"
 	errSubMissing           = "token:sub_missing"
 	errIssuerNotMatch       = "token:issuer_not_match"
-	errJKUNotMatch          = "token:jku_not_match"
 	errInvalidSignature     = "token:invalid_signature"
 	errInvalidAudience      = "token:invalid_aud"
 	errExpired              = "token:expired"
 	errFutureToken          = "token:future_token"
+	errUserinfoInvalidToken = "token:userinfo_invalid_token"
 )

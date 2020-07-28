@@ -17,7 +17,11 @@ package verifier
 import (
 	"context"
 
+	"google.golang.org/grpc/codes" /* copybara-comment */
+	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
 type jkuSigVerifier struct {
@@ -26,13 +30,29 @@ type jkuSigVerifier struct {
 	keyset oidc.KeySet
 }
 
-// newJKUJWTVerifier creates a sigVerifier for jku jwt tokens.
+// newJKUJWTVerifier creates a extractClaimsAndVerifySignature for jku jwt tokens.
 func newJKUJWTVerifier(ctx context.Context, issuer, jku string) *jkuSigVerifier {
 	return &jkuSigVerifier{
 		issuer: issuer,
 		jku:    jku,
 		keyset: oidc.NewRemoteKeySet(ctx, jku),
 	}
+}
+
+func (s *jkuSigVerifier) ExtractClaims(ctx context.Context, token string, claims interface{}) (*ga4gh.StdClaims, error) {
+	// extracts the unsafe claims here to allow following step to validate issue, timestamp.
+	d, err := ga4gh.NewStdClaimsFromJWT(token)
+	if err != nil {
+		return nil, errutil.WithErrorReason(errParseFailed, status.Errorf(codes.Unauthenticated, "NewStdClaimsFromJWT() failed: %v", err))
+	}
+
+	if claims != nil {
+		if err := unsafeClaimsFromJWTToken(token, claims); err != nil {
+			 return nil, err
+		}
+	}
+
+	return d, nil
 }
 
 func (s *jkuSigVerifier) VerifySig(ctx context.Context, token string) error {
@@ -42,8 +62,4 @@ func (s *jkuSigVerifier) VerifySig(ctx context.Context, token string) error {
 
 func (s *jkuSigVerifier) Issuer() string {
 	return s.issuer
-}
-
-func (s *jkuSigVerifier) JKU() string {
-	return s.jku
 }

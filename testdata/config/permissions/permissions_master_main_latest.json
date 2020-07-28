@@ -16,6 +16,11 @@
       "roles": {
         "admin": 1
       }
+    },
+    "admin@faculty.example.edu": {
+      "roles": {
+        "admin": 1
+      }
     }
   }
 }
