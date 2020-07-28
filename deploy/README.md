@@ -17,7 +17,8 @@ In addition, the testing playground deployment services will be deployed:
 - DAM demo test page service ("damdemo")
 
 **Important:** The default deploy script is not for use with production data.
-See the [deploy script documentation](../deploy.md) for more information.
+See the [playground deployment script documentation](docs/playground/deploy.md)
+for more information.
 
 ## Deployment Service Dependencies in GCP
 
@@ -52,8 +53,8 @@ This includes `golang`, `nginx` and `hydra`.
 
 ## Run deploy script
 
-See the [deployment instructions](../deploy.md) to perform a deployment with a
-testing playground configuration.
+See the [playground deployment instructions](docs/playground/deploy.md) to
+perform a deployment with a testing playground configuration.
 
 ## Appendix:
 

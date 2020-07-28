@@ -1,6 +1,5 @@
 # Federated Access FAQs
 
-
 ## How do I Revoke a Token?
 
 ### Revoking IC/DAM tokens

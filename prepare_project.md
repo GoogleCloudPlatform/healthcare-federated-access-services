@@ -25,7 +25,8 @@ following:
 ## How to prepare a GCP project for deployment
 
 If you are executing project preparation for the first time, there are some
-steps to perform first. For more information, see [How To Deploy a Federated Access Playground](deploy.md).
+steps to perform first. For more information, see [How To Deploy a Federated
+Access Playground](docs/playground/deploy.md).
 
 To re-execute after [changing service dependencies](#changes-to-service-dependencies),
 do the following:

@@ -56,24 +56,31 @@ This is not an officially supported Google product.
 
 ## How to Deploy
 
-For information on how to deploy Federated Access, see [How To Deploy Federated Access](deploy.md).
-The `deploy.bash` script is designed to get a test environment up and running quickly and make it easy to develop services that use them in a non-sensitive environment.
+For information on how to deploy Federated Access, see [How To Deploy a
+Federated Access Playground](docs/playground/deploy.md).
+The `deploy.bash` script is designed to get a test environment up and running
+quickly and make it easy to develop services that use them in a non-sensitive
+environment.
 
-When planning the next phase where these services need to be prepared for a production environment with live, sensitive data, the [productionization documentation](productionization.md) can be helpful.
-
-More technical information about components and how to manage them:
-
-*  [Technical Guide to DAM](dam.md)
+When planning the next phase where these services need to be prepared for a
+production environment with live, sensitive data, the [productionization
+documentation](docs/production/productionization.md) can be helpful.
 
 ## Troubleshooting
 
-See the [how-to](howto.md) guide.
+See the [how-to](docs/shared/admin/howto.md) guide.
 
 ## Configuration
 
-For configuration examples, see [deploy/config/dam-template](deploy/config/dam-template) and [deploy/config/ic-template](deploy/config/ic-template).
+For DAM:
+*  **Documentation**: [DAM Configuration](docs/dam/admin/README.md)
+*  **Example Configurations**: see [deploy/config/dam-template](deploy/config/dam-template)
+*  **Config Definitions**: see [DamConfig](proto/dam/v1/dam_service.proto)
 
-For more information, see [IcConfig](proto/ic/v1/ic_service.proto) and [DamConfig](proto/dam/v1/dam_service.proto).
+For IC:
+*  **Documentation**: [IC Configuration](docs/ic/admin/README.md)
+*  **Example Configurations**: [deploy/config/ic-template](deploy/config/ic-template)
+*  **Config Definitions**: see [IcConfig](proto/ic/v1/ic_service.proto)
 
 ## Test Personas
 
