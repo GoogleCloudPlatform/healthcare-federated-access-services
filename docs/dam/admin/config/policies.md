@@ -2,7 +2,7 @@
 
 ## Overview
 
-Access policies define requirements and conditions neccessary to met in order
+Access policies define requirements and conditions necessary to met in order
 to allow access to [resources](resources.md). These access policies are designed
 to be written and then reused across multiple datasets or other services.
 However, simple policies can also be written when reuse and managing large sets
@@ -21,34 +21,30 @@ Policies place requirements on Passport Visa fields in order to met access
 requirements for one or more [resources](resources.md) configured in the DAM.
 The DAM takes care of enforcing several basic [visa
 fields](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-visa-fields),
-such as visa expiry, leaving [four main fields](#policy-condition-fields) for
+such as visa expiry, leaving [four main fields](#visa-field-requirements) for
 policies to add data or service access requirements.
 
-*  A policy condition will instruct DAM's policy engine to find **one** valid
-   visa that meets all four field requirements.
-*  If the DAM cannot find a valid visa that matches a policy condition, or if
-   the issuer is not trusted, the request for access will be denied.
-*  Policies can contain multiple conditions that all must be met via various
-   visas within the same passport.
-   *  **Example**: researcher must have `Bona Fide` status on one visa **AND**
-      must have proof of signing off on a `Confidentiality Agreement` on another
-      visa.
-*  Policies can also encode more than one combination of conditions as
-   "alternative" ways to meet the policy
-   *  **Example**: researcher must meet **one** of the following sets of
-      requirements:
-      *  **Option A**: person must be researcher affiliated with `Institute A`.
+*  A policy `Visa Requirement` will instruct DAM's policy engine to find **one**
+   valid visa that meets all four `Visa Field Requirements`.
+*  If the DAM cannot find a valid visa that fully matches a Visa Requirement, or
+   if the issuer is not trusted, the request for access will be denied.
+*  Policies can contain multiple Visa Requirements that all must be met via
+   various visas within the same passport.
+   *  **Example**: a policy with requirements for 2 visas (i.e. "has 2 Visa
+      Requirements") could be drafted to require that a researcher has
+      `Bona Fide` status on one visa **AND** must have proof of signing off on a
+      `Confidentiality Agreement` on another visa.
+*  Policies can also encode more than one combination of requirements as
+   "alternative scenarios" to meet the policy.
+   *  See the [Example with Multiple Requirement
+      Scenarios](#example-with-multiple-requirement-scenarios).
+   *  If multiple requirement scenarios are defined, the user must match at
+      least one scenario but could match more than one and still get access.
 
-      **OR**
-
-      *  **Option B**: researcher must have `Bona Fide` status on one visa
-         **AND** must have proof of signing off on a `Confidentiality Agreement`
-         on another visa.
-
-### Policy Condition Fields
+### Visa Field Requirements
 
 1. **Visa Type**: Represents the meaning of what the visa is asserting, as well
-   as specifying how policies are to interpet the `value` field of the visa.
+   as specifying how policies are to interpret the `value` field of the visa.
    *  For example, an [AffilationAndRole Visa
       Type](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#affiliationandrole)
       expects a `value` format of `<role-name>@<affiliation-org-domain>` whereas
@@ -77,10 +73,10 @@ policies to add data or service access requirements.
       *  An institution on the EduGAIN network, call it "Institution A", may
          store information about the user and inform Elixir AAI about the role
          and affiliation of the user.
-      *  In this case, the visa issuer is ``, representing Elixir AAI, whereas
-         the `source` in the visa is something like ``, representing
-         "Institution A".
-   *  When instutitions issue their own visas, not just provide out-of-band data
+      *  In this case, the visa issuer is `https://elixir.org`, representing
+         Elixir AAI, whereas the `source` in the visa is something like
+         `https://example.org`, representing "Institution A".
+   *  When institutions issue their own visas, not just provide out-of-band data
       to another visa issuer service, then the issuer and the source may be the
       same URI string.
       *  However, it is also possible that the `source` may be a canonical
@@ -97,7 +93,7 @@ policies to add data or service access requirements.
    that is the source of the authorization within the `source` organization that
    is asserting the visa information.
    *  This field is optional on some visa types, and required on others.
-   *  See the [GA4GH Passport By Field
+   *  See the [GA4GH Passport "By" Field
    Definition](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#by)
       to understand the meaning of each role.
 
@@ -105,7 +101,7 @@ policies to add data or service access requirements.
    version of the assertion.
    *  The format of the string can vary by the Passport Visa Type.
    *  In general, this field represents the "**what**" of the visa assertion.
-      *  **AffilationAndRole** visa type: `value` is "what role and affilation".
+      *  **AffilationAndRole** visa type: `value` is "what role and affiliation".
       *  **AcceptedTermsAndPolicies** visa type: `value` is "what document the
          user or organization acknowledged or agreed to".
       *  **ResearcherStatus** visa type: `value` is "what standard of researcher
@@ -117,13 +113,39 @@ policies to add data or service access requirements.
    *  See examples under **Visa Type** entry above to better understand how the
       format of the value is to be interpreted based on visa type.
 
-## Simple Policies
+## Visa Types
+
+The visa types available for policies is defined in the [Visa Types
+Configuration](visa-types.md) settings. If you need a custom visa type or if
+standard visa types were not already populated for you, then you will need
+to configure the needed visa type there first and then return to setting up
+your policy afterwards.
+
+## Blank Fields
+
+1. Any fields within the policy that are left empty are interpreted as something
+   that is left unenforced. Because the steps above set all three fields within
+   the policy condition, all three must be met at the same time on the same
+   Passport Visa.
+   *  For example, there may be other visa types where `by` is not included, or
+      less important. Therefore it is important to fill in all the requirements
+      in the policy or these fields will not be enforced during policy
+      evaluation.
+
+1. Visas only have one string value given for each field. If your policy
+   specifies more than one `by`, for example, it means that any value that is
+   in the policy will be accepted. This is true for the `source` and `value`
+   fields as well.
+
+## Simple Policy Example
 
 To consider a simple policy, assume that there is only qualification needed to
 meet the requirements of the policy. For example, perhaps a [Trusted Source
 Organization](sources.md) is to issue a [Controlled Access Grant
 Visa](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#controlledaccessgrants)
 with a `value` of `http://trusted.example.org/visas/dataset500`.
+
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/simple_policy.svg" width="500px">
 
 1. For the simple case, you would not have to define any variables.
 
@@ -144,6 +166,9 @@ with a `value` of `http://trusted.example.org/visas/dataset500`.
       Issuer](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-visa-issuer)
       you plan to use to see what string they will be using to identify the
       required source organization.
+   *  For this example, the policy's `source` field could be set to
+      `https://dac.example.org` to only accept visas from this one source
+      organization for this particular dataset.
 
 1. You probably don't want just anybody within that source organization able to
    issue this controlled access grant.
@@ -160,35 +185,94 @@ with a `value` of `http://trusted.example.org/visas/dataset500`.
 For this simple policy example, we only need to fill in the 3 fields with one
 string setting each on a single clause.
 
-## Visa Types
+## Example with Multiple Requirement Scenarios
 
-The visa types available for policies is defined in the [Visa Types
-Configuration](visa-types.md) settings. If you need a custom visa type or if
-standard visa types were not already populated for you, then you will need
-to configure the needed visa type there first and then return to setting up
-your policy afterwards.
+Policies allow for a more complex set of requirements. Sometimes there is more
+than one way to meet the requirements for access, or perhaps there is more than
+one visa that will be required in order to capture external dependencies between
+organizations.
 
-## Blank Fields and Multiple Clauses
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/complex_policy.svg" width="1000px">
 
-1. Any fields within the policy that are left empty are interpreted as something
-   that is left unenforced. Because the steps above set all three fields within
-   the policy condition, all three must be met at the same time on the same
-   Passport Visa.
-   *  For example, there may be other visa types where `by` is not included, or
-      less important. Therefore it is important to fill in all the requirements
-      in the policy or these fields will not be enforced during policy
-      evaluation.
+This example policy indicates that there are two separate scenarios to meet the
+requirements for access:
 
-1. Visas only have one string value given for each field. If your policy
-   specifies more than one `by`, for example, it means that any value that is
-   in the policy will be accepted. This is true for the `source` and `value`
-   fields as well.
+1. Scenario 1: **Be approved for this dataset by a DAC** and **Agree to ethical
+   conditions**.
+   *  This Requirement Scenario will be used by "external" researchers for
+      secondary use.
 
-1. Policies can have more than one `clause`.
-   *  When more than one clause is present, any one or more clauses that are
-      met will be suffient to allow access.
-   *  That is, clauses specify different sets of requirements that each by
-      themselves is enough to achieve access when met.
+1. Scenario 2: **Be a biomedical researcher at example.org**.
+   *  This Requirement Scenario will be used by "internal" researchers that
+      maintain the dataset.
+
+Of course real-world scenarios will need to be more careful about which internal
+researchers have access, however this is just an example of having multiple
+Requirement Scenarios as well as having at a Scenario with 2 visas required.
+*  Scenario 1 requires a ControlledAccessGrants visa ("Visa Requirement 1A").
+*  Scenario 1 also requires an AcceptedTermsAndPolicies visa ("Visa Requirement
+   1B").
+
+## Visa Conditions
+
+Visas themselves have the ability to require additional visas to satisfy
+"conditions" of use that are beyond this control of any one organization.
+*  Visas have a field called "[conditions](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#conditions)"
+   that inform policy enforcement engines to automatically require additional
+   visas.
+*  These additional requirements are **not** encoded into DAM policies, but are
+   up to the issuers of the visas to decide what additional requirements they
+   have and must be enforced in order to apply that visa to a policy.
+*  The DAM will automatically add these additional requirements when attempting
+   to use a visa that includes one or more `conditions`.
+
+## Combining Identities
+
+When any [policy scenario](#example-with-multiple-requirement-scenarios)
+requires more than one visa, it is possible that the user has made use of
+multiple identities to collect these multiple Visa Requirements.
+
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/combining_identities.png" width="1000px">
+
+In the example above, Registered Access has two Visa Requirements, and the
+user has provided two visas that meet these requirements. However, each of these
+visas came from different identities.
+*  The user had signed into their `issuer_1` account to include their
+   `bona_fide_researcher` visa (details not shown).
+*  The user had signed into their `issuer_2` account to include their
+   `ethics_code_of_conduct` visa (details not shown).
+*  The Passport Broker -- such as an IC -- that originally created the Passport
+   that contains these two visas would have also added an additional
+   `LinkedIdentities` visa to the same Passport.
+*  The `LinkedIdentities` visa asserts that "I, as the Passport Broker, do
+   declare that this user has signed into these accounts as proof of ownership
+   of these identities" and include some additional details about the account
+   origins and timestamps of most recent evidence.
+
+In order to use two or more visas that come from different identities, the DAM
+policy enforcement engine must also add a requirement that there is a
+`LinkedIdentities` visa from a Trusted Source and Issuer that includes these
+two identities.
+*  The Passport Broker will be the `issuer` of the `LinkedIdentities` visa, so
+   to accept this visa the Passport Broker must be included in the [Trusted
+   Issuers](issuers.md) list. Otherwise, the LinkedIdentities visa will be
+   rejected.
+   *  When the DAM works directly with the Passport Broker that issues
+      `LinkedIdentities`, there will already be a Trusted Issuers entry for the
+      Broker in order to fetch the Passport.
+   *  In other cases, Passport Brokers talk to other Passport Brokers and pass
+      visas along in the "chain of brokers" until they arrive at the DAM. In
+      this case, the Passport Broker that issued the `LinkedIdentities` may not
+      already be included in the DAM's Trusted Issuers list.
+      *  Only a Trusted Visa Issuer entry needs to be made for this "more
+         distant" Broker, so no need to fill in optional details about the OIDC
+         endpoints such as Token and Authentication URLs.
+      *  Only the required fields, and perhaps a Visa Translator, needs to be
+         completed when wanting to accept Visas from Visa Issuers.
+*  Once the DAM's policy enforcement engine finds a `LinkedIdentities` visa
+   that is trusted for visas that would otherwise have met all the various
+   requirements, it can accept the Requirement Scenario and therefore grant
+   access to the requested resource.
 
 ## Allowlist Policy
 
@@ -244,11 +328,11 @@ Details on how it works:
       *  If the first list has 100 entries and the second has 27, then all 127
          institutions will be permitted to be the `source` for such a policy.
 
-1. Consider the [Simple Policy](#simple-policies) example above. If there were
-   250 datasets to onboard, you would need to specify 250 policies since each
-   one would need a unique `value` field representing the dataset. Moreover,
-   it is harder to ensure that policies are maintained consistently over time
-   when changes occur. To avoid this:
+1. Consider the [Simple Policy Example](#simple-policy-example) above. If there
+   were 250 datasets to onboard, you would need to specify 250 policies since
+   each one would need a unique `value` field representing the dataset.
+   Moreover, it is harder to ensure that policies are maintained consistently
+   over time when changes occur. To avoid this:
    *  Use the policy `variable` feature to define one or more variables to
       include in your `value` field. For example, define `DATASET` as:
       *  Name: `DATASET`
