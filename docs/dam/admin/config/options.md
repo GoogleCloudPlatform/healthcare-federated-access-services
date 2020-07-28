@@ -3,7 +3,7 @@
 ## Overview
 
 Options configured here affect the way the Data Access Manager (DAM) behaves.
-Most options are enforced per [Realm](../../shared/admin/concepts.md#realms)
+Most options are enforced per [Realm](../../../shared/admin/concepts.md#realms)
 unless indicated otherwise.
 
 ## Master Realm Options

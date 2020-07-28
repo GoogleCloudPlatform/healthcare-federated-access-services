@@ -8,7 +8,7 @@ Passport and Visa issuers, however it is also possible that some string values
 are the shared between these two concepts.
 
 To understand the difference between Trusted Sources and Trusted Issuers, please
-consult the [Policy Condition Fields](policies.md#policy-condition-fields)
+consult the [Visa Field Requirements](policies.md#visa-field-requirements)
 description details for **Source**.
 
 ## Trusted Source Lists

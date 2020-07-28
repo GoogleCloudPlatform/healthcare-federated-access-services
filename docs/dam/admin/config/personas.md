@@ -77,8 +77,8 @@ policies:
    Visas](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-visa)
    that can be evaluated as part of various policies configured within a DAM.
    *  Four of the fields (`visa type`, `source`, `by`, and `value`) are
-      configured as [Policy Condition
-      Fields](policies.md#policy-condition-fields).
+      configured as [Visa Field
+      Requirements](policies.md#visa-field-requirements).
    *  `Asserted Duration`: how long ago in the past was this test persona's visa
       [asserted](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#asserted).
       *  Instead of being a fixed timestamp, it is specified as a duration into

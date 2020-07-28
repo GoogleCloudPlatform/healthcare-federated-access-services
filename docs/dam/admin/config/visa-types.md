@@ -101,7 +101,7 @@ Types](#standard-visa-types), they may opt to create their own [Custom Visa
 Type](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#custom-passport-visa-types).
 *  Some Custom Visa Types simply define their own opaque string identifier
    format or semantics within the existing [standard visa fields as supported
-   by the DAM's policy engine](policies.md#policy-condition-fields).
+   by the DAM's policy engine](policies.md#visa-field-requirements).
 *  Other Custom Visa Types may go outside of the set of known fields or
    semantics supported by the DAM's policy engine.
    *  DAM offers a Visa Issuer Translation plug-in that can put specific

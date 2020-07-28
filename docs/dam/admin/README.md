@@ -41,7 +41,7 @@ categories:
 
 1. **Advanced Settings**:
    *  [Options](config/options.md) configure system-wide behavior of the DAM.
-      Some options may vary by [Realm](concepts.md#realms).
+      Some options may vary by [Realm](../../shared/admin/concepts.md#realms).
    *  [Visa Types](config/visa-types.md) define the set of Visa Types that are
       available for the DAM to make use of.
    *  [External Services](config/services.md) provide very advanced

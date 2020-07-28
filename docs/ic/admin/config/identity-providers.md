@@ -45,8 +45,10 @@ that they provide.
 
 There are more Passport and Visa issuers joining a global community of providers
 of these services. It is important to establish trust, formalized via
-organizational policies, to provide identity and qualification information to
-an IC to evaluate against [access policies](policies.md).
+organizational policies, such that identity and qualification information can be
+collected by an IC and passed along to a [Data Access
+Manager](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services#data-access-manager)
+for [policy evaluation](../../../dam/config/policies.md).
 
 In addition to these, there are a large number of generic OIDC Identity
 Providers that can authenticate the user. The IC can link accounts for users to
