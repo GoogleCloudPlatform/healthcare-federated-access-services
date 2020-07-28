@@ -18,7 +18,7 @@ page.
 
 Consider the following scenario:
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/access_policy_evaluation.png" width="1000px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/access_policy_evaluation.svg" width="1000px">
 
 When authoring a policy, several questions come to mind:
 
@@ -44,10 +44,11 @@ the system".
 With a set of Test Personas, you end up with test results that can be
 represented as a table like this:
 
-Test Persona | Resource A: Bucket Viewer | Resource A: Table Viewer | Resource B: WES Execute
-Persona Bill | **YES** | **YES** | no
-NCI Researcher | **YES** | no | **YES**
-... | ... | ... | ...
+| Test Persona   | Resource A: Bucket Viewer | Resource A: Table Viewer | Resource B: WES Execute |
+| -------------- | ------------------------- | ------------------------ | ----------------------- |
+| Persona Bill   | **YES**                   | **YES**                  | no                      |
+| NCI Researcher | **YES**                   | no                       | **YES**                 |
+| ...            | ...                       | ...                      | ...                     |
 
 More test personas, each with a different set of visas, or visas with slightly
 different visa field settings, will provide more test coverage.

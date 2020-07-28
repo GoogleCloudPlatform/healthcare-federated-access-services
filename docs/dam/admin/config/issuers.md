@@ -38,7 +38,7 @@ the access policy requirements for the resources they have requested.
 
 ## Network of Passport and Visa Issuers
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/passport_map.png" width="1000px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/passport_map.svg" width="1000px">
 
 There are more Passport and Visa issuers joining a global community of providers
 of these services. It is important to establish trust, formalized via

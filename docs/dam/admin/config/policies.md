@@ -15,7 +15,7 @@ the Data Access Manager (DAM).
 
 ## Introduction to Policies
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/access_policy_evaluation.png" width="1000px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/access_policy_evaluation.svg" width="1000px">
 
 Policies place requirements on Passport Visa fields in order to met access
 requirements for one or more [resources](resources.md) configured in the DAM.
