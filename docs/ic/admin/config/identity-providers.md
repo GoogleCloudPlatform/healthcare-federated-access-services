@@ -48,7 +48,7 @@ of these services. It is important to establish trust, formalized via
 organizational policies, such that identity and qualification information can be
 collected by an IC and passed along to a [Data Access
 Manager](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services#data-access-manager)
-for [policy evaluation](../../../dam/config/policies.md).
+for [policy evaluation](../../../dam/admin/config/policies.md).
 
 In addition to these, there are a large number of generic OIDC Identity
 Providers that can authenticate the user. The IC can link accounts for users to

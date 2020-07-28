@@ -8,7 +8,7 @@ to be written and then reused across multiple datasets or other services.
 However, simple policies can also be written when reuse and managing large sets
 of policies is not a concern.
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/policy_enforcement_intro.png" width="1000px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/policy_enforcement_intro.png" width="800px">
 
 This section will be discussing the **Enforce Access** mechanism provided by
 the Data Access Manager (DAM).
@@ -121,21 +121,23 @@ standard visa types were not already populated for you, then you will need
 to configure the needed visa type there first and then return to setting up
 your policy afterwards.
 
-## Blank Fields
+## Interpretation of Visa Field Requirement Settings
 
 1. Any fields within the policy that are left empty are interpreted as something
-   that is left unenforced. Because the steps above set all three fields within
-   the policy condition, all three must be met at the same time on the same
-   Passport Visa.
-   *  For example, there may be other visa types where `by` is not included, or
-      less important. Therefore it is important to fill in all the requirements
-      in the policy or these fields will not be enforced during policy
-      evaluation.
+   that is left unenforced.
+   *  Therefore it is important to fill in all the requirements in the policy or
+      these fields will not be enforced during policy evaluation.
+   *  Leaving some fields blank can be useful for some use cases. For example,
+      there may be visa types where `by` is not included, or less important, and
+      so the `by` Visa Requirement Field in the policy may be left blank.
 
-1. Visas only have one string value given for each field. If your policy
-   specifies more than one `by`, for example, it means that any value that is
-   in the policy will be accepted. This is true for the `source` and `value`
-   fields as well.
+1. When more than one visa field requirement has a setting, all of those
+   requirements **must** be met at the same time on the same Passport Visa.
+
+1. Incoming Visas to be checked by a policy only have one string value given for
+   each field. If your policy specifies more than one `by`, for example, it
+   means that any value that is in the policy will be accepted. This is true for
+   the `source` and `value` fields as well.
 
 ## Simple Policy Example
 
@@ -145,7 +147,7 @@ Organization](sources.md) is to issue a [Controlled Access Grant
 Visa](https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#controlledaccessgrants)
 with a `value` of `http://trusted.example.org/visas/dataset500`.
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/simple_policy.svg" width="500px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/simple_policy.svg" width="300px">
 
 1. For the simple case, you would not have to define any variables.
 
@@ -192,7 +194,7 @@ than one way to meet the requirements for access, or perhaps there is more than
 one visa that will be required in order to capture external dependencies between
 organizations.
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/complex_policy.svg" width="1000px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/complex_policy.svg" width="700px">
 
 This example policy indicates that there are two separate scenarios to meet the
 requirements for access:

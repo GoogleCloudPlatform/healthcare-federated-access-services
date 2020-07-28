@@ -15,8 +15,8 @@ areas to get more information:
       are not prompted each time you sign in to release this information to the
       services you are interacting with.
 
-1. **[Sessions](sessions.md)**: view a list of recent sign-in sessions that your
-   user account has initiated with various services that use your account
+1. **[User Sessions](sessions.md)**: view a list of recent sign-in sessions that
+   your user account has initiated with various services that use your account
    permissions to perform work on your behalf.
    *  See which services have sessions active for your account.
    *  Revoke sessions when you feel a service should no longer be using your
