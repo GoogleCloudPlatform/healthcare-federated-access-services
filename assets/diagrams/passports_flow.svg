@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:lucid="lucid" width="1312" height="577">g transform="translate(-15 401)" lucid:page-tab-id="0_0">a xlink:href="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/docs/dam/admin/config/resources.md" target="_blank">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:lucid="lucid" width="1312" height="578">
+<g transform="translate(-15 401)" lucid:page-tab-id="0_0">
 <path d="M1160 170.8h120v-66.48L1220 60l-60 44.32z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#d1d1d1"/>
 <use xlink:href="#a" transform="matrix(1,0,0,1,1162,62) translate(9.833950617283953 56.62222222222222)"/>
 <use xlink:href="#b" transform="matrix(1,0,0,1,1162,62) translate(75.48703703703703 56.62222222222222)"/>
@@ -6,9 +7,6 @@
 <use xlink:href="#d" transform="matrix(1,0,0,1,1162,62) translate(66.74351851851851 75.55555555555556)"/>
 <use xlink:href="#e" transform="matrix(1,0,0,1,1162,62) translate(13.778395061728396 94.4888888888889)"/>
 <use xlink:href="#f" transform="matrix(1,0,0,1,1162,62) translate(44.45740740740741 94.4888888888889)"/>
-<path class="lucid-link lucid-hotspot lucid-overlay-hotspot" d="M1160 170.8h120v-66.48L1220 60l-60 44.32z" fill="none"/>
-</a>
-<a xlink:href="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/README.md#data-access-manager" target="_blank">
 <path d="M940 170.8h120v-66.48L1000 60l-60 44.32z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#d1d1d1"/>
 <use xlink:href="#g" transform="matrix(1,0,0,1,942,62) translate(0.6521604938271679 56.62222222222222)"/>
 <use xlink:href="#h" transform="matrix(1,0,0,1,942,62) translate(54.910185185185185 56.62222222222222)"/>
@@ -16,9 +14,6 @@
 <use xlink:href="#i" transform="matrix(1,0,0,1,942,62) translate(33.040432098765436 75.55555555555556)"/>
 <use xlink:href="#j" transform="matrix(1,0,0,1,942,62) translate(75.99104938271604 75.55555555555556)"/>
 <use xlink:href="#k" transform="matrix(1,0,0,1,942,62) translate(33.45679012345679 94.4888888888889)"/>
-<path class="lucid-link lucid-hotspot lucid-overlay-hotspot" d="M940 170.8h120v-66.48L1000 60l-60 44.32z" fill="none"/>
-</a>
-<a xlink:href="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/README.md#identity-concentrator" target="_blank">
 <path d="M720 170.8h120v-66.48L780 60l-60 44.32z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#d1d1d1"/>
 <use xlink:href="#l" transform="matrix(1,0,0,1,725,65) translate(5.562962962962963 56.62222222222222)"/>
 <use xlink:href="#m" transform="matrix(1,0,0,1,725,65) translate(58.02407407407407 56.62222222222222)"/>
@@ -27,9 +22,6 @@
 <use xlink:href="#p" transform="matrix(1,0,0,1,725,65) translate(84.75864197530863 75.55555555555556)"/>
 <use xlink:href="#q" transform="matrix(1,0,0,1,725,65) translate(5.2780864197530875 94.4888888888889)"/>
 <use xlink:href="#r" transform="matrix(1,0,0,1,725,65) translate(39.989197530864196 94.4888888888889)"/>
-<path class="lucid-link lucid-hotspot lucid-overlay-hotspot" d="M720 170.8h120v-66.48L780 60l-60 44.32z" fill="none"/>
-</a>
-<a xlink:href="https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-broker" target="_blank">
 <path d="M500 170.8h120v-66.48L560 60l-60 44.32z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#d1d1d1"/>
 <use xlink:href="#s" transform="matrix(1,0,0,1,505,65) translate(3.8317901234567984 56.62222222222222)"/>
 <use xlink:href="#t" transform="matrix(1,0,0,1,505,65) translate(2.1663580246913554 75.55555555555556)"/>
@@ -37,25 +29,17 @@
 <use xlink:href="#v" transform="matrix(1,0,0,1,505,65) translate(53.00586419753086 75.55555555555556)"/>
 <use xlink:href="#w" transform="matrix(1,0,0,1,505,65) translate(95.60586419753088 75.55555555555556)"/>
 <use xlink:href="#x" transform="matrix(1,0,0,1,505,65) translate(19.96018518518519 94.4888888888889)"/>
-<path class="lucid-link lucid-hotspot lucid-overlay-hotspot" d="M500 170.8h120v-66.48L560 60l-60 44.32z" fill="none"/>
-</a>
-<a xlink:href="https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-visa-issuer" target="_blank">
 <path d="M280 170.8h120v-66.48L340 60l-60 44.32z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#d1d1d1"/>
 <use xlink:href="#y" transform="matrix(1,0,0,1,285,65) translate(29.18580246913581 56.62222222222222)"/>
 <use xlink:href="#z" transform="matrix(1,0,0,1,285,65) translate(7.7324074074074005 75.55555555555556)"/>
 <use xlink:href="#A" transform="matrix(1,0,0,1,285,65) translate(83.904012345679 75.55555555555556)"/>
 <use xlink:href="#B" transform="matrix(1,0,0,1,285,65) translate(42.29012345679013 94.4888888888889)"/>
-<path class="lucid-link lucid-hotspot lucid-overlay-hotspot" d="M280 170.8h120v-66.48L340 60l-60 44.32z" fill="none"/>
-</a>
-<a xlink:href="https://github.com/ga4gh-duri/ga4gh-duri.github.io/blob/master/researcher_ids/ga4gh_passport_v1.md#passport-visa-assertion-source" target="_blank">
 <path d="M60 170.8h120v-66.48L120 60l-60 44.32z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#d1d1d1"/>
 <use xlink:href="#C" transform="matrix(1,0,0,1,65,65) translate(17.330555555555563 56.62222222222222)"/>
 <use xlink:href="#p" transform="matrix(1,0,0,1,65,65) translate(79.5212962962963 56.62222222222222)"/>
 <use xlink:href="#D" transform="matrix(1,0,0,1,65,65) translate(12.553395061728395 75.55555555555556)"/>
 <use xlink:href="#A" transform="matrix(1,0,0,1,65,65) translate(79.08302469135802 75.55555555555556)"/>
 <use xlink:href="#k" transform="matrix(1,0,0,1,65,65) translate(30.45679012345679 94.4888888888889)"/>
-<path class="lucid-link lucid-hotspot lucid-overlay-hotspot" d="M60 170.8h120v-66.48L120 60l-60 44.32z" fill="none"/>
-</a>
 <path d="M20-260c0-22.1 17.9-40 40-40h120c22.1 0 40 17.9 40 40V20c0 22.1-17.9 40-40 40H60c-22.1 0-40-17.9-40-40z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#c4d5e1"/>
 <use xlink:href="#E" transform="matrix(1,0,0,1,25,-295) translate(35.75 61.4)"/>
 <use xlink:href="#F" transform="matrix(1,0,0,1,25,-295) translate(117.60000000000001 61.4)"/>
@@ -190,10 +174,12 @@
 <use xlink:href="#aZ" transform="matrix(1,0,0,1,935,-177) translate(22.049999999999997 42.275)"/>
 <use xlink:href="#ba" transform="matrix(1,0,0,1,935,-177) translate(97.95 42.275)"/>
 <path d="M930-96h139.84v59.84H930z" stroke="#000" stroke-width="2" fill-opacity="0"/>
+<g>
 <use xlink:href="#aX" transform="matrix(1,0,0,1,935,-91) translate(14.524999999999999 20.675)"/>
 <use xlink:href="#aY" transform="matrix(1,0,0,1,935,-91) translate(57.475 20.675)"/>
 <use xlink:href="#aZ" transform="matrix(1,0,0,1,935,-91) translate(22.049999999999997 42.275)"/>
 <use xlink:href="#bb" transform="matrix(1,0,0,1,935,-91) translate(97.95 42.275)"/>
+</g>
 <path d="M851.8-130.35l59.4-16.72" stroke="#c92d39" stroke-width="2" fill="none"/>
 <path d="M852.1-129.4l-1.26.36v-2.08l.72-.2z" fill="#c92d39"/>
 <path d="M925.88-151.2l-12.47 8.33-2.5-8.93z" stroke="#c92d39" stroke-width="2" fill="#c92d39"/>
@@ -210,13 +196,17 @@
 <path d="M1071.96-65.2l-1.12.13v-2l.92-.1z"/>
 <path d="M1142.44-73.36l-13.72 6.06-.94-9.23z" stroke="#000" stroke-width="2"/>
 <path d="M536-31.4h120.1V5.8H536z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#fff" fill-opacity="0"/>
+<g>
 <use xlink:href="#bc" transform="matrix(1,0,0,1,541.0000000000001,-26.408049130138366) translate(3.728703703703694 9.066666666666668)"/>
 <use xlink:href="#bd" transform="matrix(1,0,0,1,541.0000000000001,-26.408049130138366) translate(85.48611111111111 9.066666666666668)"/>
 <use xlink:href="#be" transform="matrix(1,0,0,1,541.0000000000001,-26.408049130138366) translate(39.75925925925926 22.66666666666667)"/>
+</g>
 <path d="M724-58h120.1v37.2H724z" stroke="#000" stroke-opacity="0" stroke-width="2" fill="#fff" fill-opacity="0"/>
+<g>
 <use xlink:href="#bc" transform="matrix(1,0,0,1,729.0000000000061,-53) translate(3.728703703703694 9.066666666666668)"/>
 <use xlink:href="#bd" transform="matrix(1,0,0,1,729.0000000000061,-53) translate(85.48611111111111 9.066666666666668)"/>
 <use xlink:href="#be" transform="matrix(1,0,0,1,729.0000000000061,-53) translate(39.75925925925926 22.66666666666667)"/>
+</g>
 <path d="M1148.2-364.03h142V-222h-142z" fill="url(#bf)"/>
 <path d="M1114.35-157.9l-42.52 5.7" stroke="#000" stroke-width="2" fill="none"/>
 <path d="M1129.48-159.92l-13.52 6.48-1.23-9.18z" stroke="#000" stroke-width="2"/>
