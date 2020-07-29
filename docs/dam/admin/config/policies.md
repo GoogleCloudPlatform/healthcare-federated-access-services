@@ -199,12 +199,12 @@ organizations.
 This example policy indicates that there are two separate scenarios to meet the
 requirements for access:
 
-1. Scenario 1: **Be approved for this dataset by a DAC** and **Agree to ethical
-   conditions**.
+1. **Scenario 1**: Be approved for this dataset by a DAC **AND** agree to
+   ethical code of conduct.
    *  This Requirement Scenario will be used by "external" researchers for
       secondary use.
 
-1. Scenario 2: **Be a biomedical researcher at example.org**.
+1. **Scenario 2**: Be a biomedical researcher at `example.org`.
    *  This Requirement Scenario will be used by "internal" researchers that
       maintain the dataset.
 
