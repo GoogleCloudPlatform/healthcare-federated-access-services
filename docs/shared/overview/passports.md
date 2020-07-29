@@ -72,7 +72,27 @@ their compute jobs to the cloud to work on the data directly.
       research while infrastructure providers build the tools for researchers to
       use, which accelerates the entire process.
 
-## Challenges
+## Coordination Challenges
+
+To use data in place, it can often require multiple systems to work together
+in ways that create challenges. This increases as analysis includes more
+datasets as part of one project where those datasets and compute environments
+are heterogeneous.
+
+For example, there may be multiple identities to manage, including:
+*  Researcher's home organization identity.
+*  Identity of the researcher as known by each Data Access Committee (DAC)
+   using their sign-in systems.
+*  Identities the researcher uses within each of the cloud environments
+   involved in supplying data or compute nodes.
+
+Then authorization controls need to be applied to those identities, and mapped
+into each target data or computing environment. On top of this is the need to
+provide good data governance to manage the correctness/appropriateness and
+monitor usage.
+
+In summary, these **coordination challenges** can be classified via these four
+areas that all need to be overcome together:
 
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/challenges_of_cloud.svg" width="700px">
 
@@ -80,6 +100,79 @@ their compute jobs to the cloud to work on the data directly.
 
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/passports_flow.svg">
 
+1. **Passport Visa Assertion Sources**: these are organizations or systems
+   working on their behalf that act as the Source of Authority to assert,
+   authorize, or attest to something.
+   *  An Assertion Source acts as the "source of truth" for what attestions or
+      assertions.
+   *  Systems downstream from these sources carry this information as inputs
+      to policies that ensure users meet requirements for access.
+   *  Assertions may include:
+      *  Qualifications: such as role or industry certifications.
+      *  Permissions: such as a grant of access to a particular set of data.
+      *  Qualifying conditions: such as contractual agreements to terms of use.
+
+1. **Upstream Passport Visa Issuers**: Passport Visas enter in a few places
+   along the entire network, however these `Upstream` Visa Issuers are the
+   systems that have access to the respositories where assertions are stored
+   and are able to format those assertions in a verifiable GA4GH Passport Visa
+   format for use by "downstream" systems (systems further to the right in the
+   diagram).
+
+1. **Upstream Passport Brokers**: Any Passport Broker ("Passport Issuer") that
+   is in the network chain before coming to an Identity Concentrator (IC). The
+   Identity Concentrator is the Passport Issuer system available in this GitHub
+   repository.
+   *  The IC can talk to other Passport Issuers to collect Passport Visas from
+      their sources and pool Visas together for a given user within a single
+      user's digital identity.
+   *  Additional `LinkedIdentities` Visas may be added directly as a result of
+      Upstream Passport Brokers aggregating identities for the user.
+
+1. **Identity Concentrator** (Passport Broker): A Passport Issuer system that is
+   available as part of this GitHub repository.
+   *  It has support for combining Visa lists from Upstream Passport Brokers.
+   *  It also has native understanding on how user identities map to cloud
+      identities.
+   *  It can authenticate a user via configuring any compliant OIDC sign-in
+      service.
+   *  It offers additional account management and auditing capabilities for
+      users and administrators.
+
+1. **Data Access Manager** (Passport Clearinghouse): A data and service access
+   enforcement point where user requests for access to data are verified to meet
+   policy requirements using Visas.
+   *  Known as "DAM".
+   *  Acts as an authorization server for underlying Cloud and On-Prem Services.
+   *  The DAM has an extensible plug-in model to add support for more service
+      platforms and expose configuration and identity/access options in a way
+      that integrates with existing DAM APIs.
+   *  See [DAM configuration documentation](docs/dam/admin/config/README.md) to
+      better understand the feature set and how it works.
+
+1. **Cloud and On-Prem Services**: a set of services that a DAM can control
+   identity and access management features in order to permit or revoke access
+   to users that make access requests using the DAM.
+   *  Supports Google Cloud Platform (GCP) services such as Google Cloud Storage
+      (GCS) and BigQuery.
+   *  Supports Amazon Web Services (AWS) such as S3 and RedShift.
+   *  Supports integration with GA4GH services via related GitHub repositories.
+      These services include:
+      *  GA4GH Beacon: discover datasets using specialized queries for genomic
+         variants.
+      *  GA4GH Search: deeper searches into datasets for selecting cohorts.
+      *  GA4GH WES: Workflow Execution Service that run analysis pipelines.
+      *  GA4GH DRS: Data Respository Service that can locate copies of data in
+         cloud.
+
 ## Benefits of Passports
 
+Using the solution outlined above, passports overcome [coordination
+challenges](#coordination-challenges) in the following ways:
+
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/benefits_of_passports.svg" width="700px">
+
+The Identity Concentrator and Data Access Manager provide the ability to
+evaluate policies across cloud computing environments and offer the data
+governance controls to reflect and consistently maintain the intentions of the
+Sources of Authority.

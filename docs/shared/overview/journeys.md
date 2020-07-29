@@ -10,7 +10,7 @@ Concentrator](https://github.com/GoogleCloudPlatform/healthcare-federated-access
 Passport Visas that are passed down to the DAM for use in access policies for
 data or service requests.
 
-## Researcher Cloud User Journey
+## Researcher Analysis on Cloud
 
 ![researcher cloud use case](assets/diagrams/fa_researcher_cloud_usage.svg)
 
