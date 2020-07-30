@@ -25,26 +25,26 @@ import (
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
 
-// oidcUserinfoVerifier use /userinfo to verify the access token and fetch ID information.
-type oidcUserinfoVerifier struct {
+// oidcOpaqueUserinfoVerifier use /userinfo to verify the access tok and fetch ID information.
+type oidcOpaqueUserinfoVerifier struct {
 	issuer   string
 	provider *oidc.Provider
 }
 
-// newOIDCUserinfoVerifier creates a new oidc token verifier using userinfo.
-func newOIDCUserinfoVerifier(ctx context.Context, issuer string) (*oidcUserinfoVerifier, error) {
+// newOIDCUserinfoVerifier creates a new oidc tok verifier using userinfo.
+func newOIDCUserinfoVerifier(ctx context.Context, issuer string) (*oidcOpaqueUserinfoVerifier, error) {
 	p, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
 		return nil, errutil.WithErrorReason(errCreateVerifierFailed, status.Errorf(codes.Unavailable, "create oidc failed: %v", err))
 	}
 
-	return &oidcUserinfoVerifier{
+	return &oidcOpaqueUserinfoVerifier{
 		issuer:   issuer,
 		provider: p,
 	}, nil
 }
 
-func (s *oidcUserinfoVerifier) ExtractClaims(ctx context.Context, token string, claims interface{}) (*ga4gh.StdClaims, error) {
+func (s *oidcOpaqueUserinfoVerifier) PreviewClaimsBeforeVerification(ctx context.Context, token string, claims interface{}) (*ga4gh.StdClaims, error) {
 	userinfo, err := s.provider.UserInfo(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}))
 	if err != nil {
 		return nil, errutil.WithErrorReason(errUserinfoInvalidToken, status.Errorf(codes.Unauthenticated, "userinfo return failed: %v", err))
@@ -70,10 +70,10 @@ func (s *oidcUserinfoVerifier) ExtractClaims(ctx context.Context, token string, 
 }
 
 // VerifySig is a no-op because PreviewClaimsBeforeVerification already has performed the verification steps on the IdP before returning the response.
-func (s *oidcUserinfoVerifier) VerifySig(ctx context.Context, token string) error {
+func (s *oidcOpaqueUserinfoVerifier) VerifySig(ctx context.Context, token string) error {
 	return nil
 }
 
-func (s *oidcUserinfoVerifier) Issuer() string {
+func (s *oidcOpaqueUserinfoVerifier) Issuer() string {
 	return s.issuer
 }

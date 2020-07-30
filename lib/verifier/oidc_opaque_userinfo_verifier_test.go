@@ -68,7 +68,7 @@ func TestUserinfo_verify_ExtractClaims(t *testing.T) {
 		FamilyName: "Joe",
 	}
 	if d := cmp.Diff(want, got); len(d) > 0 {
-		t.Errorf("ExtractClaims (-want, +got): %s", d)
+		t.Errorf("PreviewClaimsBeforeVerification (-want, +got): %s", d)
 	}
 }
 

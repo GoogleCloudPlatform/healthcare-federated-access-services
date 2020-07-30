@@ -69,10 +69,13 @@ var (
 		"/auditlog/{name}":  RequireUserTokenClientCredential,
 		"/acctadmin/{name}": RequireAccountAdminUserTokenCredential,
 	}
+
+	basicSetupOptions    = &testSetupOptions{}
+	userInfoSetupOptions = &testSetupOptions{useUserinfo: true}
 )
 
 func Test_LargeBody(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, _ := setup(t, param)
 
 		// Build a big http body
@@ -89,7 +92,7 @@ func Test_LargeBody(t *testing.T) {
 }
 
 func Test_LargeBody_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 
 		router, oidc, _, _, logs := setup(t, param)
 		// Build a big http body
@@ -109,7 +112,7 @@ func Test_LargeBody_Log(t *testing.T) {
 }
 
 func Test_ErrorAtClientSecret(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		for path, require := range handlers {
 			t.Run(path, func(t *testing.T) {
 				router, oidc, service, _, _ := setup(t, param)
@@ -134,7 +137,7 @@ func Test_ErrorAtClientSecret(t *testing.T) {
 }
 
 func Test_ErrorAtClientSecret_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		for path, require := range handlers {
 			t.Run(path, func(t *testing.T) {
 				router, oidc, service, _, logs := setup(t, param)
@@ -163,7 +166,7 @@ func Test_ErrorAtClientSecret_Log(t *testing.T) {
 }
 
 func Test_RequiresClientID(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, stub, _ := setup(t, param)
 
 		resp := sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
@@ -179,7 +182,7 @@ func Test_RequiresClientID(t *testing.T) {
 }
 
 func Test_RequiresClientID_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, logs := setup(t, param)
 
 		sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
@@ -193,7 +196,7 @@ func Test_RequiresClientID_Log(t *testing.T) {
 }
 
 func Test_RequiresClientID_Error(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		tests := []struct {
 			name     string
 			clientID string
@@ -221,7 +224,7 @@ func Test_RequiresClientID_Error(t *testing.T) {
 }
 
 func Test_RequiresClientID_Error_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		tests := []struct {
 			name     string
 			clientID string
@@ -258,7 +261,7 @@ func Test_RequiresClientID_Error_Log(t *testing.T) {
 }
 
 func Test_RequiresClientSecret(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, stub, _ := setup(t, param)
 
 		resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
@@ -274,7 +277,7 @@ func Test_RequiresClientSecret(t *testing.T) {
 }
 
 func Test_RequiresClientSecret_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, logs := setup(t, param)
 
 		sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
@@ -288,7 +291,7 @@ func Test_RequiresClientSecret_Log(t *testing.T) {
 }
 
 func Test_RequiresClientSecret_Error(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		tests := []struct {
 			name         string
 			clientSecret string
@@ -316,7 +319,7 @@ func Test_RequiresClientSecret_Error(t *testing.T) {
 }
 
 func Test_RequiresClientSecret_Error_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		tests := []struct {
 			name         string
 			clientSecret string
@@ -347,7 +350,7 @@ func Test_RequiresClientSecret_Error_Log(t *testing.T) {
 }
 
 func Test_RequiresToken_Error(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		tests := []struct {
 			name string
 			tok  string
@@ -379,7 +382,7 @@ func Test_RequiresToken_Error(t *testing.T) {
 }
 
 func Test_RequiresToken_Error_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		notJWTErr := verifierErrParseFailed
 		if param.useUserinfo {
 			notJWTErr = verifierErrUserinfoInvalidToken
@@ -421,7 +424,7 @@ func Test_RequiresToken_Error_Log(t *testing.T) {
 }
 
 func Test_RequiresToken_JWT_Invalid_Signature(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -454,7 +457,7 @@ func Test_RequiresToken_JWT_Invalid_Signature(t *testing.T) {
 }
 
 func Test_RequiresToken_JWT_Invalid_Signature_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -554,7 +557,7 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 	for _, tc := range tests {
 		for _, p := range paths {
 			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, _ := setup(t, &testParam{})
+				router, oidc, _, _, _ := setup(t, basicSetupOptions)
 
 				tok, err := oidc.Sign(nil, tc.claims)
 				if err != nil {
@@ -638,7 +641,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 	for _, tc := range tests {
 		for _, p := range paths {
 			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, logs := setup(t, &testParam{})
+				router, oidc, _, _, logs := setup(t, basicSetupOptions)
 
 				tok, err := oidc.Sign(nil, tc.claims)
 				if err != nil {
@@ -658,7 +661,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 }
 
 func Test_RequiresUserToken(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -694,7 +697,7 @@ func Test_RequiresUserToken(t *testing.T) {
 }
 
 func Test_RequiresUserToken_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -728,7 +731,7 @@ func Test_RequiresUserToken_Log(t *testing.T) {
 }
 
 func Test_RequiresUserToken_UserMisatch(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, _ := setup(t, param)
 
 		now := time.Now().Unix()
@@ -753,7 +756,7 @@ func Test_RequiresUserToken_UserMisatch(t *testing.T) {
 }
 
 func Test_RequiresUserToken_UserMismatch_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, logs := setup(t, param)
 
 		now := time.Now().Unix()
@@ -781,7 +784,7 @@ func Test_RequiresUserToken_UserMismatch_Log(t *testing.T) {
 }
 
 func Test_RequiresAdminToken(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, stub, _ := setup(t, param)
 
 		now := time.Now().Unix()
@@ -814,7 +817,7 @@ func Test_RequiresAdminToken(t *testing.T) {
 }
 
 func Test_RequiresAdminToken_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, logs := setup(t, param)
 
 		now := time.Now().Unix()
@@ -845,7 +848,7 @@ func Test_RequiresAdminToken_Log(t *testing.T) {
 }
 
 func Test_RequiresAdminToken_Error(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, _ := setup(t, param)
 
 		now := time.Now().Unix()
@@ -870,7 +873,7 @@ func Test_RequiresAdminToken_Error(t *testing.T) {
 }
 
 func Test_RequiresAdminToken_Error_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, logs := setup(t, param)
 
 		now := time.Now().Unix()
@@ -898,7 +901,7 @@ func Test_RequiresAdminToken_Error_Log(t *testing.T) {
 }
 
 func Test_RequiresAccountAdminUserToken(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -930,7 +933,7 @@ func Test_RequiresAccountAdminUserToken(t *testing.T) {
 }
 
 func Test_RequiresAccountAdminUserToken_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -960,7 +963,7 @@ func Test_RequiresAccountAdminUserToken_Log(t *testing.T) {
 }
 
 func Test_RequiresAccountAdminUserToken_Error(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -986,7 +989,7 @@ func Test_RequiresAccountAdminUserToken_Error(t *testing.T) {
 }
 
 func Test_RequiresAccountAdminUserToken_Error_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -1015,7 +1018,7 @@ func Test_RequiresAccountAdminUserToken_Error_Log(t *testing.T) {
 }
 
 func Test_UserAndLinkToken(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -1052,7 +1055,7 @@ func Test_UserAndLinkToken(t *testing.T) {
 }
 
 func Test_UserAndLinkToken_Error(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -1084,7 +1087,7 @@ func Test_UserAndLinkToken_Error(t *testing.T) {
 }
 
 func Test_UserAndLinkToken_Error_Log(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
 			Issuer:    issuerURL,
@@ -1118,7 +1121,7 @@ func Test_UserAndLinkToken_Error_Log(t *testing.T) {
 }
 
 func Test_writeRequestLog_auth_pass(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
 
 		tests := []struct {
@@ -1215,7 +1218,7 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 }
 
 func Test_writeRequestLog_auth_failed(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, logs := setup(t, param)
 
 		tracingID := "1"
@@ -1257,7 +1260,7 @@ func Test_writeRequestLog_auth_failed(t *testing.T) {
 }
 
 func TestUserTokenOnly(t *testing.T) {
-	testUseJWTAndUserinfo(t, func(t *testing.T, param *testParam) {
+	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, c, stub, _ := setup(t, param)
 
 		p := "/usertokenonly"
@@ -1293,7 +1296,7 @@ func TestUserTokenOnly(t *testing.T) {
 }
 
 func TestUserTokenOnly_Err(t *testing.T) {
-	router, oidc, c, stub, _ := setup(t, &testParam{})
+	router, oidc, c, stub, _ := setup(t, basicSetupOptions)
 
 	p := "/usertokenonly"
 	require := Require{Role: User, SelfClientID: test.TestClientID}
@@ -1366,7 +1369,7 @@ func TestUserTokenOnly_Err(t *testing.T) {
 }
 
 func TestAllowIssuerOnAudAzp_AllowAzp(t *testing.T) {
-	router, oidc, c, stub, _ := setup(t, &testParam{})
+	router, oidc, c, stub, _ := setup(t, &testSetupOptions{})
 
 	paths := map[string]Require{
 		"/false/false": {Role: User, SelfClientID: test.TestClientID},
@@ -1559,22 +1562,22 @@ func Test_normalize(t *testing.T) {
 	}
 }
 
-type testParam struct {
+type testSetupOptions struct {
 	useUserinfo bool
 }
 
-func testUseJWTAndUserinfo(t *testing.T, f func(t *testing.T, params *testParam)) {
+func testUseJWTAndUserinfo(t *testing.T, f func(t *testing.T, params *testSetupOptions)) {
 	tests := []struct {
 		name  string
-		param *testParam
+		param *testSetupOptions
 	}{
 		{
 			name:  "jwt_access_token",
-			param: &testParam{useUserinfo: false},
+			param: basicSetupOptions,
 		},
 		{
 			name:  "user_userinfo",
-			param: &testParam{useUserinfo: true},
+			param: userInfoSetupOptions,
 		},
 	}
 
@@ -1585,7 +1588,7 @@ func testUseJWTAndUserinfo(t *testing.T, f func(t *testing.T, params *testParam)
 	}
 }
 
-func setup(t *testing.T, param *testParam) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub, *fakesdl.Fake) {
+func setup(t *testing.T, param *testSetupOptions) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub, *fakesdl.Fake) {
 	t.Helper()
 
 	oidc, err := fakeoidcissuer.New(issuerURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)

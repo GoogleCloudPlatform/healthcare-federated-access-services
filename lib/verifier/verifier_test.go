@@ -43,12 +43,12 @@ func TestNewVisaVerifier(t *testing.T) {
 			name:   "jku",
 			issuer: f.Issuer0.URL,
 			jku:    jkuURL(f.Issuer0.URL),
-			want:   "*verifier.jkuSigVerifier",
+			want:   "*verifier.jkuVisaSigVerifier",
 		},
 		{
 			name:   "no jku",
 			issuer: f.Issuer0.URL,
-			want:   "*verifier.oidcSigVerifier",
+			want:   "*verifier.oidcJwtSigVerifier",
 		},
 	}
 
@@ -61,7 +61,7 @@ func TestNewVisaVerifier(t *testing.T) {
 				t.Fatalf("NewVisaVerifier() failed: %v", err)
 			}
 
-			got := reflect.TypeOf(v.sig).String()
+			got := reflect.TypeOf(v.tok).String()
 			if got != tc.want {
 				t.Errorf("NewVisaVerifier() = %s, wants %s", got, tc.want)
 			}
