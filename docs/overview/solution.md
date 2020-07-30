@@ -1,4 +1,4 @@
-# GA4GH Passports
+# Federated Access Solution
 
 ## Overview
 
@@ -111,7 +111,7 @@ monitor usage.
 In summary, these **coordination challenges** can be classified via these four
 areas that all need to be overcome together:
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/challenges_of_cloud.svg" width="700px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/challenges_of_cloud.svg" width="850px">
 
 ## Solution
 
@@ -187,7 +187,7 @@ areas that all need to be overcome together:
 Using the solution outlined above, passports overcome [coordination
 challenges](#coordination-challenges) in the following ways:
 
-<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/benefits_of_passports.svg" width="700px">
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/benefits_of_passports.svg" width="850px">
 
 The Identity Concentrator and Data Access Manager provide the ability to
 evaluate policies across cloud computing environments and offer the data

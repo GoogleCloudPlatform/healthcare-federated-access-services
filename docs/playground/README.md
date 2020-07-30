@@ -108,7 +108,7 @@ to trust and use a Playground-specific **Persona Broker** as follows:
       test-only data in it.
 
 This configuration simulates real-world
-[solutions](docs/shared/overview/passports.md#solution)
+[solutions](docs/overview/solution.md#solution)
 
 ## Playground Components
 
