@@ -115,6 +115,14 @@ areas that all need to be overcome together:
 
 ## Solution
 
+As represented by the following diagram:
+*  user identities as well as any qualifications and permissions are created on
+   the left;
+*  then are transferred to downstream systems, and applied identities for the
+   user within those downstream systems;
+*  until they are applied against cloud and on-prem services on the right (i.e.
+   a set of left-to-right information flows occur).
+
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/passports_flow.svg">
 
 1. **Passport Visa Assertion Sources**: these are organizations or systems
