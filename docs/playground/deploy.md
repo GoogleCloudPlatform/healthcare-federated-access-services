@@ -7,7 +7,7 @@ passports and access policies with [test personas](https://github.com/GoogleClou
 
 **Note:** This environment is only for testing with synthetic and public
 datasets. For more information on best practices for production environments,
-see [Productionization Best Practices](../production/productionization.md).
+see [Productionization Best Practices](docs/shared/admin/productionization.md).
 
 ## Before you start
 
@@ -20,6 +20,12 @@ will include the following:
    personas
 *  An IC login test page ("icdemo") and DAM resource request test page
    ("damdemo")
+
+**IMPORTANT**: The playground Data Access Manager (DAM) will have control over
+services within this project, and anyone using the playground can act as an
+administrator. Therefore, **make sure the Google Cloud project being used for
+the playground is only used for this purpose** and does not have access to any
+other production data or services.
 
 ### Install Google Cloud SDK
 

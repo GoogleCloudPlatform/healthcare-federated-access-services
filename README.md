@@ -64,7 +64,7 @@ environment.
 
 When planning the next phase where these services need to be prepared for a
 production environment with live, sensitive data, the [productionization
-documentation](docs/production/productionization.md) can be helpful.
+documentation](docs/shared/admin/productionization.md) can be helpful.
 
 ## Troubleshooting
 
