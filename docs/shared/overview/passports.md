@@ -1,15 +1,32 @@
 # GA4GH Passports
 
+## Overview
+
+This document will introduce the key benefits and challenges of using cloud
+storage and computing, as well as discuss how the Identity Concentrator (IC)
+and Data Access Manager (DAM) included in this GitHub repository use GA4GH
+Passports to overcome these challenges.
+
 ## Use of Cloud
+
+Data Controllers may set up multiple copies of datasets on one or more Clouds
+and provide a Data Access Committee (DAC) to review and approve Data Access
+Requests.
 
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/bring_compute_to_data.svg">
 
 Instead of downloading data for local compute analysis, researchers may bring
 their compute jobs to the cloud to work on the data directly.
-*  **Data Remains in Place**: once the Data Controller publishes one or more
-   copies of the data for researchers to use, the data no longer needs to be
-   downloaded outside those cloud environments in order to do analysis.
-*  **Compute Jobs move to Cloud**: instead of data moving to a local researcher
+*  **Data Remains in Place**: once the Data Controller publishes copies of the
+   data for researchers to use, the data no longer needs to be downloaded
+   outside of those cloud environments in order to do analysis.
+   *  Copies may be published using different cloud environments and in
+      different locations (within any regulatory compliance constraints of where
+      the data is allowed to be).
+   *  Copies give researchers more options as to where they can compute on the
+      data, potentially even across datasets, while minimizing network egress
+      and other charges.
+*  **Compute Jobs Move to Cloud**: instead of data moving to a local researcher
    compute node, a researcher leveraging cloud compute moves the compute job's
    configurations to run near the data center hosting one or more of the copies
    in the cloud.
@@ -24,9 +41,9 @@ their compute jobs to the cloud to work on the data directly.
    *  Avoids unmanaged downloads where access controls are unknown.
    *  Having unmanaged downloads increases the attack surface for viruses and
       hackers to compromise security measures. The cloud approach can limit
-      this risk and unsure a consistent, managed approach under the Data
+      this risk and insure a consistent, managed approach under the Data
       Controller's coordination.
-   *  Access to data has a consistent means to provide Data Controllers's with
+   *  Access to data has a consistent means to provide Data Controllers with
       a full set of audit logs to investigate anomalies and put extra data
       governance monitoring in place.
 
@@ -39,7 +56,7 @@ their compute jobs to the cloud to work on the data directly.
 
 1. **Use Data in Place**: There are additional benefits to using data in place
    that are not already captured by the benefits above.
-   *  Some data downloads will envoke network egress charges to move large
+   *  Some data downloads will invoke network egress charges to move large
       amounts of data to the local compute node. These costs can be significant
       and reduce the budget available for biomedical analysis.
    *  Downloading and setting up a local copy of the data may be time consuming.
@@ -60,11 +77,11 @@ their compute jobs to the cloud to work on the data directly.
    not available on systems within individual research labs.
    *  **Big Data** tools allow Clouds to process millions of individual records
       per second to bring scale and detail of analysis to a whole new level.
-      These tools alone have the potiential to make Principal Investigators
-      three times more effective with their research when compared to
-      traditional analysis methods.
+      These tools alone have the potential to make Principal Investigators up to
+      three times more productive with their research when compared to using
+      traditional analytical methods.
    *  **Machine Learning** and **Artificial Intelligence** are the next wave of
-      tools that will help discover corrolations between data that were not
+      tools that will help discover correlations between data that were not
       possible to see using traditional approaches.
    *  Cloud infrastructure providers are not only investing in providing
       hardware and storage, but are constantly innovating on these advanced
@@ -114,7 +131,7 @@ areas that all need to be overcome together:
 
 1. **Upstream Passport Visa Issuers**: Passport Visas enter in a few places
    along the entire network, however these `Upstream` Visa Issuers are the
-   systems that have access to the respositories where assertions are stored
+   systems that have access to the repositories where assertions are stored
    and are able to format those assertions in a verifiable GA4GH Passport Visa
    format for use by "downstream" systems (systems further to the right in the
    diagram).
@@ -147,7 +164,7 @@ areas that all need to be overcome together:
    *  The DAM has an extensible plug-in model to add support for more service
       platforms and expose configuration and identity/access options in a way
       that integrates with existing DAM APIs.
-   *  See [DAM configuration documentation](docs/dam/admin/config/README.md) to
+   *  See [DAM administration documentation](docs/dam/admin/README.md) to
       better understand the feature set and how it works.
 
 1. **Cloud and On-Prem Services**: a set of services that a DAM can control
@@ -162,7 +179,7 @@ areas that all need to be overcome together:
          variants.
       *  GA4GH Search: deeper searches into datasets for selecting cohorts.
       *  GA4GH WES: Workflow Execution Service that run analysis pipelines.
-      *  GA4GH DRS: Data Respository Service that can locate copies of data in
+      *  GA4GH DRS: Data Repository Service that can locate copies of data in
          cloud.
 
 ## Benefits of Passports
