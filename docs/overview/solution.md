@@ -118,10 +118,11 @@ areas that all need to be overcome together:
 As represented by the following diagram:
 *  user identities as well as any qualifications and permissions are created on
    the left;
-*  then are transferred to downstream systems, and applied identities for the
-   user within those downstream systems;
-*  until they are applied against cloud and on-prem services on the right (i.e.
-   a set of left-to-right information flows occur).
+*  then are transferred to downstream systems -- where they are applied to
+   identities for the user within those downstream systems -- as they move
+   towards the right;
+*  until they are applied against cloud and on-prem services on the right where
+   they are used to access resources directly in the cloud environment.
 
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/passports_flow.svg">
 
