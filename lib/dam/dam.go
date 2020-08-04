@@ -1177,6 +1177,7 @@ var (
 		Ui: map[string]string{
 			"label":       "Allowlist",
 			"description": "Allow users and groups to be given access directly via their email addresses by verifying email properties and/or trusted LinkedIdentity visas available on user tokens",
+			"infoUrl":     "https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/blob/master/docs/dam/admin/config/policies.md#allowlist-policy",
 			"source":      "built-in",
 			"edit":        "immutable",
 		},
