@@ -361,7 +361,7 @@ func (m *MockAwsClient) DeleteUserPolicy(input *iam.DeleteUserPolicyInput) (*iam
 		return nil, err
 	}
 
-	newPolicies := make([]*iam.PutUserPolicyInput, 0)
+	var newPolicies []*iam.PutUserPolicyInput
 	for _, policyInput := range m.UserPolicies {
 		if *policyInput.UserName != *input.UserName {
 			newPolicies = append(newPolicies, policyInput)
@@ -416,17 +416,21 @@ func (m *MockAwsClient) CreateUser(input *iam.CreateUserInput) (*iam.CreateUserO
 
 // DeleteUser ...
 func (m *MockAwsClient) DeleteUser(input *iam.DeleteUserInput) (*iam.DeleteUserOutput, error) {
-	for i, user := range m.Users {
+	var newUsers[]*iam.User
+	var found bool
+	for _, user := range m.Users {
 		if *input.UserName == *user.UserName {
-			newUsers := make([]*iam.User, len(m.Users)-1)
-			copy(newUsers, m.Users[0:i])
-			copy(newUsers[i:], m.Users[i+1:])
-			m.Users = newUsers
-			return &iam.DeleteUserOutput{}, nil
+			found = true
+			continue
 		}
+		newUsers = append(newUsers, user)
+	}
+	if !found {
+		return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "should not depend on this", nil)
 	}
 
-	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "should not depend on this", nil)
+	m.Users = newUsers
+	return &iam.DeleteUserOutput{}, nil
 }
 
 // GetRole ...
