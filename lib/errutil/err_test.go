@@ -42,6 +42,21 @@ func TestNewIndexError(t *testing.T) {
 	}
 }
 
+func TestNewError(t *testing.T) {
+	err := NewError(codes.InvalidArgument, "name", "this is an error message")
+	want := []interface{}{
+		&edpb.ResourceInfo{ResourceName: "name", Description: "this is an error message"},
+	}
+
+	s, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("FromError() failed")
+	}
+	if d := cmp.Diff(want, s.Details(), protocmp.Transform()); len(d) > 0 {
+		t.Errorf("s.Details (-want, +got): %s", d)
+	}
+}
+
 func TestWithErrorReason(t *testing.T) {
 	errReason := "reason"
 

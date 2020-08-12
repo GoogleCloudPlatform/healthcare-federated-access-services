@@ -343,8 +343,8 @@ func TestHandlers(t *testing.T) {
 			Method:  "PATCH",
 			Path:    "/scim/v2/test/Groups/group_1",
 			Persona: "admin",
-			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"members","object":{"value":"mary@poppins@example.org"}}]}`,
-			Output:  `*{"code":3,"message":"*"}*`,
+			Input:   `{"schemas":["urn:ietf:params:scim:api:messages:2.0:PatchOp"],"Operations":[{"op":"add","path":"members","object":{"value":"mary0@example.org"}},{"op":"add","path":"members","object":{"value":"mary1@poppins@example.org"}}]}`,
+			Output:  `*{"code":3,"message":"*"*"resourceName":"scim/groups/group_1/members/1/value"*"metadata":{"index":"1"}}*`,
 			Status:  http.StatusBadRequest,
 		},
 		{

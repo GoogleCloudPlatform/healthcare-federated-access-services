@@ -175,13 +175,13 @@ func (h *GroupHandler) NormalizeInput(r *http.Request, name string, vars map[str
 	case h.input.Id == "":
 		h.input.Id = name
 	case h.input.Id != name:
-		return fmt.Errorf("group %q id %q mismatch: id must match group name", name, h.input.Id)
+		return errutil.NewError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name), fmt.Sprintf("value must not be empty"))
 	}
 	for i, member := range h.input.Members {
 		if member == nil {
-			return fmt.Errorf("group %q member %d: cannot have empty members", name, i)
+			return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name), i, fmt.Sprintf("member must not be empty"))
 		}
-		if err := h.normalizeMember(member, i); err != nil {
+		if err := h.normalizeMember(member, name, i); err != nil {
 			return err
 		}
 	}
@@ -230,7 +230,7 @@ func (h *GroupHandler) Get(r *http.Request, name string) (proto.Message, error) 
 func (h *GroupHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	h.save = h.input
 	for i, member := range h.save.Members {
-		if err := h.normalizeMember(member, i); err != nil {
+		if err := h.normalizeMember(member, name, i); err != nil {
 			return nil, err
 		}
 		if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
@@ -253,6 +253,7 @@ func (h *GroupHandler) Put(r *http.Request, name string) (proto.Message, error) 
 func (h *GroupHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	h.save = &spb.Group{}
 	proto.Merge(h.save, h.item)
+	memberCounter := 0
 	for i, patch := range h.patch.Operations {
 		path := patch.Path
 		if memberPathRE.MatchString(path) {
@@ -265,45 +266,46 @@ func (h *GroupHandler) Patch(r *http.Request, name string) (proto.Message, error
 			src = patchSource(patch.Value)
 			dst = &h.save.DisplayName
 			if patch.Op == "remove" || len(src) == 0 {
-				return nil, fmt.Errorf("operation %d failed: cannot set %q to an empty value", i, path)
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("value must not be empty"))
 			}
 
 		case "members":
 			if patch.Op != "add" {
-				return nil, fmt.Errorf("operation %d failed: op %q not valid on path %q", i, patch.Op, path)
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("op %q is not valid", patch.Op))
 			}
-			member, err := h.patchMember(patch.Object)
+			member, err := h.patchMember(patch.Object, name, memberCounter)
 			if err != nil {
-				return nil, fmt.Errorf("operation %d failed: %v", i, err)
+				return nil, err
 			}
+			memberCounter++
 			if err := h.store.WriteTx(storage.GroupMemberDatatype, getRealm(r), name, member.Value, storage.LatestRev, member, nil, h.tx); err != nil {
-				return nil, fmt.Errorf("writing group member %q: %v", member.Value, err)
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, err.Error())
 			}
 
 		case "member":
 			if patch.Op != "remove" {
-				return nil, fmt.Errorf("operation %d failed: op %q not valid on path %q", i, patch.Op, patch.Path)
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("op %q is not valid", patch.Op))
 			}
 			match := memberPathRE.FindStringSubmatch(patch.Path)
 			if len(match) < 2 {
-				return nil, fmt.Errorf("operation %d failed: invalid member path %q", i, patch.Path)
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("invalid member path %q", patch.Path))
 			}
 			memberName := match[1]
 			if err := h.store.DeleteTx(storage.GroupMemberDatatype, getRealm(r), name, memberName, storage.LatestRev, h.tx); err != nil {
 				if storage.ErrNotFound(err) {
-					return nil, fmt.Errorf("operation %d failed: %q is not a member of the group", i, memberName)
+					return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("%q is not a member of the group", memberName))
 				}
-				return nil, fmt.Errorf("operation %d failed: removing group member %q: %v", i, memberName, err)
+				return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, err.Error())
 			}
 
 		default:
-			return nil, fmt.Errorf("operation %d failed: invalid path %q", i, path)
+			return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("invalid path %q", patch.Path))
 		}
 		if dst == nil {
 			continue
 		}
 		if patch.Op != "remove" && len(src) == 0 {
-			return nil, fmt.Errorf("operation %d failed: cannot set an empty value", i)
+			return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("cannot set an empty value"))
 		}
 		switch patch.Op {
 		case "add":
@@ -313,7 +315,7 @@ func (h *GroupHandler) Patch(r *http.Request, name string) (proto.Message, error
 		case "remove":
 			*dst = ""
 		default:
-			return nil, fmt.Errorf("operation %d: invalid op %q", i, patch.Op)
+			return nil, errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, path), i, fmt.Sprintf("invalid op %q", patch.Op))
 		}
 	}
 	// Output the new result: Get() will return contents from h.item with the latest edits from h.save.
@@ -345,7 +347,7 @@ func (h *GroupHandler) Save(r *http.Request, tx storage.Tx, name string, vars ma
 	return h.store.WriteTx(storage.GroupDatatype, getRealm(r), name, storage.DefaultID, storage.LatestRev, h.save, nil, h.tx)
 }
 
-func (h *GroupHandler) patchMember(object map[string]string) (*spb.Member, error) {
+func (h *GroupHandler) patchMember(object map[string]string, name string, idx int) (*spb.Member, error) {
 	if object == nil {
 		return nil, fmt.Errorf("member not provided")
 	}
@@ -359,23 +361,23 @@ func (h *GroupHandler) patchMember(object map[string]string) (*spb.Member, error
 		ExtensionIssuer:  object["issuer"],
 		ExtensionSubject: object["subject"],
 	}
-	if err := h.normalizeMember(member, 0); err != nil {
+	if err := h.normalizeMember(member, name, idx); err != nil {
 		return nil, err
 	}
 	return member, nil
 }
 
-func (h *GroupHandler) normalizeMember(member *spb.Member, idx int) error {
+func (h *GroupHandler) normalizeMember(member *spb.Member, name string, idx int) error {
 	switch member.Type {
 	case "User":
 	case "":
 		member.Type = "User"
 	default:
-		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("group", "members", strconv.Itoa(idx), "type"), idx, fmt.Sprintf("invalid member type"))
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "type"), idx, fmt.Sprintf("invalid member type"))
 	}
 	email, err := mail.ParseAddress(member.Value)
 	if err != nil {
-		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("group", "members", strconv.Itoa(idx), "value"), idx, "must be an email address")
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "value"), idx, "must be an email address")
 	}
 	member.Value = email.Address
 	if member.Display == "" && email.Name != "" {
@@ -385,18 +387,18 @@ func (h *GroupHandler) normalizeMember(member *spb.Member, idx int) error {
 		// Do not accept email addresses as the display name.
 		// Reject when a different email address, or remove display field when it repeats the value field.
 		if member.Display != member.Value {
-			return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("group", "members", strconv.Itoa(idx), "display"), idx, "display name as an email address not allowed")
+			return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "display"), idx, "display name as an email address not allowed")
 		}
 		member.Display = ""
 	}
 	if member.ExtensionIssuer != "" && !strutil.IsURL(member.ExtensionIssuer) {
-		return fmt.Errorf("invalid member issuer %q", member.ExtensionIssuer)
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "issuer"), idx, fmt.Sprintf("invalid member issuer %q", member.ExtensionIssuer))
 	}
 	if member.ExtensionIssuer != "" && len(member.ExtensionIssuer) > 256 {
-		return fmt.Errorf("member issuer %q exceeds maximum length", member.ExtensionIssuer)
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "issuer"), idx, fmt.Sprintf("member issuer %q exceeds maximum length", member.ExtensionIssuer))
 	}
 	if member.ExtensionSubject != "" && len(member.ExtensionSubject) > 60 {
-		return fmt.Errorf("member subject %q exceeds maximum length", member.ExtensionSubject)
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "subject"), idx, fmt.Sprintf("member subject %q exceeds maximum length", member.ExtensionSubject))
 	}
 	return nil
 }

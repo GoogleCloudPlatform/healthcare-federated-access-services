@@ -27,6 +27,17 @@ import (
 	edpb "google.golang.org/genproto/googleapis/rpc/errdetails" /* copybara-comment */
 )
 
+// NewError returns a Status error with path or name field.
+func NewError(code codes.Code, name string, msg string) error {
+	s := status.New(code, msg)
+	r := &edpb.ResourceInfo{ResourceName: name, Description: msg}
+	es, err := s.WithDetails(r)
+	if err == nil {
+		return es.Err()
+	}
+	return s.Err()
+}
+
 // NewIndexError returns a Status error with an additional index metadata field.
 func NewIndexError(code codes.Code, name string, index int, msg string) error {
 	s := status.New(code, msg)
