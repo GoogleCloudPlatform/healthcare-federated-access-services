@@ -37,7 +37,6 @@ const (
 	platformName   = "aws"
 )
 
-// TODO: need to be moved to config, also the values
 const (
 	defaultGcFrequency    = 1 * 24 * time.Hour /* 1 day */
 	defaultKeysPerAccount = 2

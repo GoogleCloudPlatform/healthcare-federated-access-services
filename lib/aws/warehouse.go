@@ -808,7 +808,6 @@ func (wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
 	if err != nil {
 		return fmt.Errorf("unable to generate role policy: %v", err)
 	}
-	// TODO: handle policy versioning
 	policyJSON, err := convertToPolicyJSON(spec)
 	if err != nil {
 		return fmt.Errorf("error creating AWS policy JSON: %v", err)
@@ -880,7 +879,6 @@ func (wh *AccountWarehouse) putRolePolicy(spec *policySpec, policy string) error
 }
 
 func (wh *AccountWarehouse) ensureUserPolicy(spec *policySpec) error {
-	// TODO: handle policy versioning
 	resources := resourceARNToArray(spec.rSpecs)
 	policy := &policy{
 		Version: "2012-10-17",
