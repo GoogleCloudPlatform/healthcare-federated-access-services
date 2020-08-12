@@ -416,7 +416,7 @@ func (m *MockAwsClient) CreateUser(input *iam.CreateUserInput) (*iam.CreateUserO
 
 // DeleteUser ...
 func (m *MockAwsClient) DeleteUser(input *iam.DeleteUserInput) (*iam.DeleteUserOutput, error) {
-	var newUsers[]*iam.User
+	var newUsers []*iam.User
 	var found bool
 	for _, user := range m.Users {
 		if *input.UserName == *user.UserName {
