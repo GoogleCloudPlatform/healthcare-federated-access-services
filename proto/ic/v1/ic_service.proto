@@ -39,8 +39,6 @@ message IcConfig {
 message ConfigOptions {
   int32 account_name_length = 1 [deprecated = true];
   bool read_only_master_realm = 2;
-  // TODO: remove whitelisted_realms config option.
-  repeated string whitelisted_realms = 3 [deprecated = true];
   string default_passport_token_ttl = 4 [deprecated = true];
   string max_passport_token_ttl = 5 [deprecated = true];
   string auth_code_token_ttl = 6 [deprecated = true];
