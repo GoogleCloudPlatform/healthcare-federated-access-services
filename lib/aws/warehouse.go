@@ -102,14 +102,18 @@ type APIClient interface {
 	AssumeRole(input *sts.AssumeRoleInput) (*sts.AssumeRoleOutput, error)
 	CreateAccessKey(input *iam.CreateAccessKeyInput) (*iam.CreateAccessKeyOutput, error)
 	PutRolePolicy(input *iam.PutRolePolicyInput) (*iam.PutRolePolicyOutput, error)
+	ListUserPolicies(input *iam.ListUserPoliciesInput) (*iam.ListUserPoliciesOutput, error)
 	PutUserPolicy(input *iam.PutUserPolicyInput) (*iam.PutUserPolicyOutput, error)
+	DeleteUserPolicy(input *iam.DeleteUserPolicyInput) (*iam.DeleteUserPolicyOutput, error)
 	GetUser(input *iam.GetUserInput) (*iam.GetUserOutput, error)
 	CreateUser(input *iam.CreateUserInput) (*iam.CreateUserOutput, error)
+	DeleteUser(input *iam.DeleteUserInput) (*iam.DeleteUserOutput, error)
 	GetRole(input *iam.GetRoleInput) (*iam.GetRoleOutput, error)
 	CreateRole(input *iam.CreateRoleInput) (*iam.CreateRoleOutput, error)
 	CreateLoginProfile(input *iam.CreateLoginProfileInput) (*iam.CreateLoginProfileOutput, error)
 	UpdateLoginProfile(input *iam.UpdateLoginProfileInput) (*iam.UpdateLoginProfileOutput, error)
 	GetLoginProfile(input *iam.GetLoginProfileInput) (*iam.GetLoginProfileOutput, error)
+	DeleteLoginProfile(input *iam.DeleteLoginProfileInput) (*iam.DeleteLoginProfileOutput, error)
 }
 
 // ResourceTokenResult is returned from MintTokenWithTTL for aws adapter.
@@ -198,17 +202,106 @@ func (wh *AccountWarehouse) GetServiceAccounts(ctx context.Context, _ string) (<
 	return c, nil
 }
 
-// RemoveServiceAccount is not yet a supported operation, but the definition exists to implement
-// the AccountManager interface.
-func (wh *AccountWarehouse) RemoveServiceAccount(_ context.Context, _, _ string) error {
-	// TODO
-	// Unlike the AWS Management Console, when
-	//       you delete a user programmatically, you must delete the items  attached
-	//       to  the user manually, or the deletion fails. For more information, see
-	//       Deleting an IAM User . Before attempting to delete a user,  remove  the
-	//       following items
-	// Refer: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_manage.html#id_users_deleting_cli
-	return fmt.Errorf("removing service accounts is not yet implemented")
+// RemoveServiceAccount removes an AWS IAM user (project parameter is ignored).
+func (wh *AccountWarehouse) RemoveServiceAccount(_ context.Context, _, userName string) error {
+	err := wh.deleteLoginProfile(userName)
+	if err != nil {
+		return err
+	}
+
+	err = wh.deleteAccessKeys(userName)
+	if err != nil {
+		return err
+	}
+
+	err = wh.deleteInlineUserPolicies(userName)
+	if err != nil {
+		return err
+	}
+
+	// delete user
+	_, err = wh.apiClient.DeleteUser(&iam.DeleteUserInput{UserName: aws.String(userName)})
+	if err != nil {
+		return fmt.Errorf("delete operation on AWS user %s failed: %v", userName, err)
+	}
+
+	return nil
+}
+
+func (wh *AccountWarehouse) deleteInlineUserPolicies(userName string) error {
+	// gather policies
+	var policyNames []*string
+	var marker *string
+	for {
+		userPolicyOutput, err := wh.apiClient.ListUserPolicies(&iam.ListUserPoliciesInput{UserName: aws.String(userName), Marker: marker})
+		if err != nil {
+			return fmt.Errorf("unable to list policies for AWS user %s: %v", userName, err)
+		}
+		for _, policyName := range userPolicyOutput.PolicyNames {
+			policyNames = append(policyNames, policyName)
+		}
+		if *userPolicyOutput.IsTruncated {
+			marker = userPolicyOutput.Marker
+			continue
+		}
+		break
+	}
+	for _, policyName := range policyNames {
+		_, err := wh.apiClient.DeleteUserPolicy(&iam.DeleteUserPolicyInput{
+			PolicyName: policyName,
+			UserName:   aws.String(userName),
+		})
+		if err != nil {
+			return fmt.Errorf("unable to delete AWS policy %s for AWS user %s: %v", *policyName, userName, err)
+		}
+	}
+	return nil
+}
+
+func (wh *AccountWarehouse) deleteAccessKeys(userName string) error {
+	// gather all keys before deleting
+	var keys []*iam.AccessKeyMetadata
+	var marker *string
+	for {
+		listKeysOutput, err := wh.apiClient.ListAccessKeys(&iam.ListAccessKeysInput{UserName: aws.String(userName), Marker: marker})
+		if err != nil {
+			return fmt.Errorf("unable to list keys for user %s: %v", userName, err)
+		}
+		for _, keyData := range listKeysOutput.AccessKeyMetadata {
+			keys = append(keys, keyData)
+		}
+		if *listKeysOutput.IsTruncated {
+			marker = listKeysOutput.Marker
+			continue
+		}
+
+		break
+	}
+
+	for _, keyData := range keys {
+		_, err := wh.apiClient.DeleteAccessKey(&iam.DeleteAccessKeyInput{
+			AccessKeyId: keyData.AccessKeyId,
+			UserName:    keyData.UserName,
+		})
+		if err != nil {
+			return fmt.Errorf("unable to delete access key %s for AWS user %s: %v", *keyData.AccessKeyId, *keyData.UserName, err)
+		}
+	}
+
+	return nil
+}
+
+func (wh *AccountWarehouse) deleteLoginProfile(userName string) error {
+	_, err := wh.apiClient.GetLoginProfile(&iam.GetLoginProfileInput{UserName: aws.String(userName)})
+	if err == nil {
+		_, err = wh.apiClient.DeleteLoginProfile(&iam.DeleteLoginProfileInput{UserName: aws.String(userName)})
+		if err != nil {
+			return fmt.Errorf("unable to delete AWS user %s login profile: %v", userName, err)
+		}
+	} else if aerr, ok := err.(awserr.Error); !ok || aerr.Code() != iam.ErrCodeNoSuchEntityException {
+		return fmt.Errorf("error looking up login profile while attempting to delete AWS user %s: %v", userName, aerr)
+	}
+	return nil
 }
 
 // ManageAccountKeys is the main method where key removal happens

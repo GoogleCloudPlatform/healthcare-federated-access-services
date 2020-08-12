@@ -107,6 +107,22 @@ func (sac *sdkAPIClient) GetLoginProfile(input *iam.GetLoginProfileInput) (*iam.
 	return sac.iamSvc.GetLoginProfile(input)
 }
 
+func (sac *sdkAPIClient) DeleteLoginProfile(input *iam.DeleteLoginProfileInput) (*iam.DeleteLoginProfileOutput, error) {
+	return sac.iamSvc.DeleteLoginProfile(input)
+}
+
+func (sac *sdkAPIClient) ListUserPolicies(input *iam.ListUserPoliciesInput) (*iam.ListUserPoliciesOutput, error) {
+	return sac.iamSvc.ListUserPolicies(input)
+}
+
+func (sac *sdkAPIClient) DeleteUserPolicy(input *iam.DeleteUserPolicyInput) (*iam.DeleteUserPolicyOutput, error) {
+	return sac.iamSvc.DeleteUserPolicy(input)
+}
+
+func (sac *sdkAPIClient) DeleteUser(input *iam.DeleteUserInput) (*iam.DeleteUserOutput, error) {
+	return sac.iamSvc.DeleteUser(input)
+}
+
 // NewMockAPIClient provides an API client implementation suitable for unit tests.
 func NewMockAPIClient(account string, userID string) *MockAwsClient {
 	return &MockAwsClient{
@@ -155,6 +171,21 @@ func (m *MockAwsClient) CreateLoginProfile(input *iam.CreateLoginProfileInput) (
 	}, nil
 }
 
+// DeleteLoginProfile ...
+func (m *MockAwsClient) DeleteLoginProfile(input *iam.DeleteLoginProfileInput) (*iam.DeleteLoginProfileOutput, error) {
+	for i, profile := range m.FullLoginProfile {
+		if *profile.loginProfile.UserName == *input.UserName {
+			newProfiles := make([]*fullLoginProfile, len(m.FullLoginProfile)-1)
+			copy(newProfiles, m.FullLoginProfile[0:i])
+			copy(newProfiles[i:], m.FullLoginProfile[i+1:])
+			m.FullLoginProfile = newProfiles
+			return &iam.DeleteLoginProfileOutput{}, nil
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "should not depend on this", nil)
+}
+
 // UpdateLoginProfile ...
 func (m *MockAwsClient) UpdateLoginProfile(input *iam.UpdateLoginProfileInput) (*iam.UpdateLoginProfileOutput, error) {
 	for _, flp := range m.FullLoginProfile {
@@ -183,7 +214,11 @@ func (m *MockAwsClient) GetLoginProfile(input *iam.GetLoginProfileInput) (*iam.G
 
 // ListUsers ...
 func (m *MockAwsClient) ListUsers(_ *iam.ListUsersInput) (*iam.ListUsersOutput, error) {
-	panic("implement me")
+	return &iam.ListUsersOutput{
+		IsTruncated: aws.Bool(false),
+		Marker:      nil,
+		Users:       []*iam.User{},
+	}, nil
 }
 
 // ListAccessKeys ...
@@ -301,6 +336,42 @@ func (m *MockAwsClient) PutUserPolicy(input *iam.PutUserPolicyInput) (*iam.PutUs
 	return &iam.PutUserPolicyOutput{}, nil
 }
 
+// ListUserPolicies ...
+func (m *MockAwsClient) ListUserPolicies(input *iam.ListUserPoliciesInput) (*iam.ListUserPoliciesOutput, error) {
+	if _, err := m.GetUser(&iam.GetUserInput{UserName: input.UserName}); err != nil {
+		return nil, err
+	}
+	policyNames := make([]*string, 0)
+	for _, policyInput := range m.UserPolicies {
+		if *policyInput.UserName == *input.UserName {
+			policyNames = append(policyNames, policyInput.PolicyName)
+		}
+	}
+
+	return &iam.ListUserPoliciesOutput{
+		IsTruncated: aws.Bool(false),
+		Marker:      nil,
+		PolicyNames: policyNames,
+	}, nil
+}
+
+// DeleteUserPolicy ...
+func (m *MockAwsClient) DeleteUserPolicy(input *iam.DeleteUserPolicyInput) (*iam.DeleteUserPolicyOutput, error) {
+	if _, err := m.GetUser(&iam.GetUserInput{UserName: input.UserName}); err != nil {
+		return nil, err
+	}
+
+	var newPolicies []*iam.PutUserPolicyInput
+	for _, policyInput := range m.UserPolicies {
+		if *policyInput.UserName != *input.UserName {
+			newPolicies = append(newPolicies, policyInput)
+		}
+	}
+	m.UserPolicies = newPolicies
+
+	return &iam.DeleteUserPolicyOutput{}, nil
+}
+
 // GetUser ...
 func (m *MockAwsClient) GetUser(input *iam.GetUserInput) (*iam.GetUserOutput, error) {
 	for _, user := range m.Users {
@@ -341,6 +412,25 @@ func (m *MockAwsClient) CreateUser(input *iam.CreateUserInput) (*iam.CreateUserO
 	return &iam.CreateUserOutput{
 		User: user,
 	}, nil
+}
+
+// DeleteUser ...
+func (m *MockAwsClient) DeleteUser(input *iam.DeleteUserInput) (*iam.DeleteUserOutput, error) {
+	var newUsers []*iam.User
+	var found bool
+	for _, user := range m.Users {
+		if *input.UserName == *user.UserName {
+			found = true
+			continue
+		}
+		newUsers = append(newUsers, user)
+	}
+	if !found {
+		return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "should not depend on this", nil)
+	}
+
+	m.Users = newUsers
+	return &iam.DeleteUserOutput{}, nil
 }
 
 // GetRole ...

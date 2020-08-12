@@ -385,6 +385,79 @@ func TestAWS_ManageAccountKeys_Expired(t *testing.T) {
 	}
 }
 
+func TestAWS_RemoveServiceAccount_HumanAccess(t *testing.T) {
+	awsAccount := "12345678"
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
+	wh, _ := NewWarehouse(context.Background(), apiClient)
+	iamUserName := "ic_abc123@" + damPrincipalID
+
+	// setup
+	params := NewMockBucketParams(1*time.Hour, nil)
+	params.DamInterfaceID = HumanInterfacePrefix + "s3"
+	_, err := wh.MintTokenWithTTL(context.Background(), params)
+	if err != nil {
+		t.Fatalf("mint token setup failed: %v", err)
+	}
+
+	err = wh.RemoveServiceAccount(context.Background(), "", iamUserName)
+	if err != nil {
+		t.Fatalf("failed to remove IAM user: %v", err)
+	}
+}
+
+func TestAWS_RemoveServiceAccount_AccessKey(t *testing.T) {
+	awsAccount := "12345678"
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
+	wh, _ := NewWarehouse(context.Background(), apiClient)
+	iamUserName := "ic_abc123@" + damPrincipalID
+
+	// AWS has 12-hour threshold for role access tokens
+	params := NewMockBucketParams(13*time.Hour, nil)
+	_, err := wh.MintTokenWithTTL(context.Background(), params)
+	if err != nil {
+		t.Fatalf("mint token setup failed: %v", err)
+	}
+
+	err = wh.RemoveServiceAccount(context.Background(), "", iamUserName)
+	if err != nil {
+		t.Fatalf("failed to remove IAM user: %v", err)
+	}
+}
+
+func TestAWS_RemoveServiceAccount_MultipleKeysAndHumanAccess(t *testing.T) {
+	awsAccount := "12345678"
+	damPrincipalID := "dam-user-id"
+	apiClient := NewMockAPIClient(awsAccount, damPrincipalID)
+	wh, _ := NewWarehouse(context.Background(), apiClient)
+	iamUserName := "ic_abc123@" + damPrincipalID
+
+	_, err := wh.MintTokenWithTTL(context.Background(), NewMockBucketParams(13*time.Hour, nil))
+	if err != nil {
+		t.Fatalf("mint token setup failed: %v", err)
+	}
+	_, err = wh.MintTokenWithTTL(context.Background(), NewMockRedshiftParams(13*time.Hour))
+	if err != nil {
+		t.Fatalf("mint token setup failed: %v", err)
+	}
+	_, err = wh.MintTokenWithTTL(context.Background(), NewMockRedshiftParams(13*time.Hour))
+	if err != nil {
+		t.Fatalf("mint token setup failed: %v", err)
+	}
+	humanAccessParams := NewMockBucketParams(1*time.Hour, nil)
+	humanAccessParams.DamInterfaceID = HumanInterfacePrefix + "s3"
+	_, err = wh.MintTokenWithTTL(context.Background(), humanAccessParams)
+	if err != nil {
+		t.Fatalf("mint token setup failed: %v", err)
+	}
+
+	err = wh.RemoveServiceAccount(context.Background(), "", iamUserName)
+	if err != nil {
+		t.Fatalf("failed to remove IAM user: %v", err)
+	}
+}
+
 func validateMintedRoleCredentials(t *testing.T, expectedAccount, expectedPrincipal string, result *ResourceTokenResult, err error) {
 	t.Helper()
 
