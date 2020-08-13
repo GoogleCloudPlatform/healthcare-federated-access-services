@@ -7,7 +7,7 @@ passports and access policies with [test personas](https://github.com/GoogleClou
 
 **Note:** This environment is only for testing with synthetic and public
 datasets. For more information on best practices for production environments,
-see [Productionization Best Practices](docs/shared/admin/productionization.md).
+see [Productionization Best Practices](../shared/admin/productionization.md).
 
 ## Before you start
 

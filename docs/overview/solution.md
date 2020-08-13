@@ -173,7 +173,7 @@ As represented by the following diagram:
    *  The DAM has an extensible plug-in model to add support for more service
       platforms and expose configuration and identity/access options in a way
       that integrates with existing DAM APIs.
-   *  See [DAM administration documentation](docs/dam/admin/README.md) to
+   *  See [DAM administration documentation](../dam/admin/README.md) to
       better understand the feature set and how it works.
 
 1. **Cloud and On-Prem Services**: a set of services that a DAM can control

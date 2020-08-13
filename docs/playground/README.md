@@ -61,7 +61,7 @@ to trust and use a Playground-specific **Persona Broker** as follows:
 
 1. **Identity Concentrator**: This is a stock Identity Concentrator that has
    been configured to use the Persona Broker as its [Identity
-   Provider](docs/ic/admin/config/identity-providers.md).
+   Provider](../ic/admin/config/identity-providers.md).
    *  The IC will collect the Visas from the Passport provided from the Persona
       Broker, open accounts for each Test Persona as if they were real users,
       and provide these Visas to the DAM.
@@ -74,14 +74,14 @@ to trust and use a Playground-specific **Persona Broker** as follows:
 
 1. **Data Access Manager**: This is a stock DAM that has been configured to use
    the Persona Broker as a [Trusted Visa
-   Issuer](docs/dam/admin/config/issuers.md).
+   Issuer](../dam/admin/config/issuers.md).
    *  The default playground DAM has
-      [policies](docs/dam/admin/config/policies.md) as well as
-      [resources](docs/dam/admin/config/resources.md) configured sufficient for
+      [policies](../dam/admin/config/policies.md) as well as
+      [resources](../dam/admin/config/resources.md) configured sufficient for
       the `NCI Researcher` Test Persona to get access to a test GCS Bucket that
       gets created as part of setting up the Playground environment.
    *  The default playground DAM is also configured to have at least two
-      [Trusted Issuers](docs/dam/admin/config/issuers.md):
+      [Trusted Issuers](../dam/admin/config/issuers.md):
       *  Use and accept Passports coming from the playground IC from `#3` above.
       *  Accept Visas signed by the Persona Broker.
    *  Notice that the DAM is unaware that these are Test Persona identities.
@@ -108,7 +108,7 @@ to trust and use a Playground-specific **Persona Broker** as follows:
       test-only data in it.
 
 This configuration simulates real-world
-[solutions](docs/overview/solution.md#solution)
+[solutions](../overview/solution.md#solution)
 
 ## Playground Components
 
@@ -131,7 +131,7 @@ Playground Components provided by the default playground environment.
 Note that production systems will not be deployed with an IC Demo, DAM Demo, nor
 a Persona Broker. For more information about production-ready systems, please
 consult [Productionization Best
-Practices](docs/shared/admin/productionization.md)
+Practices](../shared/admin/productionization.md)
 
 ## Deploying a Playground
 

@@ -1,7 +1,7 @@
 # Identity Concentrator APIs
 
 Before you begin, please visit the [Concepts
-Page](docs/shared/admin/concepts.md) to understand API versions, realms, and
+Page](../../shared/admin/concepts.md) to understand API versions, realms, and
 experimental features as they relate to API endpoints.
 
 ### Main Endpoints

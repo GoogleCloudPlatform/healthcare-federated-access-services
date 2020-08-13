@@ -3,7 +3,7 @@
 ## Auth Details for Requesting Access to Resources
 
 Much like described in the [Researcher Cloud User
-Journey](docs/shared/overview/journeys.md#researcher-cloud-user-journey), each
+Journey](../../overview/journeys.md#researcher-cloud-user-journey), each
 client application to DAM may redirect the user to DAM's `auth` endpoint to get
 access to a set of resources. The user and/or the application would typically
 select a set of resources, views, roles, and interfaces. This set of resources
@@ -73,5 +73,5 @@ these services.
 
 Full APP/DAM/IC/IdP cloud resource request flow:
 
-![auth flow](assets/diagrams/3_layer_auth_flow.svg "Three Layer Auth Flow")
+![auth flow](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/3_layer_auth_flow.svg "Three Layer Auth Flow")
 
