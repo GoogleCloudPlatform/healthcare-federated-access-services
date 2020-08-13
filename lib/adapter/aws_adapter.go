@@ -199,7 +199,7 @@ func createAwsResourceTokenCreationParams(userID string, input *Action) (*aws.Re
 		UserID:                userID,
 		TTL:                   input.TTL,
 		MaxKeyTTL:             maxKeyTTL,
-		ManagedKeysPerAccount: int(input.Config.Options.GcpManagedKeysPerAccount),
+		ManagedKeysPerAccount: int(input.Config.Options.AwsManagedKeysPerIamUser),
 		Vars:                  vars,
 		TargetRoles:           roles,
 		TargetScopes:          scopes,
