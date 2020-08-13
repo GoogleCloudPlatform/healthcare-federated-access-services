@@ -1095,6 +1095,14 @@ func makeConfigOptions(opts *pb.ConfigOptions) *pb.ConfigOptions {
 		proto.Merge(out, opts)
 	}
 	out.ComputedDescriptors = map[string]*cpb.Descriptor{
+		"awsManagedKeysPerIamUser": {
+			Label:        "AWS Managed Keys Per IAM User",
+			Description:  "AWS allows up to 3 access keys of more than 12h to be active per IAM user and this option allows DAM to manage a subset of these keys",
+			Type:         "int",
+			Min:          "0",
+			Max:          "3",
+			DefaultValue: "3",
+		},
 		"readOnlyMasterRealm": {
 			Label:        "Read Only Master Realm",
 			Description:  "When 'true', the master realm becomes read-only and updates to the configuration must be performed via updating a config file",

@@ -126,6 +126,7 @@ message ConfigOptions {
   map<string, common.Descriptor> computed_descriptors = 6
       [json_name = "descriptors"];
   string gcp_iam_billing_project = 7;
+  int32 aws_managed_keys_per_iam_user = 8;
 }
 
 message VisaType {

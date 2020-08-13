@@ -57,3 +57,16 @@ marked by the "required" status below:
    *  If a user requests more than this number of keys to be active, the oldest
       keys will be revoked to make room to add the new one and stay within this
       maximum allocation.
+
+## AWS Options
+
+When [resources](resources.md) are stored or services utilize [Amazon Web
+Services]() (AWS), some options are available:
+
+1. **AWS Managed Keys Per IAM User**: AWS allows up to 3 access keys of more
+   than 12h to be active per IAM user and this option allows DAM to manage a
+   subset of these keys.
+   *  Older keys are automatically removed and are not included in this count.
+   *  If a user requests more than this number of keys to be active, the oldest
+      keys will be revoked to make room to add the new one and stay within this
+      maximum allocation.

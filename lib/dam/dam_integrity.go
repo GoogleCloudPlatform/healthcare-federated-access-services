@@ -506,6 +506,9 @@ func checkOptionsIntegrity(opts *pb.ConfigOptions, vopts ValidateCfgOpts) *statu
 	}
 	// Get the descriptors.
 	opts = makeConfigOptions(opts)
+	if err := check.CheckIntOption(opts.AwsManagedKeysPerIamUser, "awsManagedKeysPerIamUser", opts.ComputedDescriptors); err != nil {
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "awsManagedKeysPerIamUser"), err.Error())
+	}
 	if err := check.CheckStringOption(opts.GcpManagedKeysMaxRequestedTtl, "gcpManagedKeysMaxRequestedTtl", opts.ComputedDescriptors); err != nil {
 		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "gcpManagedKeysMaxRequestedTtl"), err.Error())
 	}
