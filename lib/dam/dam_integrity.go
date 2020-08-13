@@ -135,7 +135,7 @@ func checkBasicIntegrity(cfg *pb.DamConfig, vopts ValidateCfgOpts) *status.Statu
 		}
 		for i, visa := range ts.VisaTypes {
 			if _, ok := cfg.VisaTypes[visa]; !ok {
-				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n, "claims", strconv.Itoa(i)), fmt.Sprintf("visa name %q not found in visa type definitions", visa))
+				return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgTrustedSources, n, "visaTypes", strconv.Itoa(i)), fmt.Sprintf("visa name %q not found in visa type definitions", visa))
 			}
 		}
 		if path, err := check.CheckUI(ts.Ui, true); err != nil {
