@@ -518,6 +518,9 @@ func checkOptionsIntegrity(opts *pb.ConfigOptions, vopts ValidateCfgOpts) *statu
 	if err := check.CheckStringOption(opts.GcpServiceAccountProject, "gcpServiceAccountProject", opts.ComputedDescriptors); err != nil {
 		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "gcpServiceAccountProject"), err.Error())
 	}
+	if err := check.CheckStringOption(opts.GcpIamBillingProject, "gcpIamBillingProject", opts.ComputedDescriptors); err != nil {
+		return httputils.NewInfoStatus(codes.InvalidArgument, httputils.StatusPath(cfgOptions, "gcpIamBillingProject"), err.Error())
+	}
 	return nil
 }
 

@@ -123,6 +123,13 @@ func TestCheckIntegrity_BadCfg(t *testing.T) {
 			},
 			want: codes.InvalidArgument,
 		},
+		{
+			desc: "bad gcpIamBillingProject option value",
+			mutation: func(cfg *pb.DamConfig) {
+				cfg.Options.GcpIamBillingProject = "$___bad%%%"
+			},
+			want: codes.InvalidArgument,
+		},
 	}
 
 	for _, tc := range tests {
