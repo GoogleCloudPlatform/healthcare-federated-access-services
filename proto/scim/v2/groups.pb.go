@@ -326,7 +326,9 @@ func init() {
 	proto.RegisterType((*ListGroupsResponse)(nil), "scim.v2.ListGroupsResponse")
 }
 
-func init() { proto.RegisterFile("proto/scim/v2/groups.proto", fileDescriptor_60f9529f93aa5413) }
+func init() {
+	proto.RegisterFile("proto/scim/v2/groups.proto", fileDescriptor_60f9529f93aa5413)
+}
 
 var fileDescriptor_60f9529f93aa5413 = []byte{
 	// 432 bytes of a gzipped FileDescriptorProto

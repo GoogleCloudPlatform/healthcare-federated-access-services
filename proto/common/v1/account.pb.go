@@ -596,7 +596,9 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "common.IdentityProvider.UiEntry")
 }
 
-func init() { proto.RegisterFile("proto/common/v1/account.proto", fileDescriptor_9b29259e5b96683f) }
+func init() {
+	proto.RegisterFile("proto/common/v1/account.proto", fileDescriptor_9b29259e5b96683f)
+}
 
 var fileDescriptor_9b29259e5b96683f = []byte{
 	// 877 bytes of a gzipped FileDescriptorProto

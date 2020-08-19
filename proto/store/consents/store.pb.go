@@ -317,7 +317,9 @@ func init() {
 	proto.RegisterType((*RememberedConsentPreference_Visa)(nil), "consents.RememberedConsentPreference.Visa")
 }
 
-func init() { proto.RegisterFile("proto/store/consents/store.proto", fileDescriptor_0ffa029a8674e90e) }
+func init() {
+	proto.RegisterFile("proto/store/consents/store.proto", fileDescriptor_0ffa029a8674e90e)
+}
 
 var fileDescriptor_0ffa029a8674e90e = []byte{
 	// 638 bytes of a gzipped FileDescriptorProto

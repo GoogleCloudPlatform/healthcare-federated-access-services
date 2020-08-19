@@ -442,7 +442,9 @@ func init() {
 	proto.RegisterType((*ListAuditLogsResponse)(nil), "AuditLogs.v1.ListAuditLogsResponse")
 }
 
-func init() { proto.RegisterFile("proto/auditlogs/v0/auditlogs.proto", fileDescriptor_1be582115e76de27) }
+func init() {
+	proto.RegisterFile("proto/auditlogs/v0/auditlogs.proto", fileDescriptor_1be582115e76de27)
+}
 
 var fileDescriptor_1be582115e76de27 = []byte{
 	// 804 bytes of a gzipped FileDescriptorProto
@@ -501,11 +503,11 @@ var fileDescriptor_1be582115e76de27 = []byte{
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConn
+var _ grpc.ClientConnInterface
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion6
 
 // AuditLogsClient is the client API for AuditLogs service.
 //
@@ -516,10 +518,10 @@ type AuditLogsClient interface {
 }
 
 type auditLogsClient struct {
-	cc *grpc.ClientConn
+	cc grpc.ClientConnInterface
 }
 
-func NewAuditLogsClient(cc *grpc.ClientConn) AuditLogsClient {
+func NewAuditLogsClient(cc grpc.ClientConnInterface) AuditLogsClient {
 	return &auditLogsClient{cc}
 }
 
