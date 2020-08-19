@@ -91,8 +91,7 @@ func TestListTokens_Hydra(t *testing.T) {
 				Subject: sub,
 				Client:  &hydraapi.Client{Name: "test"},
 			},
-			Session: &hydraapi.ConsentRequestSessionData{
-			},
+			Session: &hydraapi.ConsentRequestSessionData{},
 		},
 	}
 
@@ -125,6 +124,86 @@ func TestListTokens_Hydra(t *testing.T) {
 					Ui:   map[string]string{"descriptions": "abcdefg"},
 				},
 			},
+			{
+				Name:     encodeTokenName(sub, "hydra", "t-0002"),
+				Issuer:   issuer,
+				IssuedAt: 0,
+				Subject:  sub,
+				Type:     "hydra",
+				Audience: "a1,a2",
+				Scope:    "s1 s2",
+				Client:   &tpb.Client{},
+			},
+		},
+	}
+
+	if d := cmp.Diff(want, got, protocmp.Transform()); len(d) > 0 {
+		t.Errorf("listToken (-want, +got): %s", d)
+	}
+}
+
+func TestListTokens_FilterPending_Hydra(t *testing.T) {
+	handler, stub, h, store := setupHydraTest()
+	stub.respClients = clients
+
+	sub := "u-0001"
+	h.ListConsentsResp = []*hydraapi.PreviousConsentSession{
+		{
+			GrantedAudience: []string{"a1", "a2"},
+			GrantedScope:    []string{"s1", "s2"},
+			HandledAt:       strfmt.NewDateTime(),
+			ConsentRequest: &hydraapi.ConsentRequest{
+				Subject: sub,
+				Client:  &hydraapi.Client{Name: "test"},
+			},
+			Session: &hydraapi.ConsentRequestSessionData{
+				AccessToken: map[string]interface{}{"tid": "t-0001"},
+			},
+		},
+		{
+			GrantedAudience: []string{"a1", "a2"},
+			GrantedScope:    []string{"s1", "s2"},
+			HandledAt:       strfmt.NewDateTime(),
+			ConsentRequest: &hydraapi.ConsentRequest{
+				Subject: sub,
+				Client:  &hydraapi.Client{Name: "deleted-client"},
+			},
+			Session: &hydraapi.ConsentRequestSessionData{
+				AccessToken: map[string]interface{}{"tid": "t-0002"},
+			},
+		},
+		{
+			GrantedAudience: []string{"a1", "a2"},
+			GrantedScope:    []string{"s1", "s2"},
+			HandledAt:       strfmt.NewDateTime(),
+			ConsentRequest: &hydraapi.ConsentRequest{
+				Subject: sub,
+				Client:  &hydraapi.Client{Name: "test"},
+			},
+			Session: &hydraapi.ConsentRequestSessionData{},
+		},
+	}
+
+	pending := &topb.PendingDeleteToken{}
+	if err := store.Write(storage.PendingDeleteTokenDatatype, storage.DefaultRealm, "u-0001", "t-0001", storage.LatestRev, pending, nil); err != nil {
+		t.Fatalf("Write PendingDeleteToken failed: %v", err)
+	}
+
+	u := "http://example.com/dam/v1alpha/users/u-0001/tokens"
+	r := httptest.NewRequest(http.MethodGet, u, nil)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, wants %d", resp.StatusCode, http.StatusOK)
+	}
+
+	got := &tpb.ListTokensResponse{}
+	httputils.MustDecodeJSONPBResp(t, resp, got)
+	want := &tpb.ListTokensResponse{
+		Tokens: []*tpb.Token{
 			{
 				Name:     encodeTokenName(sub, "hydra", "t-0002"),
 				Issuer:   issuer,

@@ -21,6 +21,7 @@ import (
 
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/hydra" /* copybara-comment: hydra */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 
@@ -46,6 +47,11 @@ func NewHydraTokenManager(hydraAdminURL, issuer string, clients func(tx storage.
 
 // ListTokens lists the tokens.
 func (s *Hydra) ListTokens(ctx context.Context, user string, store storage.Store, tx storage.Tx) ([]*Token, error) {
+	pendings, err := findUserPendingDeleteTokens(user, store, tx)
+	if err != nil {
+		return nil, err
+	}
+
 	sessions, err := hydra.ListConsents(httpClient, s.hydraAdminURL, user)
 	if err != nil {
 		return nil, err
@@ -60,6 +66,11 @@ func (s *Hydra) ListTokens(ctx context.Context, user string, store storage.Store
 		tid, err := hydra.ExtractTokenIDInConsentSession(se)
 		// legacy token does not have a "tid", but it would not able to use anymore since it it not refresh able.
 		if err != nil {
+			continue
+		}
+
+		// token is already in pending delete state can not use anymore.
+		if pendings.Contains(tid) {
 			continue
 		}
 
@@ -84,6 +95,32 @@ func (s *Hydra) ListTokens(ctx context.Context, user string, store storage.Store
 		tokens = append(tokens, t)
 	}
 	return tokens, nil
+}
+
+func findUserPendingDeleteTokens(user string, store storage.Store, tx storage.Tx) (stringset.Set, error) {
+	res := stringset.Set{}
+
+	pending := &topb.PendingDeleteToken{}
+	offset := 0
+
+	for {
+		// maybe improve this with better query support like `id in [...]`.
+		pendings, err := store.MultiReadTx(storage.PendingDeleteTokenDatatype, storage.DefaultRealm, user, storage.MatchAllIDs, nil, offset, storage.MaxPageSize, pending, tx)
+		if err != nil {
+			return nil, status.Errorf(codes.Unavailable, "find pending delete token MultiReadTx() failed: %v", err)
+		}
+		for _, entry := range pendings.Entries {
+			res.Add(entry.ItemID)
+			offset++
+		}
+
+		// no more page
+		if pendings.MatchCount < storage.MaxPageSize {
+			break
+		}
+	}
+
+	return res, nil
 }
 
 // DeleteToken revokes a token.
