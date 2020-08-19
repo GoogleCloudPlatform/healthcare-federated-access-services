@@ -110,6 +110,7 @@ message ConfigResponse {}
 
 message ConfigIdentityProviderRequest {
   common.IdentityProvider item = 1;
+  string client_secret = 3;
   ConfigModification modification = 2;
 }
 

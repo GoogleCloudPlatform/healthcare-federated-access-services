@@ -434,13 +434,15 @@ func (s *Service) configIssuerFactory() *handlerfactory.Options {
 }
 
 type configIssuerHandler struct {
-	s     *Service
-	input *pb.ConfigTrustedIssuerRequest
-	item  *pb.TrustedIssuer
-	save  *pb.TrustedIssuer
-	cfg   *pb.DamConfig
-	id    *ga4gh.Identity
-	tx    storage.Tx
+	s          *Service
+	input      *pb.ConfigTrustedIssuerRequest
+	item       *pb.TrustedIssuer
+	save       *pb.TrustedIssuer
+	saveSecret *pb.DamSecrets
+	sec        *pb.DamSecrets
+	cfg        *pb.DamConfig
+	id         *ga4gh.Identity
+	tx         storage.Tx
 }
 
 func NewConfigIssuerHandler(s *Service) *configIssuerHandler {
@@ -451,10 +453,25 @@ func NewConfigIssuerHandler(s *Service) *configIssuerHandler {
 }
 func (h *configIssuerHandler) Setup(r *http.Request, tx storage.Tx) (int, error) {
 	cfg, id, status, err := h.s.handlerSetup(tx, r, noScope, h.input)
+	if err != nil {
+		return status, err
+	}
+
+	sec, err := h.s.loadSecrets(tx)
+	if err != nil {
+		return http.StatusServiceUnavailable, err
+	}
+
 	h.cfg = cfg
 	h.id = id
 	h.tx = tx
-	return status, err
+	h.sec = sec
+
+	if h.sec.BrokerSecrets == nil {
+		h.sec.BrokerSecrets = map[string]string{}
+	}
+
+	return http.StatusOK, nil
 }
 func (h *configIssuerHandler) LookupItem(r *http.Request, name string, vars map[string]string) bool {
 	item, ok := h.cfg.TrustedIssuers[name]
@@ -482,29 +499,71 @@ func (h *configIssuerHandler) Get(r *http.Request, name string) (proto.Message, 
 func (h *configIssuerHandler) Post(r *http.Request, name string) (proto.Message, error) {
 	h.cfg.TrustedIssuers[name] = h.input.Item
 	h.save = h.input.Item
+	if err := h.modifyClientSecret(name); err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 func (h *configIssuerHandler) Put(r *http.Request, name string) (proto.Message, error) {
 	h.cfg.TrustedIssuers[name] = h.input.Item
 	h.save = h.input.Item
+
+	if err := h.modifyClientSecret(name); err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 func (h *configIssuerHandler) Patch(r *http.Request, name string) (proto.Message, error) {
 	proto.Merge(h.item, h.input.Item)
 	h.item.Ui = h.input.Item.Ui
 	h.save = h.item
+
+	if err := h.modifyClientSecret(name); err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 func (h *configIssuerHandler) Remove(r *http.Request, name string) (proto.Message, error) {
 	delete(h.cfg.TrustedIssuers, name)
 	h.save = &pb.TrustedIssuer{}
+
+	if len(h.item.ClientId) > 0 {
+		h.saveSecret = h.sec
+		delete(h.saveSecret.BrokerSecrets, h.item.ClientId)
+	}
 	return nil, nil
 }
 func (h *configIssuerHandler) CheckIntegrity(r *http.Request) *status.Status {
 	return configCheckIntegrity(h.cfg, h.input.Modification, r, h.s.ValidateCfgOpts(getRealm(r), h.tx))
 }
 func (h *configIssuerHandler) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	return h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx)
+	if h.input.Modification != nil && h.input.Modification.DryRun {
+		return nil
+	}
+
+	if err := h.s.saveConfig(h.cfg, desc, typeName, r, h.id, h.item, h.save, h.input.Modification, h.tx); err != nil {
+		return err
+	}
+
+	if h.saveSecret != nil {
+		if err := h.s.saveSecrets(h.saveSecret, desc, typeName, r, h.id, tx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// modifyClientSecret when request includes clientSecret and clientId is set.
+func (h *configIssuerHandler) modifyClientSecret(name string) error {
+	if len(h.input.ClientSecret) > 0 {
+		if len(h.save.ClientId) == 0 {
+			return status.Errorf(codes.InvalidArgument, "update trusted issuer %q client_secret but missing client_id", name)
+		}
+		h.saveSecret = h.sec
+		h.saveSecret.BrokerSecrets[h.input.Item.ClientId] = h.input.ClientSecret
+	}
+	return nil
 }
 
 //////////////////////////////////////////////////////////////////

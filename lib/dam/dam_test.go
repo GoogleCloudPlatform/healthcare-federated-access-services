@@ -503,6 +503,22 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 		{
+			Method:  "POST",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer-1",
+			Persona: "admin",
+			Input:   `{"item":{"issuer":"https://test.org", "client_id":"id" ,"ui":{"label":"foo","description":"bar"}}, "client_secret": "1"}`,
+			Output:  ``,
+			Status:  http.StatusOK,
+		},
+		{
+			Method:  "POST",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer-2",
+			Persona: "admin",
+			Input:   `{"item":{"issuer":"https://test.org" ,"ui":{"label":"foo","description":"bar"}}, "client_secret": "1"}`,
+			Output:  `*missing client_id*`,
+			Status:  http.StatusBadRequest,
+		},
+		{
 			Method:  "PUT",
 			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
 			Persona: "admin",
@@ -510,10 +526,34 @@ func TestHandlers(t *testing.T) {
 			Status:  http.StatusOK,
 		},
 		{
+			Method:  "PUT",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
+			Persona: "admin",
+			Input:   `{"item":{"issuer":"https://test.org" ,"ui":{"label":"foo","description":"bar"}}, "client_secret": "1"}`,
+			Output:  `*missing client_id*`,
+			Status:  http.StatusBadRequest,
+		},
+		{
 			Method:  "PATCH",
 			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
 			Persona: "admin",
 			Input:   `{"item":{"issuer":"https://test2.org","ui":{"label":"foo","description":"bar"}}}`,
+			Status:  http.StatusOK,
+		},
+		{
+			Method:  "PATCH",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
+			Persona: "admin",
+			Input:   `{"item":{"issuer":"https://test.org" ,"ui":{"label":"foo","description":"bar"}}, "client_secret": "1"}`,
+			Output:  `*missing client_id*`,
+			Status:  http.StatusBadRequest,
+		},
+		{
+			Method:  "PATCH",
+			Path:    "/dam/v1alpha/test/config/trustedIssuers/new-issuer",
+			Persona: "admin",
+			Input:   `{"item":{"issuer":"https://test.org", "client_id": "id", "ui":{"label":"foo","description":"bar"}}, "client_secret": "1"}`,
+			Output:  ``,
 			Status:  http.StatusOK,
 		},
 		{
@@ -4299,5 +4339,166 @@ func TestConfigReset_Hydra(t *testing.T) {
 
 	if h.CreateClientReq.Name != "test_client2" {
 		t.Errorf("h.CreateClientReq.Name = %s, wants test_client2", h.CreateClientReq.Name)
+	}
+}
+
+func TestConfigTrustedIssuer_ClientSecret(t *testing.T) {
+	store := storage.NewMemoryStorage("dam", "testdata/config")
+	broker, err := persona.NewBroker(hydraPublicURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", false)
+	if err != nil {
+		t.Fatalf("fakeoidcissuer.New(%q, _, _) failed: %v", hydraPublicURL, err)
+	}
+
+	wh := clouds.NewMockTokenCreator(false)
+	awsClient := aws.NewMockAPIClient("123456", "dam-user-id")
+	s := NewService(&Options{
+		HTTPClient:     httptestclient.New(broker.Handler),
+		Domain:         "https://test.org",
+		ServiceName:    "dam",
+		DefaultBroker:  testBroker,
+		Store:          store,
+		Warehouse:      wh,
+		AWSClient:      awsClient,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraPublicURL,
+		HydraSyncFreq:  time.Nanosecond,
+		Encryption:     fakeencryption.New(),
+		LRO:            fakelro.New(),
+	})
+
+	cfg, err := s.loadConfig(nil, "master")
+	if err != nil {
+		t.Fatalf(`s.loadConfig(_, "master") failed %v`, err)
+	}
+
+	sec, err := s.loadSecrets(nil)
+	if err != nil {
+		t.Fatalf(`s.loadSecret() failed %v`, err)
+	}
+	if sec.BrokerSecrets == nil {
+		sec.BrokerSecrets = map[string]string{}
+	}
+
+	tests := []struct {
+		name       string
+		method     string
+		issuerName string
+		req        *pb.ConfigTrustedIssuerRequest
+		wantSecret func() map[string]string
+	}{
+		{
+			name:       "add TrustedIssuer",
+			method:     http.MethodPost,
+			issuerName: "iss1",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id",
+				},
+				ClientSecret: "sec",
+			},
+			wantSecret: func() map[string]string {
+				sec.BrokerSecrets["id"] = "sec"
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "update TrustedIssuer",
+			method:     http.MethodPut,
+			issuerName: "iss1",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id",
+				},
+				ClientSecret: "sec1",
+			},
+			wantSecret: func() map[string]string {
+				sec.BrokerSecrets["id"] = "sec1"
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "patch TrustedIssuer with secret",
+			method:     http.MethodPatch,
+			issuerName: "iss1",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id",
+				},
+				ClientSecret: "sec2",
+			},
+			wantSecret: func() map[string]string {
+				sec.BrokerSecrets["id"] = "sec2"
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "delete TrustedIssuer",
+			method:     http.MethodDelete,
+			issuerName: "iss1",
+			wantSecret: func() map[string]string {
+				delete(sec.BrokerSecrets, "id")
+				return sec.BrokerSecrets
+			},
+		},
+	}
+
+	pname := "admin"
+	p := cfg.TestPersonas[pname]
+	tok, _, err := persona.NewAccessToken(pname, hydraPublicURL, test.TestClientID, persona.DefaultScope, p)
+	if err != nil {
+		t.Fatalf("persona.NewAccessToken() failed: %v", err)
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			q := url.Values{
+				"client_id":     []string{test.TestClientID},
+				"client_secret": []string{test.TestClientSecret},
+			}
+			path := strings.ReplaceAll(configTrustedIssuerPath, "{realm}", "test")
+			path = strings.ReplaceAll(path, "{name}", tc.issuerName)
+			header := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
+
+			var resp *http.Response
+			if tc.req != nil {
+				var buf bytes.Buffer
+				if err := (&jsonpb.Marshaler{}).Marshal(&buf, tc.req); err != nil {
+					t.Fatal(fmt.Errorf("marshaling message %+v failed: %v", tc.req, err))
+				}
+				resp = testhttp.SendTestRequest(t, s.Handler, tc.method, path, q, &buf, header)
+			} else {
+				resp = testhttp.SendTestRequest(t, s.Handler, tc.method, path, q, nil, header)
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
+			}
+
+			newSec, err := s.loadSecrets(nil)
+			if err != nil {
+				t.Fatalf(`s.loadSecret() failed %v`, err)
+			}
+
+			gotBrokerSec := newSec.BrokerSecrets
+			if d := cmp.Diff(tc.wantSecret(), gotBrokerSec); len(d) > 0 {
+				t.Errorf("BrokerSecrets in storage (-want, +got): %s", d)
+			}
+		})
 	}
 }

@@ -3110,3 +3110,158 @@ func TestConfigReset_Hydra(t *testing.T) {
 		t.Errorf("h.CreateClientReq.Name = %s, wants test_client2", h.CreateClientReq.Name)
 	}
 }
+
+func TestConfigIdentityProviders_ClientSecret(t *testing.T) {
+	store := storage.NewMemoryStorage("ic-min", "testdata/config")
+	server, err := persona.NewBroker(hydraURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
+	if err != nil {
+		t.Fatalf(`NewBroker() failed %v`, err)
+	}
+
+	crypt := fakeencryption.New()
+	s := NewService(&Options{
+		HTTPClient:     httptestclient.New(server.Handler),
+		Domain:         domain,
+		ServiceName:    "ic-min",
+		AccountDomain:  domain,
+		Store:          store,
+		Encryption:     crypt,
+		UseHydra:       useHydra,
+		HydraAdminURL:  hydraAdminURL,
+		HydraPublicURL: hydraURL,
+		HydraSyncFreq:  time.Nanosecond,
+	})
+
+	sec, err := s.loadSecrets(nil)
+	if err != nil {
+		t.Fatalf(`s.loadSecret() failed %v`, err)
+	}
+	if sec.IdProviderSecrets == nil {
+		sec.IdProviderSecrets = map[string]string{}
+	}
+
+	tests := []struct {
+		name       string
+		method     string
+		issuerName string
+		req        *pb.ConfigIdentityProviderRequest
+		wantSecret func() map[string]string
+	}{
+		{
+			name:       "add TrustedIssuer",
+			method:     http.MethodPost,
+			issuerName: "iss1",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer:       "https://example.com",
+					AuthorizeUrl: "https://example.com/auth",
+					TokenUrl:     "https://example.com/token",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id",
+				},
+				ClientSecret: "sec",
+			},
+			wantSecret: func() map[string]string {
+				sec.IdProviderSecrets["id"] = "sec"
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "update TrustedIssuer",
+			method:     http.MethodPut,
+			issuerName: "iss1",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer:       "https://example.com/1",
+					AuthorizeUrl: "https://example.com/auth",
+					TokenUrl:     "https://example.com/token",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id",
+				},
+				ClientSecret: "sec1",
+			},
+			wantSecret: func() map[string]string {
+				sec.IdProviderSecrets["id"] = "sec1"
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "patch TrustedIssuer with secret",
+			method:     http.MethodPatch,
+			issuerName: "iss1",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id",
+				},
+				ClientSecret: "sec2",
+			},
+			wantSecret: func() map[string]string {
+				sec.IdProviderSecrets["id"] = "sec2"
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "delete TrustedIssuer",
+			method:     http.MethodDelete,
+			issuerName: "iss1",
+			wantSecret: func() map[string]string {
+				return nil
+			},
+		},
+	}
+
+	pname := "admin"
+	p := server.Config().TestPersonas[pname]
+	tok, _, err := persona.NewAccessToken(pname, hydraURL, test.TestClientID, persona.DefaultScope, p)
+	if err != nil {
+		t.Fatalf("persona.NewAccessToken() failed: %v", err)
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			q := url.Values{
+				"client_id":     []string{test.TestClientID},
+				"client_secret": []string{test.TestClientSecret},
+			}
+			path := strings.ReplaceAll(configIdentityProvidersPath, "{realm}", "test")
+			path = strings.ReplaceAll(path, "{name}", tc.issuerName)
+			header := http.Header{"Authorization": []string{"Bearer " + string(tok)}}
+
+			var resp *http.Response
+			if tc.req != nil {
+				var buf bytes.Buffer
+				if err := (&jsonpb.Marshaler{}).Marshal(&buf, tc.req); err != nil {
+					t.Fatal(fmt.Errorf("marshaling message %+v failed: %v", tc.req, err))
+				}
+				resp = testhttp.SendTestRequest(t, s.Handler, tc.method, path, q, &buf, header)
+			} else {
+				resp = testhttp.SendTestRequest(t, s.Handler, tc.method, path, q, nil, header)
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
+			}
+
+			newSec, err := s.loadSecrets(nil)
+			if err != nil {
+				t.Fatalf(`s.loadSecret() failed %v`, err)
+			}
+
+			gotIDProviderSecrets := newSec.IdProviderSecrets
+			if d := cmp.Diff(tc.wantSecret(), gotIDProviderSecrets); len(d) > 0 {
+				t.Errorf("IdProviderSecrets in storage (-want, +got): %s", d)
+			}
+		})
+	}
+}

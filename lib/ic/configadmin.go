@@ -162,21 +162,29 @@ func (s *Service) configIdpFactory() *handlerfactory.Options {
 }
 
 type configIDP struct {
-	s     *Service
-	r     *http.Request
-	input *pb.ConfigIdentityProviderRequest
-	item  *cpb.IdentityProvider
-	save  *cpb.IdentityProvider
-	cfg   *pb.IcConfig
-	id    *ga4gh.Identity
-	tx    storage.Tx
+	s          *Service
+	r          *http.Request
+	input      *pb.ConfigIdentityProviderRequest
+	item       *cpb.IdentityProvider
+	save       *cpb.IdentityProvider
+	sec        *pb.IcSecrets
+	saveSecret *pb.IcSecrets
+	cfg        *pb.IcConfig
+	id         *ga4gh.Identity
+	tx         storage.Tx
 }
 
 func (c *configIDP) Setup(r *http.Request, tx storage.Tx) (int, error) {
-	cfg, _, id, status, err := c.s.handlerSetup(tx, r, noScope, c.input)
+	cfg, sec, id, status, err := c.s.handlerSetup(tx, r, noScope, c.input)
 	c.cfg = cfg
+	c.sec = sec
 	c.id = id
 	c.tx = tx
+
+	if c.sec.IdProviderSecrets == nil {
+		c.sec.IdProviderSecrets = map[string]string{}
+	}
+
 	return status, err
 }
 func (c *configIDP) LookupItem(r *http.Request, name string, vars map[string]string) bool {
@@ -207,11 +215,21 @@ func (c *configIDP) Get(r *http.Request, name string) (proto.Message, error) {
 func (c *configIDP) Post(r *http.Request, name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.IdentityProviders[name] = c.save
+
+	if err := c.modifyClientSecret(name); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 func (c *configIDP) Put(r *http.Request, name string) (proto.Message, error) {
 	c.save = c.input.Item
 	c.cfg.IdentityProviders[name] = c.save
+
+	if err := c.modifyClientSecret(name); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 func (c *configIDP) Patch(r *http.Request, name string) (proto.Message, error) {
@@ -221,11 +239,22 @@ func (c *configIDP) Patch(r *http.Request, name string) (proto.Message, error) {
 	c.save.Scopes = c.input.Item.Scopes
 	c.save.Ui = c.input.Item.Ui
 	c.cfg.IdentityProviders[name] = c.save
+
+	if err := c.modifyClientSecret(name); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 func (c *configIDP) Remove(r *http.Request, name string) (proto.Message, error) {
 	delete(c.cfg.IdentityProviders, name)
 	c.save = &cpb.IdentityProvider{}
+
+	if len(c.item.ClientId) > 0 {
+		c.saveSecret = c.sec
+		delete(c.saveSecret.IdProviderSecrets, c.item.ClientId)
+	}
+
 	return nil, nil
 }
 func (c *configIDP) CheckIntegrity(r *http.Request) *status.Status {
@@ -242,11 +271,33 @@ func (c *configIDP) CheckIntegrity(r *http.Request) *status.Status {
 	return nil
 }
 func (c *configIDP) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if c.save == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
+	if c.save == nil || c.saveSecret == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
 		return nil
 	}
-	if err := c.s.saveConfig(c.cfg, desc, typeName, r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
-		return err
+
+	if c.save != nil {
+		if err := c.s.saveConfig(c.cfg, desc, typeName, r, c.id, c.item, c.save, c.input.Modification, c.tx); err != nil {
+			return err
+		}
+	}
+
+	if c.saveSecret != nil {
+		if err := c.s.saveSecrets(c.saveSecret, desc, typeName, r, c.id, tx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// modifyClientSecret when request includes clientSecret and clientId is set.
+func (c *configIDP) modifyClientSecret(name string) error {
+	if len(c.input.ClientSecret) > 0 {
+		if len(c.save.ClientId) == 0 {
+			return status.Errorf(codes.InvalidArgument, "update trusted issuer %q client_secret but missing client_id", name)
+		}
+		c.saveSecret = c.sec
+		c.saveSecret.IdProviderSecrets[c.input.Item.ClientId] = c.input.ClientSecret
 	}
 	return nil
 }

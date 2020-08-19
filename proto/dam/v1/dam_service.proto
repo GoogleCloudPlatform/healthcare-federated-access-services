@@ -381,6 +381,8 @@ message ConfigViewRequest {
 
 message ConfigTrustedIssuerRequest {
   TrustedIssuer item = 1;
+  // client_secret is write only field.
+  string client_secret = 3;
   ConfigModification modification = 2;
 }
 
