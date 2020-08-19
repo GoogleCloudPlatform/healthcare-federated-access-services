@@ -77,17 +77,10 @@ const (
 	// Part of SCIM V2 for managing groups. See "proto/scim/v2/groups.proto"
 	scimGroupsPath = "/scim/v2/{realm}/Groups"
 	scimGroupPath  = "/scim/v2/{realm}/Groups/{name}"
-	// TODO: remove deprecated SCIM endpoints
-	oldScimGroupsPath = "/identity/scim/v2/{realm}/Groups"
-	oldScimGroupPath  = "/identity/scim/v2/{realm}/Groups/{name}"
 	// Part of SCIM V2 for managing users. See "proto/scim/v2/users.proto"
 	scimUsersPath = "/scim/v2/{realm}/Users"
 	scimUserPath  = "/scim/v2/{realm}/Users/{name}"
 	scimMePath    = "/scim/v2/{realm}/Me"
-	// TODO: remove deprecated SCIM endpoints
-	oldScimUsersPath = "/identity/scim/v2/{realm}/Users"
-	oldScimUserPath  = "/identity/scim/v2/{realm}/Users/{name}"
-	oldScimMePath    = "/identity/scim/v2/{realm}/Me"
 
 	// End-point for managing tokens. See "proto/tokens/v1/consents.proto"
 	tokensPath     = "/identity/v1alpha/users/{user}/tokens"

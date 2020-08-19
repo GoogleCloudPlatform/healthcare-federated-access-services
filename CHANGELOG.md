@@ -4,6 +4,11 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.10...HEAD)
 
+**Migration**
+
+* SCIM endpoints path `/identity/scim/...` removed, so client migration to
+  `/scim/...` must be complete in order to upgrade.
+
 ## [v0.9.10](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.10)
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.9...v0.9.10)

@@ -107,11 +107,6 @@ var (
 		"/scim/v2/{realm}/Me",
 		"/scim/v2/{realm}/Users",
 		"/scim/v2/{realm}/Users/{name}",
-		"/identity/scim/v2/{realm}/Groups",
-		"/identity/scim/v2/{realm}/Groups/{name}",
-		"/identity/scim/v2/{realm}/Me",
-		"/identity/scim/v2/{realm}/Users",
-		"/identity/scim/v2/{realm}/Users/{name}",
 
 		// LRO related
 		"GET /dam/v1alpha/{realm}/lro/{name}",

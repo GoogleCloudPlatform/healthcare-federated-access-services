@@ -1525,15 +1525,10 @@ func registerHandlers(r *mux.Router, s *Service) {
 
 	// scim service endpoints
 	r.HandleFunc(scimGroupPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupFactory(s.GetStore(), scimGroupPath)), s.checker, auth.RequireAdminTokenClientCredential))
-	r.HandleFunc(oldScimGroupPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupFactory(s.GetStore(), scimGroupPath)), s.checker, auth.RequireAdminTokenClientCredential))
 	r.HandleFunc(scimGroupsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupsFactory(s.GetStore(), scimGroupsPath)), s.checker, auth.RequireAdminTokenClientCredential))
-	r.HandleFunc(oldScimGroupsPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.GroupsFactory(s.GetStore(), scimGroupsPath)), s.checker, auth.RequireAdminTokenClientCredential))
 	r.HandleFunc(scimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.MeFactory(s.GetStore(), s.domainURL, scimMePath)), s.checker, auth.RequireAccountAdminUserTokenCredential))
-	r.HandleFunc(oldScimMePath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.MeFactory(s.GetStore(), s.domainURL, scimMePath)), s.checker, auth.RequireAccountAdminUserTokenCredential))
 	r.HandleFunc(scimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UserFactory(s.GetStore(), s.domainURL, scimUserPath)), s.checker, auth.RequireAccountAdminUserTokenCredential))
-	r.HandleFunc(oldScimUserPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UserFactory(s.GetStore(), s.domainURL, scimUserPath)), s.checker, auth.RequireAccountAdminUserTokenCredential))
 	r.HandleFunc(scimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.domainURL, scimUsersPath)), s.checker, auth.RequireAdminTokenClientCredential))
-	r.HandleFunc(oldScimUsersPath, auth.MustWithAuth(handlerfactory.MakeHandler(s.GetStore(), scim.UsersFactory(s.GetStore(), s.domainURL, scimUsersPath)), s.checker, auth.RequireAdminTokenClientCredential))
 
 	// hydra related oidc endpoints
 	r.HandleFunc(hydraLoginPath, auth.MustWithAuth(s.HydraLogin, s.checker, auth.RequireNone)).Methods(http.MethodGet)
