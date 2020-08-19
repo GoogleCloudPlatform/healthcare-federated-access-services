@@ -15,6 +15,7 @@
 package check
 
 import (
+	"strings"
 	"testing"
 
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -85,5 +86,18 @@ func TestClientsEqual(t *testing.T) {
 				t.Errorf("test %q: CheckClientsEqual(%v, %v) = %v, want %v", tc.name, tc.input1, tc.input2, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestCheckIntOption(t *testing.T) {
+	err := CheckIntOption(-1, "test", map[string]*cpb.Descriptor{
+		"test": &cpb.Descriptor{
+			Min: "0",
+			Max: "10",
+		},
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "out of range") {
+		t.Errorf("got err %v, wants err %q", err, "out of range")
 	}
 }

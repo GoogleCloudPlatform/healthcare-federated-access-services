@@ -17,11 +17,11 @@ package check
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/optional" /* copybara-comment: optional */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
@@ -38,6 +38,7 @@ func ValidToWriteConfig(realm string, readOnlyMaster bool) error {
 	return nil
 }
 
+// CheckStringOption checks if the string option valid.
 func CheckStringOption(opt, optName string, descriptors map[string]*cpb.Descriptor) error {
 	desc, ok := descriptors[optName]
 	if !ok {
@@ -73,13 +74,20 @@ func CheckStringOption(opt, optName string, descriptors map[string]*cpb.Descript
 			if err != nil {
 				return err
 			}
-			if (min != 0 && val < min) || (max != 0 && val > max) {
+			if (min.IsPresent() && val < min.Get()) || (max.IsPresent() && val > max.Get()) {
 				return fmt.Errorf("option %q: value %q is not within range (duration range is %s to %s)", optName, opt, desc.Min, desc.Max)
 			}
 		} else {
-			min := int(OptInt(desc.Min))
-			max := int(OptInt(desc.Max))
-			if (min != 0 && len(opt) < min) || (max != 0 && len(opt) > max) {
+			min, err := optional.NewIntFromString(desc.Min)
+			if err != nil {
+				return err
+			}
+			max, err := optional.NewIntFromString(desc.Max)
+			if err != nil {
+				return err
+			}
+
+			if (min.IsPresent() && len(opt) < min.Get()) || (max.IsPresent() && len(opt) > max.Get()) {
 				return fmt.Errorf("option %q: value %q is too short or too long (range is %s to %s)", optName, opt, desc.Min, desc.Max)
 			}
 		}
@@ -96,6 +104,7 @@ func CheckStringListOption(values []string, optName string, descriptors map[stri
 	return nil
 }
 
+// CheckIntOption checks if the int option valid.
 func CheckIntOption(opt int32, optName string, descriptors map[string]*cpb.Descriptor) error {
 	desc, ok := descriptors[optName]
 	if !ok {
@@ -105,37 +114,35 @@ func CheckIntOption(opt int32, optName string, descriptors map[string]*cpb.Descr
 		// Is default value and does not need to meet min/max requirements.
 		return nil
 	}
-	min := OptInt(desc.Min)
-	max := OptInt(desc.Max)
-	if (min != 0 && opt < min) || (max != 0 && opt > max) {
+	min, err := optional.NewIntFromString(desc.Min)
+	if err != nil {
+		return err
+	}
+	max, err := optional.NewIntFromString(desc.Max)
+	if err != nil {
+		return err
+	}
+
+	optInt := int(opt)
+	if (min.IsPresent() && optInt < min.Get()) || (max.IsPresent() && optInt > max.Get()) {
 		return fmt.Errorf("option %q: value %d is out of range (%s to %s)", optName, opt, desc.Min, desc.Max)
 	}
 	return nil
 }
 
-func OptInt(str string) int32 {
-	if len(str) == 0 {
-		return 0
-	}
-	out, err := strconv.ParseInt(str, 10, 32)
-	if err != nil {
-		return 0
-	}
-	return int32(out)
-}
-
-func OptDuration(optName, optVal, minVal, maxVal string) (time.Duration, time.Duration, time.Duration, error) {
+// OptDuration parses opt value, min and max.
+func OptDuration(optName, optVal, minVal, maxVal string) (time.Duration, *optional.Duration, *optional.Duration, error) {
 	v, err := timeutil.ParseDuration(optVal)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("option %q: value %q format error: %v", optName, optVal, err)
+		return 0, nil, nil, fmt.Errorf("option %q: value %q format error: %v", optName, optVal, err)
 	}
-	min, err := timeutil.ParseDuration(minVal)
+	min, err := optional.NewDurationFromString(minVal)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("option %q: minimum %q format error: %v", optName, minVal, err)
+		return 0, nil, nil, fmt.Errorf("option %q: minimum %q format error: %v", optName, minVal, err)
 	}
-	max, err := timeutil.ParseDuration(maxVal)
+	max, err := optional.NewDurationFromString(maxVal)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("option %q: maximum %q format error: %v", optName, maxVal, err)
+		return 0, nil, nil, fmt.Errorf("option %q: maximum %q format error: %v", optName, maxVal, err)
 	}
 	return v, min, max, nil
 }
