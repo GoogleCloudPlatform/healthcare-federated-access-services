@@ -2,7 +2,15 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.10...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.11...HEAD)
+
+## [v0.9.11](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.11)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.10...v0.9.11)
+
+**Highlight Updates**
+
+* Added `client_secret` to ConfigTrustedIssuerRequest (DAM) and ConfigIdentityProviderRequest (IC) for secret rotation support
 
 **Migration**
 
