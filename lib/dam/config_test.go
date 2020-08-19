@@ -101,12 +101,6 @@ func TestConfigHandlers(t *testing.T) {
 		},
 		{
 			Method: "GET",
-			Path:   "/dam/v1alpha/master/services",
-			Output: `*"gcs":{"platform":"gcp","serviceVariables":{*},"itemVariables":{"bucket":*,"paths":*,"project":*,"type":*},"properties":{"canBeAggregated":true}*`,
-			Status: http.StatusOK,
-		},
-		{
-			Method: "GET",
 			Path:   "/dam/v1alpha/master/localeMetadata",
 			Output: `*{"locales":{*"en-CA"*},"timeZones":{*"America/Los_Angeles"*}}*`,
 			Status: http.StatusOK,
