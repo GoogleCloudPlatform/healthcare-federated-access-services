@@ -775,8 +775,13 @@ func (wh *AccountWarehouse) ensureLoginProfile(userName string) (string, error) 
 
 func (wh *AccountWarehouse) ensureAccessKey(ctx context.Context, princSpec *principalSpec, svcUserARN string) (*iam.AccessKey, error) {
 	// garbage collection call
-	makeRoom := princSpec.params.ManagedKeysPerAccount - 1
-	keyTTL := timeutil.KeyTTL(princSpec.params.MaxKeyTTL, princSpec.params.ManagedKeysPerAccount)
+	keysPerAccount := princSpec.params.ManagedKeysPerAccount
+	if keysPerAccount < 1 {
+		return nil, fmt.Errorf("cannot create access key: maximum number keys per account is %d", keysPerAccount)
+	}
+
+	makeRoom := keysPerAccount - 1
+	keyTTL := timeutil.KeyTTL(princSpec.params.MaxKeyTTL, keysPerAccount)
 	userID := princSpec.getID()
 	if _, _, err := wh.ManageAccountKeys(ctx, svcUserARN, userID, princSpec.params.TTL, keyTTL, time.Now(), int64(makeRoom)); err != nil {
 		return nil, fmt.Errorf("garbage collecting keys: %v", err)
@@ -808,7 +813,6 @@ func (wh *AccountWarehouse) ensureRolePolicy(spec *policySpec) error {
 	if err != nil {
 		return fmt.Errorf("unable to generate role policy: %v", err)
 	}
-	// TODO: handle policy versioning
 	policyJSON, err := convertToPolicyJSON(spec)
 	if err != nil {
 		return fmt.Errorf("error creating AWS policy JSON: %v", err)
@@ -880,7 +884,6 @@ func (wh *AccountWarehouse) putRolePolicy(spec *policySpec, policy string) error
 }
 
 func (wh *AccountWarehouse) ensureUserPolicy(spec *policySpec) error {
-	// TODO: handle policy versioning
 	resources := resourceARNToArray(spec.rSpecs)
 	policy := &policy{
 		Version: "2012-10-17",
