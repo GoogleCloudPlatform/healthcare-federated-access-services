@@ -27,7 +27,7 @@
       "ui": {
         "label": "Persona Playground",
         "description": "Log in using Testing Personas",
-        "iconUrl": "https://icon-library.net//images/detective-icon/detective-icon-2.jpg"
+        "iconUrl": "/identity/static/images/persona_logo.svg"
       }
     }
   },
