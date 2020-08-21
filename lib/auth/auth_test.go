@@ -1604,7 +1604,10 @@ func setup(t *testing.T, param *testSetupOptions) (*mux.Router, *fakeoidcissuer.
 	ctx := oidc.ContextWithClient(context.Background())
 	verifier.NewPassportVerifier(ctx, issuerURL, test.TestClientID)
 
-	c := NewChecker(logs.Client, issuerURL, permissions.New(store), clientSecrets, transformIdentity, param.useUserinfo)
+	c, err := NewChecker(ctx, logs.Client, issuerURL, permissions.New(store), clientSecrets, transformIdentity, param.useUserinfo)
+	if err != nil {
+		t.Fatalf("auth.NewChecker() failed: %v", err)
+	}
 
 	stub := &handlerFuncStub{}
 

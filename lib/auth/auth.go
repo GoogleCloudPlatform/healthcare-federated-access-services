@@ -21,9 +21,9 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
@@ -114,25 +114,10 @@ type Checker struct {
 	// eg. hydra stores custom claims in "ext" fields for access token. need to move to top
 	// level field.
 	transformIdentity func(*ga4gh.Identity) *ga4gh.Identity
-	// init the verifier.AccessTokenVerifier
-	init sync.Once
 	// access token verifier
 	verifier verifier.AccessTokenVerifier
 	// use userinfo instead of the token itself to verify access token.
 	useUserinfoVerifyToken bool
-}
-
-func (s *Checker) getVerifier(ctx context.Context) (verifier.AccessTokenVerifier, error) {
-	var err error
-	s.init.Do(func() {
-		s.verifier, err = verifier.NewAccessTokenVerifier(ctx, s.issuer, s.useUserinfoVerifyToken)
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return s.verifier, nil
 }
 
 // NewChecker creates checker for authorization check.
@@ -142,15 +127,24 @@ func (s *Checker) getVerifier(ctx context.Context) (verifier.AccessTokenVerifier
 // permissions: contains method to check if user admin permission.
 // fetchClientSecrets: fetches client id and client secret.
 // transformIdentity: transform as needed, will run just after token convert to identity.
-func NewChecker(logger *logging.Client, issuer string, permissions *permissions.Permissions, fetchClientSecrets func() (map[string]string, error), transformIdentity func(*ga4gh.Identity) *ga4gh.Identity, useUserinfoVerifyToken bool) *Checker {
-	return &Checker{
-		logger:             logger,
-		issuer:             issuer,
-		permissions:        permissions,
-		fetchClientSecrets: fetchClientSecrets,
-		transformIdentity:  transformIdentity,
-		useUserinfoVerifyToken: useUserinfoVerifyToken,
+func NewChecker(ctx context.Context, logger *logging.Client, issuer string, permissions *permissions.Permissions, fetchClientSecrets func() (map[string]string, error), transformIdentity func(*ga4gh.Identity) *ga4gh.Identity, useUserinfoVerifyToken bool) (*Checker, error) {
+	if HTTPClient != nil {
+		ctx = oidc.ClientContext(ctx, HTTPClient)
 	}
+
+	v, err := verifier.NewAccessTokenVerifier(ctx, issuer, useUserinfoVerifyToken)
+	if err != nil {
+		return nil, fmt.Errorf("verifier.NewAccessTokenVerifier() failed: %v", err)
+	}
+	return &Checker{
+		logger:                 logger,
+		issuer:                 issuer,
+		permissions:            permissions,
+		fetchClientSecrets:     fetchClientSecrets,
+		transformIdentity:      transformIdentity,
+		useUserinfoVerifyToken: useUserinfoVerifyToken,
+		verifier:               v,
+	}, nil
 }
 
 // Context (i.e. auth.Context) is authorization information that is stored within the request context.
@@ -380,12 +374,7 @@ func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID stri
 	}
 	tok := parts[1]
 
-	v, err := s.getVerifier(r.Context())
-	if err != nil {
-		return nil, err
-	}
-
-	if err := verifyToken(r.Context(), v, tok, s.issuer, clientID, allowIssuerInAudAndAzp, allowAzp); err != nil {
+	if err := verifyToken(r.Context(), s.verifier, tok, s.issuer, clientID, allowIssuerInAudAndAzp, allowAzp); err != nil {
 		return nil, err
 	}
 

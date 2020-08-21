@@ -308,7 +308,11 @@ func New(r *mux.Router, params *Options) *Service {
 	}
 
 	a := authChecker{s: s}
-	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false)
+	checker, err := auth.NewChecker(ctx, s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false)
+	if err != nil {
+		glog.Exitf("auth.NewChecker() failed: %v", err)
+	}
+
 	s.checker = checker
 
 	go s.lro.Run(ctx)
