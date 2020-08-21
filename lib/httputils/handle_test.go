@@ -123,7 +123,7 @@ func TestWriteError_NilError(t *testing.T) {
 }
 
 func TestWriteHTMLResp(t *testing.T) {
-	csp := "default-src 'self';font-src https://fonts.gstatic.com;frame-ancestors 'self';img-src 'self' data: http://icon-library.com;script-src 'self' https://ajax.googleapis.com https://code.getmdl.io;style-src 'self' https://code.getmdl.io https://fonts.googleapis.com"
+	csp := "default-src 'self';font-src https://fonts.gstatic.com;frame-ancestors 'self';img-src 'self' data:;script-src 'self' https://ajax.googleapis.com https://code.getmdl.io;style-src 'self' https://code.getmdl.io https://fonts.googleapis.com"
 	tests := []struct {
 		name string
 		page string

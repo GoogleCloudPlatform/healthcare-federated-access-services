@@ -37,9 +37,8 @@ func TestCSPVars(t *testing.T) {
 					"https://fonts.gstatic.com": struct{}{},
 				},
 				"img-src": &stringset.Set{
-					"'self'":                  struct{}{},
-					"data:":                   struct{}{},
-					"http://icon-library.com": struct{}{},
+					"'self'": struct{}{},
+					"data:":  struct{}{},
 				},
 				"script-src": &stringset.Set{
 					"'self'":                      struct{}{},

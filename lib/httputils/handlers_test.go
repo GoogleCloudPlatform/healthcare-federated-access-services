@@ -35,7 +35,7 @@ func TestNewPageHandler(t *testing.T) {
 	want := &FakeWriter{
 		Headers: http.Header{
 			"Content-Security-Policy": {
-				"a b;default-src 'self';font-src https://fonts.gstatic.com;frame-ancestors 'self';img-src 'self' data: http://icon-library.com;script-src 'self' https://ajax.googleapis.com https://code.getmdl.io;style-src 'self' https://code.getmdl.io https://fonts.googleapis.com",
+				"a b;default-src 'self';font-src https://fonts.gstatic.com;frame-ancestors 'self';img-src 'self' data:;script-src 'self' https://ajax.googleapis.com https://code.getmdl.io;style-src 'self' https://code.getmdl.io https://fonts.googleapis.com",
 			},
 			"X-Frame-Options": {"SAMEORIGIN"},
 			"Content-Type":    {"text/html"},

@@ -116,9 +116,8 @@ var (
 			"style-src 'self' https://fonts.googleapis.com https://code.getmdl.io;" +
 			// fonts.gstatic.com for fonts
 			"font-src https://fonts.gstatic.com;" +
-			// TODO: load persona icon from icon-library.com, should remove
 			// data: for Material Design Lite style icon inline css
-			"img-src 'self' data: http://icon-library.com;" +
+			"img-src 'self' data:;" +
 			// allow frame hosted on same host to contain this page
 			"frame-ancestors 'self'",
 	)
