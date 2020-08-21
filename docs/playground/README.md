@@ -6,12 +6,9 @@ A Federated Access Playground creates a simulation environment where users of
 the playground can conduct tests and complete tutorials without the need to
 integrate with production Passport providers.
 
-<div style="background:#fdd;border-radius:10px;border: 1px solid red">
-  <b style="font-size:1.2em">IMPORTANT:</b>
-  Never provide real production data, such as any data containing PII or PHI, to
-  a Playground environment. Playgrounds are for
-  <b>test and synthetic data only</b>.
-</div>
+> **IMPORTANT:** Never provide real production data, such as any data containing
+> PII or PHI, to a Playground environment. Playgrounds are for
+> **test and synthetic data only**.
 
 This section will discuss what a Playground environment is, how it works, and
 how to create one of your own.
@@ -140,3 +137,34 @@ your own playground environment.
 
 To help with changing playground-related settings, such as Persona Broker Test
 Personas, see the [Playground Settings](settings.md) page.
+
+## Other Playground Configurations
+
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/all_playground_components.svg" width="950px">
+
+The Persona Broker may also be deployed in a system with more components to
+simulate a full end-to-end system.
+
+1. **[DDAP Explorer](https://github.com/DNAstack/ddap-explore)**: Offers a
+   front-end to explore and get access to data for the purposes of executing
+   workflows on cloud.
+   *  This can be be done by having data access policies be met by impersonating
+      Test Personas and using their visas to simulate getting access for running
+      compute jobs.
+
+1. **[IC Management Console](https://github.com/DNAstack/ddap-ic-admin)**: A
+   User Interface for end users and system administrators of the Identity
+   Concentrator.
+   *  Users may manage their accounts for the IC.
+   *  Administrators may manage the IC configuration options as well as
+      provide user support and system auditing.
+
+1. **[DAM Management Console](https://github.com/DNAstack/ddap-dam-admin)**: A
+   User Interface for end users and system administrators of the Data Access
+   Manager.
+   *  Users may manage their accounts for the DAM.
+   *  Administrators may manage the configuration options of the DAM as well as
+      provide user support and system auditing.
+
+See the GitHub repo links above for more information about these components and
+how to deploy them into your playground environment.
