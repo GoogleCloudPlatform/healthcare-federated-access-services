@@ -110,12 +110,6 @@ var (
 
 		// LRO related
 		"GET /dam/v1alpha/{realm}/lro/{name}",
-
-		// fake endpoints, will remove soon
-		"GET /tokens",
-		"DELETE /tokens/",
-		"GET /consents",
-		"DELETE /consents/",
 	}
 )
 

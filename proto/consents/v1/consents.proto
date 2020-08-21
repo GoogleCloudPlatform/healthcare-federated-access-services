@@ -29,22 +29,6 @@ option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-
 // Remembered Consents service.
 service Consents {
   // Deletes the specified Remembered Consent.
-  // Deprecated: keep for +1 backward compatibility
-  rpc MockDeleteConsent(DeleteConsentRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      delete: "/v1/users/{user_id}/consents/{consent_id}"
-    };
-  }
-
-  // Lists the Remembered Consents.
-  // Deprecated: keep for +1 backward compatibility
-  rpc MockListConsents(ListConsentsRequest) returns (MockListConsentsResponse) {
-    option (google.api.http) = {
-      get: "/v1/users/{user_id}/consents"
-    };
-  }
-
-  // Deletes the specified Remembered Consent.
   rpc DeleteConsent(DeleteConsentRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/v1/{realm}/users/{user_id}/consents/{consent_id}"
@@ -59,38 +43,6 @@ service Consents {
   }
 }
 
-// OAuth Consent.
-message MockConsent {
-  // Deprecated: use RememberedConsentPreference
-  option deprecated = true;
-
-  // Name of the OAuth Consent.
-  // Format: `consents/{consent_id}`.
-  string name = 1;
-
-  // Identifies the user who gave the OAuth consent.
-  // E.g. subject or account number
-  string user = 2;
-
-  // Identifies the client for which the OAuth consent was given.
-  string client = 3;
-
-  // Identifies the items for which the OAuth consent was given.
-  // E.g. JTI of a Visa JWT.
-  repeated string items = 4;
-
-  // Identifies the scopes for which the OAuth consent was given.
-  repeated string scopes = 5;
-
-  // Identifies the resources for which the OAuth consent was given.
-  repeated string resouces = 6;
-
-  // Time at which OAuth consent was first given.
-  google.protobuf.Timestamp create_time = 7;
-
-  // Time at which consent was last updated.
-  google.protobuf.Timestamp update_time = 8;
-}
 
 message DeleteConsentRequest {
   string realm = 1;
@@ -104,12 +56,6 @@ message ListConsentsRequest {
   string filter = 3;
   int32 page_size = 4;
   string page_token = 5;
-}
-
-message MockListConsentsResponse {
-  // Deprecated: keep for +1 backward compatibility
-  repeated MockConsent consents = 1;
-  string next_page_token = 2;
 }
 
 message ListConsentsResponse {

@@ -97,15 +97,10 @@ const (
 	// End-point for managing tokens. See "proto/tokens/v1/consents.proto"
 	tokensPath     = "/dam/v1alpha/users/{user}/tokens"
 	tokenPath      = "/dam/v1alpha/users/{user}/tokens/{token_id}"
-	fakeTokensPath = "/tokens"
-	fakeTokenPath  = "/tokens/"
 
 	// End-point for managing consents. See "proto/tokens/v1/tokens.proto"
 	listConsentPath   = "/dam/v1alpha/{realm}/users/{user}/consents"
 	deleteConsentPath = "/dam/v1alpha/{realm}/users/{user}/consents/{consent_id}"
-	// TODO: delete the mocked endpoints when complete.
-	consentsPath = "/consents"
-	consentPath  = "/consents/"
 
 	// End-point for viewing audit logs. See "proto/auditlogs/v0/auditlogs.proto"
 	auditlogsPath = "/dam/v1alpha/users/{user}/auditlogs"

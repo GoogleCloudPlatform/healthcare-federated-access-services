@@ -91,13 +91,6 @@ var (
 		"GET /identity/v1alpha/{realm}/identityProviders",
 		"GET /identity/v1alpha/{realm}/localeMetadata",
 		"GET /identity/v1alpha/{realm}/passportTranslators",
-
-		// fake endpoints, will remove soon
-		"GET /tokens",
-		"GET /tokens/",
-		"DELETE /tokens/",
-		"GET /consents",
-		"DELETE /consents/",
 	}
 )
 
