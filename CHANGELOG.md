@@ -2,7 +2,15 @@
 
 ## [Unreleased](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/HEAD)
 
-[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.11...HEAD)
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.12...HEAD)
+
+## [v0.9.12](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.12)
+
+[Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.11...v0.9.12)
+
+**Highlight Updates**
+
+* [Fix create idp on IC not saving to storage issue](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/issues/51)
 
 ## [v0.9.11](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/tree/v0.9.11)
 
