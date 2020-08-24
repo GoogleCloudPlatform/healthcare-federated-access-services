@@ -271,7 +271,7 @@ func (c *configIDP) CheckIntegrity(r *http.Request) *status.Status {
 	return nil
 }
 func (c *configIDP) Save(r *http.Request, tx storage.Tx, name string, vars map[string]string, desc, typeName string) error {
-	if c.save == nil || c.saveSecret == nil || (c.input.Modification != nil && c.input.Modification.DryRun) {
+	if c.input.Modification != nil && c.input.Modification.DryRun {
 		return nil
 	}
 

@@ -3148,7 +3148,35 @@ func TestConfigIdentityProviders_ClientSecret(t *testing.T) {
 		wantSecret func() map[string]string
 	}{
 		{
-			name:       "add TrustedIssuer",
+			name:       "add IdProvider",
+			method:     http.MethodPost,
+			issuerName: "iss0",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer:       "https://example.com",
+					AuthorizeUrl: "https://example.com/auth",
+					TokenUrl:     "https://example.com/token",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id0",
+				},
+			},
+			wantSecret: func() map[string]string {
+				return nil
+			},
+		},
+		{
+			name:       "get IdProvider",
+			method:     http.MethodGet,
+			issuerName: "iss0",
+			wantSecret: func() map[string]string {
+				return nil
+			},
+		},
+		{
+			name:       "add IdProvider with sec",
 			method:     http.MethodPost,
 			issuerName: "iss1",
 			req: &pb.ConfigIdentityProviderRequest{
@@ -3160,17 +3188,45 @@ func TestConfigIdentityProviders_ClientSecret(t *testing.T) {
 						"label":       "foo",
 						"description": "bar",
 					},
-					ClientId: "id",
+					ClientId: "id1",
 				},
 				ClientSecret: "sec",
 			},
 			wantSecret: func() map[string]string {
-				sec.IdProviderSecrets["id"] = "sec"
+				sec.IdProviderSecrets["id1"] = "sec"
 				return sec.IdProviderSecrets
 			},
 		},
 		{
-			name:       "update TrustedIssuer",
+			name:       "get IdProvider",
+			method:     http.MethodGet,
+			issuerName: "iss1",
+			wantSecret: func() map[string]string {
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "update IdProvider without sec to iss0",
+			method:     http.MethodPut,
+			issuerName: "iss0",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer:       "https://example.com/1",
+					AuthorizeUrl: "https://example.com/auth",
+					TokenUrl:     "https://example.com/token",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id0",
+				},
+			},
+			wantSecret: func() map[string]string {
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "update IdProvider without sec",
 			method:     http.MethodPut,
 			issuerName: "iss1",
 			req: &pb.ConfigIdentityProviderRequest{
@@ -3182,17 +3238,55 @@ func TestConfigIdentityProviders_ClientSecret(t *testing.T) {
 						"label":       "foo",
 						"description": "bar",
 					},
-					ClientId: "id",
+					ClientId: "id1",
 				},
-				ClientSecret: "sec1",
 			},
 			wantSecret: func() map[string]string {
-				sec.IdProviderSecrets["id"] = "sec1"
 				return sec.IdProviderSecrets
 			},
 		},
 		{
-			name:       "patch TrustedIssuer with secret",
+			name:       "update IdProvider with sec",
+			method:     http.MethodPut,
+			issuerName: "iss1",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer:       "https://example.com/1",
+					AuthorizeUrl: "https://example.com/auth",
+					TokenUrl:     "https://example.com/token",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id1",
+				},
+				ClientSecret: "sec1",
+			},
+			wantSecret: func() map[string]string {
+				sec.IdProviderSecrets["id1"] = "sec1"
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "patch IdProvider without secret to iss0",
+			method:     http.MethodPatch,
+			issuerName: "iss0",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id0",
+				},
+			},
+			wantSecret: func() map[string]string {
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "patch IdProvider without secret",
 			method:     http.MethodPatch,
 			issuerName: "iss1",
 			req: &pb.ConfigIdentityProviderRequest{
@@ -3202,17 +3296,35 @@ func TestConfigIdentityProviders_ClientSecret(t *testing.T) {
 						"label":       "foo",
 						"description": "bar",
 					},
-					ClientId: "id",
+					ClientId: "id1",
 				},
-				ClientSecret: "sec2",
 			},
 			wantSecret: func() map[string]string {
-				sec.IdProviderSecrets["id"] = "sec2"
 				return sec.IdProviderSecrets
 			},
 		},
 		{
-			name:       "delete TrustedIssuer",
+			name:       "patch IdProvider with secret",
+			method:     http.MethodPatch,
+			issuerName: "iss1",
+			req: &pb.ConfigIdentityProviderRequest{
+				Item: &cpb.IdentityProvider{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id1",
+				},
+				ClientSecret: "sec2",
+			},
+			wantSecret: func() map[string]string {
+				sec.IdProviderSecrets["id1"] = "sec2"
+				return sec.IdProviderSecrets
+			},
+		},
+		{
+			name:       "delete IdProvider",
 			method:     http.MethodDelete,
 			issuerName: "iss1",
 			wantSecret: func() map[string]string {

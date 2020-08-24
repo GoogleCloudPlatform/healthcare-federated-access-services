@@ -4388,6 +4388,32 @@ func TestConfigTrustedIssuer_ClientSecret(t *testing.T) {
 		wantSecret func() map[string]string
 	}{
 		{
+			name:       "add TrustedIssuer without sec",
+			method:     http.MethodPost,
+			issuerName: "iss0",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id0",
+				},
+			},
+			wantSecret: func() map[string]string {
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "get TrustedIssuer",
+			method:     http.MethodGet,
+			issuerName: "iss0",
+			wantSecret: func() map[string]string {
+				return sec.BrokerSecrets
+			},
+		},
+		{
 			name:       "add TrustedIssuer",
 			method:     http.MethodPost,
 			issuerName: "iss1",
@@ -4398,12 +4424,56 @@ func TestConfigTrustedIssuer_ClientSecret(t *testing.T) {
 						"label":       "foo",
 						"description": "bar",
 					},
-					ClientId: "id",
+					ClientId: "id1",
 				},
 				ClientSecret: "sec",
 			},
 			wantSecret: func() map[string]string {
-				sec.BrokerSecrets["id"] = "sec"
+				sec.BrokerSecrets["id1"] = "sec"
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "get TrustedIssuer",
+			method:     http.MethodGet,
+			issuerName: "iss1",
+			wantSecret: func() map[string]string {
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "update TrustedIssuer without sec to iss0",
+			method:     http.MethodPut,
+			issuerName: "iss0",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id0",
+				},
+			},
+			wantSecret: func() map[string]string {
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "update TrustedIssuer without sec",
+			method:     http.MethodPut,
+			issuerName: "iss1",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id1",
+				},
+			},
+			wantSecret: func() map[string]string {
 				return sec.BrokerSecrets
 			},
 		},
@@ -4418,12 +4488,48 @@ func TestConfigTrustedIssuer_ClientSecret(t *testing.T) {
 						"label":       "foo",
 						"description": "bar",
 					},
-					ClientId: "id",
+					ClientId: "id1",
 				},
 				ClientSecret: "sec1",
 			},
 			wantSecret: func() map[string]string {
-				sec.BrokerSecrets["id"] = "sec1"
+				sec.BrokerSecrets["id1"] = "sec1"
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "patch TrustedIssuer without secret to iss0",
+			method:     http.MethodPatch,
+			issuerName: "iss0",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id0",
+				},
+			},
+			wantSecret: func() map[string]string {
+				return sec.BrokerSecrets
+			},
+		},
+		{
+			name:       "patch TrustedIssuer without secret",
+			method:     http.MethodPatch,
+			issuerName: "iss1",
+			req: &pb.ConfigTrustedIssuerRequest{
+				Item: &pb.TrustedIssuer{
+					Issuer: "https://example.com/1",
+					Ui: map[string]string{
+						"label":       "foo",
+						"description": "bar",
+					},
+					ClientId: "id1",
+				},
+			},
+			wantSecret: func() map[string]string {
 				return sec.BrokerSecrets
 			},
 		},
@@ -4438,12 +4544,12 @@ func TestConfigTrustedIssuer_ClientSecret(t *testing.T) {
 						"label":       "foo",
 						"description": "bar",
 					},
-					ClientId: "id",
+					ClientId: "id1",
 				},
 				ClientSecret: "sec2",
 			},
 			wantSecret: func() map[string]string {
-				sec.BrokerSecrets["id"] = "sec2"
+				sec.BrokerSecrets["id1"] = "sec2"
 				return sec.BrokerSecrets
 			},
 		},
@@ -4452,7 +4558,7 @@ func TestConfigTrustedIssuer_ClientSecret(t *testing.T) {
 			method:     http.MethodDelete,
 			issuerName: "iss1",
 			wantSecret: func() map[string]string {
-				delete(sec.BrokerSecrets, "id")
+				delete(sec.BrokerSecrets, "id1")
 				return sec.BrokerSecrets
 			},
 		},
