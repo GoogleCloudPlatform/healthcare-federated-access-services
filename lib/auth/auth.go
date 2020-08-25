@@ -115,7 +115,7 @@ type Checker struct {
 	// level field.
 	transformIdentity func(*ga4gh.Identity) *ga4gh.Identity
 	// init the verifier.AccessTokenVerifier
-	init sync.Once
+	mutex sync.Mutex
 	// access token verifier
 	verifier verifier.AccessTokenVerifier
 	// use userinfo instead of the token itself to verify access token.
@@ -123,16 +123,27 @@ type Checker struct {
 }
 
 func (s *Checker) getVerifier(ctx context.Context) (verifier.AccessTokenVerifier, error) {
-	var err error
-	s.init.Do(func() {
-		s.verifier, err = verifier.NewAccessTokenVerifier(ctx, s.issuer, s.useUserinfoVerifyToken)
-	})
+	// TODO: We use lazy load for verifier creation since now Hydra
+	// and IC/DAM are deployed in a same container. Hydra is not available before
+	// IC/DAM startup completed. We should separate Hydra and IC/DAM to 2
+	// containers after that we should fetch oidc public key when service
+	// starts and exit with error.
 
-	if err != nil {
-		return nil, err
+	if s.verifier != nil {
+		return s.verifier, nil
 	}
 
-	return s.verifier, nil
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// s.verifier maybe available after the waiting.
+	if s.verifier != nil {
+		return s.verifier, nil
+	}
+
+	var err error
+	s.verifier, err = verifier.NewAccessTokenVerifier(ctx, s.issuer, s.useUserinfoVerifyToken)
+	return s.verifier, err
 }
 
 // NewChecker creates checker for authorization check.
@@ -144,11 +155,11 @@ func (s *Checker) getVerifier(ctx context.Context) (verifier.AccessTokenVerifier
 // transformIdentity: transform as needed, will run just after token convert to identity.
 func NewChecker(logger *logging.Client, issuer string, permissions *permissions.Permissions, fetchClientSecrets func() (map[string]string, error), transformIdentity func(*ga4gh.Identity) *ga4gh.Identity, useUserinfoVerifyToken bool) *Checker {
 	return &Checker{
-		logger:             logger,
-		issuer:             issuer,
-		permissions:        permissions,
-		fetchClientSecrets: fetchClientSecrets,
-		transformIdentity:  transformIdentity,
+		logger:                 logger,
+		issuer:                 issuer,
+		permissions:            permissions,
+		fetchClientSecrets:     fetchClientSecrets,
+		transformIdentity:      transformIdentity,
 		useUserinfoVerifyToken: useUserinfoVerifyToken,
 	}
 }
