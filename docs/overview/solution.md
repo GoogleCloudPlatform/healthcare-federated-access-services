@@ -47,12 +47,13 @@ their compute jobs to the cloud to work on the data directly.
       a full set of audit logs to investigate anomalies and put extra data
       governance monitoring in place.
 
-1. **Regulation**: Downloading to where a researcher's compute resources are
-   available does not always meet regulatory compliance requirements.
+1. **Regulatory Compliance**: Downloading to where a researcher's compute
+   resources are available does not always meet regulatory compliance
+   requirements.
    *  Some PHI data has geolocation storage and processing requirements that
       do not allow the data to leave a particular geographic region.
    *  Other regulations may require a level of oversight over the data that
-      unmanaged downloads does not comply with.
+      is not compatible with unmanaged downloads.
 
 1. **Use Data in Place**: There are additional benefits to using data in place
    that are not already captured by the benefits above.
