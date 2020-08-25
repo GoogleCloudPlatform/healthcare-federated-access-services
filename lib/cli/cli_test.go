@@ -15,7 +15,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -168,16 +167,9 @@ type service struct {
 }
 
 func serviceNew(t *testing.T, store storage.Store, client *http.Client) *service {
-	t.Helper()
-
-	auth.HTTPClient = client
-
-	checker, err := auth.NewChecker(context.Background(), nil, hydraPublicURL, permissions.New(store), func() (map[string]string, error) {
+	checker := auth.NewChecker(nil, hydraPublicURL, permissions.New(store), func() (map[string]string, error) {
 		return map[string]string{test.TestClientID: test.TestClientSecret}, nil
 	}, func(id *ga4gh.Identity) *ga4gh.Identity { return id }, false)
-	if err != nil {
-		t.Fatalf("auth.NewChecker() failed: %v", err)
-	}
 
 	crypt := fakeencryption.New()
 

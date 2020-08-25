@@ -35,7 +35,7 @@ type oidcJwtSigVerifier struct {
 func newOIDCSigVerifier(ctx context.Context, issuer string) (*oidcJwtSigVerifier, error) {
 	p, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
-		return nil, errutil.WithErrorReason(errCreateVerifierFailed, status.Errorf(codes.Unavailable, "create oidc failed, usually caused by service does not able reach to Hydra jwks endpoint: %v", err))
+		return nil, errutil.WithErrorReason(errCreateVerifierFailed, status.Errorf(codes.Unavailable, "create oidc failed: %v", err))
 	}
 
 	v := p.Verifier(&oidc.Config{

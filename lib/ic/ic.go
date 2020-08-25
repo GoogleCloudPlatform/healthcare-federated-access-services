@@ -325,10 +325,7 @@ func New(r *mux.Router, params *Options) *Service {
 	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
 
 	a := authChecker{s: s}
-	checker, err := auth.NewChecker(ctx, s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false)
-	if err != nil {
-		glog.Exitf("auth.NewChecker() failed: %v", err)
-	}
+	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false)
 
 	s.checker = checker
 
