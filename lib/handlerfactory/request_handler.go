@@ -134,7 +134,7 @@ func Process(s storage.Store, opts *Options, r *http.Request) (_ proto.Message, 
 	// TODO: Replace NormalizeInput with a ParseReq that returns a request proto message.
 	// TODO: Explicitly pass the message to the service methods.
 	if err := hi.NormalizeInput(r, name, vars); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, toStatusErr(codes.InvalidArgument, err, r)
 	}
 
 	// TODO: get rid of LookupItem and move this inside the service methods.

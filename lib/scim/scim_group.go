@@ -373,11 +373,11 @@ func (h *GroupHandler) normalizeMember(member *spb.Member, name string, idx int)
 	case "":
 		member.Type = "User"
 	default:
-		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "type"), idx, fmt.Sprintf("invalid member type"))
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "type"), idx, "invalid member type")
 	}
 	email, err := mail.ParseAddress(member.Value)
 	if err != nil {
-		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "value"), idx, "must be an email address")
+		return errutil.NewIndexError(codes.InvalidArgument, errutil.ErrorPath("scim", "groups", name, "members", strconv.Itoa(idx), "value"), idx, fmt.Sprintf("%q must be an email address", member.Value))
 	}
 	member.Value = email.Address
 	if member.Display == "" && email.Name != "" {

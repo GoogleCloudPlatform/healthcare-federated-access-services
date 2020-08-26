@@ -260,7 +260,8 @@ func TestHandlers(t *testing.T) {
 				"displayName": "Group 3",
 				"members": [{"value": "bad"}]
 			}`,
-			Output: `*"code":3*`,
+			// Verifies that the escaped email address "bad" is included in the error message and the rich error info is there too.
+			Output: `*"code":3*\"bad\"*"@type":"type.googleapis.com/google.rpc.ErrorInfo","metadata":{"index":"0"}*`,
 			Status: http.StatusBadRequest,
 		},
 		{
