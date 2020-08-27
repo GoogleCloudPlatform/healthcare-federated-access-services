@@ -164,6 +164,40 @@
     }
   },
   "serviceTemplates": {
+    "amazon-s3": {
+      "serviceName": "s3bucket",
+      "interfaces": {
+        "aws:s3": "s3://${bucket}",
+        "http:aws:s3": "https://s3.amazonaws.com/${bucket}",
+        "web:aws:s3": "https://s3.console.aws.amazon.com/s3/buckets/${bucket}"
+      },
+      "roles": {
+        "viewer": {
+          "serviceArgs": {
+            "roles": {
+              "values": [
+                "s3:GetObject",
+                "s3:GetBucketLocation",
+                "s3:ListBucket"
+              ]
+            }
+          },
+          "damRoleCategories": [
+            "metadata",
+            "list",
+            "read"
+          ],
+          "ui": {
+            "description": "List and read files",
+            "label": "File Viewer"
+          }
+        }
+      },
+      "ui": {
+        "description": "Amazon Simple Storage Service (S3)",
+        "label": "Amazon S3"
+      }
+    },
     "gcs": {
       "serviceName": "gcs",
       "roles": {
@@ -210,6 +244,83 @@
       "ui": {
         "label": "Google Cloud Storage",
         "description": "Offers Google Cloud Storage access"
+      }
+    },
+    "redshift": {
+      "serviceName": "redshift",
+      "interfaces": {
+        "http:aws:redshift:arn": "${cluster}"
+      },
+      "roles": {
+        "dbuser": {
+          "serviceArgs": {
+            "roles": {
+              "values": [
+                "redshift:GetClusterCredentials",
+                "redshift:CreateClusterUser",
+                "redshift:JoinGroup"
+              ]
+            }
+          },
+          "damRoleCategories": [
+            "metadata",
+            "list",
+            "read",
+            "write"
+          ],
+          "ui": {
+            "description": "Ability to login as new user with group",
+            "label": "DB User"
+          }
+        }
+      },
+      "ui": {
+        "description": "Offers AWS Redshift DB Credentials",
+        "label": "AWS Redshift - DB Credentials"
+      }
+    },
+    "redshift-console": {
+      "serviceName": "redshift-console",
+      "interfaces": {
+        "web:aws:redshift": "https://console.aws.amazon.com/redshiftv2/home"
+      },
+      "roles": {
+        "dbuser": {
+          "serviceArgs": {
+            "roles": {
+              "values": [
+                "redshift:ListSchemas",
+                "redshift:ListTables",
+                "redshift:ListDatabases",
+                "redshift:ExecuteQuery",
+                "redshift:FetchResults",
+                "redshift:CancelQuery",
+                "redshift:DescribeClusters",
+                "redshift:DescribeQuery",
+                "redshift:DescribeTable",
+                "redshift:ViewQueriesFromConsole",
+                "redshift:DescribeSavedQueries",
+                "redshift:CreateSavedQuery",
+                "redshift:DeleteSavedQueries",
+                "redshift:ModifySavedQuery"
+              ]
+            }
+          },
+          "damRoleCategories": [
+            "list",
+            "metadata",
+            "read",
+            "write"
+          ],
+          "ui": {
+            "description": "Ability to access the Redshift web console",
+            "label": "Console User"
+          }
+        }
+      },
+      "ui": {
+        "description": "Ability to access the Redshift web console",
+        "label": "AWS Redshift - Web Console"
       }
     }
   },
