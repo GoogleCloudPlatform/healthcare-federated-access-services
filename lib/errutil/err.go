@@ -110,3 +110,12 @@ func WithMetadata(key, value string, err error) error {
 	}
 	return s.Err()
 }
+
+// NotFound checks if the given error is not found.
+func NotFound(err error) bool {
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	return st.Code() == codes.NotFound
+}
