@@ -80,3 +80,8 @@ Federated Access documentation is organized as follows:
    *  **[GA4GH Passports Webinar 2](https://bit.ly/ga4gh-passports-webinar2)**:
       Implementing GA4GH Passports & AAI Technical Deep Dive
       ([slides](https://bit.ly/ga4gh-passports-slides2)).
+
+1. **External Tools** available for Passports:
+   *  **[ELIXIR Passport Echo Service](https://echo.aai.elixir-czech.org/)**:
+      Log into ELIXIR AAI and view passport details. [source
+      code](https://github.com/ICS-MU/ga4gh-passport-tester).
