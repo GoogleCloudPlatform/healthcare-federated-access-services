@@ -21,9 +21,14 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"cloud.google.com/go/logging" /* copybara-comment: logging */
 	"github.com/gorilla/mux" /* copybara-comment */
@@ -31,6 +36,7 @@ import (
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/cache" /* copybara-comment: cache */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
@@ -54,6 +60,8 @@ const (
 var (
 	// HTTPClient used for external calls.
 	HTTPClient *http.Client = nil
+	// cacheMaxExpiry, use cacheMaxExpiry if token does not have expiry info or expiry longer than cacheMaxExpiry.
+	cacheMaxExpiry = int64(10 * time.Minute.Seconds())
 )
 
 // Role requirement of access.
@@ -120,6 +128,9 @@ type Checker struct {
 	verifier verifier.AccessTokenVerifier
 	// use userinfo instead of the token itself to verify access token.
 	useUserinfoVerifyToken bool
+	// use cache to cache auth result for opaque token, eg. token verifies via userinfo
+	// Need to set useUserinfoVerifyToken true to enable cache.
+	cache func() cache.Client
 }
 
 func (s *Checker) getVerifier(ctx context.Context) (verifier.AccessTokenVerifier, error) {
@@ -153,7 +164,7 @@ func (s *Checker) getVerifier(ctx context.Context) (verifier.AccessTokenVerifier
 // permissions: contains method to check if user admin permission.
 // fetchClientSecrets: fetches client id and client secret.
 // transformIdentity: transform as needed, will run just after token convert to identity.
-func NewChecker(logger *logging.Client, issuer string, permissions *permissions.Permissions, fetchClientSecrets func() (map[string]string, error), transformIdentity func(*ga4gh.Identity) *ga4gh.Identity, useUserinfoVerifyToken bool) *Checker {
+func NewChecker(logger *logging.Client, issuer string, permissions *permissions.Permissions, fetchClientSecrets func() (map[string]string, error), transformIdentity func(*ga4gh.Identity) *ga4gh.Identity, useUserinfoVerifyToken bool, cache func() cache.Client) *Checker {
 	return &Checker{
 		logger:                 logger,
 		issuer:                 issuer,
@@ -161,6 +172,7 @@ func NewChecker(logger *logging.Client, issuer string, permissions *permissions.
 		fetchClientSecrets:     fetchClientSecrets,
 		transformIdentity:      transformIdentity,
 		useUserinfoVerifyToken: useUserinfoVerifyToken,
+		cache:                  cache,
 	}
 }
 
@@ -396,7 +408,11 @@ func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID stri
 		return nil, err
 	}
 
-	id , err := verifyToken(r.Context(), v, tok, s.issuer, clientID, allowIssuerInAudAndAzp, allowAzp)
+	var cache cache.Client
+	if s.cache != nil {
+		cache = s.cache()
+	}
+	id, err := verifyToken(r.Context(), v, cache, tok, s.issuer, clientID, s.useUserinfoVerifyToken, allowIssuerInAudAndAzp, allowAzp)
 	if err != nil {
 		return nil, err
 	}
@@ -409,15 +425,50 @@ func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID stri
 }
 
 // verifyToken oidc spec verfiy token.
-func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, tok, iss, clientID string, allowIssuerInAudAndAzp, allowAzp bool) (*ga4gh.Identity, error) {
+func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, cache cache.Client, tok, iss, clientID string, opaqueToken, allowIssuerInAudAndAzp, allowAzp bool) (*ga4gh.Identity, error) {
 	issuerInAudAndAzp := iss
 	if !allowIssuerInAudAndAzp {
 		issuerInAudAndAzp = ""
 	}
 
 	id := &ga4gh.Identity{}
+
+	if opaqueToken && cache != nil {
+		key := accessTokenCacheKey(iss, tok)
+		bytes, err := cache.Get(key)
+		if err == nil {
+			err := json.Unmarshal(bytes, id)
+			if err != nil {
+				return nil, errutil.WithErrorReason(errCacheDecodeFailed, status.Errorf(codes.Internal, "decode json failed: %v", err))
+			}
+			return id, nil
+		}
+	}
+
+	// cache not enabled or not available or token not found in cache, fallback to verify token via /userinfo or other introspect endpoints.
 	err := v.Verify(ctx, tok, id, verifier.AccessTokenOption(clientID, issuerInAudAndAzp, allowAzp))
 	if err == nil {
+		if opaqueToken && cache != nil {
+			now := time.Now().Unix()
+			key := accessTokenCacheKey(iss, tok)
+			var exp int64
+			if id.Expiry == 0 || id.Expiry > now+cacheMaxExpiry {
+				exp = cacheMaxExpiry
+			} else {
+				exp = id.Expiry - now
+			}
+
+			bytes, err := json.Marshal(id)
+			if err != nil {
+				return nil, errutil.WithErrorReason(errCacheEncodeFailed, status.Errorf(codes.Internal, "encode json failed: %v", err))
+			}
+
+			if err := cache.SetWithExpiry(key, bytes, exp); err != nil {
+				// if cache unavailable, just skip and fallback.
+				glog.Errorf("cache.SetWithExpiry() failed: %v", err)
+			}
+		}
+
 		return id, nil
 	}
 
@@ -426,6 +477,13 @@ func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, tok, iss, 
 		reason = errIDVerifyFailed
 	}
 	return nil, errutil.WithErrorReason(reason, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
+}
+
+func accessTokenCacheKey(issuer, token string) string {
+	b := sha256.Sum256([]byte(token))
+	// use StdEncoding instead of URLEncoding. Because StdEncoding uses [0-9a-zA-Z+/] charset.
+	s := base64.StdEncoding.EncodeToString(b[:])
+	return fmt.Sprintf("accesstoken_%s_%s", issuer, s)
 }
 
 // normalize ensure the issuer string and tailling slash.

@@ -308,7 +308,7 @@ func New(r *mux.Router, params *Options) *Service {
 	}
 
 	a := authChecker{s: s}
-	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false)
+	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false, nil)
 	s.checker = checker
 
 	go s.lro.Run(ctx)

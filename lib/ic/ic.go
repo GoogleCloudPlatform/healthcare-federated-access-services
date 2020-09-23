@@ -325,7 +325,7 @@ func New(r *mux.Router, params *Options) *Service {
 	s.syncToHydra(cfg.Clients, secrets.ClientSecrets, 30*time.Second, nil)
 
 	a := authChecker{s: s}
-	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false)
+	checker := auth.NewChecker(s.logger, s.getIssuerString(), permissions.New(s.store), a.fetchClientSecrets, a.transformIdentity, false, nil)
 
 	s.checker = checker
 

@@ -16,6 +16,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -28,12 +29,15 @@ import (
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
+	"github.com/alicebob/miniredis" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/auditlog" /* copybara-comment: auditlog */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/cache" /* copybara-comment: cache */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/permissions" /* copybara-comment: permissions */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakecache" /* copybara-comment: fakecache */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakeoidcissuer" /* copybara-comment: fakeoidcissuer */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test/fakesdl" /* copybara-comment: fakesdl */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/test" /* copybara-comment: test */
@@ -76,7 +80,7 @@ var (
 
 func Test_LargeBody(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, _ := setup(t, param)
+		router, oidc, _, _, _, _ := setup(t, param, false)
 
 		// Build a big http body
 		sb := strings.Builder{}
@@ -94,7 +98,7 @@ func Test_LargeBody(t *testing.T) {
 func Test_LargeBody_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 		// Build a big http body
 		sb := strings.Builder{}
 		for i := 0; i < maxHTTPBody+10; i++ {
@@ -115,7 +119,7 @@ func Test_ErrorAtClientSecret(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		for path, require := range handlers {
 			t.Run(path, func(t *testing.T) {
-				router, oidc, service, _, _ := setup(t, param)
+				router, oidc, service, _, _, _ := setup(t, param, false)
 
 				service.fetchClientSecrets = func() (map[string]string, error) {
 					return nil, status.Error(codes.Unavailable, "Unavailable")
@@ -140,7 +144,7 @@ func Test_ErrorAtClientSecret_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		for path, require := range handlers {
 			t.Run(path, func(t *testing.T) {
-				router, oidc, service, _, logs := setup(t, param)
+				router, oidc, service, _, logs, _ := setup(t, param, false)
 
 				service.fetchClientSecrets = func() (map[string]string, error) {
 					return nil, status.Error(codes.Unavailable, "Unavailable")
@@ -167,7 +171,7 @@ func Test_ErrorAtClientSecret_Log(t *testing.T) {
 
 func Test_RequiresClientID(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, stub, _ := setup(t, param)
+		router, oidc, _, stub, _, _ := setup(t, param, false)
 
 		resp := sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
 		want := "GET /clientidonly"
@@ -183,7 +187,7 @@ func Test_RequiresClientID(t *testing.T) {
 
 func Test_RequiresClientID_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		sendRequest(http.MethodGet, "/clientidonly", test.TestClientID, "", "", "", "", router, oidc)
 
@@ -212,7 +216,7 @@ func Test_RequiresClientID_Error(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
-				router, oidc, _, _, _ := setup(t, param)
+				router, oidc, _, _, _, _ := setup(t, param, false)
 
 				resp := sendRequest(http.MethodGet, "/clientidonly", tc.clientID, "", "", "", "", router, oidc)
 				if resp.StatusCode != http.StatusUnauthorized {
@@ -243,7 +247,7 @@ func Test_RequiresClientID_Error_Log(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
-				router, oidc, _, _, logs := setup(t, param)
+				router, oidc, _, _, logs, _ := setup(t, param, false)
 
 				resp := sendRequest(http.MethodGet, "/clientidonly", tc.clientID, "", "", "", "", router, oidc)
 				if resp.StatusCode != http.StatusUnauthorized {
@@ -262,7 +266,7 @@ func Test_RequiresClientID_Error_Log(t *testing.T) {
 
 func Test_RequiresClientSecret(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, stub, _ := setup(t, param)
+		router, oidc, _, stub, _, _ := setup(t, param, false)
 
 		resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
 		want := "GET /clientsecret"
@@ -278,7 +282,7 @@ func Test_RequiresClientSecret(t *testing.T) {
 
 func Test_RequiresClientSecret_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, test.TestClientSecret, "", "", "", router, oidc)
 
@@ -307,7 +311,7 @@ func Test_RequiresClientSecret_Error(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
-				router, oidc, _, _, _ := setup(t, param)
+				router, oidc, _, _, _, _ := setup(t, param, false)
 
 				resp := sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, tc.clientSecret, "", "", "", router, oidc)
 				if resp.StatusCode != http.StatusUnauthorized {
@@ -335,7 +339,7 @@ func Test_RequiresClientSecret_Error_Log(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
-				router, oidc, _, _, logs := setup(t, param)
+				router, oidc, _, _, logs, _ := setup(t, param, false)
 
 				sendRequest(http.MethodGet, "/clientsecret", test.TestClientID, tc.clientSecret, "", "", "", router, oidc)
 
@@ -369,7 +373,7 @@ func Test_RequiresToken_Error(t *testing.T) {
 		for _, tc := range tests {
 			for _, p := range paths {
 				t.Run(tc.name+" "+p, func(t *testing.T) {
-					router, oidc, _, _, _ := setup(t, param)
+					router, oidc, _, _, _, _ := setup(t, param, false)
 
 					resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tc.tok, "", "", router, oidc)
 					if resp.StatusCode != http.StatusUnauthorized {
@@ -408,7 +412,7 @@ func Test_RequiresToken_Error_Log(t *testing.T) {
 		for _, tc := range tests {
 			for _, p := range paths {
 				t.Run(tc.name+" "+p, func(t *testing.T) {
-					router, oidc, _, _, logs := setup(t, param)
+					router, oidc, _, _, logs, _ := setup(t, param, false)
 
 					sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tc.tok, "", "", router, oidc)
 
@@ -438,7 +442,7 @@ func Test_RequiresToken_JWT_Invalid_Signature(t *testing.T) {
 
 		for _, p := range paths {
 			t.Run(p, func(t *testing.T) {
-				router, oidc, _, _, _ := setup(t, param)
+				router, oidc, _, _, _, _ := setup(t, param, false)
 
 				tok, err := oidc.Sign(nil, claims)
 				if err != nil {
@@ -471,7 +475,7 @@ func Test_RequiresToken_JWT_Invalid_Signature_Log(t *testing.T) {
 
 		for _, p := range paths {
 			t.Run(p, func(t *testing.T) {
-				router, oidc, _, _, logs := setup(t, param)
+				router, oidc, _, _, logs, _ := setup(t, param, false)
 
 				tok, err := oidc.Sign(nil, claims)
 				if err != nil {
@@ -557,7 +561,7 @@ func Test_RequiresToken_JWT_Claims_Invalid(t *testing.T) {
 	for _, tc := range tests {
 		for _, p := range paths {
 			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, _ := setup(t, basicSetupOptions)
+				router, oidc, _, _, _, _ := setup(t, basicSetupOptions, false)
 
 				tok, err := oidc.Sign(nil, tc.claims)
 				if err != nil {
@@ -641,7 +645,7 @@ func Test_RequiresToken_JWT_Claims_Invalid_Error(t *testing.T) {
 	for _, tc := range tests {
 		for _, p := range paths {
 			t.Run(tc.name+" "+p, func(t *testing.T) {
-				router, oidc, _, _, logs := setup(t, basicSetupOptions)
+				router, oidc, _, _, logs, _ := setup(t, basicSetupOptions, false)
 
 				tok, err := oidc.Sign(nil, tc.claims)
 				if err != nil {
@@ -675,7 +679,7 @@ func Test_RequiresUserToken(t *testing.T) {
 
 		for _, p := range paths {
 			t.Run(p, func(t *testing.T) {
-				router, oidc, _, stub, _ := setup(t, param)
+				router, oidc, _, stub, _, _ := setup(t, param, false)
 
 				tok, err := oidc.Sign(nil, claims)
 				if err != nil {
@@ -701,7 +705,7 @@ func Test_RequiresUserToken_opaque(t *testing.T) {
 
 	for _, p := range paths {
 		t.Run(p, func(t *testing.T) {
-			router, oidc, _, stub, _ := setup(t, userInfoSetupOptions)
+			router, oidc, _, stub, _, _ := setup(t, userInfoSetupOptions, false)
 
 			tok := "opaque:non-admin"
 
@@ -733,7 +737,7 @@ func Test_RequiresUserToken_Log(t *testing.T) {
 
 		for _, p := range paths {
 			t.Run(p, func(t *testing.T) {
-				router, oidc, _, _, logs := setup(t, param)
+				router, oidc, _, _, logs, _ := setup(t, param, false)
 
 				tok, err := oidc.Sign(nil, claims)
 				if err != nil {
@@ -754,7 +758,7 @@ func Test_RequiresUserToken_Log(t *testing.T) {
 
 func Test_RequiresUserToken_UserMisatch(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, _ := setup(t, param)
+		router, oidc, _, _, _, _ := setup(t, param, false)
 
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
@@ -779,7 +783,7 @@ func Test_RequiresUserToken_UserMisatch(t *testing.T) {
 
 func Test_RequiresUserToken_UserMismatch_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
@@ -807,7 +811,7 @@ func Test_RequiresUserToken_UserMismatch_Log(t *testing.T) {
 
 func Test_RequiresAdminToken(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, stub, _ := setup(t, param)
+		router, oidc, _, stub, _, _ := setup(t, param, false)
 
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
@@ -839,7 +843,7 @@ func Test_RequiresAdminToken(t *testing.T) {
 }
 
 func Test_RequiresAdminToken_opaque(t *testing.T) {
-	router, oidc, _, stub, _ := setup(t, userInfoSetupOptions)
+	router, oidc, _, stub, _, _ := setup(t, userInfoSetupOptions, false)
 
 	tok := "opaque:admin"
 
@@ -856,7 +860,7 @@ func Test_RequiresAdminToken_opaque(t *testing.T) {
 
 func Test_RequiresAdminToken_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
@@ -887,7 +891,7 @@ func Test_RequiresAdminToken_Log(t *testing.T) {
 
 func Test_RequiresAdminToken_Error(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, _ := setup(t, param)
+		router, oidc, _, _, _, _ := setup(t, param, false)
 
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
@@ -912,7 +916,7 @@ func Test_RequiresAdminToken_Error(t *testing.T) {
 
 func Test_RequiresAdminToken_Error_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		now := time.Now().Unix()
 		claims := &ga4gh.Identity{
@@ -950,7 +954,7 @@ func Test_RequiresAccountAdminUserToken(t *testing.T) {
 			Audiences: ga4gh.NewAudience(test.TestClientID),
 		}
 
-		router, oidc, _, stub, _ := setup(t, param)
+		router, oidc, _, stub, _, _ := setup(t, param, false)
 
 		tok, err := oidc.Sign(nil, claims)
 		if err != nil {
@@ -982,7 +986,7 @@ func Test_RequiresAccountAdminUserToken_Log(t *testing.T) {
 			Audiences: ga4gh.NewAudience(test.TestClientID),
 		}
 
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		tok, err := oidc.Sign(nil, claims)
 		if err != nil {
@@ -1012,7 +1016,7 @@ func Test_RequiresAccountAdminUserToken_Error(t *testing.T) {
 			Audiences: ga4gh.NewAudience(test.TestClientID),
 		}
 
-		router, oidc, _, _, _ := setup(t, param)
+		router, oidc, _, _, _, _ := setup(t, param, false)
 
 		tok, err := oidc.Sign(nil, claims)
 		if err != nil {
@@ -1038,7 +1042,7 @@ func Test_RequiresAccountAdminUserToken_Error_Log(t *testing.T) {
 			Audiences: ga4gh.NewAudience(test.TestClientID),
 		}
 
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		tok, err := oidc.Sign(nil, claims)
 		if err != nil {
@@ -1067,7 +1071,7 @@ func Test_UserAndLinkToken(t *testing.T) {
 			Audiences: ga4gh.NewAudience(test.TestClientID),
 		}
 
-		router, oidc, _, stub, _ := setup(t, param)
+		router, oidc, _, stub, _, _ := setup(t, param, false)
 
 		tok, err := oidc.Sign(nil, claims)
 		if err != nil {
@@ -1104,7 +1108,7 @@ func Test_UserAndLinkToken_Error(t *testing.T) {
 			Audiences: ga4gh.NewAudience(test.TestClientID),
 		}
 
-		router, oidc, _, _, _ := setup(t, param)
+		router, oidc, _, _, _, _ := setup(t, param, false)
 
 		tok, err := oidc.Sign(nil, claims)
 		if err != nil {
@@ -1136,7 +1140,7 @@ func Test_UserAndLinkToken_Error_Log(t *testing.T) {
 			Audiences: ga4gh.NewAudience(test.TestClientID),
 		}
 
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		tok, err := oidc.Sign(nil, claims)
 		if err != nil {
@@ -1208,7 +1212,7 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 
-				router, oidc, _, _, logs := setup(t, param)
+				router, oidc, _, _, logs, _ := setup(t, param, false)
 
 				tok, err := oidc.Sign(nil, tc.claims)
 				if err != nil {
@@ -1257,7 +1261,7 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 
 func Test_writeRequestLog_auth_failed(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, _, _, logs := setup(t, param)
+		router, oidc, _, _, logs, _ := setup(t, param, false)
 
 		tracingID := "1"
 		sendRequest(http.MethodGet, "/auditlog/a", "", "", "", tracingID, "", router, oidc)
@@ -1299,7 +1303,7 @@ func Test_writeRequestLog_auth_failed(t *testing.T) {
 
 func TestUserTokenOnly(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
-		router, oidc, c, stub, _ := setup(t, param)
+		router, oidc, c, stub, _, _ := setup(t, param, false)
 
 		p := "/usertokenonly"
 		require := Require{Role: User, SelfClientID: test.TestClientID}
@@ -1334,7 +1338,7 @@ func TestUserTokenOnly(t *testing.T) {
 }
 
 func TestUserTokenOnly_Err(t *testing.T) {
-	router, oidc, c, stub, _ := setup(t, basicSetupOptions)
+	router, oidc, c, stub, _, _ := setup(t, basicSetupOptions, false)
 
 	p := "/usertokenonly"
 	require := Require{Role: User, SelfClientID: test.TestClientID}
@@ -1407,7 +1411,7 @@ func TestUserTokenOnly_Err(t *testing.T) {
 }
 
 func TestAllowIssuerOnAudAzp_AllowAzp(t *testing.T) {
-	router, oidc, c, stub, _ := setup(t, &testSetupOptions{})
+	router, oidc, c, stub, _, _ := setup(t, &testSetupOptions{}, false)
 
 	paths := map[string]Require{
 		"/false/false": {Role: User, SelfClientID: test.TestClientID},
@@ -1577,6 +1581,146 @@ func TestAllowIssuerOnAudAzp_AllowAzp(t *testing.T) {
 	}
 }
 
+func Test_useCache(t *testing.T) {
+	router, oidc, _, _, _, cache := setup(t, userInfoSetupOptions, true)
+	tok := "opaque:non-admin"
+
+	now := time.Now().Unix()
+	b, err := json.Marshal(&ga4gh.Identity{
+		Issuer:    issuerURL,
+		Subject:   "non-admin",
+		Scope:     "openid offline",
+		IssuedAt:  now,
+		Expiry:    now + 10000,
+		Audiences: ga4gh.NewAudience(test.TestClientID),
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() failed: %v", err)
+	}
+	claim := string(b)
+
+	tests := []struct {
+		name     string
+		setCache func()
+	}{
+		{
+			name: "token not found in cache",
+			setCache: func() {
+				cache.FlushAll()
+			},
+		},
+		{
+			name: "token found in cache",
+			setCache: func() {
+				cache.FlushAll()
+				key := accessTokenCacheKey(issuerURL, tok)
+				cache.Set(key, claim)
+			},
+		},
+		{
+			name: "token expired in cache",
+			setCache: func() {
+				cache.FlushAll()
+				key := accessTokenCacheKey(issuerURL, tok)
+				cache.Set(key, claim)
+				cache.SetTTL(key, 1*time.Second)
+				cache.FastForward(1 * time.Minute)
+			},
+		},
+		{
+			name: "no token expiry in cache",
+			setCache: func() {
+				cache.FlushAll()
+				key := accessTokenCacheKey(issuerURL, tok)
+				b, err := json.Marshal(&ga4gh.Identity{
+					Issuer:    issuerURL,
+					Subject:   "non-admin",
+					Scope:     "openid offline",
+					IssuedAt:  now,
+					Audiences: ga4gh.NewAudience(test.TestClientID),
+				})
+				if err != nil {
+					t.Fatalf("json.Marshal() failed: %v", err)
+				}
+				claim := string(b)
+
+				cache.Set(key, claim)
+				cache.SetTTL(key, 1*time.Second)
+				cache.FastForward(1 * time.Minute)
+			},
+		},
+		{
+			name: "cache not available",
+			setCache: func() {
+				cache.Close()
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setCache()
+			resp := sendRequest(http.MethodGet, "/usertoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
+			}
+
+			key := accessTokenCacheKey(issuerURL, tok)
+			// not found will also return err
+			_, err := cache.Get(key)
+			if err != nil {
+				t.Errorf("cache.Get() failed: %v", err)
+			}
+
+			ttl := int64(cache.TTL(key).Seconds())
+			if ttl > cacheMaxExpiry {
+				t.Errorf("ttl = %d, wants %d", ttl, cacheMaxExpiry)
+			}
+		})
+	}
+}
+
+func Test_useCache_Error_InvalidToken(t *testing.T) {
+	router, oidc, _, _, _, cache := setup(t, userInfoSetupOptions, true)
+
+	tok := "opaque:invalid"
+
+	resp := sendRequest(http.MethodGet, "/usertoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+	}
+
+	if len(cache.Keys()) > 0 {
+		t.Errorf("not token should added to cache")
+	}
+}
+
+func Test_useCache_Error_RequiresAdmin(t *testing.T) {
+	router, oidc, _, _, _, cache := setup(t, userInfoSetupOptions, true)
+
+	tok := "opaque:non-admin"
+
+	resp := sendRequest(http.MethodGet, "/usertoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+	}
+
+	key := accessTokenCacheKey(issuerURL, tok)
+	// not found will also return err
+	_, err := cache.Get(key)
+	if err != nil {
+		t.Errorf("cache.Get() failed: %v", err)
+	}
+
+	resp = sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
+	}
+}
+
 func Test_normalize(t *testing.T) {
 	tests := []struct {
 		input string
@@ -1626,7 +1770,7 @@ func testUseJWTAndUserinfo(t *testing.T, f func(t *testing.T, params *testSetupO
 	}
 }
 
-func setup(t *testing.T, param *testSetupOptions) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub, *fakesdl.Fake) {
+func setup(t *testing.T, param *testSetupOptions, useCache bool) (*mux.Router, *fakeoidcissuer.Server, *Checker, *handlerFuncStub, *fakesdl.Fake, *miniredis.Miniredis) {
 	t.Helper()
 
 	oidc, err := fakeoidcissuer.New(issuerURL, &testkeys.PersonaBrokerKey, "dam-min", "testdata/config", false)
@@ -1642,7 +1786,16 @@ func setup(t *testing.T, param *testSetupOptions) (*mux.Router, *fakeoidcissuer.
 	ctx := oidc.ContextWithClient(context.Background())
 	verifier.NewPassportVerifier(ctx, issuerURL, test.TestClientID)
 
-	c := NewChecker(logs.Client, issuerURL, permissions.New(store), clientSecrets, transformIdentity, param.useUserinfo)
+	var redis *miniredis.Miniredis
+	var getCache func() cache.Client
+	if useCache {
+		redis, getCache = fakecache.New(t)
+		t.Cleanup(func() {
+			redis.Close()
+		})
+	}
+
+	c := NewChecker(logs.Client, issuerURL, permissions.New(store), clientSecrets, transformIdentity, param.useUserinfo, getCache)
 
 	stub := &handlerFuncStub{}
 
@@ -1656,7 +1809,7 @@ func setup(t *testing.T, param *testSetupOptions) (*mux.Router, *fakeoidcissuer.
 		r.HandleFunc(k, h)
 	}
 
-	return r, oidc, c, stub, logs
+	return r, oidc, c, stub, logs, redis
 }
 
 func sendRequest(method, path, clientID, clientSecret, token, tracingID, body string, handler http.Handler, oidc *fakeoidcissuer.Server) *http.Response {

@@ -82,7 +82,7 @@ func (s *Client) Get(key string) ([]byte, error) {
 }
 
 // SetWithExpiry add a key-value pair with expiry in redis.
-func (s *Client) SetWithExpiry(key string, value []byte, seconds int) error {
+func (s *Client) SetWithExpiry(key string, value []byte, seconds int64) error {
 	_, err := redis.String(s.conn.Do("SETEX", key, seconds, value))
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "%v", err)

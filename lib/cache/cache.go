@@ -19,8 +19,8 @@ package cache
 type Client interface {
 	// Get a value associated with given key in cache.
 	Get(key string) ([]byte, error)
-	// SetWithExpiry add a key-value pair with expiry in cache.
-	SetWithExpiry(key string, value []byte, seconds int) error
+	// SetWithExpiry add a key-value pair with expiry in cache. Expiry in duration second not timestamp.
+	SetWithExpiry(key string, value []byte, seconds int64) error
 	// Close returns the client after use.
 	Close() error
 }
