@@ -16,6 +16,7 @@
 package permissions
 
 import (
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -94,7 +95,12 @@ func extractIdentitiesFromVisas(id *ga4gh.Identity) []string {
 				continue
 			}
 
-			subjects = append(subjects, ss[0])
+			email, err := url.QueryUnescape(ss[0])
+			if err != nil {
+				glog.Warning("url.QueryUnescape(email) failed: %v", err)
+				continue
+			}
+			subjects = append(subjects, email)
 		}
 	}
 

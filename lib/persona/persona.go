@@ -50,7 +50,7 @@ var (
 	}
 
 	// DefaultScope is a list of standard scopes to request.
-	DefaultScope = "openid ga4gh ga4gh_passport_v1"
+	DefaultScope = "openid ga4gh_passport_v1"
 
 	// AccountScope has default scopes and the account_admin scope.
 	AccountScope = DefaultScope + " account_admin"
@@ -215,6 +215,9 @@ func ToIdentity(ctx context.Context, name string, persona *cpb.TestPersona, scop
 		Picture:         getStandardClaim(persona, "picture"),
 		Profile:         getStandardClaim(persona, "profile"),
 		Patient:         getStandardClaim(persona, "patient"),
+		Extra: map[string]interface{}{
+			"tid": sub,
+		},
 	}
 
 	if email != "" {

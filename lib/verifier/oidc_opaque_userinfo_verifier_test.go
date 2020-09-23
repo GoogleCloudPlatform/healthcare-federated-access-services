@@ -59,13 +59,14 @@ func TestUserinfo_verify_ExtractClaims(t *testing.T) {
 	want := &ga4gh.Identity{
 		Subject:    "dr_joe_elixir",
 		Issuer:     issuer,
-		Scope:      "openid profile identities ga4gh_passport_v1 email",
+		Scope:      "openid ga4gh_passport_v1",
 		Username:   "dr_joe_elixir",
 		Email:      "dr_joe@faculty.example.edu",
 		Name:       "Dr Joe",
 		Nickname:   "dr",
 		GivenName:  "Dr",
 		FamilyName: "Joe",
+		Extra:      map[string]interface{}{"tid": "dr_joe_elixir"},
 	}
 	if d := cmp.Diff(want, got); len(d) > 0 {
 		t.Errorf("PreviewClaimsBeforeVerification (-want, +got): %s", d)

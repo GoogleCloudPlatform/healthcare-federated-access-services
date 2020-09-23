@@ -396,24 +396,9 @@ func (s *Checker) verifiedBearerToken(r *http.Request, authHeader, clientID stri
 		return nil, err
 	}
 
-	if err := verifyToken(r.Context(), v, tok, s.issuer, clientID, allowIssuerInAudAndAzp, allowAzp); err != nil {
-		return nil, err
-	}
-
-	id, err := s.tokenToIdentityWithoutVerification(tok)
+	id , err := verifyToken(r.Context(), v, tok, s.issuer, clientID, allowIssuerInAudAndAzp, allowAzp)
 	if err != nil {
 		return nil, err
-	}
-
-	return id, nil
-}
-
-// tokenToIdentityWithoutVerification parse the token to Identity struct.
-// Also normalize the issuer string inside Identity and apply the transform needed in Checker.
-func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identity, error) {
-	id, err := ga4gh.ConvertTokenToIdentityUnsafe(tok)
-	if err != nil {
-		return nil, errutil.WithErrorReason(errTokenInvalid, status.Errorf(codes.Unauthenticated, "invalid token format: %v", err))
 	}
 	id.Issuer = normalize(id.Issuer)
 
@@ -424,21 +409,23 @@ func (s *Checker) tokenToIdentityWithoutVerification(tok string) (*ga4gh.Identit
 }
 
 // verifyToken oidc spec verfiy token.
-func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, tok, iss, clientID string, allowIssuerInAudAndAzp, allowAzp bool) error {
+func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, tok, iss, clientID string, allowIssuerInAudAndAzp, allowAzp bool) (*ga4gh.Identity, error) {
 	issuerInAudAndAzp := iss
 	if !allowIssuerInAudAndAzp {
 		issuerInAudAndAzp = ""
 	}
-	err := v.Verify(ctx, tok, nil, verifier.AccessTokenOption(clientID, issuerInAudAndAzp, allowAzp))
+
+	id := &ga4gh.Identity{}
+	err := v.Verify(ctx, tok, id, verifier.AccessTokenOption(clientID, issuerInAudAndAzp, allowAzp))
 	if err == nil {
-		return nil
+		return id, nil
 	}
 
 	reason := errutil.ErrorReason(err)
 	if len(reason) == 0 {
 		reason = errIDVerifyFailed
 	}
-	return errutil.WithErrorReason(reason, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
+	return nil, errutil.WithErrorReason(reason, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
 }
 
 // normalize ensure the issuer string and tailling slash.

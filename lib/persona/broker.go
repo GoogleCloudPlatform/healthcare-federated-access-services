@@ -145,6 +145,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 	token := parts[1]
 
 	var sub string
+	scope := "openid profile identities ga4gh_passport_v1 email"
 
 	if strings.HasPrefix(token, "opaque:") {
 		sub = strings.TrimPrefix(token, "opaque:")
@@ -161,6 +162,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		}
 
 		sub = src.Subject
+		scope = src.Scope
 	}
 
 	var persona *cpb.TestPersona
@@ -176,7 +178,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "persona %q not found", sub))
 		return
 	}
-	id, err := ToIdentity(r.Context(), pname, persona, "openid profile identities ga4gh_passport_v1 email", s.issuerURL)
+	id, err := ToIdentity(r.Context(), pname, persona, scope, s.issuerURL)
 	if err != nil {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "preparing persona %q: %v", sub, err))
 		return

@@ -696,6 +696,28 @@ func Test_RequiresUserToken(t *testing.T) {
 	})
 }
 
+func Test_RequiresUserToken_opaque(t *testing.T) {
+	paths := []string{"/usertoken", "/usertoken/non-admin"}
+
+	for _, p := range paths {
+		t.Run(p, func(t *testing.T) {
+			router, oidc, _, stub, _ := setup(t, userInfoSetupOptions)
+
+			tok := "opaque:non-admin"
+
+			resp := sendRequest(http.MethodGet, p, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+			want := "GET " + p
+			if stub.message != want {
+				t.Errorf("stub.message=%q wants %q", stub.message, want)
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+			}
+		})
+	}
+}
+
 func Test_RequiresUserToken_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		now := time.Now().Unix()
@@ -816,6 +838,22 @@ func Test_RequiresAdminToken(t *testing.T) {
 	})
 }
 
+func Test_RequiresAdminToken_opaque(t *testing.T) {
+	router, oidc, _, stub, _ := setup(t, userInfoSetupOptions)
+
+	tok := "opaque:admin"
+
+	resp := sendRequest(http.MethodGet, "/admintoken", test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
+	want := "GET /admintoken"
+	if stub.message != want {
+		t.Errorf("stub.message=%q wants %q", stub.message, want)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
 func Test_RequiresAdminToken_Log(t *testing.T) {
 	testUseJWTAndUserinfo(t, func(t *testing.T, param *testSetupOptions) {
 		router, oidc, _, _, logs := setup(t, param)
@@ -919,7 +957,7 @@ func Test_RequiresAccountAdminUserToken(t *testing.T) {
 			t.Fatalf("oidc.Sign() failed: %v", err)
 		}
 
-		path := "/acctadmin/sub"
+		path := "/acctadmin/non-admin"
 		resp := sendRequest(http.MethodPost, path, test.TestClientID, test.TestClientSecret, tok, "", "", router, oidc)
 		want := "POST " + path
 		if stub.message != want {
@@ -1078,7 +1116,7 @@ func Test_UserAndLinkToken_Error(t *testing.T) {
 			"X-Link-Authorization": "bearer " + tok,
 		}
 
-		resp := sendRequestWithHeaders(http.MethodPost, "/usertoken/sub", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
+		resp := sendRequestWithHeaders(http.MethodPost, "/usertoken/non-admin", test.TestClientID, test.TestClientSecret, "", headers, router, oidc)
 
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
@@ -1136,7 +1174,7 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 					IssuedAt:  now,
 					Expiry:    now + 10000,
 					Audiences: ga4gh.NewAudience(test.TestClientID),
-					Extra:     map[string]interface{}{"tid": "id"},
+					Extra:     map[string]interface{}{"tid": "non-admin"},
 					ID:        "id1",
 					TokenID:   "id2",
 				},
@@ -1150,7 +1188,7 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 					Expiry:    now + 10000,
 					Audiences: ga4gh.NewAudience(test.TestClientID),
 					ID:        "id1",
-					TokenID:   "id",
+					TokenID:   "non-admin",
 				},
 			},
 			{
@@ -1161,7 +1199,7 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 					IssuedAt:  now,
 					Expiry:    now + 10000,
 					Audiences: ga4gh.NewAudience(test.TestClientID),
-					Extra:     map[string]interface{}{"tid": "id"},
+					Extra:     map[string]interface{}{"tid": "non-admin"},
 					ID:        "id",
 				},
 			},
@@ -1190,7 +1228,7 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 						"tracing_id":       tracingID,
 						"request_endpoint": "/auditlog/{name}",
 						"request_path":     "/auditlog/a",
-						"token_id":         "id",
+						"token_id":         "non-admin",
 						"token_subject":    "non-admin",
 						"token_issuer":     normalize(issuerURL),
 						"type":             auditlog.TypeRequestLog,
