@@ -97,7 +97,7 @@ func extractIdentitiesFromVisas(id *ga4gh.Identity) []string {
 
 			email, err := url.QueryUnescape(ss[0])
 			if err != nil {
-				glog.Warning("url.QueryUnescape(email) failed: %v", err)
+				glog.Warningf("url.QueryUnescape(email) failed: %v", err)
 				continue
 			}
 			subjects = append(subjects, email)
