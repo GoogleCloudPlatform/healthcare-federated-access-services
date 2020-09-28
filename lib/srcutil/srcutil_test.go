@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto" /* copybara-comment */
+
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
 
@@ -32,11 +33,11 @@ func TestPath(t *testing.T) {
 	}{
 		{
 			input: "",
-			want:  root,
+			want:  ProjectRoot,
 		},
 		{
 			input: "deploy/config",
-			want:  filepath.Join(root, "deploy/config"),
+			want:  filepath.Join(ProjectRoot, "deploy/config"),
 		},
 		{
 			input: "/my/path/from/root",

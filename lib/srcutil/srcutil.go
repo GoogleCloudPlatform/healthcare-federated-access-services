@@ -27,18 +27,13 @@ import (
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 )
 
-var (
-	root = moduleRoot()
-	_    = os.Getenv
-)
-
 // Path returns the path to a file in the repo given its relative path to
 // the root of the module.
 func Path(path string) string {
 	if strings.HasPrefix(path, "/") {
 		return path
 	}
-	return filepath.Join(root, path)
+	return filepath.Join(ProjectRoot, path)
 }
 
 // Read reads a file in the repo given its relative path to the root of module.
@@ -71,9 +66,4 @@ func LoadProto(path string, msg proto.Message) error {
 		return fmt.Errorf("file %q invalid JSON: %v", path, err)
 	}
 	return nil
-}
-
-func moduleRoot() string {
-	projectRoot := os.Getenv("PROJECT_ROOT")
-	return projectRoot
 }
