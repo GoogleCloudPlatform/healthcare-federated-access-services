@@ -61,7 +61,7 @@ marked by the "required" status below:
 ## AWS Options
 
 When [resources](resources.md) are stored or services utilize [Amazon Web
-Services]() (AWS), some options are available:
+Services](https://aws.amazon.com) (AWS), some options are available:
 
 1. **AWS Managed Keys Per IAM User**: AWS allows up to 3 access keys of more
    than 12h to be active per IAM user and this option allows DAM to manage a
