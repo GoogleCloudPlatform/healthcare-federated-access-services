@@ -39,7 +39,7 @@ that they provide.
    *  Each Visa is digitally signed using cryptographic-strength algorithms
       which is used by the IC to determine authenticity.
 
-## Network of Passport and Visa Issuers
+## Passport and Visa Issuers
 
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/passport_map.svg" width="1000px">
 

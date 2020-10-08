@@ -36,7 +36,7 @@ the access policy requirements for the resources they have requested.
    *  See the [Visa Types documentation](visa-types.md) to learn more about
       different standard types of Visas that DAMs can be configured to use.
 
-## Network of Passport and Visa Issuers
+## Passport and Visa Issuers
 
 <img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/passport_map.svg" width="1000px">
 
