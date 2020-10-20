@@ -57,7 +57,7 @@ const (
 // WARNING: ONLY for use with synthetic or test data.
 //          Do not use unless you fully understand the security and privacy implications.
 type Server struct {
-	issuerURL     string
+	IssuerURL     string
 	key           *testkeys.Key
 	cfg           *dampb.DamConfig
 	Handler       *mux.Router
@@ -80,7 +80,7 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOID
 	}
 
 	s := &Server{
-		issuerURL:     issuerURL,
+		IssuerURL:     issuerURL,
 		key:           key,
 		cfg:           cfg,
 		loginPageTmpl: loginPageTmpl,
@@ -106,11 +106,11 @@ func (s *Server) Config() *dampb.DamConfig {
 
 func (s *Server) oidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
 	conf := &cpb.OidcConfig{
-		Issuer:           s.issuerURL,
-		AuthEndpoint:     s.issuerURL + oidcAuthorizePath,
-		TokenEndpoint:    s.issuerURL + oidcTokenPath,
-		JwksUri:          s.issuerURL + oidcJwksPath,
-		UserinfoEndpoint: s.issuerURL + oidcUserInfoPath,
+		Issuer:           s.IssuerURL,
+		AuthEndpoint:     s.IssuerURL + oidcAuthorizePath,
+		TokenEndpoint:    s.IssuerURL + oidcTokenPath,
+		JwksUri:          s.IssuerURL + oidcJwksPath,
+		UserinfoEndpoint: s.IssuerURL + oidcUserInfoPath,
 	}
 
 	if err := json.NewEncoder(w).Encode(conf); err != nil {
@@ -178,7 +178,7 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "persona %q not found", sub))
 		return
 	}
-	id, err := ToIdentity(r.Context(), pname, persona, scope, s.issuerURL)
+	id, err := ToIdentity(r.Context(), pname, persona, scope, s.IssuerURL)
 	if err != nil {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "preparing persona %q: %v", sub, err))
 		return
@@ -350,7 +350,7 @@ func (s *Server) oidcToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	acTok, _, err := NewAccessToken(pname, s.issuerURL, clientID, scope, persona)
+	acTok, _, err := NewAccessToken(pname, s.IssuerURL, clientID, scope, persona)
 	if err != nil {
 		httputils.WriteError(w, status.Errorf(codes.Internal, "error creating access token for persona %q: %v", pname, err))
 		return
