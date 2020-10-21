@@ -434,7 +434,7 @@ func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, cache cach
 	id := &ga4gh.Identity{}
 
 	if opaqueToken && cache != nil {
-		key := AccessTokenCacheKey(iss, tok)
+		key := accessTokenCacheKey(iss, tok)
 		bytes, err := cache.Get(key)
 		if err == nil {
 			err := json.Unmarshal(bytes, id)
@@ -450,7 +450,7 @@ func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, cache cach
 	if err == nil {
 		if opaqueToken && cache != nil {
 			now := time.Now().Unix()
-			key := AccessTokenCacheKey(iss, tok)
+			key := accessTokenCacheKey(iss, tok)
 			var exp int64
 			if id.Expiry == 0 || id.Expiry > now+cacheMaxExpiry {
 				exp = cacheMaxExpiry
@@ -479,8 +479,7 @@ func verifyToken(ctx context.Context, v verifier.AccessTokenVerifier, cache cach
 	return nil, errutil.WithErrorReason(reason, status.Errorf(codes.Unauthenticated, "token verify failed: %v", err))
 }
 
-// AccessTokenCacheKey creates the caching key of access token.
-func AccessTokenCacheKey(issuer, token string) string {
+func accessTokenCacheKey(issuer, token string) string {
 	b := sha256.Sum256([]byte(token))
 	// use StdEncoding instead of URLEncoding. Because StdEncoding uses [0-9a-zA-Z+/] charset.
 	s := base64.StdEncoding.EncodeToString(b[:])

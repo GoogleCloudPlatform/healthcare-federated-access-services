@@ -1613,7 +1613,7 @@ func Test_useCache(t *testing.T) {
 			name: "token found in cache",
 			setCache: func() {
 				cache.FlushAll()
-				key := AccessTokenCacheKey(issuerURL, tok)
+				key := accessTokenCacheKey(issuerURL, tok)
 				cache.Set(key, claim)
 			},
 		},
@@ -1621,7 +1621,7 @@ func Test_useCache(t *testing.T) {
 			name: "token expired in cache",
 			setCache: func() {
 				cache.FlushAll()
-				key := AccessTokenCacheKey(issuerURL, tok)
+				key := accessTokenCacheKey(issuerURL, tok)
 				cache.Set(key, claim)
 				cache.SetTTL(key, 1*time.Second)
 				cache.FastForward(1 * time.Minute)
@@ -1631,7 +1631,7 @@ func Test_useCache(t *testing.T) {
 			name: "no token expiry in cache",
 			setCache: func() {
 				cache.FlushAll()
-				key := AccessTokenCacheKey(issuerURL, tok)
+				key := accessTokenCacheKey(issuerURL, tok)
 				b, err := json.Marshal(&ga4gh.Identity{
 					Issuer:    issuerURL,
 					Subject:   "non-admin",
@@ -1666,7 +1666,7 @@ func Test_useCache(t *testing.T) {
 				t.Errorf("status = %d, wants %d", resp.StatusCode, http.StatusOK)
 			}
 
-			key := AccessTokenCacheKey(issuerURL, tok)
+			key := accessTokenCacheKey(issuerURL, tok)
 			// not found will also return err
 			_, err := cache.Get(key)
 			if err != nil {
@@ -1708,7 +1708,7 @@ func Test_useCache_Error_RequiresAdmin(t *testing.T) {
 		t.Errorf("unexpected status code: %d wants %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 
-	key := AccessTokenCacheKey(issuerURL, tok)
+	key := accessTokenCacheKey(issuerURL, tok)
 	// not found will also return err
 	_, err := cache.Get(key)
 	if err != nil {
