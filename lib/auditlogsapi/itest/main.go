@@ -14,7 +14,7 @@
 
 // Binary itest is an integration test for the API with the Stackdriver.
 // To run the test:
-//   go run lib/auditlogsapi/itest/main.go --alsologtostderr --project=ghasemloo-hcls-fa8 --user="subject"
+//   go run lib/auditlogsapi/itest/main.go --alsologtostderr --project=your-project --user="subject"
 package main
 
 import (
