@@ -101,7 +101,7 @@ echo -e ${GREEN?}'Creating Cloud SQL database for Hydra.'${RESET?}
 gcloud sql instances create hydra --project=${PROJECT?} --database-version=POSTGRES_11 \
   --tier=db-f1-micro --region=us-central1
 # Create user: name="${NAME}", password="${PASSWORD}"
-gcloud sql users create hydra --project=${PROJECT?} --instance=hydra --password=hydra
+gcloud sql users create hydra --project=${PROJECT?} --instance=hydra --password=hydra --require-ssl
 # Create database ic
 gcloud sql databases create ic --project=${PROJECT?} --instance=hydra
 # Create database dam
