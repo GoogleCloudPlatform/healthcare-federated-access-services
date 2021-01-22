@@ -33,7 +33,7 @@ type Client struct {
 	// Be aware that environment variable `CORS_ENABLED` MUST be set to `true` for this to work.
 	AllowedCORSOrigins []string `json:"allowed_cors_origins"`
 
-	// Audience is a whitelist defining the audiences this client is allowed to request tokens for. An audience limits
+	// Audience is an allowlist defining the audiences this client is allowed to request tokens for. An audience limits
 	// the applicability of an OAuth 2.0 Access Token to, for example, certain API endpoints. The value is a list
 	// of URLs. URLs MUST NOT contain whitespaces.
 	Audience []string `json:"audience"`
