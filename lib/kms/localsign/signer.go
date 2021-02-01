@@ -27,20 +27,36 @@ import (
 
 // Signer can sign jwt.
 type Signer struct {
-	key jose.JSONWebKey
-	pri *rsa.PrivateKey
+	key  jose.JSONWebKey
+	pri  *rsa.PrivateKey
+	algo jose.SignatureAlgorithm
 }
 
-// New Signer with given key.
+// New RS256 Signer with given key.
 func New(k *testkeys.Key) *Signer {
 	return &Signer{
 		key: jose.JSONWebKey{
 			Key:       k.Public,
-			Algorithm: "RS256",
+			Algorithm: string(jose.RS256),
 			Use:       "sig",
 			KeyID:     k.ID,
 		},
-		pri: k.Private,
+		pri:  k.Private,
+		algo: jose.RS256,
+	}
+}
+
+// NewRS384Signer use RS384 to sign jwt
+func NewRS384Signer(k *testkeys.Key) *Signer {
+	return &Signer{
+		key: jose.JSONWebKey{
+			Key:       k.Public,
+			Algorithm: string(jose.RS384),
+			Use:       "sig",
+			KeyID:     k.ID,
+		},
+		pri:  k.Private,
+		algo: jose.RS384,
 	}
 }
 
@@ -54,7 +70,7 @@ func (s *Signer) PublicKeys() *jose.JSONWebKeySet {
 // SignJWT signs the given claims return the jwt string.
 func (s *Signer) SignJWT(ctx context.Context, claims interface{}, header map[string]string) (string, error) {
 	key := jose.SigningKey{
-		Algorithm: jose.RS256,
+		Algorithm: s.algo,
 		Key:       s.pri,
 	}
 

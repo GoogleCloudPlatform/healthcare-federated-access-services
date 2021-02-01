@@ -42,8 +42,9 @@ func newOIDCSigVerifier(ctx context.Context, issuer string) (*oidcJwtSigVerifier
 		// Skip client claims check if no client claims passed in.
 		SkipClientIDCheck: true,
 		// Expire check and issuer check will do explicitly.
-		SkipExpiryCheck: true,
-		SkipIssuerCheck: true,
+		SkipExpiryCheck:      true,
+		SkipIssuerCheck:      true,
+		SupportedSigningAlgs: []string{oidc.RS256, oidc.RS384, oidc.ES384},
 	})
 
 	return &oidcJwtSigVerifier{

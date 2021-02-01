@@ -17,6 +17,8 @@ package globalflags
 
 import (
 	"os"
+
+	glog "github.com/golang/glog" /* copybara-comment */
 )
 
 var (
@@ -39,4 +41,34 @@ var (
 	// EnableAWSAdapter is a global flag determining if you want to use enable management of AWS resources.
 	// Set from env var: `export ENABLE_AWS_ADAPTER=true`
 	EnableAWSAdapter = os.Getenv("ENABLE_AWS_ADAPTER") == "true"
+
+	// LocalSignerAlgorithm is a global flag determining if you want to sign the JWT with specific algorithm, only supported in persona service and using local signer.
+	// It will cause err if given invalid value.
+	// Set from env var: `export LOCAL_SIGNER_ALGORITHM=RS384`
+	LocalSignerAlgorithm = parseLocalSignerAlgorithm()
 )
+
+// SignerAlgorithm of JWT.
+type SignerAlgorithm string
+
+const (
+	// RS256 used to sign JWT.
+	RS256 SignerAlgorithm = "RS256"
+	// RS384 used to sign JWT.
+	RS384 SignerAlgorithm = "RS384"
+)
+
+func parseLocalSignerAlgorithm() SignerAlgorithm {
+	s := os.Getenv("LOCAL_SIGNER_ALGORITHM")
+	switch s {
+	case "":
+		return RS256
+	case "RS256":
+		return RS256
+	case "RS384":
+		return RS384
+	default:
+		glog.Fatalf("invalid value of LOCAL_SIGNER_ALGORITHM: %s", s)
+	}
+	return SignerAlgorithm("")
+}

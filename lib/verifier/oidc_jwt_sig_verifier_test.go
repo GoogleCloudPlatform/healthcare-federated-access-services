@@ -40,31 +40,49 @@ func TestOIDCVerifier_Verify(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		},
 	}
-	signer := localsign.New(&key)
-	visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, signer)
-	if err != nil {
-		t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
+
+	tests := []struct {
+		name   string
+		signer *localsign.Signer
+	}{
+		{
+			name:   "RS256",
+			signer: localsign.New(&key),
+		},
+		{
+			name:   "RS384",
+			signer: localsign.NewRS384Signer(&key),
+		},
 	}
 
-	// Make calls by oidc package use the fake HTTP client.
-	ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			visa, err := ga4gh.NewVisaFromData(context.Background(), d, ga4gh.JWTEmptyJKU, tc.signer)
+			if err != nil {
+				t.Fatalf("ga4gh.NewVisaFromData() failed: %v", err)
+			}
 
-	pv, err := NewPassportVerifier(ctx, f.Issuer0.URL, client)
-	if err != nil {
-		t.Fatalf("NewPassportVerifier() failed: %v", err)
-	}
+			// Make calls by oidc package use the fake HTTP client.
+			ctx := oidc.ClientContext(context.Background(), f.HTTP.Client)
 
-	vv, err := NewVisaVerifier(ctx, f.Issuer0.URL, "", client)
-	if err != nil {
-		t.Fatalf("NewVisaVerifier() failed: %v", err)
-	}
+			pv, err := NewPassportVerifier(ctx, f.Issuer0.URL, client)
+			if err != nil {
+				t.Fatalf("NewPassportVerifier() failed: %v", err)
+			}
 
-	if err := pv.Verify(ctx, string(visa.JWT())); err != nil {
-		t.Errorf("VerifyPassportToken() failed: %v", err)
-	}
+			vv, err := NewVisaVerifier(ctx, f.Issuer0.URL, "", client)
+			if err != nil {
+				t.Fatalf("NewVisaVerifier() failed: %v", err)
+			}
 
-	if err := vv.Verify(ctx, string(visa.JWT()), ""); err != nil {
-		t.Errorf("VerifyPassportToken() failed: %v", err)
+			if err := pv.Verify(ctx, string(visa.JWT())); err != nil {
+				t.Errorf("VerifyPassportToken() failed: %v", err)
+			}
+
+			if err := vv.Verify(ctx, string(visa.JWT()), ""); err != nil {
+				t.Errorf("VerifyPassportToken() failed: %v", err)
+			}
+		})
 	}
 }
 

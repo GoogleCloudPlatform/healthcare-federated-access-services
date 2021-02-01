@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
-	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/timeutil" /* copybara-comment: timeutil */
 
@@ -110,7 +109,7 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 	}
 
 	ctx := context.Background()
-	signer := localsign.New(&personaKey)
+	signer := signer(&personaKey)
 
 	access, err := ga4gh.NewAccessFromData(ctx, d, signer)
 	if err != nil {
@@ -265,7 +264,7 @@ func populatePersonaVisas(ctx context.Context, pname, visaIssuer string, asserti
 	id.GA4GH = make(map[string][]ga4gh.OldClaim)
 	id.VisaJWTs = make([]string, len(assertions))
 	now := float64(time.Now().Unix())
-	signer := localsign.New(&personaKey)
+	signer := signer(&personaKey)
 
 	for i, assert := range assertions {
 		typ := ga4gh.Type(assert.Type)

@@ -30,6 +30,7 @@ import (
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
+	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/httputils" /* copybara-comment: httputils */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/srcutil" /* copybara-comment: srcutil */
@@ -95,7 +96,8 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOID
 
 // Sign the jwt with the private key in Server.
 func (s *Server) Sign(header map[string]string, claim interface{}) (string, error) {
-	signer := localsign.New(s.key)
+	signer := signer(s.key)
+
 	return signer.SignJWT(context.Background(), claim, header)
 }
 
@@ -387,4 +389,11 @@ func registerHandlers(r *mux.Router, s *Server, useOIDCPrefix bool) {
 
 	sfs := http.StripPrefix(staticFilePath, http.FileServer(http.Dir(srcutil.Path(staticDirectory))))
 	r.PathPrefix(staticFilePath).Handler(sfs)
+}
+
+func signer(key *testkeys.Key) *localsign.Signer {
+	if globalflags.LocalSignerAlgorithm == globalflags.RS384 {
+		return localsign.NewRS384Signer(key)
+	}
+	return localsign.New(key)
 }
