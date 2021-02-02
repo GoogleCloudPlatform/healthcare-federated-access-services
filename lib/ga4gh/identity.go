@@ -117,7 +117,8 @@ type Identity struct {
 	Realm            string                 `json:"realm,omitempty"`
 	VisaJWTs         []string               `json:"ga4gh_passport_v1,omitempty"`
 	Extra            map[string]interface{} `json:"ext,omitempty"`
-	Patient          string                 `json:"patient,omitempty"`
+	Patient          string                 `json:"patient,omitempty"`  // SMART-on-FHIR
+	FhirUser         string                 `json:"fhirUser,omitempty"` // SMART-on-FHIR
 }
 
 // CheckIdentityAllVisasLinked checks if the Visas inside the identity are linked.

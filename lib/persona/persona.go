@@ -79,6 +79,7 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 	sub := name
 	email := name
 	patient := ""
+	fhirUser := ""
 	if persona != nil {
 		if s := getStandardClaim(persona, "sub"); len(s) > 0 {
 			sub = s
@@ -88,6 +89,7 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 			email = e
 		}
 		patient = getStandardClaim(persona, "patient")
+		fhirUser = getStandardClaim(persona, "fhirUser")
 	}
 	if len(scope) == 0 {
 		scope = DefaultScope
@@ -105,7 +107,8 @@ func NewAccessToken(name, issuer, clientID, scope string, persona *cpb.TestPerso
 		Identities: map[string][]string{
 			email: []string{"IC", "DAM"},
 		},
-		Patient: patient,
+		Patient:  patient,
+		FhirUser: fhirUser,
 	}
 
 	ctx := context.Background()
@@ -214,6 +217,7 @@ func ToIdentity(ctx context.Context, name string, persona *cpb.TestPersona, scop
 		Picture:         getStandardClaim(persona, "picture"),
 		Profile:         getStandardClaim(persona, "profile"),
 		Patient:         getStandardClaim(persona, "patient"),
+		FhirUser:        getStandardClaim(persona, "fhirUser"),
 		Extra: map[string]interface{}{
 			"tid": sub,
 		},

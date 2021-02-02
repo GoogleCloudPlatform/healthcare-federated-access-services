@@ -87,10 +87,11 @@ func TestServer(t *testing.T) {
 	}
 }
 
-func TestTokenAndUserinfoPatient(t *testing.T) {
+func TestTokenAndUserinfoPatientFhirUser(t *testing.T) {
 	const (
-		issuerURL   = "https://example.com/oidc"
-		wantPatient = "joe"
+		issuerURL    = "https://example.com/oidc"
+		wantPatient  = "jane"
+		wantFhirUser = "dr_joe"
 	)
 
 	server, err := New(issuerURL, &testkeys.PersonaBrokerKey, "dam", "testdata/config", true)
@@ -118,6 +119,9 @@ func TestTokenAndUserinfoPatient(t *testing.T) {
 		if id.Patient != wantPatient {
 			t.Errorf("access token: patient = %q, want %q", id.Patient, wantPatient)
 		}
+		if id.FhirUser != wantFhirUser {
+			t.Errorf("access token: fhirUser = %q, want %q", id.FhirUser, wantFhirUser)
+		}
 	})
 
 	t.Run("jwt token userinfo", func(t *testing.T) {
@@ -134,21 +138,27 @@ func TestTokenAndUserinfoPatient(t *testing.T) {
 		if got.Patient != wantPatient {
 			t.Errorf("userinfo: patient = %q, want %q", got.Patient, wantPatient)
 		}
+		if got.FhirUser != wantFhirUser {
+			t.Errorf("userinfo: fhirUser = %q, want %q", got.FhirUser, wantFhirUser)
+		}
 	})
 
 	t.Run("opaque token userinfo", func(t *testing.T) {
-		ueserinfo, err := p.UserInfo(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "opaque:dr_joe_elixir"}))
+		userinfo, err := p.UserInfo(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "opaque:dr_joe_elixir"}))
 		if err != nil {
 			t.Fatalf("UserInfo() failed: %v", err)
 		}
 
 		got := &ga4gh.Identity{}
-		if err := ueserinfo.Claims(got); err != nil {
+		if err := userinfo.Claims(got); err != nil {
 			t.Fatalf("read identity from userinfo failed: %v", err)
 		}
 
 		if got.Patient != wantPatient {
 			t.Errorf("userinfo: patient = %q, want %q", got.Patient, wantPatient)
+		}
+		if got.FhirUser != wantFhirUser {
+			t.Errorf("userinfo: fhirUser = %q, want %q", got.FhirUser, wantFhirUser)
 		}
 	})
 }

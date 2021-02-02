@@ -817,7 +817,8 @@
           "iss": "https://login.elixir-czech.org/oidc/",
           "email": "dr_joe@faculty.example.edu",
           "picture": "/identity/static/images/elixir_identity.png",
-          "patient": "joe"
+          "patient": "jane",
+          "fhirUser": "dr_joe"
         },
         "ga4ghAssertions": [
           {

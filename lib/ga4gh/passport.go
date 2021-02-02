@@ -63,6 +63,9 @@ type AccessData struct {
 	Identities map[string][]string `json:"identities,omitempty"`
 
 	Patient string `json:"patient,omitempty"`
+
+	// FhirUser is the SMART-on-FHIR principal identity.
+	FhirUser string `json:"fhirUser,omitempty"`
 }
 
 // NewAccessFromJWT creates a new Access from a given JWT.
