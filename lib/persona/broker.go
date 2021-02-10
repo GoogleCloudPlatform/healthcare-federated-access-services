@@ -18,7 +18,6 @@ package persona
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -115,9 +114,7 @@ func (s *Server) oidcWellKnownConfig(w http.ResponseWriter, r *http.Request) {
 		UserinfoEndpoint: s.IssuerURL + oidcUserInfoPath,
 	}
 
-	if err := json.NewEncoder(w).Encode(conf); err != nil {
-		glog.Infof("Marshal failed: %q", err)
-	}
+	httputils.WriteNonProtoResp(w, conf)
 }
 
 func (s *Server) oidcKeys(w http.ResponseWriter, r *http.Request) {
@@ -125,16 +122,14 @@ func (s *Server) oidcKeys(w http.ResponseWriter, r *http.Request) {
 		Keys: []jose.JSONWebKey{
 			{
 				Key:       s.key.Public,
-				Algorithm: "RS256",
+				Algorithm: string(globalflags.LocalSignerAlgorithm),
 				Use:       "sig",
 				KeyID:     s.key.ID,
 			},
 		},
 	}
 
-	if err := json.NewEncoder(w).Encode(jwks); err != nil {
-		glog.Infof("Marshal failed: %q", err)
-	}
+	httputils.WriteNonProtoResp(w, jwks)
 }
 
 func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -185,15 +180,8 @@ func (s *Server) oidcUserInfo(w http.ResponseWriter, r *http.Request) {
 		httputils.WriteError(w, status.Errorf(codes.PermissionDenied, "preparing persona %q: %v", sub, err))
 		return
 	}
-	data, err := json.Marshal(id)
-	if err != nil {
-		httputils.WriteError(w, status.Errorf(codes.Internal, "cannot encode user identity %q into JSON: %v", sub, err))
-		return
-	}
 
-	w.Header().Set("Content-Type", "application/json")
-	httputils.WriteCorsHeaders(w)
-	w.Write(data)
+	httputils.WriteNonProtoResp(w, id)
 }
 
 func (s *Server) oidcAuthorize(w http.ResponseWriter, r *http.Request) {
