@@ -15,12 +15,13 @@
 package persona
 
 import (
-	"crypto/x509"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
+	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
@@ -96,12 +97,10 @@ func TestJWKS(t *testing.T) {
 	want := &jose.JSONWebKeySet{
 		Keys: []jose.JSONWebKey{
 			{
-				Key:                         testkeys.PersonaBrokerKey.Public,
-				Algorithm:                   "RS384",
-				Use:                         "sig",
-				KeyID:                       string(testkeys.PersonaBroker),
-				Certificates:                []*x509.Certificate{},
-				CertificateThumbprintSHA256: []byte{},
+				Key:       testkeys.PersonaBrokerKey.Public,
+				Algorithm: "RS384",
+				Use:       "sig",
+				KeyID:     string(testkeys.PersonaBroker),
 			},
 		},
 	}
@@ -110,7 +109,7 @@ func TestJWKS(t *testing.T) {
 		t.Fatalf("httputils.DecodeJSON() failed: %v", err)
 	}
 
-	if d := cmp.Diff(want, got); len(d) > 0 {
+	if d := cmp.Diff(want, got, cmpopts.EquateEmpty(), cmp.AllowUnexported(big.Int{})); len(d) > 0 {
 		t.Errorf("response (-want, +got): %s", d)
 	}
 }
