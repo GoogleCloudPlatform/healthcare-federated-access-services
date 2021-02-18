@@ -12,7 +12,7 @@ data or service requests.
 
 ## Researcher Analysis on Cloud
 
-![researcher cloud use case](assets/diagrams/fa_researcher_cloud_usage.svg)
+<img src="https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/raw/master/assets/diagrams/fa_researcher_cloud_usage.svg">
 
 In the above diagram, a researcher wishes to run a Virtual Machine (VM) in their
 home organization or in a public cloud supported by DAM, or multiple VMs some
