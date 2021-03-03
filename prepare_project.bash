@@ -99,9 +99,9 @@ gcloud datastore indexes create deploy/index.yaml --project=${PROJECT?} --quiet
 echo -e ${GREEN?}'Creating Cloud SQL database for Hydra.'${RESET?}
 
 gcloud sql instances create hydra --project=${PROJECT?} --database-version=POSTGRES_11 \
-  --tier=db-f1-micro --region=us-central1
+  --tier=db-f1-micro --region=us-central1  --require-ssl
 # Create user: name="${NAME}", password="${PASSWORD}"
-gcloud sql users create hydra --project=${PROJECT?} --instance=hydra --password=hydra --require-ssl
+gcloud sql users create hydra --project=${PROJECT?} --instance=hydra --password=hydra
 # Create database ic
 gcloud sql databases create ic --project=${PROJECT?} --instance=hydra
 # Create database dam

@@ -20,7 +20,7 @@ ARG HYDRA_VERSION=v1.4.2
 
 # Install depends and nginx
 RUN export JQ_VERSION=1.5+dfsg-2+b1 && \
-    export NGINX_VERSION=1.14.2-2+deb10u1 && \
+    export NGINX_VERSION=1.14.2-2+deb10u3 && \
     apt update && \
     apt install -y jq=${JQ_VERSION} nginx=${NGINX_VERSION}
 

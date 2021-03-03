@@ -235,6 +235,10 @@ if deploy_service "personas"; then
 fi
 
 if deploy_service "ic"; then
+  DB_EXISTS=`gcloud sql databases list --project=${PROJECT?} --instance=hydra | grep ic${ENV?}`
+  if [[ "${DB_EXISTS}" == "" ]]; then
+    gcloud sql databases create ic${ENV?} --project=${PROJECT?} --instance=hydra
+  fi
   echo -e ${GREEN?}'Deploy IC.'${RESET?}
   gcloud beta -q --project=${PROJECT?} app deploy deploy/build/ic/ic.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-ic:latest --version=master
 fi
@@ -245,6 +249,10 @@ if deploy_service "icdemo"; then
 fi
 
 if deploy_service "dam"; then
+  DB_EXISTS=`gcloud sql databases list --project=${PROJECT?} --instance=hydra | grep dam${ENV?}`
+  if [[ "${DB_EXISTS}" == "" ]]; then
+    gcloud sql databases create dam${ENV?} --project=${PROJECT?} --instance=hydra
+  fi
   echo -e ${GREEN?}'Deploy DAM.'${RESET?}
   gcloud beta -q --project=${PROJECT?} app deploy deploy/build/dam/dam.yaml --image-url=gcr.io/${PROJECT?}/hcls-fa-dam:latest --version=master
 fi
