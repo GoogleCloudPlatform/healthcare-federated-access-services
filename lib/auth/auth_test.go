@@ -17,6 +17,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1244,8 +1245,10 @@ func Test_writeRequestLog_auth_pass(t *testing.T) {
 					HttpRequest: &hrpb.HttpRequest{
 						RequestUrl:    "/auditlog/a?client_id=" + test.TestClientID + "&client_secret=" + test.TestClientSecret,
 						RequestMethod: http.MethodGet,
+						Protocol:      "HTTP/1.1",
 						RemoteIp:      "192.168.1.2",
 					},
+					Trace: fmt.Sprintf("projects/fake-project-id/traces/%s", tracingID),
 				}
 
 				got := logs.Server.Logs[0].Entries[0]
@@ -1287,9 +1290,11 @@ func Test_writeRequestLog_auth_failed(t *testing.T) {
 			HttpRequest: &hrpb.HttpRequest{
 				RequestUrl:    "/auditlog/a",
 				RequestMethod: http.MethodGet,
+				Protocol:      "HTTP/1.1",
 				RemoteIp:      "192.168.1.2",
 				Status:        http.StatusUnauthorized,
 			},
+			Trace: fmt.Sprintf("projects/fake-project-id/traces/%s", tracingID),
 		}
 
 		got := logs.Server.Logs[0].Entries[0]

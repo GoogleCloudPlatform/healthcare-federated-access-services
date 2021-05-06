@@ -71,6 +71,8 @@ type RequestLog struct {
 	// RequestPath is the request's path with concrete variables (such as realm) filled in
 	// as per the caller's absolute path.
 	RequestPath string
+	// RequestProtocol is the protocol used for this request (such as "HTTP/1.1")
+	RequestProtocol string
 	// RequestIP is the requester IP.
 	RequestIP string
 	// ErrorType formats like "no_token" for search.

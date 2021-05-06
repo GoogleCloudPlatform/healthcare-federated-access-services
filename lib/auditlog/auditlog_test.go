@@ -54,6 +54,7 @@ func TestWriteRequestLog(t *testing.T) {
 		RequestMethod:   http.MethodGet,
 		RequestEndpoint: "/path/of/{name}",
 		RequestPath:     "/path/of/resource",
+		RequestProtocol: "HTTP/1.1",
 		RequestIP:       "127.0.0.1",
 		ErrorType:       "token_expired",
 		PassAuthCheck:   false,
@@ -87,6 +88,7 @@ func TestWriteRequestLog(t *testing.T) {
 			HttpRequest: &hrpb.HttpRequest{
 				RequestUrl:    url,
 				RequestMethod: req.Method,
+				Protocol:      al.RequestProtocol,
 				RemoteIp:      al.RequestIP,
 				Status:        int32(al.ResponseCode),
 			},
