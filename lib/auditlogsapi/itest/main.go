@@ -14,7 +14,7 @@
 
 // Binary itest is an integration test for the API with the Stackdriver.
 // To run the test:
-//   go run lib/auditlogsapi/itest/main.go --alsologtostderr --project=your-project --user="subject"
+//   go run lib/auditlogsapi/itest/main.go --enable=true --alsologtostderr --project=your-project --user="subject"
 package main
 
 import (
@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ import (
 )
 
 var (
+	enable      = flag.Bool("enable", false, "Enable test")
 	projectID   = flag.String("project", "", "GCP project ID")
 	serviceName = flag.String("service", "", "service name")
 	userID      = flag.String("user", "", "user id (cirrently the subject of tokens)")
@@ -53,6 +55,11 @@ var (
 func main() {
 	ctx := context.Background()
 	flag.Parse()
+
+	if !*enable {
+		os.Exit(0)
+	}
+
 	conn := grpcutil.NewGRPCClient(ctx, *sdlAddr)
 	defer conn.Close()
 

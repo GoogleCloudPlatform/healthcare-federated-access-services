@@ -4,9 +4,9 @@ go 1.14
 
 require (
   bitbucket.org/creachadair/stringset v0.0.8
-  cloud.google.com/go v0.76.0
+  cloud.google.com/go v0.83.0
   cloud.google.com/go/datastore v1.4.0
-  cloud.google.com/go/logging v1.0.0
+  cloud.google.com/go/logging v1.4.2
   github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
   github.com/alicebob/miniredis v2.5.0+incompatible
   github.com/aws/aws-sdk-go v1.29.15
@@ -14,10 +14,11 @@ require (
   github.com/coreos/go-oidc v2.2.1+incompatible
   github.com/go-openapi/strfmt v0.19.3
   github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-  github.com/golang/mock v1.4.4
-  github.com/golang/protobuf v1.4.3
+  github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+  github.com/golang/mock v1.5.0
+  github.com/golang/protobuf v1.5.2
   github.com/gomodule/redigo v1.8.2
-  github.com/google/go-cmp v0.5.4
+  github.com/google/go-cmp v0.5.6
   github.com/gorilla/mux v1.7.3
   github.com/hashicorp/golang-lru v0.5.3 // indirect
   github.com/pborman/uuid v1.2.0
@@ -25,12 +26,13 @@ require (
   github.com/yuin/gopher-lua v0.0.0-20200816102855-ee81675732da // indirect
   go.mongodb.org/mongo-driver v1.1.3 // indirect
   golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-  golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3
-  golang.org/x/text v0.3.5
-  google.golang.org/api v0.38.0
-  google.golang.org/genproto v0.0.0-20210202153253-cf70463f6119
-  google.golang.org/grpc v1.35.0
-  google.golang.org/protobuf v1.25.0
+  golang.org/x/net v0.0.0-20210525063256-abc453219eb5 // indirect
+  golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
+  golang.org/x/text v0.3.6
+  google.golang.org/api v0.48.0
+  google.golang.org/genproto v0.0.0-20210607140030-00d4fb20b1ae
+  google.golang.org/grpc v1.38.0
+  google.golang.org/protobuf v1.26.0
   gopkg.in/square/go-jose.v2 v2.5.1
   gopkg.in/yaml.v2 v2.2.5 // indirect
 )
