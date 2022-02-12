@@ -19,7 +19,7 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"cloud.google.com/go/datastore" /* copybara-comment: datastore */
+	"google3/third_party/golang/cloud_google_com/go/datastore/v/v1/datastore"
 	"github.com/pborman/uuid" /* copybara-comment */
 )
 

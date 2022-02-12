@@ -23,7 +23,7 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"cloud.google.com/go/datastore" /* copybara-comment: datastore */
+	"google3/third_party/golang/cloud_google_com/go/datastore/v/v1/datastore"
 	"google.golang.org/api/iterator" /* copybara-comment: iterator */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */

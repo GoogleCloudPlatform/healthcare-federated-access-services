@@ -17,7 +17,7 @@ package fakestore
 import (
 	"testing"
 
-	"cloud.google.com/go/datastore" /* copybara-comment: datastore */
+	"google3/third_party/golang/cloud_google_com/go/datastore/v/v1/datastore"
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/storage" /* copybara-comment: storage */
