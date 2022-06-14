@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"cloud.google.com/go/logging" /* copybara-comment: logging */
+	"google3/third_party/golang/cloud_google_com/go/logging/v/v1/logging"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/serviceinfo" /* copybara-comment: serviceinfo */
 

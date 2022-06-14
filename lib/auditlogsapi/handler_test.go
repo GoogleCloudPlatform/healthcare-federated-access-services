@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/logging" /* copybara-comment: logging */
+	"google3/third_party/golang/cloud_google_com/go/logging/v/v1/logging"
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"github.com/gorilla/mux" /* copybara-comment */

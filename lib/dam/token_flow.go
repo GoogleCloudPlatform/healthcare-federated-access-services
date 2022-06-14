@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/logging" /* copybara-comment: logging */
+	"google3/third_party/golang/cloud_google_com/go/logging/v/v1/logging"
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"golang.org/x/oauth2" /* copybara-comment */
