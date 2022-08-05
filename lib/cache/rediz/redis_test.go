@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
-	"github.com/alicebob/miniredis" /* copybara-comment */
+	"google3/third_party/golang/github_com/alicebob/miniredis/v/v2/miniredis"
 	"github.com/gomodule/redigo/redis" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 )
