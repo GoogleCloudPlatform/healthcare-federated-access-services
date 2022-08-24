@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/kms/apiv1" /* copybara-comment: kms */
+	"google3/third_party/golang/cloud_google_com/go/kms/v/v0/apiv1/kms"
 	"google3/third_party/golang/cloud_google_com/go/logging/v/v1/logging"
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/aws" /* copybara-comment: aws */
