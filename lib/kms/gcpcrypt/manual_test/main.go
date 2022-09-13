@@ -21,7 +21,7 @@ import (
 	"flag"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"google3/third_party/golang/cloud_google_com/go/kms/v/v0/apiv1/kms"
+	"cloud.google.com/go/kms" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpcrypt" /* copybara-comment: gcpcrypt */
 )
 

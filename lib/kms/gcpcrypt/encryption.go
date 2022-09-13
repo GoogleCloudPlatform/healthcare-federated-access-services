@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 
-	"google3/third_party/golang/cloud_google_com/go/kms/v/v0/apiv1/kms"
+	"cloud.google.com/go/kms" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 

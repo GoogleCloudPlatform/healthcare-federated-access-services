@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"google3/third_party/golang/cloud_google_com/go/kms/v/v0/apiv1/kms"
+	"cloud.google.com/go/kms" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */

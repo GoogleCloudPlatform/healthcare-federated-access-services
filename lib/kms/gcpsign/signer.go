@@ -27,7 +27,7 @@ import (
 	"sort"
 
 	"github.com/cenkalti/backoff" /* copybara-comment */
-	"google3/third_party/golang/cloud_google_com/go/kms/v/v0/apiv1/kms"
+	"cloud.google.com/go/kms" /* copybara-comment */
 	"google.golang.org/api/iterator" /* copybara-comment: iterator */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
