@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"google3/third_party/golang/cloud_google_com/go/logging/v/v1/logging"
+	"cloud.google.com/go/logging" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */

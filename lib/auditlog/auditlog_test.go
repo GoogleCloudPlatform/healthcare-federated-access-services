@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"testing"
 
-	"google3/third_party/golang/cloud_google_com/go/logging/v/v1/logging"
+	"cloud.google.com/go/logging" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/protobuf/testing/protocmp" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */

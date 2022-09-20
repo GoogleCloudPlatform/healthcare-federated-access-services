@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/kms" /* copybara-comment */
-	"google3/third_party/golang/cloud_google_com/go/logging/v/v1/logging"
+	"cloud.google.com/go/logging" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/grpcutil" /* copybara-comment: grpcutil */
