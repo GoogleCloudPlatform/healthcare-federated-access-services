@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 
-	"cloud.google.com/go/secretmanager/apiv1" /* copybara-comment: secretmanager */
+	"cloud.google.com/go/secretmanager/apiv1" /* copybara-comment */
 
 	pb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1" /* copybara-comment: service_go_proto */
 )

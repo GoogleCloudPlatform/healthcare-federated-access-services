@@ -20,7 +20,7 @@ import (
 	"flag"
 	"fmt"
 
-	"cloud.google.com/go/secretmanager/apiv1" /* copybara-comment: secretmanager */
+	"cloud.google.com/go/secretmanager/apiv1" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/secret" /* copybara-comment: secret */
 
 	glog "github.com/golang/glog" /* copybara-comment */
