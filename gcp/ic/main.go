@@ -25,7 +25,7 @@ import (
 	"os/signal"
 	"strings"
 
-	"cloud.google.com/go/kms" /* copybara-comment */
+	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"cloud.google.com/go/logging" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */

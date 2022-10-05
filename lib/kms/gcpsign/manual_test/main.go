@@ -21,7 +21,7 @@ import (
 	"flag"
 	"time"
 
-	"cloud.google.com/go/kms" /* copybara-comment */
+	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
 	"gopkg.in/square/go-jose.v2" /* copybara-comment */

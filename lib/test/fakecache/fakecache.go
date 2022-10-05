@@ -18,7 +18,7 @@ package fakecache
 import (
 	"testing"
 
-	"google3/third_party/golang/github_com/alicebob/miniredis/v/v2/miniredis"
+	"github.com/alicebob/miniredis" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/cache" /* copybara-comment: cache */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/cache/rediz" /* copybara-comment: rediz */
 )

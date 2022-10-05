@@ -20,7 +20,7 @@ import (
 	"net"
 	"testing"
 
-	"cloud.google.com/go/kms" /* copybara-comment */
+	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */

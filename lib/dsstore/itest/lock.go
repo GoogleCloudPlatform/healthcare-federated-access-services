@@ -21,7 +21,7 @@ import (
 	"time"
 
 	glog "github.com/golang/glog" /* copybara-comment */
-	"google3/third_party/golang/cloud_google_com/go/datastore/v/v1/datastore"
+	"cloud.google.com/go/datastore" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/dsstore" /* copybara-comment: dsstore */
 )
