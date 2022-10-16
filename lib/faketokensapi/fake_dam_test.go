@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
-	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
+	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment */
+	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */

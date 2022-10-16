@@ -39,7 +39,7 @@ import (
 	tpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/tokens/v1" /* copybara-comment: go_proto */
 
 	iamgrpcpb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_grpc */
-	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
+	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment */
 )
 
 func TestGCP_ListTokens(t *testing.T) {

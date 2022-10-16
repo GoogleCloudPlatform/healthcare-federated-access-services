@@ -44,8 +44,8 @@ import (
 	glog "github.com/golang/glog" /* copybara-comment */
 	iampb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_proto */
 	iamcredscpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: common_go_proto */
-	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
-	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
+	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment */
+	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment */
 	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
 	grpcbackoff "google.golang.org/grpc/backoff" /* copybara-comment */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
@@ -277,11 +277,14 @@ func (wh *AccountWarehouse) GetAccountKey(ctx context.Context, id string, ttl, m
 }
 
 // ManageAccountKeys maintains or removes keys on a clean-up cycle.
-//   maxTTL is the maximum TTL for keys. Keys which which have expired (key.ValidAfter+maxTTL < now) will be removed.
-//   ttl is the TTL provided by user. It is not used currently, will be used later for providing better control later.
-//   keysPerAccount is the maximum number of keys allowed per account. If too many keys exists, older keys will be removed.
+//
+//	maxTTL is the maximum TTL for keys. Keys which which have expired (key.ValidAfter+maxTTL < now) will be removed.
+//	ttl is the TTL provided by user. It is not used currently, will be used later for providing better control later.
+//	keysPerAccount is the maximum number of keys allowed per account. If too many keys exists, older keys will be removed.
+//
 // Returns:
-//   the number of remaining active keys and removed keys for the account.
+//
+//	the number of remaining active keys and removed keys for the account.
 func (wh *AccountWarehouse) ManageAccountKeys(ctx context.Context, project, email string, ttl, maxTTL time.Duration, now time.Time, keysPerAccount int64) (int, int, error) {
 	// TODO: instead of turning duration to string and comparing strings, the string ValidAfterTime should be converted to time and compared using time comparison.
 	// A key has expired if key.ValidAfterTime + maxTTL < now, i.e. key.ValidAfterTime < now - maxTTL

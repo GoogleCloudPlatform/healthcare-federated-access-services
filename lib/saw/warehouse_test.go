@@ -33,8 +33,8 @@ import (
 
 	iamgrpcpb "google.golang.org/genproto/googleapis/iam/admin/v1" /* copybara-comment: iam_go_grpc */
 	iamcredsgrpcpb "google.golang.org/genproto/googleapis/iam/credentials/v1" /* copybara-comment: iamcredentials_go_grpc */
-	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment: admin */
-	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment: credentials */
+	iamadmin "cloud.google.com/go/iam/admin/apiv1" /* copybara-comment */
+	iamcreds "cloud.google.com/go/iam/credentials/apiv1" /* copybara-comment */
 	gcs "google.golang.org/api/storage/v1" /* copybara-comment: storage */
 	cpb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1" /* copybara-comment: go_proto */
 )
