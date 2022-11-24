@@ -188,7 +188,7 @@ func Test_RequestLog(t *testing.T) {
 		HttpResponseCode: http.StatusOK,
 		HttpRequest:      nil,
 	}
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 7; i++ {
 		cp := proto.Clone(a2want).(*apb.AuditLog)
 		cp.TracingId = strconv.Itoa(i + 1000)
 		want.AuditLogs = append(want.AuditLogs, cp)

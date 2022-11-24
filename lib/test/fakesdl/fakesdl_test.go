@@ -16,6 +16,7 @@ package fakesdl
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +48,15 @@ func TestLogger_Write(t *testing.T) {
 	f.Client.Logger("fake-log-id").LogSync(ctx, e)
 
 	got := f.Server.Logs
+	var gotEntries []*lepb.LogEntry
+	for _, e := range got[0].GetEntries() {
+		if strings.HasSuffix(e.GetLogName(), "diagnostic-log") {
+			continue
+		}
+		gotEntries = append(gotEntries, e)
+	}
+	got[0].Entries = gotEntries
+
 	want := []*lpb.WriteLogEntriesRequest{{
 		LogName: "projects/fake-project-id/logs/fake-log-id",
 		Entries: []*lepb.LogEntry{{
@@ -58,7 +68,7 @@ func TestLogger_Write(t *testing.T) {
 	}}
 
 	got[0].Resource = nil
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(&lpb.WriteLogEntriesRequest{}, "partial_success")); diff != "" {
 		t.Fatalf("Logs returned diff (-want +got):\n%s", diff)
 	}
 }
