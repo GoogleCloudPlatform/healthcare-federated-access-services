@@ -24,10 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"google3/third_party/golang/github_com/aws/aws_sdk_go/v/v1/aws/aws"
-	"google3/third_party/golang/github_com/aws/aws_sdk_go/v/v1/aws/awserr/awserr"
-	"google3/third_party/golang/github_com/aws/aws_sdk_go/v/v1/service/iam/iam"
-	"google3/third_party/golang/github_com/aws/aws_sdk_go/v/v1/service/sts/sts"
+	"github.com/aws/aws-sdk-go/aws" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/aws/awserr" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/service/iam" /* copybara-comment */
+	"github.com/aws/aws-sdk-go/service/sts" /* copybara-comment */
 	"github.com/cenkalti/backoff" /* copybara-comment */
 	"bitbucket.org/creachadair/stringset" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */

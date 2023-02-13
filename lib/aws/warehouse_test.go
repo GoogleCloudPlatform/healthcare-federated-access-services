@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"google3/third_party/golang/github_com/aws/aws_sdk_go/v/v1/aws/aws"
+	"github.com/aws/aws-sdk-go/aws" /* copybara-comment */
 
 	pb "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/dam/v1" /* copybara-comment: go_proto */
 )
