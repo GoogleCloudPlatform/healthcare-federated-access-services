@@ -354,8 +354,8 @@ func Test_applyCRMChange_Errors(t *testing.T) {
 				}
 			}
 
-			if d := cmp.Diff(tc.wantState, state, cmp.AllowUnexported(backoffState{})); len(d) > 0 {
-				t.Errorf("state (-want, +got): %s", d)
+			if tc.wantState.failedEtag != state.failedEtag || tc.wantState.prevErr != state.prevErr {
+				t.Errorf("state want: %v, got: %v", tc.wantState, state)
 			}
 		})
 	}

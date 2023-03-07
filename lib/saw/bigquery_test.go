@@ -19,7 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"google.golang.org/api/bigquery/v2" /* copybara-comment: bigquery */
 	"google.golang.org/api/googleapi" /* copybara-comment: googleapi */
 )
@@ -110,7 +109,6 @@ func Test_applyBQChange_Errors(t *testing.T) {
 				failedEtag: tc.state.failedEtag,
 				prevErr:    tc.state.prevErr,
 			}
-
 			got := applyBQDSChange(context.Background(), tc.bq, "email", "project", "ds", nil, state)
 			if tc.wantError != (got != nil) {
 				t.Errorf("applyBQDSChange() wants error(%v)", tc.wantError)
@@ -123,8 +121,8 @@ func Test_applyBQChange_Errors(t *testing.T) {
 				}
 			}
 
-			if d := cmp.Diff(tc.wantState, state, cmp.AllowUnexported(backoffState{})); len(d) > 0 {
-				t.Errorf("state (-want, +got): %s", d)
+			if tc.wantState.failedEtag != state.failedEtag || tc.wantState.prevErr != state.prevErr {
+				t.Errorf("state want: %v, got: %v", tc.wantState, state)
 			}
 		})
 	}
