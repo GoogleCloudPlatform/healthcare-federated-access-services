@@ -16,14 +16,14 @@
 #
 # You will need to bind the static ip with domain on domain registrar eg.
 # Google Domain before apply this resource.
-# it may take ~10 miuntes to effect, to verify the static ip binding complete,
+# it may take ~10 minutes to effect, to verify the static ip binding complete,
 # run: `nslookup $your_domain`.
 # This resource may also takes ~10 minutes to get the cert.
 # To verify: run `kubectl describe managedcertificate https-certificate`
 #
 # More info: https://cloud.google.com/kubernetes-engine/docs/how-to/managed-certs
 
-apiVersion: networking.gke.io/v1beta1
+apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
   name: https-certificate
