@@ -17,7 +17,6 @@ package httputils
 import (
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
@@ -194,11 +193,6 @@ func TestWriteRedirect(t *testing.T) {
 		Body: RedirectHTMLPage(dst),
 		Code: http.StatusSeeOther,
 	}
-	// TODO: remove this workaround after we submit new Go toolchain (b/324535216) to google3.
-	// https://go.dev/cl/562356 removes superfluous newline on redirects and makes this test fail.
-	// Remove all '\n' symbols from both string before comparing.
-	want.Body = strings.ReplaceAll(want.Body, "\n", "")
-	w.Body = strings.ReplaceAll(w.Body, "\n", "")
 	if diff := cmp.Diff(want, w); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
 	}
@@ -232,11 +226,6 @@ func TestWriteRedirect_ParsedDestination(t *testing.T) {
 		Body: RedirectHTMLPage(dst),
 		Code: http.StatusSeeOther,
 	}
-	// TODO: remove this workaround after we submit new Go toolchain (b/324535216) to google3.
-	// https://go.dev/cl/562356 removes superfluous newline on redirects and makes this test fail.
-	// Remove all '\n' symbols from both string before comparing.
-	want.Body = strings.ReplaceAll(want.Body, "\n", "")
-	w.Body = strings.ReplaceAll(w.Body, "\n", "")
 	if diff := cmp.Diff(want, w); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
 	}
@@ -265,11 +254,6 @@ func TestWriteRedirect_RelativeDestination(t *testing.T) {
 		Body: RedirectHTMLPage("/srcresources/" + dst),
 		Code: http.StatusSeeOther,
 	}
-	// TODO: remove this workaround after we submit new Go toolchain (b/324535216) to google3.
-	// https://go.dev/cl/562356 removes superfluous newline on redirects and makes this test fail.
-	// Remove all '\n' symbols from both string before comparing.
-	want.Body = strings.ReplaceAll(want.Body, "\n", "")
-	w.Body = strings.ReplaceAll(w.Body, "\n", "")
 	if diff := cmp.Diff(want, w); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
 	}
@@ -298,11 +282,6 @@ func TestWriteRedirect_RelativeDestinationAtRoot(t *testing.T) {
 		Body: RedirectHTMLPage(dst),
 		Code: http.StatusSeeOther,
 	}
-	// TODO: remove this workaround after we submit new Go toolchain (b/324535216) to google3.
-	// https://go.dev/cl/562356 removes superfluous newline on redirects and makes this test fail.
-	// Remove all '\n' symbols from both string before comparing.
-	want.Body = strings.ReplaceAll(want.Body, "\n", "")
-	w.Body = strings.ReplaceAll(w.Body, "\n", "")
 	if diff := cmp.Diff(want, w); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
 	}
@@ -350,11 +329,6 @@ func TestWriteRedirect_FullyEncodedRedirectURLParameter(t *testing.T) {
 		Body: RedirectHTMLPage(dst),
 		Code: http.StatusSeeOther,
 	}
-	// TODO: remove this workaround after we submit new Go toolchain (b/324535216) to google3.
-	// https://go.dev/cl/562356 removes superfluous newline on redirects and makes this test fail.
-	// Remove all '\n' symbols from both string before comparing.
-	want.Body = strings.ReplaceAll(want.Body, "\n", "")
-	w.Body = strings.ReplaceAll(w.Body, "\n", "")
 	if diff := cmp.Diff(want, w); diff != "" {
 		t.Errorf("WriteRedirect(); Writer diff (-want +got):\n%s", diff)
 	}
