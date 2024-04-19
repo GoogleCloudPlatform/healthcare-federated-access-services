@@ -8,6 +8,11 @@
 
 [Full Changelog](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/compare/v0.9.11...v0.9.12)
 
+**Migration**
+
+* Upgrade jose dependency from v2 to v3.
+* Upgrade GO version to 1.21: need rebuild all images, includes base image for GAE and Hydra image for GKE.
+
 **Highlight Updates**
 
 * [Fix create idp on IC not saving to storage issue](https://github.com/GoogleCloudPlatform/healthcare-federated-access-services/issues/51)
