@@ -23,10 +23,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/pborman/uuid" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/globalflags" /* copybara-comment: globalflags */
@@ -55,7 +55,8 @@ const (
 // or test environment. Private keys are well-known and allows any
 // user to act as system administrator.
 // WARNING: ONLY for use with synthetic or test data.
-//          Do not use unless you fully understand the security and privacy implications.
+//
+//	Do not use unless you fully understand the security and privacy implications.
 type Server struct {
 	IssuerURL     string
 	key           *testkeys.Key
@@ -94,7 +95,7 @@ func NewBroker(issuerURL string, key *testkeys.Key, service, path string, useOID
 }
 
 // Sign the jwt with the private key in Server.
-func (s *Server) Sign(header map[string]string, claim interface{}) (string, error) {
+func (s *Server) Sign(header map[string]string, claim any) (string, error) {
 	signer := signer(s.key)
 
 	return signer.SignJWT(context.Background(), claim, header)

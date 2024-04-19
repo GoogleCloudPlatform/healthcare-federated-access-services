@@ -26,10 +26,10 @@ import (
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 
@@ -194,7 +194,7 @@ func TestClient_SignJWT(t *testing.T) {
 	wantHeader := jose.Header{
 		KeyID:     getKeyID(versionResName),
 		Algorithm: "RS256",
-		ExtraHeaders: map[jose.HeaderKey]interface{}{
+		ExtraHeaders: map[jose.HeaderKey]any{
 			"jku": "http://iss.example.com/.well-known/jwks",
 			"typ": "JWT",
 		},

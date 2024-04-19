@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -88,7 +88,7 @@ func Test_SignJWT(t *testing.T) {
 	wantHeader := jose.Header{
 		KeyID:     string(testkeys.PersonaBroker),
 		Algorithm: "RS256",
-		ExtraHeaders: map[jose.HeaderKey]interface{}{
+		ExtraHeaders: map[jose.HeaderKey]any{
 			"jku": "http://iss.example.com/.well-known/jwks",
 			"typ": "JWT",
 		},

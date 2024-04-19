@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package gcpsign contains a client of GCP Cloud KMS RSA256 asymmetric signning.
+// Package gcpsign contains a client of GCP Cloud KMS RSA256 asymmetric signing.
 package gcpsign
 
 import (
@@ -28,10 +28,10 @@ import (
 
 	"github.com/cenkalti/backoff" /* copybara-comment */
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
 	"google.golang.org/api/iterator" /* copybara-comment: iterator */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/retry" /* copybara-comment: retry */
 
 	rpb "google.golang.org/genproto/googleapis/cloud/kms/v1" /* copybara-comment: resources_go_proto */
@@ -42,8 +42,8 @@ const (
 	maxPendingKeyRetries = 5
 )
 
-// Client of GCP CloudKMS asymmetric signning service.
-// We use CloudKMS to sign JWT and epxose RSA public keys in KMS for verify.
+// Client of GCP CloudKMS asymmetric signing service.
+// We use CloudKMS to sign JWT and expose RSA public keys in KMS for verify.
 type Client struct {
 	cryptoKeyID    string
 	currentVersion string
@@ -196,7 +196,7 @@ func (s *Client) PublicKeys() *jose.JSONWebKeySet {
 }
 
 // SignJWT signs the given claims return the jwt string.
-func (s *Client) SignJWT(ctx context.Context, claims interface{}, header map[string]string) (string, error) {
+func (s *Client) SignJWT(ctx context.Context, claims any, header map[string]string) (string, error) {
 	sig := &signer{
 		c:   s,
 		ctx: ctx,

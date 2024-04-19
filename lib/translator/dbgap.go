@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
@@ -72,8 +72,8 @@ type dbGapPassport struct {
 }
 
 type dbGapIdentity struct {
-	Authority string      `json:"authority"`
-	ID        interface{} `json:"id"`
+	Authority string `json:"authority"`
+	ID        any    `json:"id"`
 }
 
 type vCard struct {

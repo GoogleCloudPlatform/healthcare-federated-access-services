@@ -18,7 +18,7 @@ package kms
 import (
 	"context"
 
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
 )
 
 // Encryption abstracts a encryption service for storing encrypted data.
@@ -30,5 +30,5 @@ type Encryption interface {
 // Signer abstracts a signing service for jwt.
 type Signer interface {
 	PublicKeys() *jose.JSONWebKeySet
-	SignJWT(ctx context.Context, claims interface{}, header map[string]string) (string, error)
+	SignJWT(ctx context.Context, claims any, header map[string]string) (string, error)
 }

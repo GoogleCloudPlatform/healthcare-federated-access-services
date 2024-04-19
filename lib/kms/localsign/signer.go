@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 )
 
@@ -68,7 +68,7 @@ func (s *Signer) PublicKeys() *jose.JSONWebKeySet {
 }
 
 // SignJWT signs the given claims return the jwt string.
-func (s *Signer) SignJWT(ctx context.Context, claims interface{}, header map[string]string) (string, error) {
+func (s *Signer) SignJWT(ctx context.Context, claims any, header map[string]string) (string, error) {
 	key := jose.SigningKey{
 		Algorithm: s.algo,
 		Key:       s.pri,

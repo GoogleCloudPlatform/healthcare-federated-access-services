@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -77,9 +77,11 @@ func NewVisaFromJWT(j VisaJWT) (*Visa, error) {
 // keyID identifies the key used by issuer to sign the JWT.
 // Visit the issuer's JWKS endpoint to obtain the keys and find the public key corresponding to the keyID.
 // To find the issuer's JWKS endpoint:
-//   If openid scope exists in the Visa, visit "[issuer]/.well-known/openid-configuration"
-//   Else if "jku" exists in JWT header, use the "jku" value.
-//   Otherwise, the Visa cannot be verified.
+//
+//	If openid scope exists in the Visa, visit "[issuer]/.well-known/openid-configuration"
+//	Else if "jku" exists in JWT header, use the "jku" value.
+//	Otherwise, the Visa cannot be verified.
+//
 // See https://bit.ly/ga4gh-aai-profile#embedded-token-issued-by-embedded-token-issuer
 func NewVisaFromData(ctx context.Context, d *VisaData, jku string, signer kms.Signer) (*Visa, error) {
 	j, err := visaJWTFromData(ctx, d, jku, signer)

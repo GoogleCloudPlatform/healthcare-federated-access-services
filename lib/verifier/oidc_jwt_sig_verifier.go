@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
@@ -53,7 +53,7 @@ func newOIDCSigVerifier(ctx context.Context, issuer string) (*oidcJwtSigVerifier
 	}, nil
 }
 
-func (s *oidcJwtSigVerifier) PreviewClaimsBeforeVerification(ctx context.Context, token string, claims interface{}) (*ga4gh.StdClaims, error) {
+func (s *oidcJwtSigVerifier) PreviewClaimsBeforeVerification(ctx context.Context, token string, claims any) (*ga4gh.StdClaims, error) {
 	// extracts the unsafe claims here to allow following step to validate issuer, timestamp.
 	d, err := ga4gh.NewStdClaimsFromJWT(token)
 	if err != nil {

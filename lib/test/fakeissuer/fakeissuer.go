@@ -16,28 +16,27 @@
 //
 // Example:
 //
-//   // Create a fake HTTP server and client.
-//   f, cleanup := fakehttp.New()
-//   defer cleanup()
+//	  // Create a fake HTTP server and client.
+//	  f, cleanup := fakehttp.New()
+//	  defer cleanup()
 //
-//   // Set the URL of the issuer to that of the fake HTTP server.
-// 	 issuer = testkeys.Keys[testkeys.VisaIssuer0]
-//   issuer.ID = f.Server.URL
-//   i := stubissuer.New(f.Server.URL, issuer)
-//   f.Handler = i.Handler
+//	  // Set the URL of the issuer to that of the fake HTTP server.
+//		 issuer = testkeys.Keys[testkeys.VisaIssuer0]
+//	  issuer.ID = f.Server.URL
+//	  i := stubissuer.New(f.Server.URL, issuer)
+//	  f.Handler = i.Handler
 //
-//   // Override the context to tell the package to use the fake HTTP client.
-//   // Any HTTP calls to issuer by oidc using ctx will be handled by the fake.
-//   ctx := oidc.ClientContext(context.Background(), f.Client)
-//
+//	  // Override the context to tell the package to use the fake HTTP client.
+//	  // Any HTTP calls to issuer by oidc using ctx will be handled by the fake.
+//	  ctx := oidc.ClientContext(context.Background(), f.Client)
 package fakeissuer
 
 import (
 	"net/http"
 
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/testkeys" /* copybara-comment: testkeys */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -115,7 +114,7 @@ func New(url string, keys ...testkeys.Key) *Issuer {
 }
 
 // Handler is the HTTP handler for the issuer.
-func (i *Issuer) Handler(req *http.Request) (body interface{}, err error) {
+func (i *Issuer) Handler(req *http.Request) (body any, err error) {
 	url := "http://" + req.Host + req.URL.Path
 	switch {
 	case req.Method == "GET" && url == i.URL+Configuration:

@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 )
@@ -66,7 +66,7 @@ type JWTAccessTokenVerifier struct {
 }
 
 // Verify verifies signature, timestamp, issuer and audiences in access tok.
-func (s *JWTAccessTokenVerifier) Verify(ctx context.Context, token string, claims interface{}, opt Option) error {
+func (s *JWTAccessTokenVerifier) Verify(ctx context.Context, token string, claims any, opt Option) error {
 	return verify(ctx, s.tok, s.aud, token, claims, opt)
 }
 
@@ -77,7 +77,7 @@ type UserinfoAccesssTokenVerifier struct {
 }
 
 // Verify verifies signature, timestamp, issuer and audiences of access token with userinfo.
-func (s *UserinfoAccesssTokenVerifier) Verify(ctx context.Context, token string, claims interface{}, opt Option) error {
+func (s *UserinfoAccesssTokenVerifier) Verify(ctx context.Context, token string, claims any, opt Option) error {
 	return verify(ctx, s.tok, s.aud, token, claims, opt)
 }
 
@@ -116,7 +116,7 @@ func NewPassportVerifier(ctx context.Context, issuer, clientID string) (*Passpor
 
 // AccessTokenVerifier verifies jwt access tokens or access token to userinfo, used in lib/auth.
 type AccessTokenVerifier interface {
-	Verify(ctx context.Context, token string, claims interface{}, opt Option) error
+	Verify(ctx context.Context, token string, claims any, opt Option) error
 }
 
 // NewAccessTokenVerifier creates a access tok verifier.
@@ -148,7 +148,7 @@ type extractClaimsAndVerifyToken interface {
 	// PreviewClaimsBeforeVerification from the given tok, will also extracts to custom claim object if claims passed in.
 	// Claims will be unsafe for jwt token, and claims will be safe if fetched from the userinfo endpoint.
 	// This function need to be called before VerifySig().
-	PreviewClaimsBeforeVerification(ctx context.Context, token string, claims interface{}) (*ga4gh.StdClaims, error)
+	PreviewClaimsBeforeVerification(ctx context.Context, token string, claims any) (*ga4gh.StdClaims, error)
 	// VerifySig of the access tok, it will be empty if not jwt tok.
 	VerifySig(ctx context.Context, token string) error
 	// Issuer the wanted issuer of the tok.
@@ -156,7 +156,7 @@ type extractClaimsAndVerifyToken interface {
 }
 
 // verify verifies the provided token.
-func verify(ctx context.Context, tokenVerifier extractClaimsAndVerifyToken, aud audienceVerifier, token string, claims interface{}, opts ...Option) error {
+func verify(ctx context.Context, tokenVerifier extractClaimsAndVerifyToken, aud audienceVerifier, token string, claims any, opts ...Option) error {
 	d, err := tokenVerifier.PreviewClaimsBeforeVerification(ctx, token, claims)
 	if err != nil {
 		return err
@@ -194,7 +194,7 @@ func verify(ctx context.Context, tokenVerifier extractClaimsAndVerifyToken, aud 
 	return nil
 }
 
-// normalizeIssuer ensure the issuer string does not have tailling slash.
+// normalizeIssuer ensure the issuer string does not have trailing slash.
 func normalizeIssuer(issuer string) string {
 	return strings.TrimSuffix(issuer, "/")
 }
@@ -205,7 +205,7 @@ type Option interface {
 }
 
 // unsafeClaimsFromJWTToken extracts custom claims from jwt body.
-func unsafeClaimsFromJWTToken(token string, obj interface{}) error {
+func unsafeClaimsFromJWTToken(token string, obj any) error {
 	tok, err := jwt.ParseSigned(token)
 	if err != nil {
 		return errutil.WithErrorReason(errParseFailed, status.Errorf(codes.Unauthenticated, "ParseSigned() failed: %v", err))

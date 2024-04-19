@@ -17,7 +17,7 @@ package ga4gh
 import (
 	"fmt"
 
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 )
 
 var (

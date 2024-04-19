@@ -20,8 +20,8 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/square/go-jose.v2" /* copybara-comment */
-	"gopkg.in/square/go-jose.v2/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 )
 
 // userID returns an user identifier that specifies a subject within an issuer.
