@@ -874,8 +874,8 @@ func TestAdminHandlers(t *testing.T) {
 			Method:  "GET",
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "non-admin",
-			Output: `^.*requires admin permission	*`,
-			Status: http.StatusUnauthorized,
+			Output:  `^.*requires admin permission	*`,
+			Status:  http.StatusUnauthorized,
 		},
 		{
 			Name:    "List all tokens of all users as an admin",
@@ -890,8 +890,8 @@ func TestAdminHandlers(t *testing.T) {
 			Method:  "DELETE",
 			Path:    "/identity/v1alpha/test/admin/tokens",
 			Persona: "non-admin",
-			Output: `^.*requires admin permission	*`,
-			Status: http.StatusUnauthorized,
+			Output:  `^.*requires admin permission	*`,
+			Status:  http.StatusUnauthorized,
 		},
 		{
 			Name:    "Delete all tokens of all users as an admin",
@@ -2197,7 +2197,7 @@ func TestConfigClients_Get_Error(t *testing.T) {
 }
 
 func diffOfHydraClientIgnoreClientIDAndSecret(c1 *hydraapi.Client, c2 *hydraapi.Client) string {
-	return cmp.Diff(c1, c2, cmpopts.IgnoreFields(hydraapi.Client{}, "ClientID", "Secret"), cmpopts.IgnoreUnexported(strfmt.DateTime{}))
+	return cmp.Diff(c1, c2, cmpopts.IgnoreFields(hydraapi.Client{}, "ClientID", "Secret", "CreatedAt"), cmpopts.IgnoreUnexported(strfmt.DateTime{}))
 }
 
 func sendConfigClientsCreate(t *testing.T, pname, clientName, realm, clientID, clientSecret string, cli *cpb.Client, s *Service, iss *persona.Server) *http.Response {
