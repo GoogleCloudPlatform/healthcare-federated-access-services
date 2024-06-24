@@ -18,6 +18,7 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package dam.v1;
 
+import "storage/datapol/annotations/proto/semantic_annotations.proto";
 import "proto/common/v1/common.proto"; /* copybara-comment */
 import "proto/common/v1/oauthclient.proto"; /* copybara-comment */
 import "proto/process/v1/process.proto"; /* copybara-comment */
@@ -382,7 +383,7 @@ message ConfigViewRequest {
 message ConfigTrustedIssuerRequest {
   TrustedIssuer item = 1;
   // client_secret is write only field.
-  string client_secret = 3;
+  string client_secret = 3 [(datapol.semantic_type) = ST_SECURITY_MATERIAL];
   ConfigModification modification = 2;
 }
 
