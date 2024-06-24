@@ -18,6 +18,7 @@ syntax = "proto3";
 package common;
 
 import "google/protobuf/timestamp.proto";
+import "storage/datapol/annotations/proto/semantic_annotations.proto";
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
 
@@ -148,8 +149,8 @@ message CliState {
   bytes encrypted_secret = 9;
   bytes encrypted_code = 10;
   string secret = 11;
-  string access_token = 12;
-  string refresh_token = 13;
+  string access_token = 12 [(datapol.semantic_type) = ST_ACCOUNT_CREDENTIAL];
+  string refresh_token = 13 [(datapol.semantic_type) = ST_ACCOUNT_CREDENTIAL];
   string state = 14;
   google.protobuf.Timestamp accepted_at = 15;
   map<string, string> user_profile = 16;
@@ -193,10 +194,16 @@ message OidcTokenResponse {
     string name = 1;
     string email = 2;
   }
-  string access_token = 1 [json_name = "access_token"];
+  string access_token = 1 [
+    json_name = "access_token",
+    (datapol.semantic_type) = ST_ACCOUNT_CREDENTIAL
+  ];
   string token_type = 2 [json_name = "token_type"];
   int32 expires_in = 3 [json_name = "expires_in"];
-  string refresh_token = 4 [json_name = "refresh_token"];
+  string refresh_token = 4 [
+    json_name = "refresh_token",
+    (datapol.semantic_type) = ST_ACCOUNT_CREDENTIAL
+  ];
   string id_token = 5 [json_name = "id_token"];
   string scope = 6;
   string uid = 7;

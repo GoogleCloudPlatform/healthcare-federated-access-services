@@ -17,6 +17,7 @@ syntax = "proto3";
 package common;
 
 import "google/rpc/status.proto";
+import "storage/datapol/annotations/proto/semantic_annotations.proto";
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
 
@@ -56,7 +57,10 @@ message ClientState {
 
 message ClientResponse {
   Client client = 1;
-  string client_secret = 2 [json_name = "client_secret"];
+  string client_secret = 2 [
+    json_name = "client_secret",
+    (datapol.semantic_type) = ST_SECURITY_MATERIAL
+  ];
 }
 
 message ConfigModification {
@@ -78,5 +82,8 @@ message ConfigClientRequest {
 
 message ConfigClientResponse {
   Client client = 1;
-  string client_secret = 2 [json_name = "client_secret"];
+  string client_secret = 2 [
+    json_name = "client_secret",
+    (datapol.semantic_type) = ST_SECURITY_MATERIAL
+  ];
 }
