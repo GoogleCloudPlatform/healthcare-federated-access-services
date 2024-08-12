@@ -18,6 +18,7 @@ syntax = "proto3";
 // end points to receive requests and returns responses using these messages.
 package ic.v1;
 
+import "storage/datapol/annotations/proto/semantic_annotations.proto";
 import "proto/common/v1/account.proto"; /* copybara-comment */
 import "proto/common/v1/common.proto"; /* copybara-comment */
 import "proto/common/v1/oauthclient.proto"; /* copybara-comment */
@@ -57,7 +58,7 @@ message IcSecrets {
   map<string, string> id_provider_secrets = 5;
 
   message TokenKeys {
-    string private_key = 1;
+    string private_key = 1 [(datapol.semantic_type) = ST_SECURITY_MATERIAL];
     string public_key = 2;
   }
   map<string, TokenKeys> token_keys = 6;
@@ -110,7 +111,7 @@ message ConfigResponse {}
 
 message ConfigIdentityProviderRequest {
   common.IdentityProvider item = 1;
-  string client_secret = 3;
+  string client_secret = 3 [(datapol.semantic_type) = ST_SECURITY_MATERIAL];
   ConfigModification modification = 2;
 }
 

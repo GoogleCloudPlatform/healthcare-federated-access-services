@@ -21,6 +21,8 @@ syntax = "proto3";
 // Protocol: https://tools.ietf.org/html/rfc7644
 package scim.v2;
 
+import "storage/datapol/annotations/proto/semantic_annotations.proto";
+
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/scim/v2";
 
 // SCIM representation of a 'User' as per
@@ -147,7 +149,7 @@ message User {
   bool active = 15;
 
   // UNUSED but present for completeness.
-  string password = 16;
+  string password = 16 [(datapol.semantic_type) = ST_ACCOUNT_CREDENTIAL];
 
   // E-mail addresses for the User. The value SHOULD be canonicalized by the
   // Service Provider, e.g. bjensen@example.com instead of bjensen@EXAMPLE.COM.
