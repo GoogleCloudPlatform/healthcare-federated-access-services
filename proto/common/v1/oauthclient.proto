@@ -17,7 +17,7 @@ syntax = "proto3";
 package common;
 
 import "google/rpc/status.proto";
-import "storage/datapol/annotations/proto/semantic_annotations.proto";
+
 
 option go_package = "github.com/GoogleCloudPlatform/healthcare-federated-access-services/proto/common/v1";
 
