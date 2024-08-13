@@ -21,7 +21,7 @@
 steps:
 # Get the go version being used. Useful for debugging.
 - id: go_version
-  name: 'gcr.io/cloud-builders/go'
+  name: 'gcr.io/cloud-builders/go:alpine-1.21'
   args: ['version']
   env: ['GOPATH=go']
 
@@ -31,12 +31,12 @@ steps:
   args: ['-c', 'pwd']
 
 - id: go_build
-  name: 'gcr.io/cloud-builders/go'
+  name: 'gcr.io/cloud-builders/go:alpine-1.21'
   args: ['build', '-v', './...']
   env: ['GOPATH=/go']
 
 - id: go_test
-  name: 'gcr.io/cloud-builders/go'
+  name: 'gcr.io/cloud-builders/go:alpine-1.21'
   args: ['test', '-v', './...']
   env:
   - 'GOPATH=/go'
