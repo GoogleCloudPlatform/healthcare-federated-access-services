@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
+	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 
 	glog "github.com/golang/glog" /* copybara-comment */

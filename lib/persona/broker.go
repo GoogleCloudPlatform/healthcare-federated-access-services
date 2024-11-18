@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-jose/go-jose/v3" /* copybara-comment */
+	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jose"
 	"github.com/gorilla/mux" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */

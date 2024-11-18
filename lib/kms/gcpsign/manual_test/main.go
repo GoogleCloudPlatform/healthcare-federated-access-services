@@ -24,8 +24,8 @@ import (
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"github.com/go-jose/go-jose/v3" /* copybara-comment */
-	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
+	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jose"
+	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpsign" /* copybara-comment: gcpsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */

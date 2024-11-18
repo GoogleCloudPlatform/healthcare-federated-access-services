@@ -26,8 +26,8 @@ import (
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"github.com/go-jose/go-jose/v3" /* copybara-comment */
-	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
+	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jose"
+	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
