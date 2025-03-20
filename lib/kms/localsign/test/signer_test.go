@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jose"
-	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
+	"github.com/go-jose/go-jose/v4" /* copybara-comment */
+	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/localsign" /* copybara-comment: localsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -76,7 +76,7 @@ func Test_SignJWT(t *testing.T) {
 		t.Errorf("sub = %s, wants %s", idt.Subject, sub)
 	}
 
-	tok, err := jwt.ParseSigned(rawTok)
+	tok, err := jwt.ParseSigned(rawTok, []jose.SignatureAlgorithm{jose.RS256})
 	if err != nil {
 		t.Fatalf("jwt.ParseSigned() failed: %v", err)
 	}

@@ -26,7 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
+	"github.com/go-jose/go-jose/v4" /* copybara-comment */
+	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/ga4gh" /* copybara-comment: ga4gh */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
@@ -197,7 +198,21 @@ func (s *DbGapTranslator) getURL(url, userTok string) (string, error) {
 }
 
 func (s *DbGapTranslator) extractClaims(tok string, id *dbGapIdToken, claims *dbGapClaims) error {
-	parsed, err := jwt.ParseSigned(tok)
+	parsed, err := jwt.ParseSigned(tok, []jose.SignatureAlgorithm{
+		jose.EdDSA,
+		jose.HS256,
+		jose.HS384,
+		jose.HS512,
+		jose.RS256,
+		jose.RS384,
+		jose.RS512,
+		jose.ES256,
+		jose.ES384,
+		jose.ES512,
+		jose.PS256,
+		jose.PS384,
+		jose.PS512,
+	})
 	if err != nil {
 		return fmt.Errorf("parsing signed token: %v", err)
 	}

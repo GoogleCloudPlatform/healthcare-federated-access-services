@@ -17,7 +17,8 @@ package ga4gh
 import (
 	"fmt"
 
-	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
+	"github.com/go-jose/go-jose/v4" /* copybara-comment */
+	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
 )
 
 var (
@@ -43,7 +44,21 @@ type StdClaims struct {
 // NewStdClaimsFromJWT extracts StdClaims from a serialized JWT token.
 func NewStdClaimsFromJWT(token string) (*StdClaims, error) {
 	d := &StdClaims{}
-	tok, err := jwt.ParseSigned(token)
+	tok, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{
+		jose.HS256,
+		jose.HS384,
+		jose.HS512,
+		jose.RS256,
+		jose.RS384,
+		jose.RS512,
+		jose.ES256,
+		jose.ES384,
+		jose.ES512,
+		jose.PS256,
+		jose.PS384,
+		jose.PS512,
+		jose.EdDSA,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("ParseSigned() failed: %v", err)
 	}

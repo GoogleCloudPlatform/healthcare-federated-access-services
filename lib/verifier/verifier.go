@@ -20,7 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
+	"github.com/go-jose/go-jose/v4" /* copybara-comment */
+	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/errutil" /* copybara-comment: errutil */
@@ -206,7 +207,21 @@ type Option interface {
 
 // unsafeClaimsFromJWTToken extracts custom claims from jwt body.
 func unsafeClaimsFromJWTToken(token string, obj any) error {
-	tok, err := jwt.ParseSigned(token)
+	tok, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{
+		jose.EdDSA,
+		jose.HS256,
+		jose.HS384,
+		jose.HS512,
+		jose.RS256,
+		jose.RS384,
+		jose.RS512,
+		jose.ES256,
+		jose.ES384,
+		jose.ES512,
+		jose.PS256,
+		jose.PS384,
+		jose.PS512,
+	})
 	if err != nil {
 		return errutil.WithErrorReason(errParseFailed, status.Errorf(codes.Unauthenticated, "ParseSigned() failed: %v", err))
 	}

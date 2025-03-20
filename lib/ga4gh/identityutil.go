@@ -20,8 +20,8 @@ import (
 	"net/url"
 	"strings"
 
-	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jose"
-	"google3/third_party/golang/github_com/go_jose/go_jose/v/v3/jwt/jwt"
+	"github.com/go-jose/go-jose/v4" /* copybara-comment */
+	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
 )
 
 // userID returns an user identifier that specifies a subject within an issuer.
@@ -49,7 +49,18 @@ func TokenUserID(token *Identity, maxLength int) string {
 
 // VerifyTokenWithKey verifies the signature of a token given a public key.
 func VerifyTokenWithKey(publicKey *rsa.PublicKey, tok string) error {
-	jws, err := jose.ParseSigned(tok)
+	jws, err := jose.ParseSigned(tok, []jose.SignatureAlgorithm{
+		jose.RS256,
+		jose.RS384,
+		jose.RS512,
+		jose.ES256,
+		jose.ES384,
+		jose.ES512,
+		jose.PS256,
+		jose.PS384,
+		jose.PS512,
+		jose.EdDSA,
+	})
 	if err != nil {
 		return fmt.Errorf("parsing ID token %v", err)
 	}
@@ -59,7 +70,18 @@ func VerifyTokenWithKey(publicKey *rsa.PublicKey, tok string) error {
 
 // ConvertTokenToIdentityUnsafe unsafely converts a token to an identity.
 func ConvertTokenToIdentityUnsafe(tok string) (*Identity, error) {
-	parsed, err := jwt.ParseSigned(tok)
+	parsed, err := jwt.ParseSigned(tok, []jose.SignatureAlgorithm{
+		jose.RS256,
+		jose.RS384,
+		jose.RS512,
+		jose.ES256,
+		jose.ES384,
+		jose.ES512,
+		jose.PS256,
+		jose.PS384,
+		jose.PS512,
+		jose.EdDSA,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("parsing JWT: %v", err)
 	}
