@@ -1,6 +1,7 @@
 module github.com/GoogleCloudPlatform/healthcare-federated-access-services
 
 go 1.21
+toolchain go1.23.7
 
 require (
 	bitbucket.org/creachadair/stringset v0.0.14
@@ -22,9 +23,9 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/pborman/uuid v1.2.1
-	golang.org/x/crypto v0.22.0
+	golang.org/x/crypto v0.35.0
 	golang.org/x/oauth2 v0.19.0
-	golang.org/x/text v0.14.0
+	golang.org/x/text v0.22.0
 	google.golang.org/api v0.174.0
 	google.golang.org/genproto v0.0.0-20240415180920-8c6c420018be
 	google.golang.org/genproto/googleapis/api v0.0.0-20240415180920-8c6c420018be
@@ -62,9 +63,9 @@ require (
 	go.opentelemetry.io/otel v1.25.0 // indirect
 	go.opentelemetry.io/otel/metric v1.25.0 // indirect
 	go.opentelemetry.io/otel/trace v1.25.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/sync v0.11.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 )
