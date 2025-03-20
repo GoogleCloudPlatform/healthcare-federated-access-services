@@ -18,8 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-jose/go-jose/v4" /* copybara-comment */
-	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms" /* copybara-comment: kms */
 
 	glog "github.com/golang/glog" /* copybara-comment */
@@ -148,21 +147,7 @@ func toAccessDataWithVisaJWT(d *AccessData) *accessDataVisaJWT {
 func accessDataFromJWT(j AccessJWT) (*AccessData, error) {
 	m := &accessDataVisaJWT{}
 
-	tok, err := jwt.ParseSigned(string(j), []jose.SignatureAlgorithm{
-		jose.HS256,
-		jose.HS384,
-		jose.HS512,
-		jose.RS256,
-		jose.RS384,
-		jose.RS512,
-		jose.ES256,
-		jose.ES384,
-		jose.ES512,
-		jose.PS256,
-		jose.PS384,
-		jose.PS512,
-		jose.EdDSA,
-	})
+	tok, err := jwt.ParseSigned(string(j))
 	if err != nil {
 		return nil, fmt.Errorf("ParseSigned() failed: %v", err)
 	}

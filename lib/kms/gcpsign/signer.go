@@ -28,7 +28,7 @@ import (
 
 	"github.com/cenkalti/backoff" /* copybara-comment */
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
-	"github.com/go-jose/go-jose/v4" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
 	"google.golang.org/api/iterator" /* copybara-comment: iterator */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */

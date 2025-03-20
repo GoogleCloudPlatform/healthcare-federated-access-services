@@ -24,8 +24,8 @@ import (
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"github.com/go-jose/go-jose/v4" /* copybara-comment */
-	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/kms/gcpsign" /* copybara-comment: gcpsign */
 	"github.com/GoogleCloudPlatform/healthcare-federated-access-services/lib/persona" /* copybara-comment: persona */
@@ -111,21 +111,7 @@ func main() {
 		glog.Fatalf("sub = %s, wants %s", idt.Subject, sub)
 	}
 
-	t, err := jwt.ParseSigned(tok, []jose.SignatureAlgorithm{
-		jose.EdDSA,
-		jose.HS256,
-		jose.HS384,
-		jose.HS512,
-		jose.RS256,
-		jose.RS384,
-		jose.RS512,
-		jose.ES256,
-		jose.ES384,
-		jose.ES512,
-		jose.PS256,
-		jose.PS384,
-		jose.PS512,
-	})
+	t, err := jwt.ParseSigned(tok)
 	if err != nil {
 		glog.Fatalf("jwt.ParseSigned() failed: %v", err)
 	}

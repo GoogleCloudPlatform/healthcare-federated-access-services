@@ -26,8 +26,8 @@ import (
 	"cloud.google.com/go/kms/apiv1" /* copybara-comment */
 	"github.com/google/go-cmp/cmp" /* copybara-comment */
 	"github.com/google/go-cmp/cmp/cmpopts" /* copybara-comment */
-	"github.com/go-jose/go-jose/v4" /* copybara-comment */
-	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"google.golang.org/api/option" /* copybara-comment: option */
 	"google.golang.org/grpc" /* copybara-comment */
 	"github.com/golang/protobuf/proto" /* copybara-comment */
@@ -182,7 +182,7 @@ func TestClient_SignJWT(t *testing.T) {
 		t.Errorf("jwt sig = %s, wants %s", ss[2], wantSig)
 	}
 
-	tok, err := jwt.ParseSigned(rawTok, []jose.SignatureAlgorithm{jose.RS256})
+	tok, err := jwt.ParseSigned(rawTok)
 	if err != nil {
 		t.Fatalf("jwt.ParseSigned() failed: %v", err)
 	}

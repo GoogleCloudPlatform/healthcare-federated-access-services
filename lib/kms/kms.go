@@ -18,7 +18,7 @@ package kms
 import (
 	"context"
 
-	"github.com/go-jose/go-jose/v4" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3" /* copybara-comment */
 )
 
 // Encryption abstracts a encryption service for storing encrypted data.

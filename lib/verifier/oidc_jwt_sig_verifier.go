@@ -18,8 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-jose/go-jose/v4" /* copybara-comment */
-	"github.com/go-jose/go-jose/v4/jwt" /* copybara-comment */
+	"github.com/go-jose/go-jose/v3/jwt" /* copybara-comment */
 	"google.golang.org/grpc/codes" /* copybara-comment */
 	"google.golang.org/grpc/status" /* copybara-comment */
 	"github.com/coreos/go-oidc" /* copybara-comment */
@@ -72,7 +71,7 @@ func (s *oidcJwtSigVerifier) PreviewClaimsBeforeVerification(ctx context.Context
 
 func (s *oidcJwtSigVerifier) VerifySig(ctx context.Context, token string) error {
 	// ensure token does not include a jku header
-	tok, err := jwt.ParseSigned(token, []jose.SignatureAlgorithm{jose.RS256, jose.RS384, jose.ES384})
+	tok, err := jwt.ParseSigned(token)
 	if err != nil {
 		return fmt.Errorf("parse jwt failed: %v", err)
 	}
