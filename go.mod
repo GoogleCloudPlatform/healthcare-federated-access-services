@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go v1.51.24
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/go-jose/go-jose/v3 v3.0.3
+	github.com/go-jose/go-jose/v3 v3.0.4
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/golang/glog v1.2.1
 	github.com/golang/mock v1.6.0
