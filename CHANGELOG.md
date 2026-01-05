@@ -200,7 +200,7 @@
 
 * Upgrade GO version to 1.14: need rebuild all images, includes base image for GAE and Hydra image for GKE.
 * GCP IAM condition, the GCS dataet bucket must be "uniform access":
-  * run `gsutil uniformbucketlevelaccess set on gs://$bucket` to enable "uniform access" on bucket
+  * run `gcloud storage buckets update --uniform-bucket-level-access gs://$bucket` to enable "uniform access" on bucket
   * or turn off IAM condition via env: `export DISABLE_IAM_CONDITION_EXPIRY=true`
 
 **Highlight Updates**

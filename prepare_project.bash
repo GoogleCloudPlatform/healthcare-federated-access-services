@@ -109,12 +109,12 @@ gcloud sql databases create dam --project=${PROJECT?} --instance=hydra
 
 echo -e ${GREEN?}'Creating a GCS bucket with an example file.'${RESET?}
 
-gsutil mb -p ${PROJECT?} gs://${PROJECT?}-test-dataset
+gcloud storage buckets create --project=${PROJECT?} gs://${PROJECT?}-test-dataset
 tempdir=`mktemp -d`
 pushd $tempdir
 echo "This is an example" > example.txt
-gsutil cp -p=${PROJECT?} example.txt gs://${PROJECT?}-test-dataset
-gsutil uniformbucketlevelaccess set on gs://${PROJECT?}-test-dataset
+gcloud storage cp example.txt gs://${PROJECT?}-test-dataset
+gcloud storage buckets update --uniform-bucket-level-access gs://${PROJECT?}-test-dataset
 popd
 rm -rf $tempdir
 
