@@ -93,7 +93,7 @@ Deconstructing a resource configuration:
    *  Each `interface` represents a protocol or other mechanism to access the
       data.
    *  For example, the `gcs` service definition exposes two interfaces:
-      1.  `gcp:gs` for using the GCS `gsutil` command line tool.
+      1.  `gcp:gs` for using the GCS `gcloud storage` command line tool.
       1.  `http:gcp:gs` for using the GCS RESTful API.
    *  Users building workflows will need make use of tools that understand these
       interfaces in order to access the data. Different tools will make use of
