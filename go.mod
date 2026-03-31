@@ -1,6 +1,6 @@
 module github.com/GoogleCloudPlatform/healthcare-federated-access-services
 
-go 1.21
+go 1.23.0
 
 require (
 	bitbucket.org/creachadair/stringset v0.0.14
@@ -23,7 +23,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/pborman/uuid v1.2.1
 	golang.org/x/crypto v0.22.0
-	golang.org/x/oauth2 v0.19.0
+	golang.org/x/oauth2 v0.27.0
 	golang.org/x/text v0.14.0
 	google.golang.org/api v0.174.0
 	google.golang.org/genproto v0.0.0-20240415180920-8c6c420018be
